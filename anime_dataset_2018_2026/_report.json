@@ -1,0 +1,131 @@
+{
+  "generated_at_utc": "2026-08-11T07:03:33.899982+00:00",
+  "stages": {
+    "2_users": {
+      "snapshot_utc": "2026-02-02 08:08:48.206127+00:00",
+      "fetch_status_counts": {
+        "404": 1,
+        "200": 7987079,
+        "400": 333042
+      },
+      "users_with_list_fetched_ok": 7987079,
+      "input_rows": 18213591,
+      "joined_parsed": 18211345,
+      "last_online_parsed": 15461337,
+      "birthday_nonempty": 1436716,
+      "birthday_with_year": 1183455,
+      "birthday_month_day_only": 187905,
+      "anime_mean_out_of_scale": 1,
+      "manga_mean_out_of_scale": 0,
+      "anime_days_exceeding_account_age": 9364,
+      "anime_days_not_checkable": 2246,
+      "location_nonempty": 1364587,
+      "gender_code_counts": {
+        "0": 16020745,
+        "1": 1449028,
+        "2": 681080,
+        "3": 62738
+      },
+      "uid_missing": 2246,
+      "profiles_with_list_fetched_ok": 7986929,
+      "favorite_rows": {
+        "fav_anime": 14741717,
+        "fav_manga": 4574324,
+        "fav_character": 16275174,
+        "fav_people": 4592474,
+        "fav_company": 474536
+      },
+      "friend_edges": 7330215,
+      "friends_note": "El maximo observado de amigos por usuario es 10: la lista viene truncada en origen. Es un grafo social PARCIAL.",
+      "users_with_free_text": 18213591,
+      "cohort_favorites_size": 2835624
+    },
+    "3_interactions": {
+      "cohort_mode": "favorites",
+      "row_groups_scanned": 924,
+      "file_total_rows": 968092719,
+      "cohort_size": 2835624,
+      "counters": {
+        "rows_seen": 968092719,
+        "rows_written": 526815668,
+        "username_not_in_cohort": 441277051,
+        "status_unknown_code": 156212,
+        "score_zero": 427944116,
+        "created_at_zero": 8097765,
+        "updated_at_zero": 6577,
+        "start_date_unparsed": 11011361,
+        "finish_date_unparsed": 15520352,
+        "start_after_updated": 3469707,
+        "anime_id_over_maxid": 0
+      }
+    }
+  },
+  "outputs": {
+    "user_favoritos_anime.parquet": {
+      "rows": 14741717,
+      "columns": 3,
+      "size_mb": 61.55
+    },
+    "user_favoritos_manga.parquet": {
+      "rows": 4574324,
+      "columns": 3,
+      "size_mb": 22.04
+    },
+    "user_favoritos_personaje.parquet": {
+      "rows": 16275174,
+      "columns": 3,
+      "size_mb": 61.08
+    },
+    "user_favoritos_persona.parquet": {
+      "rows": 4592474,
+      "columns": 3,
+      "size_mb": 19.07
+    },
+    "user_favoritos_empresa.parquet": {
+      "rows": 474536,
+      "columns": 3,
+      "size_mb": 1.93
+    },
+    "user_amigos.parquet": {
+      "rows": 7330215,
+      "columns": 3,
+      "size_mb": 79.67
+    },
+    "user_insignias.parquet": {
+      "rows": 458762,
+      "columns": 3,
+      "size_mb": 2.16
+    },
+    "user_texto.parquet": {
+      "rows": 18213591,
+      "columns": 3,
+      "size_mb": 1161.0
+    },
+    "users.parquet": {
+      "rows": 18213591,
+      "columns": 49,
+      "size_mb": 973.16
+    },
+    "cohorte_favoritos.parquet": {
+      "rows": 2835624,
+      "columns": 1,
+      "size_mb": 22.36
+    },
+    "interacciones.parquet": {
+      "rows": 526815668,
+      "columns": 18,
+      "size_mb": 8423.31
+    },
+    "anime_stats_globales.parquet": {
+      "rows": 29604,
+      "columns": 22,
+      "size_mb": 1.43
+    }
+  },
+  "coverage": {
+    "anime_ids_in_interactions": 29604,
+    "with_anilist_metadata": 19302,
+    "without_anilist_metadata": 10302,
+    "pct_interactions_covered": 98.4212
+  }
+}

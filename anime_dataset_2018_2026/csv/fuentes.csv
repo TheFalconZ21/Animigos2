@@ -1,0 +1,10 @@
+﻿ano,fichero,fecha_captura,titulos,nota_publicada,desfase_nota,tiene_votos,tiene_generos,cobertura_ano,aviso
+2018,dataset 2018/AnimeList.csv,2018-02,14478,True,0.0,True,True,98.5,score=0 significa sin nota; el panel ya lo convierte en nulo
+2019,dataset 2019/Anime.csv,2019,15278,True,0.0,True,True,98.2,nombres de columna con espacio inicial en el origen
+2020,dataset 2020/animes.csv + user_watches.csv,2020,17058,False,-0.113,True,False,0.0,nota calculada por nosotros de ~300k usuarios; sin ano de estreno
+2021,dataset 2021/anime.csv.zst,2021,18353,True,0.0,True,False,98.1,tabla de generos del origen defectuosa: se perdio la referencia al anime
+2022,dataset 2022/anime.csv,2022-07-23,24640,True,0.0,True,True,87.9,3.849 fichas con pending_approval sin nota ni miembros
+2023,dataset 2023/anime.csv,2023-08-07,24985,True,0.0,True,True,96.5,unico ano con fecha de captura exacta (updated_at)
+2024,dataset 2024/dataset 2024 b/jikan_final.csv,2024-05-17,26564,True,0.0,True,True,96.9,156 filas duplicadas y campos anidados en el origen; ya corregido
+2025,dataset 2025/mal_anime.csv,2025,19931,True,0.0,False,True,31.0,sin scored_by: no admite umbral de votos propio
+2026,dataset 2026/clean/anime_stats_globales.parquet,2026-02-02,29604,False,-0.058,True,True,65.2,"nota calculada de 527M interacciones de una cohorte de 2,8M usuarios"

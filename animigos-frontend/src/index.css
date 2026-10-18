@@ -1,0 +1,192 @@
+/* ============================================================
+   ANIMIGOS — ESTILOS BASE Y LIENZO EN BLANCO
+   ============================================================ */
+
+:root {
+  /* Tipografías cargadas desde index.html */
+  --font-heading: 'Outfit', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+
+  /* Aquí puedes definir tus propios colores y variables */
+  --anime-primary: #080808;
+  --anime-detalles: #646368;
+}
+
+/* Reset mínimo para evitar desbordes */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* PANTALLA GLOBAL */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-body);
+  background-color: var(--anime-primary);
+  color: var(--anime-detalles);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* TITULOS */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+
+/* Contenedor principal que ocupa toda la pantalla */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================
+   AQUÍ ABAJO PUEDES CREAR TUS PROPIAS CLASES Y ESTILOS:
+   ============================================================ */
+
+
+/* El contenedor del título */
+.hero-title {
+  font-size: clamp(2.5rem, 7vw, 6rem);
+  text-shadow: 0 0 30px rgba(139, 92, 246, 0.4);
+  cursor: default;
+}
+
+/* 1. Cada letra individual (¡display: inline-block es obligatorio para que se mueva!) */
+.hover-letter {
+  display: inline-block;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s ease, text-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+/* 2. El efecto exclusivo al pasar el mouse por encima de ESA sola letra */
+.hover-letter:hover {
+  transform: translateY(-12px) scale(1.2);
+  /* Salta hacia arriba y se agranda */
+  color: #ffffff;
+  /* Se ilumina en rosa fucsia */
+  text-shadow: 0 0 30px #000000, 0 0 60px rgba(255, 255, 255, 0.8);
+}
+
+/* Tarjeta de Modal estilo Cristal Anime */
+.modal-anime {
+  background-color: #121622 !important;
+  /* Pizarra oscura profunda */
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  /* Borde ultra fino */
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75);
+}
+
+
+/* Bordes de cabecera y pie sutiles */
+.modal-anime .modal-header,
+.modal-anime .modal-footer {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Inputs minimalistas integrados */
+.input-anime {
+  background-color: #0b0e17 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+  border-radius: 8px;
+}
+
+
+.input-anime:focus {
+  background-color: #0d111a !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.15) !important;
+}
+
+
+/* Contenedor del fondo animado */
+.hero-showcase-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.25rem;
+  opacity: 0.38;
+  /* Opacidad sutil de fondo */
+}
+
+/* Filas con máscara de corte */
+.marquee-row {
+  display: flex;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Animaciones continuas opuestas */
+.marquee-track-left {
+  display: flex;
+  gap: 1.25rem;
+  width: max-content;
+  animation: scrollLeft 45s linear infinite;
+}
+
+.marquee-track-right {
+  display: flex;
+  gap: 1.25rem;
+  width: max-content;
+  animation: scrollRight 50s linear infinite;
+}
+
+/* Tarjeta individual de poster */
+.showcase-poster {
+  width: 130px;
+  height: 190px;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  flex-shrink: 0;
+}
+
+@keyframes scrollLeft {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes scrollRight {
+  from {
+    transform: translateX(-50%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Máscara de viñeta: deja ver los animes a los costados y oscurece el centro */
+.hero-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center,
+      rgba(8, 8, 8, 0.95) 25%,
+      rgba(8, 8, 8, 0.65) 60%,
+      rgba(8, 8, 8, 0.85) 100%);
+}
