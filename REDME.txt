@@ -1,0 +1,71 @@
+============================================================
+              ANIMIGOS — REFERENCIA RÁPIDA
+============================================================
+
+1. ARQUITECTURA FRONTEND
+------------------------------------------------------------
+animigos-frontend/
+├── src/
+│   ├── components/
+│   │   ├── Navbar.tsx         -> Barra de navegación
+│   │   ├── HeroShowcaseBg.tsx -> Fondo animado con posters
+│   │   └── LoginModal.tsx     -> Modal nativo (<dialog>)
+│   ├── data/
+│   │   ├── anime-data.ts      -> Catálogo 50 animes (MAL)
+│   │   └── showcase-animes.ts -> 24 posters HD (AniList)
+│   ├── App.tsx                -> Ensamblador de vistas
+│   ├── index.css              -> Estilos y animaciones
+│   └── main.tsx               -> Punto de entrada
+
+
+2. LÓGICA DE CAPAS (LAYOUT HERO)
+------------------------------------------------------------
+[ CAPA 1: Contenedor con límites y espaciados  (div.container)           ]
+  [ CAPA 2: Fila horizontal centrada          (header.row)              ]
+    [ CAPA 3: Columna inteligente (12 col móvil / 10 col PC)             ]
+      [ CAPA 4: Contenido (H1 con letras vivas de React + Párrafo lead) ]
+
+
+3. CHULETA DE SINTAXIS (BOOTSTRAP)
+------------------------------------------------------------
+
+Primer carácter (Propiedad)
+m --------- Margin (Margen): espacio hacia afuera
+p --------- Padding (Relleno): espacio hacia adentro 
+
+Segundo carácter (Dirección / Eje)
+t --------- Top (arriba): dirección hacia arriba
+b --------- Bottom (abajo): dirección hacia abajo
+s --------- Start (izquierda): dirección izquierda
+e --------- End (derecha): dirección derecha
+y --------- Eje Y (vertical): abajo y arriba a la vez
+x --------- Eje X (horizontal): izquierda y derecha a la vez
+nada ------ All sides (Todos): los 4 lados a la vez
+
+Número final (Espacio)
+0 --------- Elimina margen o relleno (0px)
+1 --------- ~4 px
+2 --------- ~8 px
+3 --------- ~16 px
+4 --------- ~24 px
+5 --------- ~32 px
+12 -------- ~48 px (máximo)
+auto ------ Automático (centrado)
+
+Tamaños y tipos de pantalla (Breakpoints)
+xs -------- Teléfonos en vertical
+sm -------- Teléfonos en horizontal
+md -------- Tablets
+lg -------- Laptops normales (13"-14")
+xl -------- Monitores de escritorio (1080p)
+2xl ------- Monitores grandes (2K, 4K o UltraWide)
+
+Textos (Font Size)
+fs-xs ----- ~12 px (muy pequeño)
+fs-sm ----- ~14 px (secundario)
+fs-md ----- ~16 px (estándar lectura)
+fs-lg ----- ~18-20 px (subtítulo limpio)
+fs-xl ----- ~24-28 px (subtítulo grande)
+fs-2xl ---- ~32 px (título mediano)
+fs-3xl ---- ~40 px (título grande)
+============================================================
