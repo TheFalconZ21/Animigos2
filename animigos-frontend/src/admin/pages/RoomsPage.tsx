@@ -23,7 +23,8 @@ import {
     Layers,
     Vote,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    Eye
 } from 'lucide-react'
 import {
     getRooms,
@@ -45,6 +46,7 @@ export function RoomsPage() {
     const [loading, setLoading] = useState<boolean>(true)
     const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
     const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
+    const [isDetailPopupOpen, setIsDetailPopupOpen] = useState<boolean>(false)
 
     // -------------------------------------------------------------
     // ESTADO: Búsquedas Específicas & Filtros
@@ -130,11 +132,13 @@ export function RoomsPage() {
                 setCleanupPolicy(data.cleanup_policy)
             }
             if (data.rooms.length > 0) {
-                if (!selectedRoomId || !data.rooms.some(r => r.id === selectedRoomId)) {
-                    setSelectedRoomId(data.rooms[0].id)
+                if (selectedRoomId && !data.rooms.some(r => r.id === selectedRoomId)) {
+                    setSelectedRoomId(null)
+                    setIsDetailPopupOpen(false)
                 }
             } else {
                 setSelectedRoomId(null)
+                setIsDetailPopupOpen(false)
             }
         } catch (err) {
             console.error('Error fetching rooms:', err)
@@ -240,6 +244,10 @@ export function RoomsPage() {
         try {
             const res = await moderateRoom(room.id, action, reason)
             triggerToast(res.message, action === 'delete' ? 'danger' : action === 'pause' ? 'warning' : 'success')
+            if (action === 'delete') {
+                setIsDetailPopupOpen(false)
+                setSelectedRoomId(null)
+            }
             fetchRoomsData()
             fetchCleanupPolicyData()
         } catch (err: any) {
@@ -248,6 +256,21 @@ export function RoomsPage() {
             setModeratingRoomId(null)
         }
     }
+
+    // Cerrar modales con tecla Escape
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                if (confirmModal.isOpen) {
+                    setConfirmModal(prev => ({ ...prev, isOpen: false }))
+                } else if (isDetailPopupOpen) {
+                    setIsDetailPopupOpen(false)
+                }
+            }
+        }
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [confirmModal.isOpen, isDetailPopupOpen])
 
     // Guardar Política de Limpieza Programada
     const handleSaveCleanupPolicy = async (updated: Partial<RoomsCleanupPolicy>) => {
@@ -288,7 +311,7 @@ export function RoomsPage() {
     const totalMembers = rooms.reduce((acc, r) => acc + r.members_count, 0)
     const avgQuorum = rooms.length > 0 ? Math.round(rooms.reduce((acc, r) => acc + r.quorum_percentage, 0) / rooms.length) : 0
 
-    const selectedRoom = rooms.find(r => r.id === selectedRoomId) || rooms[0]
+    const selectedRoom = rooms.find(r => r.id === selectedRoomId) || null
 
     return (
         <div>
@@ -878,7 +901,7 @@ export function RoomsPage() {
                ============================================================ */}
             <div className="row g-3 mb-4">
                 {/* LISTADO DE SALAS CON ACCIONES */}
-                <div className="col-12 col-xl-8">
+                <div className="col-12">
                     <div className="admin-card">
                         <div className="d-flex justify-content-between align-items-center mb-3">
                             <div>
@@ -886,7 +909,7 @@ export function RoomsPage() {
                                     Sesiones Activas & Moderación
                                 </h2>
                                 <span className="admin-subtitle">
-                                    Haz clic en una sala para inspeccionar detalles y auditar la votación
+                                    Haz clic en una sala o en "Auditar" para abrir el panel de auditoría y moderación en un pop-up
                                 </span>
                             </div>
 
@@ -926,10 +949,13 @@ export function RoomsPage() {
                                     return (
                                         <div
                                             key={room.id}
-                                            onClick={() => setSelectedRoomId(room.id)}
+                                            onClick={() => {
+                                                setSelectedRoomId(room.id)
+                                                setIsDetailPopupOpen(true)
+                                            }}
                                             className="d-flex flex-wrap justify-content-between align-items-center gap-2 p-2.5 rounded-1 cursor-pointer"
                                             style={{
-                                                backgroundColor: isSelected ? '#141416' : 'var(--admin-surface-2)',
+                                                backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.05)' : 'var(--admin-surface-2)',
                                                 border: isSelected ? '1px solid #FFFFFF' : '1px solid var(--admin-border-subtle)',
                                                 cursor: 'pointer',
                                                 transition: 'all 150ms ease'
@@ -992,6 +1018,21 @@ export function RoomsPage() {
 
                                                 {/* Botones Rápidos de Moderación */}
                                                 <div className="d-flex align-items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                    {/* Abrir Pop-up de Auditoría */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setSelectedRoomId(room.id)
+                                                            setIsDetailPopupOpen(true)
+                                                        }}
+                                                        className="admin-btn admin-btn-secondary d-flex align-items-center gap-1 font-mono p-1 px-2"
+                                                        title="Abrir menú de auditoría y moderación en pop-up"
+                                                    >
+                                                        <Eye size={13} style={{ color: 'var(--admin-blue)' }} />
+                                                        <span style={{ fontSize: '0.68rem' }} className="d-none d-sm-inline">Auditar</span>
+                                                    </button>
+
                                                     {/* Pausar / Reanudar */}
                                                     {room.status === 'voting' && !room.is_locked ? (
                                                         <button
@@ -1047,195 +1088,226 @@ export function RoomsPage() {
                         )}
                     </div>
                 </div>
+            </div>
 
-                {/* DETALLE Y PANEL COMPLETO DE AUDITORÍA Y MODERACIÓN */}
-                <div className="col-12 col-xl-4">
-                    <div className="admin-card h-100 d-flex flex-column justify-content-between">
-                        {selectedRoom ? (
-                            <div>
-                                <div className="d-flex justify-content-between align-items-center mb-2">
+            {/* ============================================================
+               POP UP MODAL: AUDITORÍA & MODERACIÓN DE SALA / LISTA
+               ============================================================ */}
+            {isDetailPopupOpen && selectedRoom && (
+                <div
+                    className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3"
+                    style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.82)',
+                        zIndex: 9990,
+                        backdropFilter: 'blur(6px)'
+                    }}
+                    onClick={() => setIsDetailPopupOpen(false)}
+                >
+                    <div
+                        className="admin-card p-4 rounded-2 shadow-lg custom-scrollbar d-flex flex-column justify-content-between"
+                        style={{
+                            width: '100%',
+                            maxWidth: '580px',
+                            maxHeight: '90vh',
+                            overflowY: 'auto',
+                            backgroundColor: '#121214',
+                            border: '1px solid var(--admin-border-divider)',
+                            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.08)'
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div>
+                            {/* Cabecera del Pop Up */}
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                                <div className="d-flex align-items-center gap-2">
+                                    <ShieldAlert size={14} style={{ color: 'var(--admin-blue)' }} />
                                     <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                        Auditoría & Moderación
+                                        Auditoría & Moderación de Sala
                                     </span>
-                                    <div className="d-flex align-items-center gap-1.5">
-                                        <span className={`admin-badge ${selectedRoom.status === 'voting' ? 'admin-badge-success' : selectedRoom.status === 'selected' ? 'admin-badge-info' : 'admin-badge-neutral'} font-mono`} style={{ fontSize: '0.64rem' }}>
-                                            {selectedRoom.status}
+                                </div>
+                                <div className="d-flex align-items-center gap-2">
+                                    <span className={`admin-badge ${selectedRoom.status === 'voting' ? 'admin-badge-success' : selectedRoom.status === 'selected' ? 'admin-badge-info' : 'admin-badge-neutral'} font-mono`} style={{ fontSize: '0.64rem' }}>
+                                        {selectedRoom.status}
+                                    </span>
+                                    {selectedRoom.is_locked && (
+                                        <span className="admin-badge admin-badge-warning font-mono" style={{ fontSize: '0.6rem' }}>
+                                            Pausada
                                         </span>
-                                        {selectedRoom.is_locked && (
-                                            <span className="admin-badge admin-badge-warning font-mono" style={{ fontSize: '0.6rem' }}>
-                                                Pausada
-                                            </span>
-                                        )}
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsDetailPopupOpen(false)}
+                                        className="bg-transparent border-0 text-secondary p-1 d-flex align-items-center justify-content-center rounded-circle"
+                                        style={{ cursor: 'pointer', width: 28, height: 28, backgroundColor: 'rgba(255,255,255,0.06)', transition: 'background-color 150ms ease' }}
+                                        title="Cerrar pop up (Esc)"
+                                    >
+                                        <X size={15} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <h3 className="fw-bold text-white mb-1" style={{ fontSize: '1.05rem' }}>
+                                {selectedRoom.name}
+                            </h3>
+                            <p className="text-secondary mb-3" style={{ fontSize: '0.74rem' }}>
+                                {selectedRoom.description || 'Sala de votación grupal creada en Animigos.'}
+                            </p>
+
+                            {/* Métricas Técnicas */}
+                            <div className="p-2.5 mb-3 rounded-1 font-mono" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', fontSize: '0.72rem' }}>
+                                <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                    <span style={{ color: 'var(--admin-text-muted)' }}>CÓDIGO DE ENLACE:</span>
+                                    <span className="text-white fw-bold">{selectedRoom.invite_code}</span>
+                                </div>
+                                <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                    <span style={{ color: 'var(--admin-text-muted)' }}>PARTICIPANTES:</span>
+                                    <span className="text-white">{selectedRoom.members_count} miembros</span>
+                                </div>
+                                <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                    <span style={{ color: 'var(--admin-text-muted)' }}>CANDIDATOS:</span>
+                                    <span className="text-white">{selectedRoom.candidates_count} postulados</span>
+                                </div>
+                                <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                    <span style={{ color: 'var(--admin-text-muted)' }}>VOTOS EMITIDOS:</span>
+                                    <span className="text-white">{selectedRoom.votes_count} votos ({selectedRoom.quorum_percentage}% quórum)</span>
+                                </div>
+                                <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                    <span style={{ color: 'var(--admin-text-muted)' }}>ÚLTIMA ACTIVIDAD:</span>
+                                    <span style={{ color: selectedRoom.inactivity_days && selectedRoom.inactivity_days > 7 ? 'var(--admin-amber)' : 'var(--admin-emerald)' }}>
+                                        {selectedRoom.last_activity_display}
+                                    </span>
+                                </div>
+                                <div className="d-flex justify-content-between py-1" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                    <span style={{ color: 'var(--admin-text-muted)' }}>CREADA HACE:</span>
+                                    <span className="text-white">{selectedRoom.created_display || selectedRoom.created_at.slice(0, 10)}</span>
+                                </div>
+                            </div>
+
+                            {/* Candidato Ganador o Líder */}
+                            {selectedRoom.selected_anime ? (
+                                <div className="p-2.5 mb-3 rounded-1" style={{ backgroundColor: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                    <span className="text-uppercase fw-semibold d-block mb-1" style={{ fontSize: '0.64rem', color: 'var(--admin-emerald)' }}>
+                                        Anime Ganador (Consenso)
+                                    </span>
+                                    <div className="fw-bold text-white" style={{ fontSize: '0.82rem' }}>
+                                        {selectedRoom.selected_anime.title}
                                     </div>
                                 </div>
-
-                                <h3 className="fw-bold text-white mb-1" style={{ fontSize: '0.98rem' }}>
-                                    {selectedRoom.name}
-                                </h3>
-                                <p className="text-secondary mb-3" style={{ fontSize: '0.74rem' }}>
-                                    {selectedRoom.description || 'Sala de votación grupal creada en Animigos.'}
-                                </p>
-
-                                {/* Métricas Técnicas */}
-                                <div className="p-2.5 mb-3 rounded-1 font-mono" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', fontSize: '0.72rem' }}>
-                                    <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                        <span style={{ color: 'var(--admin-text-muted)' }}>CÓDIGO DE ENLACE:</span>
-                                        <span className="text-white fw-bold">{selectedRoom.invite_code}</span>
+                            ) : selectedRoom.top_candidate ? (
+                                <div className="p-2.5 mb-3 rounded-1" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
+                                    <span className="text-uppercase fw-semibold d-block mb-1 text-secondary" style={{ fontSize: '0.64rem' }}>
+                                        Candidato Líder Provisional
+                                    </span>
+                                    <div className="fw-semibold text-white" style={{ fontSize: '0.8rem' }}>
+                                        {selectedRoom.top_candidate.title}
                                     </div>
-                                    <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                        <span style={{ color: 'var(--admin-text-muted)' }}>PARTICIPANTES:</span>
-                                        <span className="text-white">{selectedRoom.members_count} miembros</span>
-                                    </div>
-                                    <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                        <span style={{ color: 'var(--admin-text-muted)' }}>CANDIDATOS:</span>
-                                        <span className="text-white">{selectedRoom.candidates_count} postulados</span>
-                                    </div>
-                                    <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                        <span style={{ color: 'var(--admin-text-muted)' }}>VOTOS EMITIDOS:</span>
-                                        <span className="text-white">{selectedRoom.votes_count} votos ({selectedRoom.quorum_percentage}% quórum)</span>
-                                    </div>
-                                    <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                        <span style={{ color: 'var(--admin-text-muted)' }}>ÚLTIMA ACTIVIDAD:</span>
-                                        <span style={{ color: selectedRoom.inactivity_days && selectedRoom.inactivity_days > 7 ? 'var(--admin-amber)' : 'var(--admin-emerald)' }}>
-                                            {selectedRoom.last_activity_display}
-                                        </span>
-                                    </div>
-                                    <div className="d-flex justify-content-between py-1" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                        <span style={{ color: 'var(--admin-text-muted)' }}>CREADA HACE:</span>
-                                        <span className="text-white">{selectedRoom.created_display || selectedRoom.created_at.slice(0, 10)}</span>
+                                    <div className="font-mono text-secondary small" style={{ fontSize: '0.68rem' }}>
+                                        Score: {selectedRoom.top_candidate.score ? selectedRoom.top_candidate.score.toFixed(2) : 0}/10
                                     </div>
                                 </div>
+                            ) : null}
 
-                                {/* Candidato Ganador o Líder */}
-                                {selectedRoom.selected_anime ? (
-                                    <div className="p-2.5 mb-3 rounded-1" style={{ backgroundColor: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                                        <span className="text-uppercase fw-semibold d-block mb-1" style={{ fontSize: '0.64rem', color: 'var(--admin-emerald)' }}>
-                                            Anime Ganador (Consenso)
+                            {/* Miembros */}
+                            <div className="mb-3">
+                                <span className="text-uppercase text-secondary fw-semibold d-block mb-1.5" style={{ fontSize: '0.66rem', letterSpacing: '0.04em' }}>
+                                    Miembros en la Sala ({selectedRoom.members.length})
+                                </span>
+                                <div className="d-flex flex-wrap gap-1">
+                                    {selectedRoom.members.map((m, i) => (
+                                        <span key={i} className="admin-badge admin-badge-neutral font-mono" style={{ fontSize: '0.66rem' }}>
+                                            {m.role === 'owner' ? '★ ' : ''}{m.name} ({m.channel})
                                         </span>
-                                        <div className="fw-bold text-white" style={{ fontSize: '0.82rem' }}>
-                                            {selectedRoom.selected_anime.title}
-                                        </div>
-                                    </div>
-                                ) : selectedRoom.top_candidate ? (
-                                    <div className="p-2.5 mb-3 rounded-1" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                                        <span className="text-uppercase fw-semibold d-block mb-1 text-secondary" style={{ fontSize: '0.64rem' }}>
-                                            Candidato Líder Provisional
-                                        </span>
-                                        <div className="fw-semibold text-white" style={{ fontSize: '0.8rem' }}>
-                                            {selectedRoom.top_candidate.title}
-                                        </div>
-                                        <div className="font-mono text-secondary small" style={{ fontSize: '0.68rem' }}>
-                                            Score: {selectedRoom.top_candidate.score ? selectedRoom.top_candidate.score.toFixed(2) : 0}/10
-                                        </div>
-                                    </div>
-                                ) : null}
-
-                                {/* Miembros */}
-                                <div className="mb-3">
-                                    <span className="text-uppercase text-secondary fw-semibold d-block mb-1.5" style={{ fontSize: '0.66rem', letterSpacing: '0.04em' }}>
-                                        Miembros en la Sala ({selectedRoom.members.length})
-                                    </span>
-                                    <div className="d-flex flex-wrap gap-1">
-                                        {selectedRoom.members.map((m, i) => (
-                                            <span key={i} className="admin-badge admin-badge-neutral font-mono" style={{ fontSize: '0.66rem' }}>
-                                                {m.role === 'owner' ? '★ ' : ''}{m.name} ({m.channel})
-                                            </span>
-                                        ))}
-                                    </div>
+                                    ))}
                                 </div>
+                            </div>
 
-                                {/* Barra de Acciones de Moderación */}
-                                <div>
-                                    <span className="text-uppercase text-secondary fw-semibold d-block mb-1.5" style={{ fontSize: '0.66rem', letterSpacing: '0.04em' }}>
-                                        Acciones de Moderación de Sala
-                                    </span>
-                                    <div className="d-grid gap-1.5">
-                                        {/* Pausar / Reanudar Votación */}
-                                        {selectedRoom.status === 'voting' && !selectedRoom.is_locked ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleOpenModerate(selectedRoom, 'pause')}
-                                                className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
-                                                style={{ fontSize: '0.72rem' }}
-                                            >
-                                                <PauseCircle size={13} style={{ color: 'var(--admin-amber)' }} />
-                                                <span>Pausar Votación</span>
-                                            </button>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleOpenModerate(selectedRoom, 'resume')}
-                                                className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
-                                                style={{ fontSize: '0.72rem' }}
-                                            >
-                                                <PlayCircle size={13} style={{ color: 'var(--admin-emerald)' }} />
-                                                <span>Reanudar Votación</span>
-                                            </button>
-                                        )}
-
-                                        {/* Forzar Selección */}
-                                        {selectedRoom.status !== 'selected' && selectedRoom.status !== 'completed' && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleOpenModerate(selectedRoom, 'force_select')}
-                                                disabled={selectedRoom.candidates_count === 0}
-                                                className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
-                                                style={{ fontSize: '0.72rem' }}
-                                            >
-                                                <CheckCircle2 size={13} style={{ color: 'var(--admin-blue)' }} />
-                                                <span>Forzar Consenso Ganador</span>
-                                            </button>
-                                        )}
-
-                                        {/* Reiniciar Votos */}
+                            {/* Barra de Acciones de Moderación */}
+                            <div>
+                                <span className="text-uppercase text-secondary fw-semibold d-block mb-1.5" style={{ fontSize: '0.66rem', letterSpacing: '0.04em' }}>
+                                    Acciones de Moderación de Sala
+                                </span>
+                                <div className="d-grid gap-1.5">
+                                    {/* Pausar / Reanudar Votación */}
+                                    {selectedRoom.status === 'voting' && !selectedRoom.is_locked ? (
                                         <button
                                             type="button"
-                                            onClick={() => handleOpenModerate(selectedRoom, 'reset_votes')}
-                                            disabled={selectedRoom.votes_count === 0}
+                                            onClick={() => handleOpenModerate(selectedRoom, 'pause')}
                                             className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
                                             style={{ fontSize: '0.72rem' }}
                                         >
-                                            <RotateCcw size={13} style={{ color: 'var(--admin-text-muted)' }} />
-                                            <span>Reiniciar Votos de Sala</span>
+                                            <PauseCircle size={13} style={{ color: 'var(--admin-amber)' }} />
+                                            <span>Pausar Votación</span>
                                         </button>
-
-                                        {/* Pulso / Ping */}
+                                    ) : (
                                         <button
                                             type="button"
-                                            onClick={() => handleOpenModerate(selectedRoom, 'ping')}
+                                            onClick={() => handleOpenModerate(selectedRoom, 'resume')}
                                             className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
                                             style={{ fontSize: '0.72rem' }}
                                         >
-                                            <BellRing size={13} style={{ color: 'var(--admin-emerald)' }} />
-                                            <span>Emitir Pulso WebSocket / Ping</span>
+                                            <PlayCircle size={13} style={{ color: 'var(--admin-emerald)' }} />
+                                            <span>Reanudar Votación</span>
                                         </button>
+                                    )}
 
-                                        {/* Eliminar Sala */}
+                                    {/* Forzar Selección */}
+                                    {selectedRoom.status !== 'selected' && selectedRoom.status !== 'completed' && (
                                         <button
                                             type="button"
-                                            onClick={() => handleOpenModerate(selectedRoom, 'delete')}
-                                            className="admin-btn font-mono d-flex align-items-center justify-content-center gap-1.5 text-white"
-                                            style={{ fontSize: '0.72rem', backgroundColor: 'var(--admin-rose-bg)', border: '1px solid var(--admin-rose-border)', color: 'var(--admin-rose)' }}
+                                            onClick={() => handleOpenModerate(selectedRoom, 'force_select')}
+                                            disabled={selectedRoom.candidates_count === 0}
+                                            className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
+                                            style={{ fontSize: '0.72rem' }}
                                         >
-                                            <Trash2 size={13} />
-                                            <span>Eliminar Sala Definitivamente</span>
+                                            <CheckCircle2 size={13} style={{ color: 'var(--admin-blue)' }} />
+                                            <span>Forzar Consenso Ganador</span>
                                         </button>
-                                    </div>
+                                    )}
+
+                                    {/* Reiniciar Votos */}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOpenModerate(selectedRoom, 'reset_votes')}
+                                        disabled={selectedRoom.votes_count === 0}
+                                        className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
+                                        style={{ fontSize: '0.72rem' }}
+                                    >
+                                        <RotateCcw size={13} style={{ color: 'var(--admin-text-muted)' }} />
+                                        <span>Reiniciar Votos de Sala</span>
+                                    </button>
+
+                                    {/* Pulso / Ping */}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOpenModerate(selectedRoom, 'ping')}
+                                        className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
+                                        style={{ fontSize: '0.72rem' }}
+                                    >
+                                        <BellRing size={13} style={{ color: 'var(--admin-emerald)' }} />
+                                        <span>Emitir Pulso WebSocket / Ping</span>
+                                    </button>
+
+                                    {/* Eliminar Sala */}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOpenModerate(selectedRoom, 'delete')}
+                                        className="admin-btn font-mono d-flex align-items-center justify-content-center gap-1.5 text-white"
+                                        style={{ fontSize: '0.72rem', backgroundColor: 'var(--admin-rose-bg)', border: '1px solid var(--admin-rose-border)', color: 'var(--admin-rose)' }}
+                                    >
+                                        <Trash2 size={13} />
+                                        <span>Eliminar Sala Definitivamente</span>
+                                    </button>
                                 </div>
                             </div>
-                        ) : (
-                            <div className="text-center py-5 text-secondary font-mono" style={{ fontSize: '0.78rem' }}>
-                                Selecciona una sala para ver la auditoría
-                            </div>
-                        )}
+                        </div>
 
                         <div className="pt-2 border-top mt-3 font-mono d-flex justify-content-between align-items-center" style={{ fontSize: '0.68rem', borderColor: 'var(--admin-border-subtle)', color: 'var(--admin-text-muted)' }}>
-                            <span>UUID: {selectedRoom?.id.slice(0, 18)}...</span>
+                            <span>UUID: {selectedRoom.id.slice(0, 18)}...</span>
                             <span>PostgreSQL Live</span>
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* ============================================================
                MODAL DE CONFIRMACIÓN DE MODERACIÓN
