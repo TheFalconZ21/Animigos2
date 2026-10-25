@@ -2,8 +2,8 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q, Count
-from .models import Anime
-from .serializers import AnimeSerializer
+from .models import Anime, AnimeRecommendation
+from .serializers import AnimeSerializer, AnimeRecommendationSerializer
 
 class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -14,7 +14,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AnimeSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['title', 'title_english', 'studio', 'genres']
-    ordering_fields = ['score', 'popularity', 'rank', 'season_year']
+    ordering_fields = ['score', 'popularity', 'rank', 'season_year', 'polarization_index']
     ordering = ['-score']
 
     def get_queryset(self):
@@ -55,6 +55,19 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         """Devuelve los mejores 24 animes por puntuación."""
         top_animes = Anime.objects.filter(score__isnull=False).order_by('-score')[:24]
         serializer = self.get_serializer(top_animes, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def recommendations(self, request, pk=None):
+        """Devuelve las mejores recomendaciones cruzadas para este anime."""
+        anime = self.get_object()
+        limit = int(request.query_params.get('limit', 12))
+        recoms = (
+            AnimeRecommendation.objects.filter(source=anime)
+            .select_related('target')
+            .order_by('-strength')[:limit]
+        )
+        serializer = AnimeRecommendationSerializer(recoms, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])

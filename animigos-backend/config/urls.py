@@ -17,6 +17,7 @@ def api_root_view(request):
             "studios": "/api/animes/studios/",
             "groups": "/api/groups/",
             "group_by_code": "/api/groups/by_code/?code=XYZ",
+            "users": "/api/users/",
         }
     })
 
@@ -26,4 +27,5 @@ urlpatterns = [
     path('api/animes/', include('animes.urls')),
     path('api/groups/', include('groups.urls')),
     path('api/admin/', include('groups.admin_urls')),
+    path('api/users/', include('users.urls')),
 ]

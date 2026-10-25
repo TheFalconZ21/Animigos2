@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     # Aplicaciones del proyecto Animigos
     'animes.apps.AnimesConfig',
     'groups.apps.GroupsConfig',
+    'users.apps.UsersConfig',
 ]
 
 MIDDLEWARE = [

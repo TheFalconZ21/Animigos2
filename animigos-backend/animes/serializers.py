@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Anime
+from .models import Anime, AnimeRecommendation
 
 class AnimeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,6 +16,7 @@ class AnimeSerializer(serializers.ModelSerializer):
             'scored_by',
             'popularity',
             'rank',
+            'polarization_index',
             'episodes',
             'duration',
             'status',
@@ -28,3 +29,10 @@ class AnimeSerializer(serializers.ModelSerializer):
             'broadcast_time',
             'last_synced_at',
         ]
+
+class AnimeRecommendationSerializer(serializers.ModelSerializer):
+    target = AnimeSerializer(read_only=True)
+
+    class Meta:
+        model = AnimeRecommendation
+        fields = ['id', 'target', 'strength']
