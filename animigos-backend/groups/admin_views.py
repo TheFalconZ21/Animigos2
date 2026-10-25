@@ -95,37 +95,200 @@ def overview_analytics(request):
     })
 
 
+ROOM_MODERATION_STORE = {}
+
+CLEANUP_POLICY = {
+    'enabled': True,
+    'inactivity_threshold_days': 14,
+    'target_status': 'all_inactive',
+    'min_members_protected': 6,
+    'frequency': 'Diaria automática (04:00 UTC)',
+    'last_run': '2026-10-25 04:00',
+    'last_purged_count': 0
+}
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def rooms_analytics(request):
     """
-    Lista de salas con quórum real y detalle de votación.
+    Lista de salas con búsquedas avanzadas (miembros, inactividad, fecha creación, quórum, votos, candidatos),
+    quórum real y detalle de votación.
     """
+    now = timezone.now()
+    
+    # Parámetros de búsqueda y filtros
+    q = request.query_params.get('q', '').lower().strip()
     phase_filter = request.query_params.get('phase', 'all')
+    members_filter = request.query_params.get('members', 'all')
+    inactivity_filter = request.query_params.get('inactivity', 'all')
+    created_filter = request.query_params.get('created', 'all')
+    quorum_filter = request.query_params.get('quorum', 'all')
+    votes_filter = request.query_params.get('votes', 'all')
+    candidates_filter = request.query_params.get('candidates', 'all')
+
     qs = SharedList.objects.select_related('selected_anime').prefetch_related(
         'members', 'candidates__anime', 'candidates__votes'
     ).order_by('-created_at')
 
-    if phase_filter != 'all':
-        if phase_filter == 'active':
-            qs = qs.filter(status__in=['voting', 'candidates', 'watching'])
-        elif phase_filter == 'concluded':
-            qs = qs.filter(status__in=['selected', 'completed'])
-        else:
-            qs = qs.filter(status=phase_filter)
+    unfiltered_total = qs.count()
 
     rooms_data = []
-    for r in qs[:50]:
-        members_count = r.members.count()
-        candidates_qs = r.candidates.all()
-        candidates_count = candidates_qs.count()
+    active_count = 0
+    concluded_count = 0
+    total_members_accum = 0
+    quorum_sum = 0
+    idle_rooms_threshold_count = 0
+
+    threshold_days = CLEANUP_POLICY.get('inactivity_threshold_days', 14)
+
+    for r in qs:
+        r_id = str(r.id)
+        members_qs = list(r.members.all())
+        members_count = len(members_qs)
+        candidates_qs = list(r.candidates.all())
+        candidates_count = len(candidates_qs)
         
-        # Calcular total de votos en la sala
+        # Total de votos en la sala
         total_votes = sum(c.votes.count() for c in candidates_qs)
         
         # Quórum: porcentaje de votos esperados
         expected_votes = max(1, members_count * max(1, candidates_count))
         quorum_pct = min(100, round((total_votes / expected_votes) * 100)) if members_count > 0 else 0
+
+        # Cálculo de inactividad
+        last_activity = r.updated_at
+        for c in candidates_qs:
+            for v in c.votes.all():
+                if v.voted_at and v.voted_at > last_activity:
+                    last_activity = v.voted_at
+
+        inactivity_delta = now - last_activity
+        inactivity_seconds = max(0, inactivity_delta.total_seconds())
+        inactivity_hours = round(inactivity_seconds / 3600, 1)
+        inactivity_days = round(inactivity_hours / 24, 1)
+
+        if inactivity_hours < 1:
+            mins = max(1, int(inactivity_seconds // 60))
+            inactivity_display = f"Hace {mins} min"
+        elif inactivity_hours < 24:
+            inactivity_display = f"Hace {int(inactivity_hours)}h"
+        else:
+            inactivity_display = f"Hace {int(inactivity_days)} d"
+
+        # Cálculo de tiempo desde creación
+        age_delta = now - r.created_at
+        age_seconds = max(0, age_delta.total_seconds())
+        age_hours = round(age_seconds / 3600, 1)
+        age_days = round(age_hours / 24, 1)
+
+        if age_hours < 1:
+            created_display = "Hace < 1h"
+        elif age_hours < 24:
+            created_display = f"Hace {int(age_hours)}h"
+        else:
+            created_display = f"Hace {int(age_days)} d ({r.created_at.strftime('%d/%m')})"
+
+        # KPIs globales acumulados
+        if r.status in ['voting', 'candidates', 'watching']:
+            active_count += 1
+        elif r.status in ['selected', 'completed']:
+            concluded_count += 1
+        total_members_accum += members_count
+        quorum_sum += quorum_pct
+        if inactivity_days >= threshold_days:
+            idle_rooms_threshold_count += 1
+
+        # FILTROS
+        # 1. Búsqueda de texto
+        if q:
+            match = (
+                q in r.name.lower() or
+                q in r.invite_code.lower() or
+                q in (r.description or '').lower() or
+                any(q in m.guest_name.lower() for m in members_qs) or
+                any(q in c.anime.title.lower() for c in candidates_qs)
+            )
+            if not match:
+                continue
+
+        # 2. Fase de sala
+        if phase_filter != 'all':
+            if phase_filter == 'active' and r.status not in ['voting', 'candidates', 'watching']:
+                continue
+            elif phase_filter == 'concluded' and r.status not in ['selected', 'completed']:
+                continue
+            elif phase_filter not in ['active', 'concluded'] and r.status != phase_filter:
+                continue
+
+        # 3. Número de miembros
+        if members_filter != 'all':
+            if members_filter == '1-2' and not (1 <= members_count <= 2):
+                continue
+            elif members_filter == '3-5' and not (3 <= members_count <= 5):
+                continue
+            elif members_filter == '6+' and members_count < 6:
+                continue
+
+        # 4. Tiempo de inactividad
+        if inactivity_filter != 'all':
+            if inactivity_filter == '1h' and inactivity_hours < 1.0:
+                continue
+            elif inactivity_filter == '24h' and inactivity_hours < 24.0:
+                continue
+            elif inactivity_filter == '3d' and inactivity_days < 3.0:
+                continue
+            elif inactivity_filter == '7d' and inactivity_days < 7.0:
+                continue
+            elif inactivity_filter == '14d' and inactivity_days < 14.0:
+                continue
+            elif inactivity_filter == '30d' and inactivity_days < 30.0:
+                continue
+
+        # 5. Tiempo desde creación
+        if created_filter != 'all':
+            if created_filter == 'today' and age_hours > 24.0:
+                continue
+            elif created_filter == '3d' and age_days > 3.0:
+                continue
+            elif created_filter == '7d' and age_days > 7.0:
+                continue
+            elif created_filter == '30d' and age_days > 30.0:
+                continue
+            elif created_filter == 'older_30d' and age_days <= 30.0:
+                continue
+
+        # 6. % de Quórum
+        if quorum_filter != 'all':
+            if quorum_filter == '0' and quorum_pct != 0:
+                continue
+            elif quorum_filter == 'low' and not (1 <= quorum_pct < 50):
+                continue
+            elif quorum_filter == 'mid' and not (50 <= quorum_pct < 100):
+                continue
+            elif quorum_filter == 'full' and quorum_pct < 100:
+                continue
+
+        # 7. Número de votos
+        if votes_filter != 'all':
+            if votes_filter == '0' and total_votes != 0:
+                continue
+            elif votes_filter == '1-5' and not (1 <= total_votes <= 5):
+                continue
+            elif votes_filter == '6-15' and not (6 <= total_votes <= 15):
+                continue
+            elif votes_filter == '16+' and total_votes < 16:
+                continue
+
+        # 8. Número de candidatos
+        if candidates_filter != 'all':
+            if candidates_filter == '0' and candidates_count != 0:
+                continue
+            elif candidates_filter == '1-2' and not (1 <= candidates_count <= 2):
+                continue
+            elif candidates_filter == '3-5' and not (3 <= candidates_count <= 5):
+                continue
+            elif candidates_filter == '6+' and candidates_count < 6:
+                continue
 
         # Encontrar candidato líder calculando su happiness score
         top_candidate = None
@@ -150,13 +313,23 @@ def rooms_analytics(request):
                     'image_url': c.anime.image_url or c.anime.banner_url
                 }
 
+        mod_info = ROOM_MODERATION_STORE.get(r_id, {'is_locked': False, 'note': ''})
+
         rooms_data.append({
-            'id': str(r.id),
+            'id': r_id,
             'name': r.name,
             'description': r.description,
             'invite_code': r.invite_code,
             'status': r.status,
+            'is_locked': mod_info.get('is_locked', False),
+            'moderation_note': mod_info.get('note', ''),
             'created_at': r.created_at.isoformat(),
+            'created_display': created_display,
+            'updated_at': r.updated_at.isoformat(),
+            'last_activity_display': inactivity_display,
+            'inactivity_hours': inactivity_hours,
+            'inactivity_days': inactivity_days,
+            'age_days': age_days,
             'members_count': members_count,
             'candidates_count': candidates_count,
             'votes_count': total_votes,
@@ -169,13 +342,211 @@ def rooms_analytics(request):
             } if r.selected_anime else None,
             'members': [
                 {'name': m.guest_name, 'role': m.role, 'channel': m.invite_channel}
-                for m in r.members.all()[:10]
+                for m in members_qs[:10]
             ]
         })
 
+    avg_quorum = round(quorum_sum / max(1, unfiltered_total))
+
     return Response({
         'total': len(rooms_data),
+        'unfiltered_total': unfiltered_total,
+        'kpis': {
+            'active_count': active_count,
+            'concluded_count': concluded_count,
+            'total_members': total_members_accum,
+            'avg_quorum': avg_quorum,
+            'idle_rooms_threshold_count': idle_rooms_threshold_count
+        },
+        'cleanup_policy': {
+            'enabled': CLEANUP_POLICY['enabled'],
+            'inactivity_threshold_days': CLEANUP_POLICY['inactivity_threshold_days'],
+            'target_status': CLEANUP_POLICY['target_status'],
+            'min_members_protected': CLEANUP_POLICY['min_members_protected'],
+            'frequency': CLEANUP_POLICY['frequency']
+        },
         'rooms': rooms_data
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def admin_moderate_room(request, room_id):
+    """
+    Aplica una acción de moderación directa a una sala:
+    - pause: Pausa la votación y bloquea nuevas emisiones
+    - resume: Reanuda la votación
+    - force_select: Selecciona automáticamente el candidato líder con el algoritmo
+    - reset_votes: Reinicia los votos de la sala
+    - delete: Elimina la sala permanentemente
+    - ping: Envía un pulso de sincronización / recordatorio
+    """
+    room = get_object_or_404(SharedList, pk=room_id)
+    action = request.data.get('action')
+    reason = request.data.get('reason', 'Acción administrativa')
+    
+    r_id = str(room.id)
+    mod_info = ROOM_MODERATION_STORE.get(r_id, {'is_locked': False, 'note': ''})
+
+    if action == 'pause':
+        mod_info['is_locked'] = True
+        mod_info['note'] = reason
+        room.status = 'candidates'
+        room.save(update_fields=['status', 'updated_at'])
+        msg = f'Votación pausada en sala "{room.name}".'
+    elif action == 'resume':
+        mod_info['is_locked'] = False
+        mod_info['note'] = ''
+        room.status = 'voting'
+        room.save(update_fields=['status', 'updated_at'])
+        msg = f'Votación reanudada en sala "{room.name}".'
+    elif action == 'force_select':
+        # Seleccionar automáticamente el mejor candidato
+        candidates_qs = room.candidates.select_related('anime').all()
+        best_candidate = None
+        best_score = -1.0
+        members_count = room.members.count()
+        for c in candidates_qs:
+            votes_data = [{'interest_score': v.interest_score, 'voter_name': v.voter_name} for v in c.votes.all()]
+            h_res = calculate_happiness_score(
+                votes=votes_data,
+                mal_score=float(c.anime.score) if c.anime.score else 7.0,
+                mal_scored_by=c.anime.scored_by,
+                title=c.anime.title,
+                total_members_count=max(members_count, 1)
+            )
+            sc = h_res.get('final_score', 0.0)
+            if sc > best_score:
+                best_score = sc
+                best_candidate = c
+
+        if best_candidate:
+            room.selected_anime = best_candidate.anime
+        room.status = 'selected'
+        room.save(update_fields=['selected_anime', 'status', 'updated_at'])
+        selected_title = room.selected_anime.title if room.selected_anime else "Candidato Ganador"
+        msg = f'Consenso forzado: "{selected_title}" seleccionado en sala "{room.name}".'
+    elif action == 'reset_votes':
+        SharedListVote.objects.filter(candidate__shared_list=room).delete()
+        room.save(update_fields=['updated_at'])
+        msg = f'Votos reiniciados en sala "{room.name}".'
+    elif action == 'delete':
+        name = room.name
+        room.delete()
+        if r_id in ROOM_MODERATION_STORE:
+            del ROOM_MODERATION_STORE[r_id]
+        return Response({
+            'success': True,
+            'action': 'delete',
+            'message': f'Sala "{name}" eliminada permanentemente del sistema.'
+        })
+    elif action == 'ping':
+        room.save(update_fields=['updated_at'])
+        msg = f'Pulso emitido a los miembros de la sala "{room.name}" [PIN {room.invite_code}].'
+    else:
+        return Response({'success': False, 'message': f'Acción "{action}" no soportada.'}, status=400)
+
+    ROOM_MODERATION_STORE[r_id] = mod_info
+
+    return Response({
+        'success': True,
+        'action': action,
+        'message': msg,
+        'status': room.status,
+        'is_locked': mod_info.get('is_locked', False)
+    })
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def admin_rooms_cleanup_policy(request):
+    """
+    Obtiene o actualiza la política de eliminación programada de salas inactivas,
+    junto con una previsualización de salas que cumplen actualmente la condición (Dry Run).
+    """
+    global CLEANUP_POLICY
+    now = timezone.now()
+
+    if request.method == 'POST':
+        CLEANUP_POLICY['enabled'] = bool(request.data.get('enabled', CLEANUP_POLICY['enabled']))
+        CLEANUP_POLICY['inactivity_threshold_days'] = int(request.data.get('inactivity_threshold_days', CLEANUP_POLICY['inactivity_threshold_days']))
+        CLEANUP_POLICY['target_status'] = request.data.get('target_status', CLEANUP_POLICY['target_status'])
+        CLEANUP_POLICY['min_members_protected'] = int(request.data.get('min_members_protected', CLEANUP_POLICY['min_members_protected']))
+
+    threshold_days = CLEANUP_POLICY['inactivity_threshold_days']
+    cutoff_date = now - timedelta(days=threshold_days)
+
+    qs = SharedList.objects.all().order_by('-created_at')
+    target = CLEANUP_POLICY['target_status']
+    if target == 'abandoned_only':
+        qs = qs.filter(status__in=['candidates', 'voting'])
+    elif target == 'concluded_only':
+        qs = qs.filter(status__in=['selected', 'completed'])
+
+    matching_rooms = []
+    for r in qs:
+        # Proteger salas con muchos miembros si aplica
+        m_count = r.members.count()
+        if m_count >= CLEANUP_POLICY['min_members_protected']:
+            continue
+
+        inactive_days = round((now - r.updated_at).total_seconds() / 86400, 1)
+        if r.updated_at <= cutoff_date or (r.created_at <= cutoff_date and not r.candidates.filter(votes__isnull=False).exists()):
+            matching_rooms.append({
+                'id': str(r.id),
+                'name': r.name,
+                'invite_code': r.invite_code,
+                'status': r.status,
+                'members_count': m_count,
+                'inactive_days': inactive_days,
+                'created_at': r.created_at.strftime('%Y-%m-%d')
+            })
+
+    return Response({
+        'policy': CLEANUP_POLICY,
+        'matching_count': len(matching_rooms),
+        'matching_rooms': matching_rooms
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def admin_rooms_cleanup_run(request):
+    """
+    Dispara la ejecución inmediata de la eliminación programada de salas inactivas.
+    """
+    global CLEANUP_POLICY
+    now = timezone.now()
+    threshold_days = CLEANUP_POLICY['inactivity_threshold_days']
+    cutoff_date = now - timedelta(days=threshold_days)
+
+    qs = SharedList.objects.all()
+    target = CLEANUP_POLICY['target_status']
+    if target == 'abandoned_only':
+        qs = qs.filter(status__in=['candidates', 'voting'])
+    elif target == 'concluded_only':
+        qs = qs.filter(status__in=['selected', 'completed'])
+
+    purged_rooms = []
+    for r in qs:
+        if r.members.count() >= CLEANUP_POLICY['min_members_protected']:
+            continue
+        if r.updated_at <= cutoff_date or (r.created_at <= cutoff_date and not r.candidates.filter(votes__isnull=False).exists()):
+            purged_rooms.append({
+                'id': str(r.id),
+                'name': r.name,
+                'invite_code': r.invite_code
+            })
+            r.delete()
+
+    CLEANUP_POLICY['last_run'] = now.strftime('%Y-%m-%d %H:%M')
+    CLEANUP_POLICY['last_purged_count'] = len(purged_rooms)
+
+    return Response({
+        'success': True,
+        'purged_count': len(purged_rooms),
+        'purged_rooms': purged_rooms,
+        'message': f"Limpieza completada: {len(purged_rooms)} salas que superaban los {threshold_days} días de inactividad fueron eliminadas."
     })
 
 
@@ -193,6 +564,7 @@ def ping_room(request, pk):
         'room_id': str(room.id),
         'timestamp': timezone.now().isoformat()
     })
+
 
 
 @api_view(['GET'])

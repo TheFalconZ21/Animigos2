@@ -49,7 +49,15 @@ export interface RoomItem {
   description: string;
   invite_code: string;
   status: 'voting' | 'candidates' | 'selected' | 'watching' | 'completed';
+  is_locked?: boolean;
+  moderation_note?: string;
   created_at: string;
+  created_display?: string;
+  updated_at?: string;
+  last_activity_display?: string;
+  inactivity_hours?: number;
+  inactivity_days?: number;
+  age_days?: number;
   members_count: number;
   candidates_count: number;
   votes_count: number;
@@ -67,9 +75,39 @@ export interface RoomItem {
   members: RoomMember[];
 }
 
+export interface RoomsCleanupPolicy {
+  enabled: boolean;
+  inactivity_threshold_days: number;
+  target_status: string;
+  min_members_protected: number;
+  frequency: string;
+  last_run?: string;
+  last_purged_count?: number;
+}
+
 export interface RoomsResponse {
   total: number;
+  unfiltered_total?: number;
+  kpis?: {
+    active_count: number;
+    concluded_count: number;
+    total_members: number;
+    avg_quorum: number;
+    idle_rooms_threshold_count: number;
+  };
+  cleanup_policy?: RoomsCleanupPolicy;
   rooms: RoomItem[];
+}
+
+export interface RoomsFilterParams {
+  q?: string;
+  phase?: string;
+  members?: string;
+  inactivity?: string;
+  created?: string;
+  quorum?: string;
+  votes?: string;
+  candidates?: string;
 }
 
 export interface AlgorithmRule {
@@ -262,8 +300,22 @@ export async function getOverview(period = '7d'): Promise<OverviewResponse> {
   return res.json();
 }
 
-export async function getRooms(phase = 'all'): Promise<RoomsResponse> {
-  const res = await fetch(`${API_BASE_URL}/admin/rooms/?phase=${phase}`);
+export async function getRooms(params: RoomsFilterParams | string = 'all'): Promise<RoomsResponse> {
+  const query = new URLSearchParams();
+  if (typeof params === 'string') {
+    if (params && params !== 'all') query.append('phase', params);
+  } else if (params) {
+    if (params.q) query.append('q', params.q);
+    if (params.phase && params.phase !== 'all') query.append('phase', params.phase);
+    if (params.members && params.members !== 'all') query.append('members', params.members);
+    if (params.inactivity && params.inactivity !== 'all') query.append('inactivity', params.inactivity);
+    if (params.created && params.created !== 'all') query.append('created', params.created);
+    if (params.quorum && params.quorum !== 'all') query.append('quorum', params.quorum);
+    if (params.votes && params.votes !== 'all') query.append('votes', params.votes);
+    if (params.candidates && params.candidates !== 'all') query.append('candidates', params.candidates);
+  }
+
+  const res = await fetch(`${API_BASE_URL}/admin/rooms/?${query.toString()}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener salas`);
   return res.json();
 }
@@ -274,6 +326,58 @@ export async function pingRoom(roomId: string): Promise<{ success: boolean; mess
     headers: { 'Content-Type': 'application/json' }
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al enviar ping`);
+  return res.json();
+}
+
+export async function moderateRoom(
+  roomId: string,
+  action: 'pause' | 'resume' | 'force_select' | 'reset_votes' | 'delete' | 'ping',
+  reason?: string
+): Promise<{ success: boolean; message: string; action: string; status?: string; is_locked?: boolean }> {
+  const res = await fetch(`${API_BASE_URL}/admin/rooms/${roomId}/moderate/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, reason })
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: Error al moderar sala`);
+  return res.json();
+}
+
+export async function getRoomsCleanupPolicy(): Promise<{
+  policy: RoomsCleanupPolicy;
+  matching_count: number;
+  matching_rooms: any[];
+}> {
+  const res = await fetch(`${API_BASE_URL}/admin/rooms/cleanup-policy/`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener política de limpieza`);
+  return res.json();
+}
+
+export async function saveRoomsCleanupPolicy(policy: Partial<RoomsCleanupPolicy>): Promise<{
+  policy: RoomsCleanupPolicy;
+  matching_count: number;
+  matching_rooms: any[];
+}> {
+  const res = await fetch(`${API_BASE_URL}/admin/rooms/cleanup-policy/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(policy)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: Error al guardar política de limpieza`);
+  return res.json();
+}
+
+export async function runRoomsCleanup(): Promise<{
+  success: boolean;
+  purged_count: number;
+  purged_rooms: any[];
+  message: string;
+}> {
+  const res = await fetch(`${API_BASE_URL}/admin/rooms/cleanup-run/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: Error al ejecutar limpieza de salas`);
   return res.json();
 }
 
