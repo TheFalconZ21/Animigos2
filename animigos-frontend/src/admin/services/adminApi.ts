@@ -80,22 +80,71 @@ export interface AlgorithmRule {
   active: boolean;
 }
 
+export interface HappinessTimelinePoint {
+  date: string;
+  label: string;
+  avg_happiness: number;
+  rooms_count: number;
+  consensus_rate: number;
+  event?: string;
+}
+
+export interface RecommendationEvaluation {
+  id: string;
+  room_name: string;
+  anime_title: string;
+  rating: number;
+  verdict: string;
+  comment: string;
+  happiness_score: number;
+  time_ago: string;
+}
+
+export interface RecommendationSatisfaction {
+  overall_satisfaction_pct: number;
+  avg_rating: number;
+  total_evaluations: number;
+  acceptance_rate: number;
+  breakdown: {
+    excellent_pct: number;
+    good_pct: number;
+    poor_pct: number;
+  };
+  comparison: {
+    algo_happiness: number;
+    manual_happiness: number;
+    time_to_consensus_algo: string;
+    time_to_consensus_manual: string;
+    conflict_rate_algo: string;
+    conflict_rate_manual: string;
+  };
+  recent_feed: RecommendationEvaluation[];
+}
+
 export interface AlgorithmResponse {
   formula: string;
   parameters: {
+    interest_mean_weight?: number;
     dispersion_weight_lambda: number;
+    polarization_penalty_weight?: number;
     tie_break_threshold: number;
     mal_weight: number;
-    popularity_weight: number;
-    marathon_bonus: number;
+    genre_affinity_bonus?: number;
+    popularity_weight?: number;
+    marathon_bonus?: number;
   };
   stats: {
     total_votes_analyzed: number;
     avg_interest_score: number;
     total_catalog_size: number;
+    average_group_happiness?: number;
+    happiness_trend_delta?: string;
+    high_consensus_rooms_pct?: number;
   };
   genre_dispersion: Record<string, { count: number; percentage: number }>;
   rules: AlgorithmRule[];
+  timeline?: HappinessTimelinePoint[];
+  recommendation_satisfaction?: RecommendationSatisfaction;
 }
 
 export interface GrowthResponse {
@@ -179,6 +228,19 @@ export async function pingRoom(roomId: string): Promise<{ success: boolean; mess
 export async function getAlgorithm(): Promise<AlgorithmResponse> {
   const res = await fetch(`${API_BASE_URL}/admin/algorithm/`);
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener algoritmo`);
+  return res.json();
+}
+
+export async function calibrateAlgorithm(payload: {
+  parameters: Record<string, number>;
+  rules: AlgorithmRule[];
+}): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/admin/algorithm/calibrate/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: Error al calibrar algoritmo`);
   return res.json();
 }
 

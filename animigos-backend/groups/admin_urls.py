@@ -7,5 +7,6 @@ urlpatterns = [
     path('rooms/<uuid:pk>/ping/', admin_views.ping_room, name='admin-room-ping'),
     path('algorithm/', admin_views.algorithm_analytics, name='admin-algorithm'),
     path('algorithm/simulate/', admin_views.simulate_algorithm, name='admin-algorithm-simulate'),
+    path('algorithm/calibrate/', admin_views.calibrate_algorithm, name='admin-algorithm-calibrate'),
     path('growth/', admin_views.growth_analytics, name='admin-growth'),
 ]
