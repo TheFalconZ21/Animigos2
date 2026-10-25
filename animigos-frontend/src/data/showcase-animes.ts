@@ -3,6 +3,8 @@ export interface ShowcaseAnime {
   title: string;
   cover: string;
   color: string;
+  popularity?: number;
+  score?: number;
 }
 
 export const SHOWCASE_ROW_1: ShowcaseAnime[] = [

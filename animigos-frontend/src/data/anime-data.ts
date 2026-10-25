@@ -146,7 +146,7 @@ export const MOCK_TOP_ANIMES: ExtendedAnime[] = [
     title: "A Silent Voice (Koe no Katachi)",
     titleEnglish: "A Silent Voice",
     titleJapanese: "聲の形",
-    imageUrl: "https://cdn.myanimelist.net/images/anime/1122/96444.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20954-sYRfE5jQRtSB.jpg",
     score: 8.94,
     rank: 6,
     episodes: 1,

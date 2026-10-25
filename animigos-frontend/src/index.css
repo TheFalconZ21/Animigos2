@@ -69,12 +69,12 @@ h6 {
   cursor: pointer;
 }
 
-/* 2. El efecto exclusivo al pasar el mouse por encima de ESA sola letra */
+/* 2. El efecto exclusivo al pasar el mouse por encima */
 .hover-letter:hover {
   transform: translateY(-12px) scale(1.2);
   /* Salta hacia arriba y se agranda */
   color: #ffffff;
-  /* Se ilumina en rosa fucsia */
+  /* Se ilumina */
   text-shadow: 0 0 30px #000000, 0 0 60px rgba(255, 255, 255, 0.8);
 }
 
@@ -110,6 +110,16 @@ h6 {
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.15) !important;
 }
 
+/* Color tenue del placeholder */
+.input-anime::placeholder {
+  color: #646368;
+  transition: color 0.15s ease;
+}
+
+/* En cuanto haces clic o presionas el input, el texto desaparece */
+.input-anime:focus::placeholder {
+  color: transparent;
+}
 
 /* Contenedor del fondo animado */
 .hero-showcase-bg {
@@ -189,4 +199,356 @@ h6 {
       rgba(8, 8, 8, 0.95) 25%,
       rgba(8, 8, 8, 0.65) 60%,
       rgba(8, 8, 8, 0.85) 100%);
+}
+
+/* Botón premium */
+.btn-premium {
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.btn-premium:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+
+.btn-premium:active {
+  transform: translateY(0) scale(0.98);
+  filter: brightness(0.95);
+}
+
+/* Color letras negro */
+.text-dark {
+  color: #0b0e17 !important;
+}
+
+/* ============================================================
+   ENGINEERING DESIGN SYSTEM (Linear / Vercel / Supabase aesthetic)
+   ============================================================ */
+
+:root {
+  --admin-canvas: #000000;
+  --admin-surface-1: #0A0A0A;
+  --admin-surface-2: #141414;
+  --admin-surface-3: #1A1A1A;
+  --admin-border-subtle: #1F1F1F;
+  --admin-border-divider: #262626;
+  --admin-border-focus: rgba(255, 255, 255, 0.2);
+
+  --admin-text-primary: #FFFFFF;
+  --admin-text-secondary: #A1A1AA; /* Zinc 400 */
+  --admin-text-muted: #71717A;     /* Zinc 500 */
+
+  /* Semantic desaturated accents (no gradients) */
+  --admin-emerald: #10B981;
+  --admin-emerald-bg: rgba(16, 185, 129, 0.1);
+  --admin-emerald-border: rgba(16, 185, 129, 0.2);
+
+  --admin-blue: #38BDF8;
+  --admin-blue-bg: rgba(56, 189, 248, 0.1);
+  --admin-blue-border: rgba(56, 189, 248, 0.2);
+
+  --admin-amber: #F59E0B;
+  --admin-amber-bg: rgba(245, 158, 11, 0.1);
+  --admin-amber-border: rgba(245, 158, 11, 0.2);
+
+  /* Radius tokens: strict 3 tokens */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Natural motion curve */
+  --admin-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.admin-root {
+  font-family: var(--font-sans);
+  background-color: var(--admin-canvas);
+  color: var(--admin-text-primary);
+  letter-spacing: -0.011em;
+}
+
+.admin-layout-container {
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* Strict Typography Classes */
+.admin-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--admin-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.admin-subtitle {
+  font-size: 0.8rem;
+  color: var(--admin-text-muted);
+  font-weight: 400;
+}
+
+.font-mono {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* Surface 1: Containers and Cards */
+.admin-card {
+  background-color: var(--admin-surface-1);
+  border: 1px solid var(--admin-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.15rem 1.25rem;
+  transition: background-color 0.2s var(--admin-ease), border-color 0.2s var(--admin-ease), transform 0.2s var(--admin-ease);
+}
+
+.admin-card:hover {
+  border-color: var(--admin-border-divider);
+  transform: translateY(-1px);
+}
+
+/* Surface 2: Controls, Inputs, and Badges */
+.admin-input-wrapper {
+  background-color: var(--admin-surface-2);
+  border: 1px solid var(--admin-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.65rem;
+  transition: border-color 0.15s var(--admin-ease), background-color 0.15s var(--admin-ease);
+}
+
+.admin-input-wrapper:focus-within {
+  border-color: var(--admin-text-secondary);
+  background-color: var(--admin-surface-3);
+}
+
+.admin-btn {
+  border-radius: var(--radius-md);
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 0.4rem 0.75rem;
+  transition: background-color 0.15s var(--admin-ease), border-color 0.15s var(--admin-ease), color 0.15s var(--admin-ease);
+  cursor: pointer;
+}
+
+.admin-btn-secondary {
+  background-color: var(--admin-surface-2);
+  border: 1px solid var(--admin-border-subtle);
+  color: var(--admin-text-secondary);
+}
+
+.admin-btn-secondary:hover {
+  background-color: var(--admin-surface-3);
+  border-color: var(--admin-border-divider);
+  color: var(--admin-text-primary);
+}
+
+/* Strict Badges (Radius sm: 4-6px, Desaturated semantic) */
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  line-height: 1.2;
+}
+
+.admin-badge-success {
+  background-color: var(--admin-emerald-bg);
+  border: 1px solid var(--admin-emerald-border);
+  color: var(--admin-emerald);
+}
+
+.admin-badge-info {
+  background-color: var(--admin-blue-bg);
+  border: 1px solid var(--admin-blue-border);
+  color: var(--admin-blue);
+}
+
+.admin-badge-warning {
+  background-color: var(--admin-amber-bg);
+  border: 1px solid var(--admin-amber-border);
+  color: var(--admin-amber);
+}
+
+.admin-badge-neutral {
+  background-color: var(--admin-surface-2);
+  border: 1px solid var(--admin-border-subtle);
+  color: var(--admin-text-secondary);
+}
+
+/* Linear/Vercel Sub-nav Tabs (2px bottom border active) */
+.admin-nav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--admin-border-subtle);
+  overflow-x: auto;
+}
+
+.admin-nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--admin-text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s var(--admin-ease), border-color 0.15s var(--admin-ease);
+}
+
+.admin-nav-tab:hover {
+  color: var(--admin-text-secondary);
+}
+
+.admin-nav-tab.active {
+  color: var(--admin-text-primary);
+  border-bottom-color: var(--admin-text-primary);
+  font-weight: 600;
+}
+
+/* Grillas */
+.admin-grid-kpis {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
+@media (min-width: 576px) {
+  .admin-grid-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .admin-grid-kpis {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.admin-grid-middle {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
+@media (min-width: 992px) {
+  .admin-grid-middle {
+    grid-template-columns: 1.2fr 0.9fr;
+  }
+}
+
+.admin-grid-bottom {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
+@media (min-width: 992px) {
+  .admin-grid-bottom {
+    grid-template-columns: 0.85fr 1.3fr;
+  }
+}
+
+/* Tablas técnicas */
+.admin-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.admin-table th {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--admin-border-subtle);
+  background-color: transparent;
+}
+
+.admin-table td {
+  padding: 0.65rem;
+  font-size: 0.78rem;
+  border-bottom: 1px solid #141414;
+  vertical-align: middle;
+}
+
+.admin-table-row {
+  transition: background-color 0.15s var(--admin-ease);
+}
+
+.admin-table-row:hover {
+  background-color: var(--admin-surface-2) !important;
+}
+
+/* Barras de progreso precisas con esquinas de 2px */
+.admin-progress-track {
+  height: 4px;
+  background-color: var(--admin-surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.admin-progress-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s var(--admin-ease);
+}
+
+/* Skeletons y Spinners */
+.admin-skeleton {
+  background-color: var(--admin-surface-2);
+  border-radius: 4px;
+  animation: admin-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes admin-pulse {
+  0%, 100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.admin-spinner {
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--admin-border-divider);
+  border-top-color: var(--admin-text-secondary);
+  border-radius: 50%;
+  animation: admin-spin 0.6s linear infinite;
+  display: inline-block;
+}
+
+@keyframes admin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  height: 5px;
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--admin-border-divider);
+  border-radius: 2px;
 }

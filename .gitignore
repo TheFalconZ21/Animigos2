@@ -3,6 +3,13 @@
 .env.*
 *.env
 *.pat
+*.pem
+*.key
+*.cer
+*.id_rsa
+animigos-key.pem
+5d89b4e2-28bc-4526-b89f-d463f5c154f8
+setup_db.sh
 
 # Dependencies
 node_modules/
@@ -22,3 +29,16 @@ anime_dataset_2018_2026/usuarios/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Python & Django
+.venv/
+*/.venv/
+venv/
+*/venv/
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite3
+db.sqlite3
+
