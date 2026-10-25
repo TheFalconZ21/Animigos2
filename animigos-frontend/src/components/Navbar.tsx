@@ -1,7 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { NavOverflow } from 'bootstrap'
 
-export function Navbar() {
+interface NavbarProps {
+    currentView?: 'landing' | 'mi-lista'
+    onSelectView?: (view: 'landing' | 'mi-lista') => void
+}
+
+export function Navbar({ currentView = 'landing', onSelectView }: NavbarProps) {
     // 1. Creamos la referencia al contenedor del overflow
     const overflowRef = useRef<HTMLDivElement>(null)
 
@@ -24,7 +29,15 @@ export function Navbar() {
 
                 {/* Logo / Marca */}
                 {/* Usando la nueva clase de Bootstrap 6: fs-2xl */}
-                <a className="navbar-brand fw-bold text-white fs-2xl" href="#">
+                <a
+                    className="navbar-brand fw-bold text-white fs-2xl"
+                    href="#"
+                    onClick={(e) => {
+                        e.preventDefault()
+                        window.location.hash = ''
+                        onSelectView?.('landing')
+                    }}
+                >
                     ANIMIGOS
                 </a>
 
@@ -36,7 +49,30 @@ export function Navbar() {
                 >
                     <ul className="nav navbar-nav justify-content-center">
                         <li className="nav-item">
-                            <a className="nav-link active text-white" href="#catalogo">Catálogo</a>
+                            <a
+                                className={`nav-link ${currentView === 'landing' ? 'active text-white' : 'text-secondary'}`}
+                                href="#catalogo"
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    window.location.hash = '#catalogo'
+                                    onSelectView?.('landing')
+                                }}
+                            >
+                                Catálogo
+                            </a>
+                        </li>
+                        <li className="nav-item">
+                            <a
+                                className={`nav-link ${currentView === 'mi-lista' ? 'active text-white' : 'text-secondary'}`}
+                                href="#mi-lista"
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    window.location.hash = '#mi-lista'
+                                    onSelectView?.('mi-lista')
+                                }}
+                            >
+                                Mi Lista
+                            </a>
                         </li>
                         <li className="nav-item">
                             <a className="nav-link text-secondary" href="#votacion">Sala de Votación</a>
