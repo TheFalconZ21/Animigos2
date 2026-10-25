@@ -254,6 +254,14 @@ h6 {
   --admin-amber-bg: rgba(245, 158, 11, 0.1);
   --admin-amber-border: rgba(245, 158, 11, 0.2);
 
+  --admin-rose: #F43F5E;
+  --admin-rose-bg: rgba(244, 63, 94, 0.1);
+  --admin-rose-border: rgba(244, 63, 94, 0.2);
+
+  --admin-purple: #A855F7;
+  --admin-purple-bg: rgba(168, 85, 247, 0.1);
+  --admin-purple-border: rgba(168, 85, 247, 0.2);
+
   /* Radius tokens: strict 3 tokens */
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -375,6 +383,18 @@ h6 {
   background-color: var(--admin-amber-bg);
   border: 1px solid var(--admin-amber-border);
   color: var(--admin-amber);
+}
+
+.admin-badge-danger {
+  background-color: var(--admin-rose-bg);
+  border: 1px solid var(--admin-rose-border);
+  color: var(--admin-rose);
+}
+
+.admin-badge-purple {
+  background-color: var(--admin-purple-bg);
+  border: 1px solid var(--admin-purple-border);
+  color: var(--admin-purple);
 }
 
 .admin-badge-neutral {

@@ -147,6 +147,56 @@ export interface AlgorithmResponse {
   recommendation_satisfaction?: RecommendationSatisfaction;
 }
 
+export interface UserVsGuestStats {
+  registered_count: number;
+  registered_pct: number;
+  guest_count: number;
+  guest_pct: number;
+  conversion_rate_pct: number;
+  avg_votes_registered: number;
+  avg_votes_guest: number;
+  retention_registered_pct: number;
+  retention_guest_pct: number;
+}
+
+export interface ActivityRateTimelinePoint {
+  day_label: string;
+  day_offset: number;
+  user_activity_pct: number;
+  room_activity_pct: number;
+  active_users: number;
+  active_rooms: number;
+}
+
+export interface ActivityRateStats {
+  user_activity_7d_pct: number;
+  room_activity_7d_pct: number;
+  avg_interaction_frequency_days: number;
+  timeline: ActivityRateTimelinePoint[];
+}
+
+export interface AdminUserItem {
+  id: string;
+  name: string;
+  username: string;
+  email: string;
+  avatar_url: string;
+  role: 'owner' | 'member' | 'guest';
+  user_type: 'registered' | 'guest';
+  status: 'active' | 'warned' | 'suspended';
+  warnings: number;
+  reason?: string;
+  rooms_count: number;
+  votes_count: number;
+  joined_at: string;
+  last_activity: string;
+}
+
+export interface AdminUsersResponse {
+  total: number;
+  users: AdminUserItem[];
+}
+
 export interface GrowthResponse {
   k_factor: number;
   total_users: number;
@@ -162,7 +212,7 @@ export interface GrowthResponse {
     sessions_count: number;
     completion_rate: number;
   }>;
-  cohorts: Array<{
+  cohorts?: Array<{
     cohort: string;
     w0: number;
     w1: number | null;
@@ -170,6 +220,8 @@ export interface GrowthResponse {
     w3: number | null;
     w4: number | null;
   }>;
+  user_vs_guest?: UserVsGuestStats;
+  activity_rate?: ActivityRateStats;
 }
 
 export interface AnimeItem {
@@ -284,3 +336,33 @@ export async function getAnimes(params: {
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener catálogo de animes`);
   return res.json();
 }
+
+export async function getAdminUsers(params?: {
+  q?: string;
+  role?: string;
+  status?: string;
+}): Promise<AdminUsersResponse> {
+  const query = new URLSearchParams();
+  if (params?.q) query.append('q', params.q);
+  if (params?.role && params.role !== 'all') query.append('role', params.role);
+  if (params?.status && params.status !== 'all') query.append('status', params.status);
+
+  const res = await fetch(`${API_BASE_URL}/admin/users/?${query.toString()}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener lista de usuarios`);
+  return res.json();
+}
+
+export async function moderateAdminUser(
+  userId: string,
+  action: 'warn' | 'suspend' | 'activate' | 'kick',
+  reason?: string
+): Promise<{ status: string; message: string; user_id: string; moderation: any }> {
+  const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/moderate/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, reason })
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: Error al moderar usuario`);
+  return res.json();
+}
+
