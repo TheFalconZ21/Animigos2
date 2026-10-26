@@ -10,9 +10,34 @@ class SharedListVoteSerializer(serializers.ModelSerializer):
 
 
 class SharedListMemberSerializer(serializers.ModelSerializer):
+    sync_status = serializers.SerializerMethodField()
+    episodes_behind = serializers.SerializerMethodField()
+
     class Meta:
         model = SharedListMember
-        fields = ['id', 'guest_token', 'guest_name', 'role', 'joined_at']
+        fields = [
+            'id',
+            'guest_token',
+            'guest_name',
+            'role',
+            'episodes_watched',
+            'last_active_at',
+            'joined_at',
+            'sync_status',
+            'episodes_behind',
+        ]
+
+    def get_sync_status(self, obj):
+        target = obj.shared_list.current_episode
+        if obj.episodes_watched > target:
+            return 'adelantado'
+        elif obj.episodes_watched == target:
+            return 'al_dia'
+        return 'atrasado'
+
+    def get_episodes_behind(self, obj):
+        target = obj.shared_list.current_episode
+        return max(0, target - obj.episodes_watched)
 
 
 class SharedListCandidateSerializer(serializers.ModelSerializer):
@@ -53,6 +78,7 @@ class SharedListSerializer(serializers.ModelSerializer):
     members = SharedListMemberSerializer(many=True, read_only=True)
     candidates = SharedListCandidateSerializer(many=True, read_only=True)
     selected_anime_detail = AnimeSerializer(source='selected_anime', read_only=True)
+    catchup_members = serializers.SerializerMethodField()
 
     class Meta:
         model = SharedList
@@ -62,11 +88,28 @@ class SharedListSerializer(serializers.ModelSerializer):
             'description',
             'status',
             'invite_code',
+            'current_episode',
+            'next_session_date',
+            'session_notes',
             'selected_anime',
             'selected_anime_detail',
             'created_at',
             'updated_at',
             'members',
             'candidates',
+            'catchup_members',
         ]
         read_only_fields = ['id', 'invite_code', 'created_at', 'updated_at']
+
+    def get_catchup_members(self, obj):
+        target = obj.current_episode
+        return [
+            {
+                'id': str(m.id),
+                'guest_name': m.guest_name,
+                'episodes_watched': m.episodes_watched,
+                'episodes_behind': max(0, target - m.episodes_watched),
+            }
+            for m in obj.members.all()
+            if m.episodes_watched < target
+        ]

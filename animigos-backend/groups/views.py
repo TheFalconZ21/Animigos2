@@ -129,13 +129,83 @@ class SharedListViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def select_winner(self, request, pk=None):
-        """Marca un anime como ganador de la sala."""
+        """Marca un anime como ganador de la sala e inicia fase de visualización grupal."""
         shared_list = self.get_object()
         mal_id = request.data.get('anime_id')
         anime = get_object_or_404(Anime, mal_id=mal_id)
 
         shared_list.selected_anime = anime
-        shared_list.status = 'selected'
+        shared_list.status = 'watching'
         shared_list.save(update_fields=['selected_anime', 'status', 'updated_at'])
 
         return Response(self.get_serializer(shared_list).data)
+
+    @action(detail=True, methods=['post'])
+    def update_my_progress(self, request, pk=None):
+        """Actualiza el progreso de capítulos vistos de un miembro en la sala."""
+        shared_list = self.get_object()
+        guest_token = request.data.get('guest_token', '').strip()
+        guest_name = request.data.get('guest_name', '').strip()
+        episodes_watched = request.data.get('episodes_watched')
+
+        if episodes_watched is None:
+            return Response({'error': 'episodes_watched es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            episodes_watched = max(0, int(episodes_watched))
+        except (ValueError, TypeError):
+            return Response({'error': 'episodes_watched debe ser un número entero válido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        member = None
+        if guest_token:
+            member = shared_list.members.filter(guest_token=guest_token).first()
+        if not member and guest_name:
+            member = shared_list.members.filter(guest_name=guest_name).first()
+
+        if not member:
+            member = SharedListMember.objects.create(
+                shared_list=shared_list,
+                guest_token=guest_token,
+                guest_name=guest_name or 'Miembro',
+                role='member',
+                episodes_watched=episodes_watched
+            )
+        else:
+            member.episodes_watched = episodes_watched
+            member.save(update_fields=['episodes_watched', 'last_active_at'])
+
+        return Response(self.get_serializer(shared_list).data)
+
+    @action(detail=True, methods=['post'])
+    def set_group_episode(self, request, pk=None):
+        """Actualiza la meta del capítulo en el que va la sala."""
+        shared_list = self.get_object()
+        episode = request.data.get('episode')
+        if episode is None:
+            return Response({'error': 'episode es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            ep_val = max(1, int(episode))
+        except (ValueError, TypeError):
+            return Response({'error': 'episode debe ser un entero positivo'}, status=status.HTTP_400_BAD_REQUEST)
+
+        shared_list.current_episode = ep_val
+        if shared_list.status in ('selected', 'voting'):
+            shared_list.status = 'watching'
+        shared_list.save(update_fields=['current_episode', 'status', 'updated_at'])
+
+        return Response(self.get_serializer(shared_list).data)
+
+    @action(detail=True, methods=['post'])
+    def schedule_session(self, request, pk=None):
+        """Agenda la fecha/hora y acuerdos para la próxima sesión grupal."""
+        shared_list = self.get_object()
+        next_session_date = request.data.get('next_session_date')
+        session_notes = request.data.get('session_notes', '')
+
+        shared_list.next_session_date = next_session_date or None
+        shared_list.session_notes = session_notes
+        shared_list.save(update_fields=['next_session_date', 'session_notes', 'updated_at'])
+
+        return Response(self.get_serializer(shared_list).data)
+

@@ -22,6 +22,9 @@ class SharedList(models.Model):
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='voting')
     invite_code = models.CharField(max_length=20, unique=True, default=generate_invite_code, db_index=True)
     selected_anime = models.ForeignKey(Anime, null=True, blank=True, on_delete=models.SET_NULL, related_name='selected_in_groups')
+    current_episode = models.PositiveIntegerField(default=1, help_text="Capítulo objetivo en el que va el grupo")
+    next_session_date = models.DateTimeField(null=True, blank=True, help_text="Fecha y hora de la próxima reunión")
+    session_notes = models.TextField(blank=True, default='', help_text="Notas o acuerdos de la sesión")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -47,6 +50,8 @@ class SharedListMember(models.Model):
     guest_name = models.CharField(max_length=100)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member')
     invite_channel = models.CharField(max_length=30, blank=True, default='link')
+    episodes_watched = models.PositiveIntegerField(default=0, help_text="Capítulo hasta el que ha visto este miembro")
+    last_active_at = models.DateTimeField(auto_now=True)
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

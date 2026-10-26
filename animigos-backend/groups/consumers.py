@@ -1,22 +1,18 @@
 """
-WebSocket Consumer para Coordinación en Tiempo Real y Watch Parties (Pilar 3 de AGENTS.md).
-Implementa:
-- Patrón Server-Authoritative para sincronización de reproducción y timestamp.
-- Detección de desconexión y heartbeat (ping/pong con cálculo de latencia).
-- Rate limiting / Throttling por socket para chat y reacciones.
-- Actualización reactiva de quórum y votos grupales.
+WebSocket Consumer para Coordinación Grupal y Watch Parties (Pilar 3 de AGENTS.md).
+El propósito central de la plataforma Animigos es:
+1. Coordinar qué anime ver entre todos (votación grupal / consenso de felicidad).
+2. Llevar un conteo exacto de los capítulos vistos por cada miembro del grupo.
+3. Facilitar que quienes no estuvieron en la sesión anterior se puedan poner al día rápidamente.
+4. Programar próximas reuniones/sesiones grupales (Discord, en persona, streaming, etc.).
+5. Chat y reacciones en tiempo real libre de spoilers.
 """
 
 import time
 from typing import Dict, Any, Optional
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from asgiref.sync import sync_to_async
-from django.core.cache import cache
-from .models import SharedList, SharedListMember, SharedListCandidate
-
-
-def get_playback_cache_key(room_id: str) -> str:
-    return f"room_playback_{room_id}"
+from .models import SharedList, SharedListMember
 
 
 class RoomConsumer(AsyncJsonWebsocketConsumer):
@@ -46,6 +42,9 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=4004)
             return
 
+        # Registrar o actualizar último acceso del miembro
+        await self.register_or_touch_member(self.room_id, self.user_name, self.user_token)
+
         # Unirse al grupo de difusión de la sala
         await self.channel_layer.group_add(
             self.room_group_name,
@@ -54,16 +53,13 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
 
         await self.accept()
 
-        # Obtener o inicializar estado de reproducción autoritativo del servidor
-        playback_state = await self.get_or_create_playback(self.room_id, room_data)
-
-        # Enviar estado de inicialización al cliente conectado
+        # Enviar estado inicial de la sala al cliente conectado
+        updated_room = await self.get_room_summary(self.room_id)
         await self.send_json({
             'type': 'room_init',
-            'room': room_data,
-            'playback': playback_state,
+            'room': updated_room,
             'server_time': time.time(),
-            'message': f'Conectado en tiempo real a la sala {room_data.get("name")}'
+            'message': f'Conectado en tiempo real a la sala {updated_room.get("name")}'
         })
 
         # Notificar a los demás miembros de la sala
@@ -75,6 +71,7 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
                     'type': 'member_joined',
                     'member_name': self.user_name,
                     'timestamp': time.time(),
+                    'room': updated_room,
                 }
             }
         )
@@ -112,36 +109,124 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
             })
             return
 
-        # 2. Solicitud de sincronización de estado autoritativo
+        # 2. Solicitud de sincronización de estado de sala y miembros
         if action == 'sync_request':
             room_data = await self.get_room_summary(self.room_id)
-            playback_state = await self.get_authoritative_playback(self.room_id)
             await self.send_json({
                 'type': 'sync_response',
                 'room': room_data,
-                'playback': playback_state,
                 'server_time': now,
             })
             return
 
-        # 3. Acciones de Reproducción Autoritativa (Server-Authoritative Pattern - Pilar 3.1)
-        if action in ('request_play', 'request_pause', 'request_seek', 'request_episode'):
-            updated_playback = await self.handle_playback_action(action, content)
+        # 3. Actualización de capítulos vistos por un miembro (Conteo individual)
+        if action == 'update_progress':
+            episodes_watched = max(0, int(content.get('episodes_watched', 0)))
+            await self.update_member_progress_db(self.room_id, self.user_name, self.user_token, episodes_watched)
+            room_data = await self.get_room_summary(self.room_id)
+
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     'type': 'broadcast_event',
                     'event': {
-                        'type': 'playback_state',
-                        'playback': updated_playback,
+                        'type': 'member_progress_updated',
+                        'member_name': self.user_name,
+                        'episodes_watched': episodes_watched,
+                        'room': room_data,
                         'server_time': now,
-                        'triggered_by': self.user_name,
+                    }
+                }
+            )
+            # Notificación del sistema en el chat
+            target = room_data.get('current_episode', 1)
+            msg_text = f'✅ {self.user_name} completó el capítulo {episodes_watched}.'
+            if episodes_watched >= target:
+                msg_text += ' ¡Está al día con el grupo! 🎉'
+            else:
+                behind = target - episodes_watched
+                msg_text += f' (Atrasado por {behind} {"capítulo" if behind == 1 else "capítulos"}).'
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'broadcast_event',
+                    'event': {
+                        'type': 'chat_message',
+                        'sender': 'Sistema',
+                        'text': msg_text,
+                        'timestamp': now,
                     }
                 }
             )
             return
 
-        # 4. Chat en vivo con Rate Limiting (Pilar 3.2: máx 5 mensajes en 2s)
+        # 4. Actualización del objetivo/capítulo grupal (Meta del grupo)
+        if action == 'set_group_target':
+            target_ep = max(1, int(content.get('episode', 1)))
+            await self.set_group_target_db(self.room_id, target_ep)
+            room_data = await self.get_room_summary(self.room_id)
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'broadcast_event',
+                    'event': {
+                        'type': 'group_target_updated',
+                        'current_episode': target_ep,
+                        'updated_by': self.user_name,
+                        'room': room_data,
+                        'server_time': now,
+                    }
+                }
+            )
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'broadcast_event',
+                    'event': {
+                        'type': 'chat_message',
+                        'sender': 'Sistema',
+                        'text': f'🎯 Nueva meta grupal: Capítulo {target_ep}. ¡Revisen la lista para ver quién debe ponerse al día!',
+                        'timestamp': now,
+                    }
+                }
+            )
+            return
+
+        # 5. Programar próxima sesión grupal
+        if action == 'schedule_session':
+            next_date = content.get('next_session_date')
+            notes = str(content.get('session_notes', '')).strip()
+            await self.schedule_session_db(self.room_id, next_date, notes)
+            room_data = await self.get_room_summary(self.room_id)
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'broadcast_event',
+                    'event': {
+                        'type': 'session_scheduled',
+                        'room': room_data,
+                        'server_time': now,
+                    }
+                }
+            )
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'broadcast_event',
+                    'event': {
+                        'type': 'chat_message',
+                        'sender': 'Sistema',
+                        'text': f'📅 Próxima sesión actualizada. Notas: {notes or "Sin notas"}',
+                        'timestamp': now,
+                    }
+                }
+            )
+            return
+
+        # 6. Chat en vivo con Rate Limiting (Pilar 3.2: máx 5 mensajes en 2s)
         if action == 'chat_message':
             text = str(content.get('text', '')).strip()[:300]
             if not text:
@@ -171,12 +256,12 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
             )
             return
 
-        # 5. Reacciones animadas con Rate Limiting (máx 8 reacciones en 3s)
+        # 7. Reacciones animadas con Rate Limiting (máx 8 reacciones en 3s)
         if action == 'reaction':
             emoji = str(content.get('emoji', '❤️'))[:10]
             self.last_reaction_timestamps = [t for t in self.last_reaction_timestamps if now - t < 3.0]
             if len(self.last_reaction_timestamps) >= 8:
-                return  # Ignorar silenciosamente flooding de emojis
+                return
 
             self.last_reaction_timestamps.append(now)
 
@@ -194,7 +279,7 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
             )
             return
 
-        # 6. Actualización de votos / quórum en vivo
+        # 8. Actualización general de la sala (votos, candidatos, anime seleccionado)
         if action == 'room_refresh':
             room_data = await self.get_room_summary(self.room_id)
             await self.channel_layer.group_send(
@@ -215,8 +300,79 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json(event['event'])
 
     # -------------------------------------------------------------
-    # Métodos Auxiliares de Lógica de Negocio y Persistencia
+    # Métodos Auxiliares de Persistencia y Consulta
     # -------------------------------------------------------------
+
+    @sync_to_async
+    def register_or_touch_member(self, room_id: str, guest_name: str, guest_token: str):
+        try:
+            room = SharedList.objects.get(id=room_id)
+            member = None
+            if guest_token:
+                member = room.members.filter(guest_token=guest_token).first()
+            if not member and guest_name:
+                member = room.members.filter(guest_name=guest_name).first()
+
+            if not member:
+                SharedListMember.objects.create(
+                    shared_list=room,
+                    guest_token=guest_token,
+                    guest_name=guest_name or 'Miembro',
+                    role='guest'
+                )
+            else:
+                member.guest_name = guest_name
+                member.save(update_fields=['guest_name', 'last_active_at'])
+        except Exception:
+            pass
+
+    @sync_to_async
+    def update_member_progress_db(self, room_id: str, guest_name: str, guest_token: str, episodes_watched: int):
+        try:
+            room = SharedList.objects.get(id=room_id)
+            member = None
+            if guest_token:
+                member = room.members.filter(guest_token=guest_token).first()
+            if not member and guest_name:
+                member = room.members.filter(guest_name=guest_name).first()
+
+            if not member:
+                SharedListMember.objects.create(
+                    shared_list=room,
+                    guest_token=guest_token,
+                    guest_name=guest_name or 'Miembro',
+                    role='member',
+                    episodes_watched=episodes_watched
+                )
+            else:
+                member.episodes_watched = episodes_watched
+                member.save(update_fields=['episodes_watched', 'last_active_at'])
+            return True
+        except Exception:
+            return False
+
+    @sync_to_async
+    def set_group_target_db(self, room_id: str, episode: int):
+        try:
+            room = SharedList.objects.get(id=room_id)
+            room.current_episode = episode
+            if room.status in ('selected', 'voting'):
+                room.status = 'watching'
+            room.save(update_fields=['current_episode', 'status', 'updated_at'])
+            return True
+        except Exception:
+            return False
+
+    @sync_to_async
+    def schedule_session_db(self, room_id: str, next_session_date: Optional[str], session_notes: str):
+        try:
+            room = SharedList.objects.get(id=room_id)
+            room.next_session_date = next_session_date or None
+            room.session_notes = session_notes
+            room.save(update_fields=['next_session_date', 'session_notes', 'updated_at'])
+            return True
+        except Exception:
+            return False
 
     @sync_to_async
     def get_room_summary(self, room_id: str) -> Optional[Dict[str, Any]]:
@@ -243,13 +399,49 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
                 'suggested_by': c.suggested_by,
             })
 
+        target_ep = room.current_episode
+        members_data = []
+        catchup_data = []
+        for m in room.members.all():
+            behind = max(0, target_ep - m.episodes_watched)
+            if m.episodes_watched > target_ep:
+                status_str = 'adelantado'
+            elif m.episodes_watched == target_ep:
+                status_str = 'al_dia'
+            else:
+                status_str = 'atrasado'
+
+            member_dict = {
+                'id': str(m.id),
+                'guest_name': m.guest_name,
+                'guest_token': m.guest_token,
+                'role': m.role,
+                'episodes_watched': m.episodes_watched,
+                'episodes_behind': behind,
+                'sync_status': status_str,
+                'last_active_at': m.last_active_at.isoformat() if m.last_active_at else None,
+            }
+            members_data.append(member_dict)
+            if behind > 0:
+                catchup_data.append({
+                    'id': str(m.id),
+                    'guest_name': m.guest_name,
+                    'episodes_watched': m.episodes_watched,
+                    'episodes_behind': behind,
+                })
+
         return {
             'id': str(room.id),
             'name': room.name,
             'description': room.description,
             'status': room.status,
             'invite_code': room.invite_code,
+            'current_episode': room.current_episode,
+            'next_session_date': room.next_session_date.isoformat() if room.next_session_date else None,
+            'session_notes': room.session_notes,
             'members_count': room.members.count(),
+            'members': members_data,
+            'catchup_members': catchup_data,
             'candidates': candidates_data,
             'selected_anime': {
                 'mal_id': room.selected_anime.mal_id,
@@ -257,70 +449,6 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
                 'image_url': room.selected_anime.image_url,
                 'score': float(room.selected_anime.score) if room.selected_anime.score is not None else None,
                 'episodes': room.selected_anime.episodes,
+                'synopsis': room.selected_anime.synopsis[:300] if room.selected_anime.synopsis else '',
             } if room.selected_anime else None
         }
-
-    async def get_or_create_playback(self, room_id: str, room_data: Dict[str, Any]) -> Dict[str, Any]:
-        cache_key = get_playback_cache_key(room_id)
-        playback = cache.get(cache_key)
-        if not playback:
-            playback = {
-                'is_playing': False,
-                'current_time': 0.0,
-                'last_sync_timestamp': time.time(),
-                'episode': 1,
-                'speed': 1.0,
-                'host_name': self.user_name,
-                'total_duration': (room_data.get('selected_anime') or {}).get('episodes', 24) * 1440,
-            }
-            cache.set(cache_key, playback, timeout=86400)
-        return playback
-
-    async def get_authoritative_playback(self, room_id: str) -> Dict[str, Any]:
-        cache_key = get_playback_cache_key(room_id)
-        playback = cache.get(cache_key) or {
-            'is_playing': False,
-            'current_time': 0.0,
-            'last_sync_timestamp': time.time(),
-            'episode': 1,
-            'speed': 1.0,
-            'host_name': self.user_name,
-        }
-
-        # Si estaba reproduciendo, calcular el tiempo transcurrido en el servidor
-        if playback.get('is_playing'):
-            elapsed = (time.time() - playback.get('last_sync_timestamp', time.time())) * playback.get('speed', 1.0)
-            playback['current_time'] = round(playback.get('current_time', 0.0) + elapsed, 2)
-            playback['last_sync_timestamp'] = time.time()
-            cache.set(cache_key, playback, timeout=86400)
-
-        return playback
-
-    async def handle_playback_action(self, action: str, content: Dict[str, Any]) -> Dict[str, Any]:
-        cache_key = get_playback_cache_key(self.room_id)
-        playback = await self.get_authoritative_playback(self.room_id)
-        now = time.time()
-
-        if action == 'request_play':
-            playback['is_playing'] = True
-            playback['last_sync_timestamp'] = now
-            if 'time' in content:
-                playback['current_time'] = max(0.0, float(content['time']))
-
-        elif action == 'request_pause':
-            playback['is_playing'] = False
-            playback['last_sync_timestamp'] = now
-            if 'time' in content:
-                playback['current_time'] = max(0.0, float(content['time']))
-
-        elif action == 'request_seek':
-            playback['current_time'] = max(0.0, float(content.get('time', 0.0)))
-            playback['last_sync_timestamp'] = now
-
-        elif action == 'request_episode':
-            playback['episode'] = max(1, int(content.get('episode', 1)))
-            playback['current_time'] = 0.0
-            playback['last_sync_timestamp'] = now
-
-        cache.set(cache_key, playback, timeout=86400)
-        return playback

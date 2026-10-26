@@ -1,9 +1,9 @@
 /**
- * Custom Hook Reactivo para Watch Parties y Sincronización en Tiempo Real
- * Pilar 1.2 (Capa de Lógica / Hooks) y Pilar 3 (Coordinación en Tiempo Real) de AGENTS.md.
+ * Custom Hook Reactivo para Watch Parties y Conteo Grupal de Capítulos
+ * Pilar 1.2 (Capa de Lógica / Hooks) y Pilar 3 (Coordinación Grupal en Tiempo Real) de AGENTS.md.
  * 
  * Implementa:
- * - Server-Authoritative Pattern para sincronización de reproducción y timestamp.
+ * - Sincronización en tiempo real del progreso de cada miembro y la meta del grupo.
  * - Heartbeat (ping/pong) periódico para medición de latencia de red en tiempo real.
  * - Reconexión automática con exponential backoff y resincronización delta.
  * - Buffer de chat y reacciones animadas en vivo.
@@ -12,21 +12,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import type {
     RoomSummary,
-    RoomPlaybackState,
     ChatMessage,
     FloatingReaction,
     ConnectionStatus,
 } from '../services/watchPartyApi'
-
-const DEFAULT_PLAYBACK: RoomPlaybackState = {
-    is_playing: false,
-    current_time: 0,
-    last_sync_timestamp: 0,
-    episode: 1,
-    speed: 1.0,
-    host_name: 'Anfitrión',
-    total_duration: 1440,
-}
+import {
+    updateMyProgressApi,
+    setGroupEpisodeApi,
+    scheduleGroupSessionApi,
+} from '../services/watchPartyApi'
 
 interface UseWatchPartyOptions {
     roomId: string
@@ -44,8 +38,6 @@ export function useWatchParty({
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting')
     const [latencyMs, setLatencyMs] = useState<number | null>(null)
     const [room, setRoom] = useState<RoomSummary | null>(null)
-    const [playback, setPlayback] = useState<RoomPlaybackState>(DEFAULT_PLAYBACK)
-    const [displayTime, setDisplayTime] = useState<number>(0)
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
     const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([])
 
@@ -54,31 +46,6 @@ export function useWatchParty({
     const reconnectTimeoutRef = useRef<number | null>(null)
     const pingIntervalRef = useRef<number | null>(null)
     const isMountedRef = useRef<boolean>(true)
-
-    // Sincronizar displayTime cuando cambia el playback autoritativo
-    useEffect(() => {
-        setDisplayTime(playback.current_time)
-    }, [playback.current_time, playback.is_playing])
-
-    // Timer local de alta frecuencia para avanzar displayTime si is_playing es true
-    useEffect(() => {
-        if (!playback.is_playing) return
-
-        const interval = setInterval(() => {
-            setDisplayTime((prev) => {
-                const now = Date.now() / 1000
-                const elapsedSinceLastSync = (now - playback.last_sync_timestamp) * playback.speed
-                const authoritativeTime = playback.current_time + Math.max(0, elapsedSinceLastSync)
-                // Si la desviación local excede 1.5s, forzamos corrección suave hacia el servidor
-                if (Math.abs(prev - authoritativeTime) > 1.5) {
-                    return authoritativeTime
-                }
-                return prev + 0.25 * playback.speed
-            })
-        }, 250)
-
-        return () => clearInterval(interval)
-    }, [playback.is_playing, playback.current_time, playback.last_sync_timestamp, playback.speed])
 
     // Función segura para enviar payloads JSON
     const sendJson = useCallback((payload: Record<string, any>) => {
@@ -98,107 +65,177 @@ export function useWatchParty({
             wsRef.current = null
         }
 
-        const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        const wsHost = import.meta.env.VITE_WS_HOST || '127.0.0.1:8000'
-        const url = `${wsProto}//${wsHost}/ws/rooms/${roomId}/?name=${encodeURIComponent(userName)}&token=${encodeURIComponent(userToken)}`
+        const wsHost = window.location.hostname || '127.0.0.1'
+        const wsPort = 8000 // Daphne/Django ASGI port
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const params = new URLSearchParams({
+            name: userName,
+            token: userToken,
+        })
+        const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}/ws/rooms/${roomId}/?${params.toString()}`
 
-        setConnectionStatus((prev) => (prev === 'connected' ? 'reconnecting' : 'connecting'))
+        try {
+            const socket = new WebSocket(wsUrl)
+            wsRef.current = socket
 
-        const ws = new WebSocket(url)
-        wsRef.current = ws
+            socket.onopen = () => {
+                if (!isMountedRef.current) return
+                setConnectionStatus('connected')
+                reconnectAttemptsRef.current = 0
 
-        ws.onopen = () => {
-            if (!isMountedRef.current) return
-            setConnectionStatus('connected')
-            reconnectAttemptsRef.current = 0
-
-            // Iniciar Heartbeat cada 15 segundos
-            if (pingIntervalRef.current) clearInterval(pingIntervalRef.current)
-            pingIntervalRef.current = window.setInterval(() => {
-                sendJson({ action: 'ping', client_time: Date.now() })
-            }, 15000)
-
-            // Si es reconexión, pedir sincronización delta
-            sendJson({ action: 'sync_request' })
-        }
-
-        ws.onmessage = (event) => {
-            if (!isMountedRef.current) return
-            try {
-                const data = JSON.parse(event.data)
-                const type = data.type
-
-                if (type === 'pong') {
-                    const clientTime = Number(data.client_time)
-                    if (clientTime) {
-                        const roundTrip = Date.now() - clientTime
-                        setLatencyMs(roundTrip)
+                // Iniciar Heartbeat cada 15 segundos
+                if (pingIntervalRef.current) clearInterval(pingIntervalRef.current)
+                pingIntervalRef.current = window.setInterval(() => {
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({ action: 'ping', client_time: Date.now() }))
                     }
-                } else if (type === 'room_init' || type === 'sync_response') {
-                    if (data.room) setRoom(data.room)
-                    if (data.playback) setPlayback(data.playback)
-                } else if (type === 'playback_state') {
-                    if (data.playback) setPlayback(data.playback)
-                } else if (type === 'room_state_updated') {
-                    if (data.room) setRoom(data.room)
-                } else if (type === 'chat_message') {
-                    const newMsg: ChatMessage = {
-                        id: `chat-${Date.now()}-${Math.random()}`,
-                        sender: data.sender || 'Anónimo',
-                        text: data.text || '',
-                        timestamp: data.timestamp || Date.now() / 1000,
-                    }
-                    setChatMessages((prev) => [...prev.slice(-49), newMsg])
-                } else if (type === 'reaction') {
-                    const newReaction: FloatingReaction = {
-                        id: `reaction-${Date.now()}-${Math.random()}`,
-                        sender: data.sender || 'Anónimo',
-                        emoji: data.emoji || '❤️',
-                        timestamp: Date.now(),
-                        xPos: 15 + Math.random() * 70, // Posición horizontal aleatoria (15% a 85%)
-                    }
-                    setFloatingReactions((prev) => [...prev.slice(-15), newReaction])
-                } else if (type === 'member_joined' || type === 'member_left') {
-                    // Notificación en el feed del chat
-                    const sysMsg: ChatMessage = {
-                        id: `sys-${Date.now()}-${Math.random()}`,
-                        sender: 'Sistema',
-                        text: `${data.member_name} ${type === 'member_joined' ? 'se unió a la sala' : 'salió de la sala'}.`,
-                        timestamp: data.timestamp || Date.now() / 1000,
-                    }
-                    setChatMessages((prev) => [...prev.slice(-49), sysMsg])
-                }
-            } catch (err) {
-                console.error('Error al procesar mensaje de WebSocket:', err)
+                }, 15000)
             }
-        }
 
-        ws.onclose = () => {
-            if (!isMountedRef.current) return
+            socket.onmessage = (event) => {
+                if (!isMountedRef.current) return
+                try {
+                    const data = JSON.parse(event.data)
+
+                    // 1. Inicialización
+                    if (data.type === 'room_init') {
+                        if (data.room) setRoom(data.room)
+                        setChatMessages((prev) => [
+                            ...prev,
+                            {
+                                id: `sys-init-${Date.now()}`,
+                                sender: 'Sistema',
+                                text: data.message || `Conectado a la sala en tiempo real.`,
+                                timestamp: Date.now() / 1000,
+                            },
+                        ])
+                    }
+
+                    // 2. Respuesta de Sincronización Delta
+                    if (data.type === 'sync_response' || data.type === 'room_state_updated') {
+                        if (data.room) setRoom(data.room)
+                    }
+
+                    // 3. Progreso de un Miembro Actualizado
+                    if (data.type === 'member_progress_updated') {
+                        if (data.room) setRoom(data.room)
+                    }
+
+                    // 4. Meta Grupal Actualizada
+                    if (data.type === 'group_target_updated') {
+                        if (data.room) setRoom(data.room)
+                    }
+
+                    // 5. Sesión Agendada
+                    if (data.type === 'session_scheduled') {
+                        if (data.room) setRoom(data.room)
+                    }
+
+                    // 6. Miembro se unió / salió
+                    if (data.type === 'member_joined') {
+                        if (data.room) setRoom(data.room)
+                        setChatMessages((prev) => [
+                            ...prev,
+                            {
+                                id: `join-${Date.now()}`,
+                                sender: 'Sistema',
+                                text: `${data.member_name} se unió a la sala.`,
+                                timestamp: data.timestamp || Date.now() / 1000,
+                            },
+                        ])
+                    }
+
+                    if (data.type === 'member_left') {
+                        setChatMessages((prev) => [
+                            ...prev,
+                            {
+                                id: `left-${Date.now()}`,
+                                sender: 'Sistema',
+                                text: `${data.member_name} salió de la sala.`,
+                                timestamp: data.timestamp || Date.now() / 1000,
+                            },
+                        ])
+                    }
+
+                    // 7. Chat en Vivo
+                    if (data.type === 'chat_message') {
+                        setChatMessages((prev) => [
+                            ...prev.slice(-100), // Buffer máximo de 100 mensajes
+                            {
+                                id: `chat-${Date.now()}-${Math.random()}`,
+                                sender: data.sender || 'Invitado',
+                                text: data.text || '',
+                                timestamp: data.timestamp || Date.now() / 1000,
+                            },
+                        ])
+                    }
+
+                    // 8. Reacción Flotante en Pantalla
+                    if (data.type === 'reaction') {
+                        const newReaction: FloatingReaction = {
+                            id: `react-${Date.now()}-${Math.random()}`,
+                            sender: data.sender || 'Invitado',
+                            emoji: data.emoji || '❤️',
+                            timestamp: Date.now(),
+                            xPos: Math.floor(Math.random() * 80) + 10,
+                        }
+                        setFloatingReactions((prev) => [...prev.slice(-15), newReaction])
+
+                        // Remover después de 2.8s
+                        setTimeout(() => {
+                            if (!isMountedRef.current) return
+                            setFloatingReactions((prev) => prev.filter((r) => r.id !== newReaction.id))
+                        }, 2800)
+                    }
+
+                    // 9. Pong / Medición de Latencia
+                    if (data.type === 'pong' && data.client_time) {
+                        const rtt = Date.now() - data.client_time
+                        setLatencyMs(rtt)
+                    }
+
+                    // 10. Rate Limit Warning
+                    if (data.type === 'rate_limit_exceeded') {
+                        setChatMessages((prev) => [
+                            ...prev,
+                            {
+                                id: `warn-${Date.now()}`,
+                                sender: 'Sistema',
+                                text: `⚠️ ${data.message}`,
+                                timestamp: Date.now() / 1000,
+                            },
+                        ])
+                    }
+                } catch (err) {
+                    console.error('Error parseando mensaje WebSocket:', err)
+                }
+            }
+
+            socket.onerror = () => {
+                if (!isMountedRef.current) return
+                setConnectionStatus('reconnecting')
+            }
+
+            socket.onclose = () => {
+                if (!isMountedRef.current) return
+                setConnectionStatus('reconnecting')
+                if (pingIntervalRef.current) clearInterval(pingIntervalRef.current)
+
+                // Reconexión con Exponential Backoff (1s, 2s, 4s, hasta máx 10s)
+                const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000)
+                reconnectAttemptsRef.current += 1
+
+                reconnectTimeoutRef.current = window.setTimeout(() => {
+                    if (isMountedRef.current) {
+                        connect()
+                    }
+                }, delay)
+            }
+        } catch (e) {
+            console.error('Error instanciando WebSocket:', e)
             setConnectionStatus('disconnected')
-
-            if (pingIntervalRef.current) {
-                clearInterval(pingIntervalRef.current)
-                pingIntervalRef.current = null
-            }
-
-            // Exponential Backoff: 1s, 2s, 4s, 8s, máx 10s
-            const attempts = reconnectAttemptsRef.current
-            const delay = Math.min(1000 * Math.pow(2, attempts), 10000)
-            reconnectAttemptsRef.current += 1
-
-            setConnectionStatus('reconnecting')
-            reconnectTimeoutRef.current = window.setTimeout(() => {
-                if (isMountedRef.current) {
-                    connect()
-                }
-            }, delay)
         }
-
-        ws.onerror = (err) => {
-            console.warn('Alerta en conexión WebSocket de Watch Party:', err)
-        }
-    }, [enabled, roomId, userName, userToken, sendJson])
+    }, [roomId, userName, userToken, enabled])
 
     useEffect(() => {
         isMountedRef.current = true
@@ -206,69 +243,116 @@ export function useWatchParty({
 
         return () => {
             isMountedRef.current = false
+            if (pingIntervalRef.current) clearInterval(pingIntervalRef.current)
+            if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current)
             if (wsRef.current) {
                 wsRef.current.close()
-            }
-            if (pingIntervalRef.current) {
-                clearInterval(pingIntervalRef.current)
-            }
-            if (reconnectTimeoutRef.current) {
-                clearTimeout(reconnectTimeoutRef.current)
+                wsRef.current = null
             }
         }
     }, [connect])
 
-    // Limpieza de reacciones flotantes tras 3 segundos
-    useEffect(() => {
-        if (floatingReactions.length === 0) return
-        const timer = setTimeout(() => {
-            setFloatingReactions((prev) => prev.filter((r) => Date.now() - r.timestamp < 3000))
-        }, 1000)
-        return () => clearTimeout(timer)
-    }, [floatingReactions])
+    // ==============================================================
+    // Despacho de Acciones de Coordinación Grupal
+    // ==============================================================
 
-    // Métodos de control autoritativo de reproducción (Server-Authoritative)
-    const play = useCallback((time?: number) => {
-        sendJson({ action: 'request_play', time: time ?? displayTime })
-    }, [sendJson, displayTime])
+    const updateMyProgress = useCallback(
+        async (episodesWatched: number) => {
+            const sent = sendJson({
+                action: 'update_progress',
+                episodes_watched: episodesWatched,
+            })
+            if (!sent && roomId) {
+                // Fallback HTTP si el socket se encuentra desconectado
+                try {
+                    const updated = await updateMyProgressApi(roomId, {
+                        guest_token: userToken,
+                        guest_name: userName,
+                        episodes_watched: episodesWatched,
+                    })
+                    setRoom(updated)
+                } catch (e) {
+                    console.error('Error actualizando progreso por HTTP:', e)
+                }
+            }
+        },
+        [sendJson, roomId, userToken, userName]
+    )
 
-    const pause = useCallback((time?: number) => {
-        sendJson({ action: 'request_pause', time: time ?? displayTime })
-    }, [sendJson, displayTime])
+    const setGroupTarget = useCallback(
+        async (episode: number) => {
+            const sent = sendJson({
+                action: 'set_group_target',
+                episode: episode,
+            })
+            if (!sent && roomId) {
+                try {
+                    const updated = await setGroupEpisodeApi(roomId, episode)
+                    setRoom(updated)
+                } catch (e) {
+                    console.error('Error actualizando meta grupal por HTTP:', e)
+                }
+            }
+        },
+        [sendJson, roomId]
+    )
 
-    const seek = useCallback((targetTime: number) => {
-        sendJson({ action: 'request_seek', time: Math.max(0, targetTime) })
-    }, [sendJson])
+    const scheduleSession = useCallback(
+        async (nextSessionDate: string | null, sessionNotes: string) => {
+            const sent = sendJson({
+                action: 'schedule_session',
+                next_session_date: nextSessionDate,
+                session_notes: sessionNotes,
+            })
+            if (!sent && roomId) {
+                try {
+                    const updated = await scheduleGroupSessionApi(roomId, {
+                        next_session_date: nextSessionDate,
+                        session_notes: sessionNotes,
+                    })
+                    setRoom(updated)
+                } catch (e) {
+                    console.error('Error agendando sesión por HTTP:', e)
+                }
+            }
+        },
+        [sendJson, roomId]
+    )
 
-    const changeEpisode = useCallback((episode: number) => {
-        sendJson({ action: 'request_episode', episode: Math.max(1, episode) })
-    }, [sendJson])
+    const sendChat = useCallback(
+        (text: string) => {
+            if (!text.trim()) return
+            sendJson({
+                action: 'chat_message',
+                text: text.trim(),
+            })
+        },
+        [sendJson]
+    )
 
-    const sendChat = useCallback((text: string) => {
-        if (!text.trim()) return
-        sendJson({ action: 'chat_message', text: text.trim() })
-    }, [sendJson])
-
-    const sendReaction = useCallback((emoji: string) => {
-        sendJson({ action: 'reaction', emoji })
-    }, [sendJson])
+    const sendReaction = useCallback(
+        (emoji: string) => {
+            sendJson({
+                action: 'reaction',
+                emoji,
+            })
+        },
+        [sendJson]
+    )
 
     const refreshRoom = useCallback(() => {
-        sendJson({ action: 'room_refresh' })
+        sendJson({ action: 'sync_request' })
     }, [sendJson])
 
     return {
-        room,
-        playback,
-        displayTime,
         connectionStatus,
         latencyMs,
+        room,
         chatMessages,
         floatingReactions,
-        play,
-        pause,
-        seek,
-        changeEpisode,
+        updateMyProgress,
+        setGroupTarget,
+        scheduleSession,
         sendChat,
         sendReaction,
         refreshRoom,

@@ -1,279 +1,697 @@
-/**
- * Sala de Votación y Watch Party en Tiempo Real (Pilar 3 de AGENTS.md).
- * Orquestado por useWatchParty (WebSocket autoritativo, Daphne y Django Channels).
- */
-
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
-    Play,
-    Pause,
-    RotateCcw,
     Users,
-    Send,
-    Smile,
-    Check,
-    Sparkles,
     Tv,
+    CheckCircle2,
+    AlertTriangle,
+    Calendar,
+    Clock,
+    Plus,
     Copy,
+    Check,
     MessageSquare,
+    Send,
+    Radio,
+    Sparkles,
+    RefreshCw,
+    ShieldAlert,
+    PartyPopper,
+    Share2,
+    CalendarPlus,
 } from 'lucide-react'
 import { useWatchParty } from '../../hooks/useWatchParty'
+import {
+    fetchRoomByCode,
+    selectWinningAnimeApi,
+} from '../../services/watchPartyApi'
 import { useAuth } from '../../context/AuthContext'
 
-const REACTION_EMOJIS = ['❤️', '🔥', '😱', '🍿', '👏', '✨', '😭', '🎉']
+const QUICK_EMOJIS = ['🍿', '🎉', '🔥', '👏', '😱', '❤️']
 
-function formatTime(seconds: number): string {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-}
-
-export function WatchPartyRoom() {
+export const WatchPartyRoom: React.FC = () => {
     const { user } = useAuth()
-    const [activeRoomId, setActiveRoomId] = useState<string>('')
-    const [availableRooms, setAvailableRooms] = useState<any[]>([])
-    const [joinCodeInput, setJoinCodeInput] = useState<string>('')
-    const [newRoomName, setNewRoomName] = useState<string>('')
-    const [copied, setCopied] = useState<boolean>(false)
-    const [chatInput, setChatInput] = useState<string>('')
-    const chatEndRef = useRef<HTMLDivElement>(null)
+    const [roomCodeInput, setRoomCodeInput] = useState('')
+    const [currentRoomId, setCurrentRoomId] = useState<string>('')
+    const [copied, setCopied] = useState(false)
+    const [chatInput, setChatInput] = useState('')
+    const [showScheduleModal, setShowScheduleModal] = useState(false)
+    const [scheduleDate, setScheduleDate] = useState('')
+    const [scheduleNotes, setScheduleNotes] = useState('')
+    const [errorMessage, setErrorMessage] = useState<string | null>(null)
+    const [isLoadingRoom, setIsLoadingRoom] = useState(false)
 
-    // Cargar lista de salas disponibles desde el backend REST
+    const chatScrollRef = useRef<HTMLDivElement>(null)
+
+    // Si el usuario está autenticado, usar su nombre y token
+    const userName = user?.display_name || user?.username || 'Invitado'
+    const userToken = user ? `user_${user.id}` : 'guest_anon'
+
+    // Cargar sala por código inicial si viene en URL hash o buscar una sala por defecto
     useEffect(() => {
-        fetch('http://127.0.0.1:8000/api/groups/', { credentials: 'include' })
-            .then((res) => res.json())
-            .then((data) => {
-                const results = Array.isArray(data) ? data : data.results || []
-                setAvailableRooms(results)
-                if (results.length > 0 && !activeRoomId) {
-                    setActiveRoomId(results[0].id)
-                }
-            })
-            .catch((err) => console.error('Error al cargar salas:', err))
+        const hash = window.location.hash
+        const match = hash.match(/sala[=/]([a-zA-Z0-9_-]+)/i)
+        const initialCode = match ? match[1] : ''
+
+        if (initialCode) {
+            handleJoinByCode(initialCode)
+        } else {
+            // Intentar cargar la primera sala disponible del backend para demostración inmediata
+            fetchFirstAvailableRoom()
+        }
     }, [])
 
+    const fetchFirstAvailableRoom = async () => {
+        setIsLoadingRoom(true)
+        try {
+            const res = await fetch('/api/groups/lists/')
+            if (res.ok) {
+                const data = await res.json()
+                const rooms = Array.isArray(data) ? data : data.results || []
+                if (rooms.length > 0) {
+                    setCurrentRoomId(rooms[0].id)
+                }
+            }
+        } catch (e) {
+            console.error('Error cargando lista de salas:', e)
+        } finally {
+            setIsLoadingRoom(false)
+        }
+    }
+
+    const handleJoinByCode = async (codeToJoin?: string) => {
+        const code = (codeToJoin || roomCodeInput).trim().toUpperCase()
+        if (!code) return
+        setErrorMessage(null)
+        setIsLoadingRoom(true)
+        try {
+            const foundRoom = await fetchRoomByCode(code)
+            setCurrentRoomId(foundRoom.id)
+            setRoomCodeInput('')
+            window.location.hash = `#sala/${foundRoom.invite_code}`
+        } catch (e: any) {
+            setErrorMessage(e.message || 'No se encontró una sala con ese código')
+        } finally {
+            setIsLoadingRoom(false)
+        }
+    }
+
+    // Hook principal de tiempo real
     const {
-        room,
-        playback,
-        displayTime,
         connectionStatus,
         latencyMs,
+        room,
         chatMessages,
         floatingReactions,
-        play,
-        pause,
-        seek,
-        changeEpisode,
+        updateMyProgress,
+        setGroupTarget,
+        scheduleSession,
         sendChat,
         sendReaction,
         refreshRoom,
     } = useWatchParty({
-        roomId: activeRoomId,
-        userName: user?.display_name || user?.username || 'Invitado',
-        userToken: user?.id || 'guest-token',
-        enabled: Boolean(activeRoomId),
+        roomId: currentRoomId,
+        userName,
+        userToken,
+        enabled: Boolean(currentRoomId),
     })
 
     // Scroll automático del chat
     useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        if (chatScrollRef.current) {
+            chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
+        }
     }, [chatMessages])
 
     const handleCopyInvite = () => {
         if (!room) return
-        navigator.clipboard.writeText(room.invite_code)
+        const inviteUrl = `${window.location.origin}/#sala/${room.invite_code}`
+        navigator.clipboard.writeText(inviteUrl)
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
     }
 
-    const handleCreateRoom = async (e: React.FormEvent) => {
+    const handleSendChatSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        if (!newRoomName.trim()) return
-
-        try {
-            const res = await fetch('http://127.0.0.1:8000/api/groups/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    name: newRoomName.trim(),
-                    creator_name: user?.display_name || user?.username || 'Anfitrión',
-                }),
-            })
-            if (res.ok) {
-                const nuevaSala = await res.json()
-                setAvailableRooms((prev) => [nuevaSala, ...prev])
-                setActiveRoomId(nuevaSala.id)
-                setNewRoomName('')
-            }
-        } catch (err) {
-            console.error('Error al crear sala:', err)
-        }
+        if (!chatInput.trim()) return
+        sendChat(chatInput)
+        setChatInput('')
     }
 
-    const handleJoinByCode = async (e: React.FormEvent) => {
+    const handleSaveSchedule = (e: React.FormEvent) => {
         e.preventDefault()
-        if (!joinCodeInput.trim()) return
-
-        try {
-            const res = await fetch(
-                `http://127.0.0.1:8000/api/groups/by_code/?code=${encodeURIComponent(joinCodeInput.trim())}`,
-                { credentials: 'include' }
-            )
-            if (res.ok) {
-                const sala = await res.json()
-                setActiveRoomId(sala.id)
-                setJoinCodeInput('')
-            } else {
-                alert('No se encontró una sala con ese código.')
-            }
-        } catch (err) {
-            console.error('Error al unirse por código:', err)
-        }
+        scheduleSession(scheduleDate || null, scheduleNotes)
+        setShowScheduleModal(false)
     }
 
-    const handleVoteCandidate = async (candidateId: string, score: number) => {
-        if (!activeRoomId) return
+    const handleSelectWinnerCandidate = async (animeId: number) => {
+        if (!currentRoomId) return
         try {
-            await fetch(`http://127.0.0.1:8000/api/groups/${activeRoomId}/vote/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    candidate_id: candidateId,
-                    voter_name: user?.display_name || user?.username || 'Invitado',
-                    interest_score: score,
-                }),
-            })
+            await selectWinningAnimeApi(currentRoomId, animeId)
             refreshRoom()
-        } catch (err) {
-            console.error('Error al emitir voto:', err)
+        } catch (e) {
+            console.error('Error seleccionando anime ganador:', e)
         }
     }
 
-    const animeActual = room?.selected_anime || {
-        mal_id: 1,
-        title: 'Cowboy Bebop (Sesión Sincronizada)',
-        image_url: 'https://cdn.myanimelist.net/images/anime/4/19644.jpg',
-        episodes: 26,
-    }
+    // Buscar información del miembro actual en la sala
+    const currentMember = room?.members?.find(
+        (m) => m.guest_token === userToken || m.guest_name === userName
+    )
+    const myWatched = currentMember?.episodes_watched || 0
+    const groupTarget = room?.current_episode || 1
+    const totalEpisodes = room?.selected_anime?.episodes || 12
 
-    const totalDuracion = 1440 // 24 minutos estándar por episodio en segundos
-    const progresoPorcentaje = Math.min(100, (displayTime / totalDuracion) * 100)
+    // Cálculo de zona libre de spoilers: el capítulo de la persona más atrasada
+    const minWatchedInGroup = room?.members && room.members.length > 0
+        ? Math.min(...room.members.map((m) => m.episodes_watched))
+        : 0
+
+    // Porcentaje de avance de la meta del grupo
+    const groupProgressPercent = Math.min(100, Math.round((groupTarget / totalEpisodes) * 100))
 
     return (
-        <div className="container-fluid px-3 px-lg-5 py-4" style={{ minHeight: '85vh' }}>
-            {/* Cabecera Superior: Selector de Sala & Estado en Tiempo Real */}
-            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 pb-3 mb-4 border-bottom border-dark">
+        <div className="container-fluid py-4 px-md-5" style={{ minHeight: '88vh' }}>
+            {/* Header de la Sala & Controles Rápidos */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-3 border-bottom border-dark">
                 <div>
                     <div className="d-flex align-items-center gap-2 mb-1">
+                        <span className="badge bg-primary text-uppercase px-2 py-1" style={{ fontSize: '0.7rem' }}>
+                            Watch Party & Conteo Grupal
+                        </span>
+                        {/* Indicador de Conexión en Tiempo Real */}
                         <span
-                            className="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1 text-white font-mono"
-                            style={{
-                                backgroundColor:
-                                    connectionStatus === 'connected'
-                                        ? 'rgba(16, 185, 129, 0.2)'
-                                        : connectionStatus === 'reconnecting'
-                                        ? 'rgba(245, 158, 11, 0.2)'
-                                        : 'rgba(239, 68, 68, 0.2)',
-                                border:
-                                    connectionStatus === 'connected'
-                                        ? '1px solid #10B981'
-                                        : connectionStatus === 'reconnecting'
-                                        ? '1px solid #F59E0B'
-                                        : '1px solid #EF4444',
-                                fontSize: '0.72rem',
-                            }}
+                            className={`badge d-flex align-items-center gap-1.5 px-2.5 py-1 ${
+                                connectionStatus === 'connected'
+                                    ? 'bg-success text-white'
+                                    : connectionStatus === 'reconnecting'
+                                    ? 'bg-warning text-dark'
+                                    : 'bg-secondary text-white'
+                            }`}
+                            style={{ fontSize: '0.72rem' }}
                         >
-                            <span
-                                style={{
-                                    width: 7,
-                                    height: 7,
-                                    borderRadius: '50%',
-                                    backgroundColor:
-                                        connectionStatus === 'connected'
-                                            ? '#10B981'
-                                            : connectionStatus === 'reconnecting'
-                                            ? '#F59E0B'
-                                            : '#EF4444',
-                                    animation: connectionStatus === 'connected' ? 'pulse 2s infinite' : 'none',
-                                }}
-                            />
+                            <Radio size={12} className={connectionStatus === 'connected' ? 'text-white' : ''} />
                             {connectionStatus === 'connected'
                                 ? `EN VIVO ${latencyMs !== null ? `(${latencyMs}ms)` : ''}`
                                 : connectionStatus === 'reconnecting'
                                 ? 'RECONECTANDO...'
                                 : 'DESCONECTADO'}
                         </span>
-                        <span className="text-secondary small font-mono">
-                            Daphne WebSocket / Channels v4
-                        </span>
                     </div>
-                    <h2 className="text-white fw-bold mb-0" style={{ fontSize: '1.5rem' }}>
-                        {room?.name || 'Sala de Watch Party'}
-                    </h2>
+
+                    <h1 className="h3 text-white fw-bold mb-1">
+                        {room ? room.name : 'Coordinación de Anime con Amigos'}
+                    </h1>
+                    <p className="text-secondary small mb-0">
+                        {room?.description || 'Organicen qué ver juntos y lleven el conteo de capítulos para que nadie se quede atrás.'}
+                    </p>
                 </div>
 
                 <div className="d-flex flex-wrap align-items-center gap-2">
-                    {/* Selector de salas activas */}
-                    {availableRooms.length > 0 && (
-                        <select
-                            className="form-select form-select-sm bg-dark text-white border-secondary font-mono"
-                            style={{ width: 'auto', minWidth: 200, fontSize: '0.8rem' }}
-                            value={activeRoomId}
-                            onChange={(e) => setActiveRoomId(e.target.value)}
-                            aria-label="Seleccionar sala activa"
-                        >
-                            {availableRooms.map((r) => (
-                                <option key={r.id} value={r.id}>
-                                    {r.name} [{r.invite_code}]
-                                </option>
-                            ))}
-                        </select>
-                    )}
-
-                    {/* Copiar código de sala */}
+                    {/* Código de Invitación */}
                     {room && (
-                        <button
-                            type="button"
-                            onClick={handleCopyInvite}
-                            className="btn btn-outline-light btn-sm d-flex align-items-center gap-1.5 font-mono"
-                            style={{ fontSize: '0.8rem' }}
-                            title="Copiar código de invitación"
+                        <div
+                            className="d-flex align-items-center gap-2 px-3 py-2 rounded-2"
+                            style={{ backgroundColor: '#1A1A1A', border: '1px solid #333' }}
                         >
-                            {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
-                            <span>Código: {room.invite_code}</span>
-                        </button>
+                            <Share2 size={16} className="text-primary" />
+                            <span className="text-secondary small">Código:</span>
+                            <span className="text-white fw-mono fw-bold">{room.invite_code}</span>
+                            <button
+                                type="button"
+                                onClick={handleCopyInvite}
+                                className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1 py-0 px-2"
+                                title="Copiar link de invitación"
+                            >
+                                {copied ? <Check size={13} className="text-success" /> : <Copy size={13} />}
+                                <span style={{ fontSize: '0.75rem' }}>{copied ? 'Copiado' : 'Copiar'}</span>
+                            </button>
+                        </div>
                     )}
 
-                    {/* Formulario rápido para unirse con código */}
-                    <form onSubmit={handleJoinByCode} className="d-flex align-items-center gap-1">
+                    {/* Unirse por código */}
+                    <div className="d-flex gap-1">
                         <input
                             type="text"
-                            placeholder="CÓDIGO"
-                            value={joinCodeInput}
-                            onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                            className="form-control form-control-sm bg-dark text-white border-secondary font-mono text-center"
-                            style={{ width: 90, fontSize: '0.8rem' }}
-                            maxLength={8}
+                            placeholder="CÓDIGO DE SALA"
+                            value={roomCodeInput}
+                            onChange={(e) => setRoomCodeInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleJoinByCode()}
+                            className="form-control form-control-sm text-uppercase font-mono bg-dark text-white border-secondary"
+                            style={{ width: 140 }}
                         />
-                        <button type="submit" className="btn btn-primary btn-sm px-2.5">
-                            Unirse
+                        <button
+                            type="button"
+                            onClick={() => handleJoinByCode()}
+                            disabled={isLoadingRoom || !roomCodeInput.trim()}
+                            className="btn btn-sm btn-primary"
+                        >
+                            Unirme
                         </button>
-                    </form>
+                    </div>
+
+                    {/* Botón Refrescar */}
+                    <button
+                        type="button"
+                        onClick={refreshRoom}
+                        className="btn btn-sm btn-outline-secondary"
+                        title="Refrescar estado de la sala"
+                    >
+                        <RefreshCw size={14} />
+                    </button>
                 </div>
             </div>
 
-            {/* Layout Principal: Reproductor Sincronizado + Chat & Votación */}
+            {errorMessage && (
+                <div className="alert alert-danger py-2 px-3 small d-flex justify-content-between align-items-center">
+                    <span>{errorMessage}</span>
+                    <button type="button" className="btn-close btn-close-white" onClick={() => setErrorMessage(null)} />
+                </div>
+            )}
+
+            {/* Layout Principal: 8 columnas contenido y 4 columnas Chat & Actividad */}
             <div className="row g-4">
-                {/* Columna Izquierda: Reproductor de Watch Party Autoritativo */}
-                <div className="col-12 col-lg-8">
+                {/* Columna Izquierda: Coordinación, Seguimiento de Capítulos y Anime */}
+                <div className="col-12 col-lg-8 d-flex flex-column gap-4">
+                    {/* Tarjeta del Anime Seleccionado o Aviso de Votación */}
+                    {room?.selected_anime ? (
+                        <div
+                            className="p-3 p-md-4 rounded-3 d-flex flex-column flex-sm-row gap-4 align-items-center align-items-sm-start"
+                            style={{
+                                backgroundColor: '#111',
+                                border: '1px solid #282828',
+                                background: 'linear-gradient(135deg, rgba(255,107,0,0.07) 0%, rgba(17,17,17,0.95) 100%)',
+                            }}
+                        >
+                            <img
+                                src={room.selected_anime.image_url}
+                                alt={room.selected_anime.title}
+                                className="rounded-3 shadow-lg object-fit-cover"
+                                style={{ width: 120, height: 170, flexShrink: 0 }}
+                            />
+                            <div className="flex-grow-1">
+                                <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                    <span className="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5">
+                                        Anime Activo del Grupo
+                                    </span>
+                                    {room.selected_anime.score && (
+                                        <span className="text-warning small fw-semibold">
+                                            ★ {room.selected_anime.score} / 10
+                                        </span>
+                                    )}
+                                    <span className="text-secondary small">
+                                        • {totalEpisodes} Capítulos en total
+                                    </span>
+                                </div>
+                                <h2 className="h4 text-white fw-bold mb-2">{room.selected_anime.title}</h2>
+                                <p className="text-secondary small mb-3 line-clamp-3">
+                                    {room.selected_anime.synopsis || 'Disfruten de esta serie juntos. Cada miembro puede marcar su avance para coordinar la siguiente sesión.'}
+                                </p>
+
+                                <div className="d-flex flex-wrap align-items-center gap-3">
+                                    <span className="text-white small fw-semibold">
+                                        Progreso de la serie:
+                                    </span>
+                                    <div className="progress flex-grow-1" style={{ height: 10, maxWidth: 220, backgroundColor: '#222' }}>
+                                        <div
+                                            className="progress-bar bg-primary"
+                                            role="progressbar"
+                                            style={{ width: `${groupProgressPercent}%` }}
+                                        />
+                                    </div>
+                                    <span className="text-primary fw-mono small fw-bold">
+                                        Cap {groupTarget} de {totalEpisodes} ({groupProgressPercent}%)
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        /* Si no hay anime seleccionado todavía: Fase de Elección / Votación */
+                        <div
+                            className="p-4 rounded-3 text-center"
+                            style={{ backgroundColor: '#141414', border: '1px dashed #3A3A3A' }}
+                        >
+                            <Tv size={36} className="text-primary mb-2 opacity-75" />
+                            <h3 className="h5 text-white fw-bold mb-1">Aún no han seleccionado un anime para ver</h3>
+                            <p className="text-secondary small mb-3">
+                                Voten por los candidatos postulados para calcular el consenso grupal y decidir qué serie comenzarán a ver.
+                            </p>
+                            {room?.candidates && room.candidates.length > 0 ? (
+                                <div className="row g-3 text-start mt-2">
+                                    {room.candidates.map((cand) => (
+                                        <div key={cand.id} className="col-12 col-md-6">
+                                            <div
+                                                className="p-3 rounded-2 h-100 d-flex gap-3 align-items-center"
+                                                style={{ backgroundColor: '#1B1B1B', border: '1px solid #333' }}
+                                            >
+                                                <img
+                                                    src={cand.image_url}
+                                                    alt={cand.title}
+                                                    className="rounded-1 object-fit-cover"
+                                                    style={{ width: 50, height: 70 }}
+                                                />
+                                                <div className="flex-grow-1 overflow-hidden">
+                                                    <h4 className="text-white small fw-bold mb-1 text-truncate">{cand.title}</h4>
+                                                    <div className="text-secondary small mb-2">
+                                                        Interés: <span className="text-warning fw-bold">{cand.avg_interest}/10</span> ({cand.votes_count} votos)
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleSelectWinnerCandidate(cand.anime_id)}
+                                                        className="btn btn-xs btn-outline-primary py-0.5 px-2"
+                                                        style={{ fontSize: '0.75rem' }}
+                                                    >
+                                                        Elegir como Ganador
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-secondary small fst-italic">No hay candidatos nominados todavía.</p>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Meta Grupal y Próxima Sesión */}
                     <div
-                        className="position-relative rounded-3 overflow-hidden shadow-lg border border-dark"
+                        className="p-3 p-md-4 rounded-3 d-flex flex-column gap-3"
+                        style={{ backgroundColor: '#121212', border: '1px solid #242424' }}
+                    >
+                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div className="d-flex align-items-center gap-2">
+                                <Sparkles size={18} className="text-primary" />
+                                <span className="text-white fw-bold">Meta del Grupo & Sesión de Visualización</span>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setShowScheduleModal(true)}
+                                className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1.5"
+                            >
+                                <CalendarPlus size={14} />
+                                <span>Agendar Próxima Sesión</span>
+                            </button>
+                        </div>
+
+                        <div className="row g-3 align-items-center">
+                            {/* Meta del Grupo Actual */}
+                            <div className="col-12 col-md-6">
+                                <div
+                                    className="p-3 rounded-2 d-flex justify-content-between align-items-center"
+                                    style={{ backgroundColor: '#181818', border: '1px solid #2B2B2B' }}
+                                >
+                                    <div>
+                                        <span className="text-secondary small d-block mb-1">Capítulo Objetivo del Grupo</span>
+                                        <div className="d-flex align-items-baseline gap-2">
+                                            <span className="text-white h3 fw-bold mb-0 font-mono">Capítulo {groupTarget}</span>
+                                            <span className="text-secondary small font-mono">/ {totalEpisodes}</span>
+                                        </div>
+                                    </div>
+                                    <div className="d-flex gap-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setGroupTarget(Math.max(1, groupTarget - 1))}
+                                            disabled={groupTarget <= 1}
+                                            className="btn btn-sm btn-outline-secondary px-2"
+                                            title="Retroceder meta"
+                                        >
+                                            -1
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setGroupTarget(groupTarget + 1)}
+                                            className="btn btn-sm btn-primary px-3 fw-bold"
+                                            title="Avanzar meta al siguiente capítulo"
+                                        >
+                                            +1 Siguiente
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Próxima Sesión Agendada */}
+                            <div className="col-12 col-md-6">
+                                <div
+                                    className="p-3 rounded-2 h-100 d-flex flex-column justify-content-center"
+                                    style={{ backgroundColor: '#181818', border: '1px solid #2B2B2B' }}
+                                >
+                                    <span className="text-secondary small d-flex align-items-center gap-1 mb-1">
+                                        <Calendar size={13} className="text-warning" />
+                                        Próxima Reunión / Watch Party:
+                                    </span>
+                                    {room?.next_session_date ? (
+                                        <div>
+                                            <div className="text-white fw-bold d-flex align-items-center gap-1">
+                                                <Clock size={14} className="text-primary" />
+                                                {new Date(room.next_session_date).toLocaleString('es-ES', {
+                                                    weekday: 'short',
+                                                    day: 'numeric',
+                                                    month: 'short',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                })}
+                                            </div>
+                                            {room.session_notes && (
+                                                <div className="text-secondary small mt-1 text-truncate">
+                                                    💬 {room.session_notes}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <span className="text-secondary small fst-italic">
+                                            Sin fecha fijada. ¡Haz clic en agendar para definir día y hora!
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ALERTA DE CATCH-UP: ¿Quiénes deben ponerse al día? */}
+                    {room?.catchup_members && room.catchup_members.length > 0 ? (
+                        <div
+                            className="p-3 rounded-3 d-flex flex-column gap-2"
+                            style={{
+                                backgroundColor: 'rgba(255, 170, 0, 0.08)',
+                                border: '1px solid rgba(255, 170, 0, 0.3)',
+                            }}
+                        >
+                            <div className="d-flex align-items-center gap-2 text-warning fw-bold">
+                                <AlertTriangle size={18} />
+                                <span>¡Faltan por ponerse al día con el Capítulo {groupTarget}!</span>
+                            </div>
+                            <p className="text-secondary small mb-2">
+                                Para que todos puedan disfrutar juntos la próxima sesión sin spoilers, estos amigos necesitan ver los capítulos pendientes:
+                            </p>
+                            <div className="d-flex flex-wrap gap-2">
+                                {room.catchup_members.map((cm) => (
+                                    <div
+                                        key={cm.id}
+                                        className="d-flex align-items-center gap-2 px-3 py-1.5 rounded-2"
+                                        style={{ backgroundColor: '#1C160B', border: '1px solid #4A3510' }}
+                                    >
+                                        <span className="text-white fw-semibold small">{cm.guest_name}</span>
+                                        <span className="badge bg-warning text-dark font-mono" style={{ fontSize: '0.72rem' }}>
+                                            {cm.episodes_behind} {cm.episodes_behind === 1 ? 'cap pendiente' : 'caps pendientes'}
+                                        </span>
+                                        <span className="text-secondary small font-mono">
+                                            (va en el cap {cm.episodes_watched})
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div
+                            className="p-3 rounded-3 d-flex align-items-center gap-2.5 text-success"
+                            style={{
+                                backgroundColor: 'rgba(25, 135, 84, 0.08)',
+                                border: '1px solid rgba(25, 135, 84, 0.25)',
+                            }}
+                        >
+                            <PartyPopper size={20} />
+                            <span className="small fw-semibold">
+                                ¡Excelente! Todos los miembros de la sala están al día con la meta del grupo (Capítulo {groupTarget}).
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Mi Control Rápido de Progreso Personal */}
+                    <div
+                        className="p-3 p-md-4 rounded-3 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3"
                         style={{
-                            backgroundColor: '#050505',
-                            aspectRatio: '16/9',
-                            maxHeight: '65vh',
+                            backgroundColor: '#161616',
+                            border: '1px solid #2E2E2E',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                        }}
+                    >
+                        <div>
+                            <span className="text-secondary small text-uppercase fw-semibold mb-1 d-block">
+                                Tu Progreso Individual ({userName})
+                            </span>
+                            <div className="d-flex align-items-center gap-3">
+                                <span className="h3 text-white fw-bold mb-0 font-mono">
+                                    Capítulo {myWatched}
+                                </span>
+                                <span
+                                    className={`badge px-2.5 py-1 ${
+                                        myWatched >= groupTarget
+                                            ? myWatched > groupTarget
+                                                ? 'bg-info text-dark'
+                                                : 'bg-success text-white'
+                                            : 'bg-warning text-dark'
+                                    }`}
+                                >
+                                    {myWatched >= groupTarget
+                                        ? myWatched > groupTarget
+                                            ? '🚀 Adelantado'
+                                            : '✅ Al día'
+                                        : `⚠️ Atrasado por ${groupTarget - myWatched} caps`}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="d-flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => updateMyProgress(Math.max(0, myWatched - 1))}
+                                disabled={myWatched <= 0}
+                                className="btn btn-sm btn-outline-secondary px-2.5"
+                                title="Desmarcar capítulo anterior"
+                            >
+                                -1
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => updateMyProgress(myWatched + 1)}
+                                className="btn btn-primary d-flex align-items-center gap-1.5 px-3 py-2 fw-semibold"
+                            >
+                                <Plus size={16} />
+                                <span>¡Ya vi el Capítulo {myWatched + 1}!</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Tabla de Miembros y Estado de Avance */}
+                    <div
+                        className="rounded-3 overflow-hidden"
+                        style={{ backgroundColor: '#121212', border: '1px solid #242424' }}
+                    >
+                        <div className="p-3 border-bottom border-dark d-flex justify-content-between align-items-center">
+                            <div className="d-flex align-items-center gap-2">
+                                <Users size={16} className="text-primary" />
+                                <span className="text-white fw-semibold small">
+                                    Conteo de Capítulos por Miembro ({room?.members?.length || 0})
+                                </span>
+                            </div>
+                            <span className="text-secondary small font-mono">
+                                Meta: Cap {groupTarget}
+                            </span>
+                        </div>
+
+                        <div className="p-3 d-flex flex-column gap-2.5">
+                            {room?.members && room.members.length > 0 ? (
+                                room.members.map((member) => {
+                                    const percent = Math.min(100, Math.round((member.episodes_watched / totalEpisodes) * 100))
+                                    const isMe = member.guest_token === userToken || member.guest_name === userName
+
+                                    return (
+                                        <div
+                                            key={member.id}
+                                            className="p-3 rounded-2 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2"
+                                            style={{
+                                                backgroundColor: isMe ? '#1A1A1A' : '#151515',
+                                                border: isMe ? '1px solid rgba(255,107,0,0.3)' : '1px solid #222',
+                                            }}
+                                        >
+                                            <div className="d-flex align-items-center gap-2.5" style={{ minWidth: 160 }}>
+                                                <div
+                                                    className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white font-mono"
+                                                    style={{
+                                                        width: 34,
+                                                        height: 34,
+                                                        backgroundColor: isMe ? '#FF6B00' : '#2A2A2A',
+                                                        fontSize: '0.85rem',
+                                                    }}
+                                                >
+                                                    {member.guest_name.slice(0, 2).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <div className="d-flex align-items-center gap-1.5">
+                                                        <span className="text-white fw-semibold small">
+                                                            {member.guest_name}
+                                                        </span>
+                                                        {isMe && <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Tú</span>}
+                                                        {member.role === 'owner' && (
+                                                            <span className="badge bg-warning text-dark" style={{ fontSize: '0.65rem' }}>
+                                                                Anfitrión
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-secondary" style={{ fontSize: '0.72rem' }}>
+                                                        {member.last_active_at ? 'Activo recientemente' : 'En la sala'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Barra y conteo individual */}
+                                            <div className="flex-grow-1 mx-sm-3 d-flex align-items-center gap-2" style={{ maxWidth: 240 }}>
+                                                <div className="progress flex-grow-1" style={{ height: 6, backgroundColor: '#262626' }}>
+                                                    <div
+                                                        className={`progress-bar ${
+                                                            member.sync_status === 'atrasado'
+                                                                ? 'bg-warning'
+                                                                : 'bg-success'
+                                                        }`}
+                                                        style={{ width: `${percent}%` }}
+                                                    />
+                                                </div>
+                                                <span className="text-secondary small font-mono" style={{ fontSize: '0.75rem', width: 65 }}>
+                                                    {member.episodes_watched}/{totalEpisodes}
+                                                </span>
+                                            </div>
+
+                                            {/* Badge de sincronización */}
+                                            <div>
+                                                {member.sync_status === 'al_dia' && (
+                                                    <span className="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1 px-2 py-1">
+                                                        <CheckCircle2 size={12} />
+                                                        <span>Al día (Cap {member.episodes_watched})</span>
+                                                    </span>
+                                                )}
+                                                {member.sync_status === 'atrasado' && (
+                                                    <span className="badge bg-warning-subtle text-warning border border-warning-subtle d-inline-flex align-items-center gap-1 px-2 py-1">
+                                                        <AlertTriangle size={12} />
+                                                        <span>Atrasado (-{member.episodes_behind})</span>
+                                                    </span>
+                                                )}
+                                                {member.sync_status === 'adelantado' && (
+                                                    <span className="badge bg-info-subtle text-info border border-info-subtle d-inline-flex align-items-center gap-1 px-2 py-1">
+                                                        <span>🚀 Adelantado (Cap {member.episodes_watched})</span>
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )
+                                })
+                            ) : (
+                                <div className="text-center text-secondary py-3 small">
+                                    No hay miembros registrados aún. Comparte el código de la sala con tus amigos.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Columna Derecha: Chat en Tiempo Real y Reacciones Flotantes */}
+                <div className="col-12 col-lg-4">
+                    <div
+                        className="rounded-3 d-flex flex-column overflow-hidden position-relative"
+                        style={{
+                            backgroundColor: '#0D0D0D',
+                            border: '1px solid #242424',
+                            height: '680px',
                         }}
                     >
                         {/* Overlay de Reacciones Flotantes */}
@@ -284,12 +702,12 @@ export function WatchPartyRoom() {
                             {floatingReactions.map((r) => (
                                 <span
                                     key={r.id}
-                                    className="position-absolute fs-1"
+                                    className="position-absolute"
                                     style={{
                                         left: `${r.xPos}%`,
-                                        bottom: '20px',
-                                        animation: 'floatUp 2.8s ease-out forwards',
-                                        userSelect: 'none',
+                                        bottom: '60px',
+                                        fontSize: '2rem',
+                                        animation: 'floatUp 2.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards',
                                     }}
                                 >
                                     {r.emoji}
@@ -297,233 +715,43 @@ export function WatchPartyRoom() {
                             ))}
                         </div>
 
-                        {/* Lienzo / Pantalla Simulada del Anime */}
-                        <div
-                            className="w-100 h-100 d-flex flex-column justify-content-center align-items-center position-relative"
-                            style={{
-                                backgroundImage: `radial-gradient(circle at center, rgba(14, 165, 233, 0.12), rgba(0, 0, 0, 0.88)), url(${animeActual.image_url})`,
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center',
-                            }}
-                        >
-                            <div className="text-center p-4 z-1" style={{ maxWidth: 560 }}>
-                                <div className="badge bg-primary bg-opacity-75 font-mono mb-2 px-3 py-1 text-uppercase">
-                                    Episodio {playback.episode} · {playback.is_playing ? 'Reproduciendo en Grupo' : 'En Pausa'}
-                                </div>
-                                <h3 className="text-white fw-bold mb-2 text-shadow">{animeActual.title}</h3>
-                                <p className="text-white-50 small mb-0 font-mono">
-                                    Control Server-Authoritative · Anfitrión: {playback.host_name}
-                                </p>
-                            </div>
-
-                            {/* Botón flotante central de Play/Pause */}
-                            <button
-                                type="button"
-                                onClick={() => (playback.is_playing ? pause() : play())}
-                                className="btn btn-primary rounded-circle d-flex align-items-center justify-content-center shadow-lg border-0 z-1"
-                                style={{
-                                    width: 68,
-                                    height: 68,
-                                    backgroundColor: playback.is_playing ? '#e8508f' : '#38bdf8',
-                                    transition: 'transform 0.15s ease',
-                                }}
-                            >
-                                {playback.is_playing ? <Pause size={30} fill="#FFFFFF" /> : <Play size={30} fill="#FFFFFF" className="ms-1" />}
-                            </button>
-                        </div>
-
-                        {/* Barra Inferior de Control de Reproducción */}
-                        <div
-                            className="position-absolute bottom-0 start-0 w-100 p-3 z-3"
-                            style={{
-                                background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.4) 70%, transparent 100%)',
-                            }}
-                        >
-                            {/* Barra de progreso interactiva (Seek autoritativo) */}
-                            <div
-                                className="progress mb-2 cursor-pointer position-relative"
-                                style={{ height: 6, backgroundColor: 'rgba(255, 255, 255, 0.2)', cursor: 'pointer' }}
-                                onClick={(e) => {
-                                    const rect = e.currentTarget.getBoundingClientRect()
-                                    const clickX = e.clientX - rect.left
-                                    const ratio = clickX / rect.width
-                                    seek(ratio * totalDuracion)
-                                }}
-                            >
-                                <div
-                                    className="progress-bar"
-                                    style={{
-                                        width: `${progresoPorcentaje}%`,
-                                        backgroundColor: '#38bdf8',
-                                        transition: 'width 0.2s linear',
-                                    }}
-                                />
-                            </div>
-
-                            <div className="d-flex justify-content-between align-items-center text-white small">
-                                <div className="d-flex align-items-center gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => (playback.is_playing ? pause() : play())}
-                                        className="btn btn-link text-white p-0"
-                                    >
-                                        {playback.is_playing ? <Pause size={20} /> : <Play size={20} />}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => seek(0)}
-                                        className="btn btn-link text-secondary p-0"
-                                        title="Reiniciar desde 00:00"
-                                    >
-                                        <RotateCcw size={16} />
-                                    </button>
-                                    <span className="font-mono" style={{ fontSize: '0.78rem' }}>
-                                        {formatTime(displayTime)} / {formatTime(totalDuracion)}
-                                    </span>
-                                </div>
-
-                                <div className="d-flex align-items-center gap-3">
-                                    <div className="d-flex align-items-center gap-1.5">
-                                        <span className="text-secondary small font-mono">Episodio:</span>
-                                        <select
-                                            className="form-select form-select-sm bg-dark text-white border-0 py-0 ps-2 pe-4 font-mono"
-                                            style={{ fontSize: '0.75rem', width: 'auto' }}
-                                            value={playback.episode}
-                                            onChange={(e) => changeEpisode(Number(e.target.value))}
-                                            aria-label="Seleccionar episodio"
-                                        >
-                                            {Array.from({ length: 24 }, (_, i) => (
-                                                <option key={i + 1} value={i + 1}>
-                                                    Ep. {i + 1}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <span className="admin-badge admin-badge-neutral font-mono d-none d-sm-inline">
-                                        {playback.speed}x Velocidad
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Botones de Reacción Rápida (Emojis en Vivo) */}
-                    <div className="d-flex align-items-center justify-content-between gap-2 mt-3 p-2.5 rounded-2" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                        <span className="text-secondary small d-flex align-items-center gap-1.5 font-mono">
-                            <Smile size={16} /> Reacciones en vivo:
-                        </span>
-                        <div className="d-flex gap-1.5">
-                            {REACTION_EMOJIS.map((emoji) => (
-                                <button
-                                    key={emoji}
-                                    type="button"
-                                    onClick={() => sendReaction(emoji)}
-                                    className="btn btn-sm btn-dark border-0 p-1.5 fs-5 hover-lift"
-                                    style={{ backgroundColor: 'transparent' }}
-                                    title={`Reaccionar con ${emoji}`}
-                                >
-                                    {emoji}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Sección de Votación y Candidatos en Vivo */}
-                    <div className="mt-4 p-3.5 rounded-3" style={{ backgroundColor: '#0D0D0D', border: '1px solid #1F1F1F' }}>
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                            <div>
-                                <h5 className="text-white fw-bold mb-0 d-flex align-items-center gap-2">
-                                    <Sparkles size={18} className="text-warning" /> Votación Grupal y Quórum en Vivo
-                                </h5>
-                                <p className="text-secondary small mb-0">
-                                    Los votos actualizan el consenso y felicidad grupal en tiempo real vía WebSockets
-                                </p>
-                            </div>
-                            <span className="badge bg-secondary font-mono">
-                                {room?.candidates?.length || 0} postulados
-                            </span>
-                        </div>
-
-                        {room?.candidates && room.candidates.length > 0 ? (
-                            <div className="row g-3">
-                                {room.candidates.map((c) => (
-                                    <div key={c.id} className="col-12 col-md-6">
-                                        <div
-                                            className="p-3 rounded-2 h-100 d-flex gap-3 align-items-center"
-                                            style={{ backgroundColor: '#141414', border: '1px solid #262626' }}
-                                        >
-                                            <img
-                                                src={c.image_url}
-                                                alt={c.title}
-                                                className="rounded-1 object-fit-cover shadow-sm"
-                                                style={{ width: 56, height: 78 }}
-                                            />
-                                            <div className="flex-grow-1 min-w-0">
-                                                <h6 className="text-white text-truncate fw-semibold mb-1" style={{ fontSize: '0.9rem' }}>
-                                                    {c.title}
-                                                </h6>
-                                                <div className="d-flex align-items-center gap-2 text-secondary small font-mono mb-2">
-                                                    <span>Nota: ⭐ {c.avg_interest}/10</span>
-                                                    <span>&middot;</span>
-                                                    <span>{c.votes_count} votos</span>
-                                                </div>
-                                                <div className="d-flex gap-1">
-                                                    {[1, 5, 8, 10].map((nota) => (
-                                                        <button
-                                                            key={nota}
-                                                            type="button"
-                                                            onClick={() => handleVoteCandidate(c.id, nota)}
-                                                            className="btn btn-outline-secondary btn-sm py-0 px-2 font-mono"
-                                                            style={{ fontSize: '0.7rem' }}
-                                                        >
-                                                            +{nota}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-4 text-secondary small">
-                                <Tv size={28} className="mb-2 opacity-50" />
-                                <p className="mb-0">No hay candidatos en votación activa en esta sala.</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Columna Derecha: Chat en Tiempo Real */}
-                <div className="col-12 col-lg-4">
-                    <div
-                        className="rounded-3 d-flex flex-column overflow-hidden border border-dark"
-                        style={{ backgroundColor: '#0D0D0D', height: '650px' }}
-                    >
                         {/* Cabecera del Chat */}
                         <div className="p-3 border-bottom border-dark d-flex justify-content-between align-items-center">
                             <div className="d-flex align-items-center gap-2">
                                 <MessageSquare size={16} className="text-primary" />
-                                <span className="text-white fw-semibold" style={{ fontSize: '0.9rem' }}>
-                                    Chat de la Sala
-                                </span>
+                                <span className="text-white fw-semibold small">Chat & Coordinación</span>
                             </div>
                             <div className="text-secondary small font-mono d-flex align-items-center gap-1">
-                                <Users size={14} />
-                                <span>{room?.members_count || 1} miembros</span>
+                                <Users size={13} />
+                                <span>{room?.members_count || 1} online</span>
                             </div>
                         </div>
 
-                        {/* Lista de Mensajes con Scroll */}
-                        <div className="flex-grow-1 p-3 overflow-y-auto d-flex flex-column gap-2.5">
+                        {/* Aviso de Spoilers */}
+                        <div
+                            className="px-3 py-1.5 d-flex align-items-center gap-2 border-bottom border-dark"
+                            style={{ backgroundColor: 'rgba(255,255,255,0.02)', fontSize: '0.72rem' }}
+                        >
+                            <ShieldAlert size={13} className="text-warning flex-shrink-0" />
+                            <span className="text-secondary">
+                                Zona libre de spoilers hasta el <strong className="text-white">Capítulo {minWatchedInGroup}</strong> (el más atrasado).
+                            </span>
+                        </div>
+
+                        {/* Mensajes del Chat */}
+                        <div
+                            ref={chatScrollRef}
+                            className="flex-grow-1 p-3 overflow-y-auto d-flex flex-column gap-2"
+                            style={{ scrollBehavior: 'smooth' }}
+                        >
                             {chatMessages.length === 0 ? (
                                 <div className="text-center my-auto text-secondary small font-mono">
-                                    <MessageSquare size={32} className="mx-auto mb-2 opacity-25" />
-                                    <span>¡Sé el primero en enviar un mensaje!</span>
+                                    <MessageSquare size={28} className="mx-auto mb-2 opacity-25" />
+                                    <span>¡Sé el primero en saludar o coordinar la sesión!</span>
                                 </div>
                             ) : (
                                 chatMessages.map((msg) => {
-                                    const isSelf = msg.sender === (user?.display_name || user?.username || 'Invitado')
+                                    const isSelf = msg.sender === userName
                                     const isSys = msg.sender === 'Sistema'
 
                                     if (isSys) {
@@ -543,19 +771,26 @@ export function WatchPartyRoom() {
                                             key={msg.id}
                                             className={`d-flex flex-column ${isSelf ? 'align-items-end' : 'align-items-start'}`}
                                         >
-                                            <span
-                                                className="text-secondary small font-mono mb-0.5"
-                                                style={{ fontSize: '0.68rem' }}
-                                            >
-                                                {msg.sender}
-                                            </span>
+                                            <div className="d-flex align-items-baseline gap-1.5 mb-0.5">
+                                                <span
+                                                    className="fw-semibold text-white font-mono"
+                                                    style={{ fontSize: '0.72rem', color: isSelf ? '#FF6B00' : '#A0A0A0' }}
+                                                >
+                                                    {msg.sender}
+                                                </span>
+                                                <span className="text-secondary" style={{ fontSize: '0.62rem' }}>
+                                                    {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                    })}
+                                                </span>
+                                            </div>
                                             <div
-                                                className="py-1.5 px-3 rounded-3"
+                                                className="py-1.5 px-3 rounded-2 text-white small"
                                                 style={{
+                                                    backgroundColor: isSelf ? '#FF6B00' : '#1C1C1C',
+                                                    border: isSelf ? 'none' : '1px solid #2B2B2B',
                                                     maxWidth: '85%',
-                                                    backgroundColor: isSelf ? '#38bdf8' : '#1F1F1F',
-                                                    color: isSelf ? '#000000' : '#FFFFFF',
-                                                    fontSize: '0.84rem',
                                                     wordBreak: 'break-word',
                                                 }}
                                             >
@@ -565,82 +800,134 @@ export function WatchPartyRoom() {
                                     )
                                 })
                             )}
-                            <div ref={chatEndRef} />
                         </div>
 
-                        {/* Input de Chat */}
-                        <form
-                            onSubmit={(e) => {
-                                e.preventDefault()
-                                if (chatInput.trim()) {
-                                    sendChat(chatInput)
-                                    setChatInput('')
-                                }
-                            }}
-                            className="p-2.5 border-top border-dark d-flex gap-2"
-                        >
+                        {/* Barra de Reacciones Rápidas */}
+                        <div className="px-3 py-1.5 border-top border-dark d-flex justify-content-between align-items-center">
+                            <span className="text-secondary" style={{ fontSize: '0.7rem' }}>
+                                Reaccionar:
+                            </span>
+                            <div className="d-flex gap-1">
+                                {QUICK_EMOJIS.map((emoji) => (
+                                    <button
+                                        key={emoji}
+                                        type="button"
+                                        onClick={() => sendReaction(emoji)}
+                                        className="btn btn-sm btn-dark p-1 border-0"
+                                        style={{ fontSize: '1rem', lineHeight: 1 }}
+                                        title={`Enviar reacción ${emoji}`}
+                                    >
+                                        {emoji}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Formulario de Envío de Chat */}
+                        <form onSubmit={handleSendChatSubmit} className="p-2.5 border-top border-dark d-flex gap-2 bg-black">
                             <input
                                 type="text"
-                                placeholder="Escribe un mensaje en la sala..."
                                 value={chatInput}
                                 onChange={(e) => setChatInput(e.target.value)}
-                                className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
-                                style={{ fontSize: '0.82rem' }}
-                                maxLength={300}
+                                placeholder="Escribe un mensaje..."
+                                className="form-control form-control-sm bg-dark text-white border-secondary"
+                                maxLength={250}
                             />
                             <button
                                 type="submit"
-                                className="btn btn-primary btn-sm px-3 d-flex align-items-center justify-content-center"
                                 disabled={!chatInput.trim()}
+                                className="btn btn-sm btn-primary d-flex align-items-center px-3"
                             >
-                                <Send size={15} />
-                            </button>
-                        </form>
-                    </div>
-
-                    {/* Crear nueva sala */}
-                    <div className="mt-3 p-3 rounded-2" style={{ backgroundColor: '#0D0D0D', border: '1px solid #1F1F1F' }}>
-                        <h6 className="text-white small fw-bold mb-2">Crear nueva Sala de Anime</h6>
-                        <form onSubmit={handleCreateRoom} className="d-flex gap-2">
-                            <input
-                                type="text"
-                                placeholder="Nombre de la sala..."
-                                value={newRoomName}
-                                onChange={(e) => setNewRoomName(e.target.value)}
-                                className="form-control form-control-sm bg-dark text-white border-secondary"
-                                style={{ fontSize: '0.8rem' }}
-                            />
-                            <button type="submit" className="btn btn-outline-light btn-sm text-nowrap">
-                                Crear Sala
+                                <Send size={14} />
                             </button>
                         </form>
                     </div>
                 </div>
             </div>
 
-            {/* Animación CSS para reacciones flotantes */}
+            {/* Modal para Agendar Próxima Sesión */}
+            {showScheduleModal && (
+                <div
+                    className="modal d-block"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+                >
+                    <div className="modal-dialog modal-dialog-centered">
+                        <div className="modal-content bg-dark text-white border border-secondary shadow-lg">
+                            <div className="modal-header border-secondary">
+                                <h5 className="modal-title h6 d-flex align-items-center gap-2">
+                                    <Calendar className="text-primary" size={18} />
+                                    Agendar Próxima Sesión Grupal
+                                </h5>
+                                <button
+                                    type="button"
+                                    className="btn-close btn-close-white"
+                                    onClick={() => setShowScheduleModal(false)}
+                                />
+                            </div>
+                            <form onSubmit={handleSaveSchedule}>
+                                <div className="modal-body d-flex flex-column gap-3">
+                                    <div>
+                                        <label className="form-label small text-secondary">Fecha y Hora de la Sesión</label>
+                                        <input
+                                            type="datetime-local"
+                                            value={scheduleDate}
+                                            onChange={(e) => setScheduleDate(e.target.value)}
+                                            className="form-control bg-black text-white border-secondary"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="form-label small text-secondary">
+                                            Notas o Acuerdos (ej. Canal de Discord, capítulos a ver)
+                                        </label>
+                                        <textarea
+                                            rows={3}
+                                            value={scheduleNotes}
+                                            onChange={(e) => setScheduleNotes(e.target.value)}
+                                            placeholder="Ej: Nos juntamos en Discord a las 21:00. Veremos capítulos 5 y 6."
+                                            className="form-control bg-black text-white border-secondary"
+                                            maxLength={200}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="modal-footer border-secondary">
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-secondary"
+                                        onClick={() => setShowScheduleModal(false)}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button type="submit" className="btn btn-sm btn-primary">
+                                        Guardar y Notificar a la Sala
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Estilos para animación de emojis flotantes */}
             <style>{`
                 @keyframes floatUp {
                     0% {
-                        opacity: 1;
-                        transform: translateY(0) scale(0.8);
+                        transform: translateY(0) scale(0.6);
+                        opacity: 0;
                     }
-                    50% {
+                    15% {
+                        transform: translateY(-20px) scale(1.2);
+                        opacity: 1;
+                    }
+                    80% {
                         opacity: 0.9;
-                        transform: translateY(-120px) scale(1.2);
                     }
                     100% {
+                        transform: translateY(-380px) scale(0.9);
                         opacity: 0;
-                        transform: translateY(-240px) scale(1);
                     }
-                }
-                .hover-lift {
-                    transition: transform 0.15s ease;
-                }
-                .hover-lift:hover {
-                    transform: scale(1.25);
                 }
             `}</style>
         </div>
     )
 }
+export default WatchPartyRoom
