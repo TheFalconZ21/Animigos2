@@ -12,7 +12,9 @@ import time
 from typing import Dict, Any, Optional
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from asgiref.sync import sync_to_async
-from .models import SharedList, SharedListMember
+from .models import SharedList, SharedListMember, SharedListCandidate, SharedListVote
+from animes.models import Anime
+from .services.happiness import calculate_happiness_score
 
 
 class RoomConsumer(AsyncJsonWebsocketConsumer):
@@ -119,7 +121,72 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
             })
             return
 
-        # 3. Actualización de capítulos vistos por un miembro (Conteo individual)
+        # 3. Votación de candidatos en tiempo real (Algoritmo de Felicidad)
+        if action == 'vote_anime':
+            candidate_id = content.get('candidate_id')
+            score = int(content.get('interest_score', 5))
+            voter_id = content.get('voter_id') or self.user_token or self.user_name
+            voter_name = content.get('voter_name') or self.user_name
+            await self.vote_candidate_db(candidate_id, score, voter_id, voter_name)
+            room_data = await self.get_room_summary(self.room_id)
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'broadcast_event',
+                    'event': {
+                        'type': 'room_state_updated',
+                        'room': room_data,
+                        'server_time': now,
+                    }
+                }
+            )
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'broadcast_event',
+                    'event': {
+                        'type': 'chat_message',
+                        'sender': 'Sistema',
+                        'text': f'⭐ {voter_name} votó {score}/10 en una opción.',
+                        'timestamp': now,
+                    }
+                }
+            )
+            return
+
+        # 4. Postular un anime a la votación en tiempo real
+        if action == 'nominate_anime':
+            mal_id = int(content.get('anime_id') or content.get('mal_id', 0))
+            if mal_id > 0:
+                await self.nominate_anime_db(self.room_id, mal_id, self.user_name)
+                room_data = await self.get_room_summary(self.room_id)
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'broadcast_event',
+                        'event': {
+                            'type': 'room_state_updated',
+                            'room': room_data,
+                            'server_time': now,
+                        }
+                    }
+                )
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'broadcast_event',
+                        'event': {
+                            'type': 'chat_message',
+                            'sender': 'Sistema',
+                            'text': f'✨ {self.user_name} postuló un nuevo anime para votar.',
+                            'timestamp': now,
+                        }
+                    }
+                )
+            return
+
+        # 5. Actualización de capítulos vistos por un miembro (Conteo individual)
         if action == 'update_progress':
             episodes_watched = max(0, int(content.get('episodes_watched', 0)))
             await self.update_member_progress_db(self.room_id, self.user_name, self.user_token, episodes_watched)
@@ -161,7 +228,7 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
             )
             return
 
-        # 4. Actualización del objetivo/capítulo grupal (Meta del grupo)
+        # 6. Actualización del objetivo/capítulo grupal (Meta del grupo)
         if action == 'set_group_target':
             target_ep = max(1, int(content.get('episode', 1)))
             await self.set_group_target_db(self.room_id, target_ep)
@@ -194,7 +261,7 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
             )
             return
 
-        # 5. Programar próxima sesión grupal
+        # 7. Programar próxima sesión grupal
         if action == 'schedule_session':
             next_date = content.get('next_session_date')
             notes = str(content.get('session_notes', '')).strip()
@@ -226,7 +293,7 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
             )
             return
 
-        # 6. Chat en vivo con Rate Limiting (Pilar 3.2: máx 5 mensajes en 2s)
+        # 8. Chat en vivo con Rate Limiting (Pilar 3.2: máx 5 mensajes en 2s)
         if action == 'chat_message':
             text = str(content.get('text', '')).strip()[:300]
             if not text:
@@ -256,7 +323,7 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
             )
             return
 
-        # 7. Reacciones animadas con Rate Limiting (máx 8 reacciones en 3s)
+        # 9. Reacciones animadas con Rate Limiting (máx 8 reacciones en 3s)
         if action == 'reaction':
             emoji = str(content.get('emoji', '❤️'))[:10]
             self.last_reaction_timestamps = [t for t in self.last_reaction_timestamps if now - t < 3.0]
@@ -279,7 +346,7 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
             )
             return
 
-        # 8. Actualización general de la sala (votos, candidatos, anime seleccionado)
+        # 10. Actualización general de la sala (votos, candidatos, anime seleccionado)
         if action == 'room_refresh':
             room_data = await self.get_room_summary(self.room_id)
             await self.channel_layer.group_send(
@@ -325,6 +392,37 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
                 member.save(update_fields=['guest_name', 'last_active_at'])
         except Exception:
             pass
+
+    @sync_to_async
+    def vote_candidate_db(self, candidate_id: str, score: int, voter_id: str, voter_name: str):
+        try:
+            candidate = SharedListCandidate.objects.get(id=candidate_id)
+            SharedListVote.objects.update_or_create(
+                candidate=candidate,
+                voter_id=voter_id,
+                defaults={
+                    'voter_name': voter_name,
+                    'interest_score': max(0, min(10, score))
+                }
+            )
+            return True
+        except Exception:
+            return False
+
+    @sync_to_async
+    def nominate_anime_db(self, room_id: str, mal_id: int, suggested_by: str):
+        try:
+            room = SharedList.objects.get(id=room_id)
+            anime = Anime.objects.get(mal_id=mal_id)
+            if not SharedListCandidate.objects.filter(shared_list=room, anime=anime).exists():
+                SharedListCandidate.objects.create(
+                    shared_list=room,
+                    anime=anime,
+                    suggested_by=suggested_by
+                )
+            return True
+        except Exception:
+            return False
 
     @sync_to_async
     def update_member_progress_db(self, room_id: str, guest_name: str, guest_token: str, episodes_watched: int):
@@ -383,21 +481,59 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
         except SharedList.DoesNotExist:
             return None
 
+        total_members_count = room.members.count()
         candidates_data = []
         for c in room.candidates.all():
             votes = list(c.votes.all())
             scores = [v.interest_score for v in votes]
             avg_score = round(sum(scores) / len(scores), 1) if scores else 0.0
+            votes_data = [
+                {
+                    "voter_id": v.voter_id,
+                    "voter_name": v.voter_name,
+                    "interest_score": v.interest_score,
+                }
+                for v in votes
+            ]
+            happiness = calculate_happiness_score(
+                votes=votes_data,
+                mal_score=float(c.anime.score) if c.anime.score else None,
+                mal_scored_by=c.anime.scored_by,
+                title=c.anime.title,
+                total_members_count=total_members_count if total_members_count > 0 else 4,
+                episodes_count=c.anime.episodes or 24
+            )
+
             candidates_data.append({
                 'id': str(c.id),
                 'anime_id': c.anime.mal_id,
                 'title': c.anime.title,
                 'image_url': c.anime.image_url,
                 'score': float(c.anime.score) if c.anime.score is not None else None,
+                'episodes': c.anime.episodes,
                 'avg_interest': avg_score,
                 'votes_count': len(votes),
                 'suggested_by': c.suggested_by,
+                'votes': [
+                    {
+                        'id': str(v.id),
+                        'voter_id': v.voter_id,
+                        'voter_name': v.voter_name,
+                        'interest_score': v.interest_score,
+                    }
+                    for v in votes
+                ],
+                'happiness_result': happiness,
             })
+
+        # Ordenar candidatos según el Ranking por Felicidad Grupal descendente
+        candidates_data.sort(
+            key=lambda x: (
+                x.get('happiness_result', {}).get('final_score', 0.0),
+                x.get('avg_interest', 0.0)
+            ),
+            reverse=True
+        )
 
         target_ep = room.current_episode
         members_data = []

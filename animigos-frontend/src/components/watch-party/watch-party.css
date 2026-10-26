@@ -1,0 +1,326 @@
+/* ============================================================
+   SALAS DE VOTACIÓN & COORDINACIÓN GRUPAL (ANIMIGOS)
+   Estética unificada con "Mi Lista":
+   - Color principal negro (#080808)
+   - Títulos limpios sin card
+   - Estética minimalista, alto contraste, sin cards con padding excesivo
+   - Cards compactas de candidatos y tablero de decisión 2D
+   ============================================================ */
+
+.wp-root {
+    --wp-bg: #080808;
+    --wp-surface: #111116;
+    --wp-surface-2: #18181f;
+    --wp-surface-hover: #1e1e27;
+    --wp-border: rgba(255, 255, 255, 0.07);
+    --wp-border-hover: rgba(255, 255, 255, 0.16);
+    --wp-text: #f4f4f5;
+    --wp-text-muted: #a1a1aa;
+    --wp-text-dim: #71717a;
+    --wp-acento: #e8508f;
+    --wp-acento-suave: rgba(232, 80, 143, 0.14);
+    --wp-warning: #fbbf24;
+    --wp-success: #34d399;
+    --wp-danger: #f87171;
+    --wp-radio: 14px;
+
+    background-color: var(--wp-bg);
+    color: var(--wp-text-muted);
+    min-height: 90vh;
+}
+
+/* ---------- Header Limpio (Sin Card) ---------- */
+.wp-header-clean {
+    padding: 1.5rem 0 0;
+    margin-bottom: 2rem;
+}
+
+.wp-header-clean .ml-titulo {
+    color: var(--wp-text);
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.05;
+    margin: 0.35rem 0 0.5rem;
+}
+
+/* ---------- Botones de Alto Contraste ---------- */
+.wp-btn-pill-primary {
+    background-color: #ffffff;
+    color: #0b0b0f !important;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 0.5rem 1.1rem;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.85rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.wp-btn-pill-primary:hover {
+    filter: brightness(0.92);
+    transform: translateY(-1px);
+}
+
+.wp-btn-pill-primary:active {
+    transform: scale(0.98);
+}
+
+.wp-btn-pill-secondary {
+    background-color: var(--wp-surface-2);
+    color: var(--wp-text);
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 0.5rem 0.95rem;
+    border: 1px solid var(--wp-border);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.wp-btn-pill-secondary:hover {
+    background-color: var(--wp-surface-hover);
+    border-color: var(--wp-border-hover);
+    color: #ffffff;
+}
+
+.wp-btn-pill-danger {
+    background: transparent;
+    color: var(--wp-danger);
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid rgba(248, 113, 113, 0.25);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.wp-btn-pill-danger:hover {
+    background-color: rgba(248, 113, 113, 0.12);
+    color: #fca5a5;
+}
+
+/* ---------- Chips y Badges ---------- */
+.wp-chip {
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    color: var(--wp-text-muted);
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.76rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.wp-chip-active {
+    background: rgba(52, 211, 153, 0.1);
+    border-color: rgba(52, 211, 153, 0.3);
+    color: var(--wp-success);
+}
+
+/* ---------- Tarjetas de Salas (Dashboard) ---------- */
+.wp-room-card {
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radio);
+    padding: 1.25rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 180px;
+    transition: border-color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+
+.wp-room-card:hover {
+    border-color: var(--wp-border-hover);
+    background-color: #14141a;
+    transform: translateY(-2px);
+}
+
+.wp-code-box {
+    background: var(--wp-surface-2);
+    border: 1px solid var(--wp-border);
+    border-radius: 8px;
+    padding: 0.25rem 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+}
+
+/* ---------- Candidato de Votación (Fila Compacta Minimalista) ---------- */
+.wp-candidate-row {
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radio);
+    padding: 0.85rem 1.15rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: relative;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.wp-candidate-row:hover {
+    border-color: var(--wp-border-hover);
+    background-color: #14141a;
+}
+
+.wp-rank-indicator {
+    font-family: var(--font-heading, sans-serif);
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: var(--wp-text-dim);
+    min-width: 28px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.wp-rank-indicator.is-top {
+    color: var(--wp-warning);
+}
+
+.wp-candidate-poster-compact {
+    width: 58px;
+    height: 82px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+    border: 1px solid var(--wp-border);
+    background: var(--wp-surface-2);
+}
+
+.wp-consenso-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--wp-border);
+    color: var(--wp-text-muted);
+}
+
+.wp-consenso-tag.tag-ganador {
+    background: rgba(52, 211, 153, 0.1);
+    border-color: rgba(52, 211, 153, 0.3);
+    color: var(--wp-success);
+}
+
+.wp-consenso-tag.tag-polarizado {
+    background: rgba(251, 191, 36, 0.1);
+    border-color: rgba(251, 191, 36, 0.3);
+    color: var(--wp-warning);
+}
+
+/* Slider de Puntuación Minimalista */
+.wp-slider-track {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    background: var(--wp-surface-2);
+    border-radius: 999px;
+    outline: none;
+    cursor: pointer;
+    border: 1px solid var(--wp-border);
+}
+
+.wp-slider-track::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+    transition: transform 0.1s ease;
+}
+
+.wp-slider-track::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+    background: var(--wp-acento);
+}
+
+.wp-score-box {
+    background: var(--wp-surface-2);
+    border: 1px solid var(--wp-border);
+    border-radius: 8px;
+    padding: 0.2rem 0.55rem;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--wp-text);
+    white-space: nowrap;
+}
+
+.wp-happiness-pill {
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.25);
+    border-radius: 10px;
+    padding: 0.5rem 0.85rem;
+    text-align: center;
+    flex-shrink: 0;
+    min-width: 110px;
+}
+
+/* ---------- Tarjetas Métricas Superiores ---------- */
+.wp-metric-card {
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radio);
+    padding: 1.1rem 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: border-color 0.15s ease;
+}
+
+.wp-metric-card:hover {
+    border-color: var(--wp-border-hover);
+}
+
+.wp-metric-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--wp-surface-2);
+    border: 1px solid var(--wp-border);
+    flex-shrink: 0;
+}
+
+/* ---------- Matriz de Decisión 2D ---------- */
+.wp-matrix-container {
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radio);
+    padding: 1.25rem 1.4rem;
+    position: relative;
+}
+
+.wp-quadrant-badge {
+    position: absolute;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border-radius: 6px;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid transparent;
+}

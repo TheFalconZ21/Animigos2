@@ -79,14 +79,14 @@ export function Navbar({ currentView = 'landing', onSelectView }: NavbarProps) {
                         <li className="nav-item">
                             <a
                                 className={`nav-link ${currentView === 'sala' ? 'active text-white' : 'text-secondary'}`}
-                                href="#sala"
+                                href="#listas"
                                 onClick={(e) => {
                                     e.preventDefault()
-                                    window.location.hash = '#sala'
+                                    window.location.hash = '#listas'
                                     onSelectView?.('sala')
                                 }}
                             >
-                                Sala en Vivo & Watch Party
+                                Listas Grupales
                             </a>
                         </li>
                     </ul>

@@ -20,6 +20,9 @@ import {
     updateMyProgressApi,
     setGroupEpisodeApi,
     scheduleGroupSessionApi,
+    voteCandidateApi,
+    nominateCandidateApi,
+    fetchRoomById,
 } from '../services/watchPartyApi'
 
 interface UseWatchPartyOptions {
@@ -340,6 +343,48 @@ export function useWatchParty({
         [sendJson]
     )
 
+    const voteCandidate = useCallback(
+        async (candidateId: string, score: number) => {
+            const sent = sendJson({
+                action: 'vote_anime',
+                candidate_id: candidateId,
+                interest_score: score,
+                voter_id: userToken,
+                voter_name: userName,
+            })
+            if (!sent && roomId) {
+                try {
+                    await voteCandidateApi(roomId, candidateId, score, userToken, userName)
+                    const updated = await fetchRoomById(roomId)
+                    setRoom(updated)
+                } catch (e) {
+                    console.error('Error emitiendo voto vía HTTP:', e)
+                }
+            }
+        },
+        [sendJson, roomId, userToken, userName]
+    )
+
+    const nominateCandidate = useCallback(
+        async (animeId: number) => {
+            const sent = sendJson({
+                action: 'nominate_anime',
+                anime_id: animeId,
+                suggested_by: userName,
+            })
+            if (!sent && roomId) {
+                try {
+                    await nominateCandidateApi(roomId, animeId, userName)
+                    const updated = await fetchRoomById(roomId)
+                    setRoom(updated)
+                } catch (e) {
+                    console.error('Error postulando anime vía HTTP:', e)
+                }
+            }
+        },
+        [sendJson, roomId, userName]
+    )
+
     const refreshRoom = useCallback(() => {
         sendJson({ action: 'sync_request' })
     }, [sendJson])
@@ -353,6 +398,8 @@ export function useWatchParty({
         updateMyProgress,
         setGroupTarget,
         scheduleSession,
+        voteCandidate,
+        nominateCandidate,
         sendChat,
         sendReaction,
         refreshRoom,

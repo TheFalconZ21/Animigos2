@@ -17,7 +17,7 @@ function App() {
         setCurrentView('mi-lista')
       } else if (hash === '#admin') {
         setCurrentView('admin')
-      } else if (hash === '#sala' || hash === '#votacion') {
+      } else if (hash === '#sala' || hash === '#votacion' || hash === '#listas' || hash.startsWith('#sala/')) {
         setCurrentView('sala')
       } else if (hash === '#landing' || hash === '' || hash === '#catalogo') {
         setCurrentView('landing')
