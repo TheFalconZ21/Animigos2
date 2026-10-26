@@ -166,10 +166,23 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
                 Q(score__gte=8.0)
             ).distinct()
 
-        # 12. Ordenación (por defecto Nota MAL descendiente)
-        ordering_param = params.get('ordering')
-        if not ordering_param:
-            qs = qs.order_by('-score', 'popularity')
+        # 12. Ordenación (por defecto Nota MAL descendiente con desempate por miembros)
+        ordering_param = params.get('ordering', '-score')
+        if not ordering_param or ordering_param in ('-score', '-score_mal'):
+            if not q and not min_score:
+                qs = qs.filter(scored_by__gte=100).order_by('-score', '-scored_by')
+            else:
+                qs = qs.order_by('-score', '-scored_by')
+        elif ordering_param == 'score':
+            qs = qs.order_by('score', 'scored_by')
+        elif ordering_param == '-popularity':
+            qs = qs.order_by('-scored_by', '-score')
+        elif ordering_param == '-season_year':
+            qs = qs.order_by('-season_year', '-score')
+        elif ordering_param == 'title':
+            qs = qs.order_by('title')
+        else:
+            qs = qs.order_by(ordering_param)
 
         return qs
 
@@ -199,7 +212,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     def top(self, request):
         """Devuelve los mejores animes por puntuación (en caché por 30 minutos)."""
         limit = int(request.query_params.get('limit', 50))
-        top_animes = Anime.objects.filter(score__isnull=False).order_by('-score', 'popularity')[:limit]
+        top_animes = Anime.objects.filter(score__isnull=False, scored_by__gte=500).order_by('-score', '-scored_by')[:limit]
         serializer = self.get_serializer(top_animes, many=True)
         return Response(serializer.data)
 
