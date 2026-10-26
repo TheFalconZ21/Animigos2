@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Anime, AnimeRecommendation
+from .models import Anime, AnimeRecommendation, AnimeScoreHistory
 
 class AnimeSerializer(serializers.ModelSerializer):
     season_display = serializers.SerializerMethodField()
@@ -74,3 +74,34 @@ class AnimeRecommendationSerializer(serializers.ModelSerializer):
     class Meta:
         model = AnimeRecommendation
         fields = ['id', 'target', 'strength']
+
+
+class AnimeScoreHistorySerializer(serializers.ModelSerializer):
+    period_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AnimeScoreHistory
+        fields = [
+            'id',
+            'year',
+            'month',
+            'recorded_at',
+            'period_label',
+            'score',
+            'scored_by',
+            'members',
+            'rank',
+            'popularity',
+            'favorites',
+        ]
+
+    def get_period_label(self, obj):
+        if obj.month and obj.month != 1:
+            month_names = {
+                1: 'Ene', 2: 'Feb', 3: 'Mar', 4: 'Abr', 5: 'May', 6: 'Jun',
+                7: 'Jul', 8: 'Ago', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dic'
+            }
+            m_abbr = month_names.get(obj.month, f"{obj.month:02d}")
+            return f"{m_abbr} {obj.year}"
+        return str(obj.year)
+

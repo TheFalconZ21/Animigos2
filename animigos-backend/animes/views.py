@@ -6,7 +6,7 @@ from django.db.models import Q, Count
 from django.core.cache import cache
 
 from .models import Anime, AnimeRecommendation
-from .serializers import AnimeSerializer, AnimeRecommendationSerializer
+from .serializers import AnimeSerializer, AnimeRecommendationSerializer, AnimeScoreHistorySerializer
 from core.constants import (
     CACHE_TTL_SHORT,
     CACHE_TTL_MEDIUM,
@@ -263,3 +263,13 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             .order_by('-count')[:50]
         )
         return Response(list(studios_data))
+
+    @action(detail=True, methods=['get'])
+    @cached_api_response(timeout=CACHE_TTL_LONG, prefix='anime_history')
+    def history(self, request, pk=None):
+        """Devuelve la evolución temporal histórica y mensual de la nota del anime."""
+        anime = self.get_object()
+        history_qs = anime.score_history.all().order_by('recorded_at')
+        serializer = AnimeScoreHistorySerializer(history_qs, many=True)
+        return Response(serializer.data)
+

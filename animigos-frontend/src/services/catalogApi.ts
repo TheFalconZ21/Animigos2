@@ -168,3 +168,35 @@ export async function fetchStudios(): Promise<StudioItem[]> {
 
     return response.json()
 }
+
+export interface AnimeScoreHistoryItem {
+    id: number
+    year: number
+    month: number | null
+    recorded_at: string
+    period_label: string
+    score: string | null
+    scored_by: number
+    members: number
+    rank: number | null
+    popularity: number | null
+    favorites: number | null
+}
+
+/**
+ * Obtiene la evolución histórica y mensual de la nota de un anime
+ */
+export async function fetchAnimeScoreHistory(malId: number): Promise<AnimeScoreHistoryItem[]> {
+    const response = await fetch(`${API_BASE_URL}/animes/${malId}/history/`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+    })
+
+    if (!response.ok) {
+        throw new Error(`Error ${response.status} al consultar histórico de notas.`)
+    }
+
+    return response.json()
+}
+

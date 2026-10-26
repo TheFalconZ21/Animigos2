@@ -25,6 +25,7 @@ import { useMyList } from '../../hooks/useMyList'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
 import type { ApiAnimeData } from '../../services/userListApi'
 import { Dialogo } from '../mi-lista/piezas'
+import { AnimeScoreHistoryChart } from './AnimeScoreHistoryChart'
 import './catalogo.css'
 
 const GENRES_DEFAULT = [
@@ -664,7 +665,7 @@ export const AnimeCatalog: React.FC = () => {
                     abierto={selectedAnime !== null}
                     onCerrar={() => setSelectedAnime(null)}
                     etiqueta={selectedAnime ? selectedAnime.title : 'Detalle'}
-                    ancho={540}
+                    ancho={600}
                 >
                     {selectedAnime && (
                         <div className="p-4 d-flex flex-column gap-3">
@@ -710,10 +711,13 @@ export const AnimeCatalog: React.FC = () => {
                             {/* Sinopsis */}
                             <div>
                                 <span className="cat-filter-label">SINOPSIS</span>
-                                <p className="small mb-0 text-secondary" style={{ lineHeight: 1.6, maxHeight: '160px', overflowY: 'auto' }}>
+                                <p className="small mb-0 text-secondary" style={{ lineHeight: 1.6, maxHeight: '110px', overflowY: 'auto' }}>
                                     {selectedAnime.synopsis || 'Sin sinopsis disponible actualmente.'}
                                 </p>
                             </div>
+
+                            {/* Evolución Histórica de la Nota (2018-2026 + Mensual) */}
+                            <AnimeScoreHistoryChart malId={selectedAnime.mal_id} title={selectedAnime.title} />
 
                             {/* Recomendado por amigos */}
                             {selectedAnime.recommended_by && selectedAnime.recommended_by.length > 0 && (

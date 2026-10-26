@@ -61,3 +61,37 @@ class AnimeRecommendation(models.Model):
 
     def __str__(self):
         return f"{self.source.title} -> {self.target.title} ({self.strength} votos)"
+
+
+class AnimeScoreHistory(models.Model):
+    """
+    Registro histórico y evolutivo de calificaciones y métricas de cada anime.
+    Soporta los cortes anuales del dataset (2018–2026) y las actualizaciones
+    mensuales automáticas continuas.
+    """
+    anime = models.ForeignKey(Anime, on_delete=models.CASCADE, related_name='score_history')
+    year = models.PositiveSmallIntegerField(db_index=True)
+    month = models.PositiveSmallIntegerField(
+        null=True, blank=True, db_index=True,
+        help_text="Mes de la captura (1-12) o null para cortes consolidados anuales"
+    )
+    recorded_at = models.DateField(db_index=True, help_text="Fecha de referencia de la captura")
+    score = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    scored_by = models.BigIntegerField(default=0)
+    members = models.BigIntegerField(default=0)
+    rank = models.IntegerField(null=True, blank=True)
+    popularity = models.IntegerField(null=True, blank=True)
+    favorites = models.IntegerField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Histórico de Puntuación"
+        verbose_name_plural = "Históricos de Puntuación"
+        ordering = ['recorded_at']
+        constraints = [
+            models.UniqueConstraint(fields=['anime', 'recorded_at'], name='unique_anime_recorded_at')
+        ]
+
+    def __str__(self):
+        period = f"{self.year}-{self.month:02d}" if self.month else str(self.year)
+        return f"{self.anime_id} [{period}]: ★ {self.score or 'N/A'}"
+
