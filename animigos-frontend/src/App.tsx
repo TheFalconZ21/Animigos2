@@ -4,11 +4,12 @@ import { LoginModal } from './components/LoginModal'
 import { HeroShowcaseBg } from './components/HeroShowcaseBg'
 import { AdminPortal } from './admin/AdminPortal'
 import { MiLista } from './components/mi-lista/MiLista'
+import { WatchPartyRoom } from './components/watch-party/WatchPartyRoom'
 
 function App() {
-  const [currentView, setCurrentView] = useState<'landing' | 'mi-lista' | 'admin'>('landing')
+  const [currentView, setCurrentView] = useState<'landing' | 'mi-lista' | 'admin' | 'sala'>('landing')
 
-  // Soporte de navegación por hash (ej: /#mi-lista o /#admin)
+  // Soporte de navegación por hash (ej: /#mi-lista, /#admin o /#sala)
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash
@@ -16,6 +17,8 @@ function App() {
         setCurrentView('mi-lista')
       } else if (hash === '#admin') {
         setCurrentView('admin')
+      } else if (hash === '#sala' || hash === '#votacion') {
+        setCurrentView('sala')
       } else if (hash === '#landing' || hash === '' || hash === '#catalogo') {
         setCurrentView('landing')
       }
@@ -37,7 +40,42 @@ function App() {
     )
   }
 
-  // 2. Si estamos en la vista "Mi Lista", renderizamos el módulo de listas personales
+  // 2. Si estamos en la vista de Watch Party / Sala en Vivo
+  if (currentView === 'sala') {
+    return (
+      <>
+        <Navbar currentView="sala" onSelectView={setCurrentView} />
+        <main className="py-2">
+          <WatchPartyRoom />
+        </main>
+        <LoginModal />
+
+        {/* Switcher flotante para previsualizar el Admin Portal */}
+        <div className="position-fixed bottom-0 end-0 p-3 z-3">
+          <button
+            type="button"
+            onClick={() => {
+              window.location.hash = '#admin'
+              setCurrentView('admin')
+            }}
+            className="admin-btn d-flex align-items-center gap-2 px-3 py-2 text-white shadow"
+            style={{
+              backgroundColor: '#0A0A0A',
+              border: '1px solid #1F1F1F',
+              borderRadius: '8px',
+              fontSize: '0.78rem',
+              fontFamily: 'var(--font-mono)'
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10B981' }}></span>
+            <span>ADMIN CONSOLE (5 Vistas)</span>
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  // 3. Si estamos en la vista "Mi Lista", renderizamos el módulo de listas personales
   if (currentView === 'mi-lista') {
     return (
       <>
@@ -96,19 +134,30 @@ function App() {
                 Descubre y vota anime en grupo con felicidad garantizada
               </p>
 
-              {/* Botón directo para que los usuarios estándar descubran Mi Lista */}
-              <div className="d-flex justify-content-center gap-3">
+              {/* Botones de acción directa */}
+              <div className="d-flex justify-content-center flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.hash = '#sala'
+                    setCurrentView('sala')
+                  }}
+                  className="btn btn-primary btn-sm px-4 py-2 fw-semibold shadow-sm d-flex align-items-center gap-1.5"
+                  style={{ backgroundColor: '#e8508f', borderColor: '#e8508f' }}
+                >
+                  <span>📺 Watch Party en Vivo</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     window.location.hash = '#mi-lista'
                     setCurrentView('mi-lista')
                   }}
-                  className="btn btn-primary btn-sm px-4 py-2 fw-semibold shadow-sm"
+                  className="btn btn-outline-light btn-sm px-4 py-2 fw-semibold shadow-sm"
                 >
                   Explorar Mi Lista
                 </button>
-                <a href="#catalogo" className="btn btn-outline-light btn-sm px-4 py-2">
+                <a href="#catalogo" className="btn btn-outline-secondary btn-sm px-4 py-2">
                   Ver Catálogo
                 </a>
               </div>

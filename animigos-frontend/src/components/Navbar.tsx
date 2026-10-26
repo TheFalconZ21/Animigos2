@@ -4,8 +4,8 @@ import { LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 interface NavbarProps {
-    currentView?: 'landing' | 'mi-lista'
-    onSelectView?: (view: 'landing' | 'mi-lista') => void
+    currentView?: 'landing' | 'mi-lista' | 'sala'
+    onSelectView?: (view: 'landing' | 'mi-lista' | 'sala') => void
 }
 
 export function Navbar({ currentView = 'landing', onSelectView }: NavbarProps) {
@@ -77,10 +77,17 @@ export function Navbar({ currentView = 'landing', onSelectView }: NavbarProps) {
                             </a>
                         </li>
                         <li className="nav-item">
-                            <a className="nav-link text-secondary" href="#votacion">Sala de Votación</a>
-                        </li>
-                        <li className="nav-item">
-                            <a className="nav-link text-secondary" href="#temporadas">Temporadas</a>
+                            <a
+                                className={`nav-link ${currentView === 'sala' ? 'active text-white' : 'text-secondary'}`}
+                                href="#sala"
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    window.location.hash = '#sala'
+                                    onSelectView?.('sala')
+                                }}
+                            >
+                                Sala en Vivo & Watch Party
+                            </a>
                         </li>
                     </ul>
                 </div>

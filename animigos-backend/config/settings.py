@@ -23,6 +23,8 @@ ALLOWED_HOSTS = ['*'] if DEBUG else os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost
 # Application definition
 
 INSTALLED_APPS = [
+    # Daphne debe ser el primero para tomar control de runserver y soportar WebSockets
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -31,6 +33,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Librerías de terceros
+    'channels',
     'rest_framework',
     'corsheaders',
 
@@ -69,6 +72,14 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    }
+}
+
 
 
 # Database
