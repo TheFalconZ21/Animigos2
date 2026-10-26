@@ -6,8 +6,10 @@ import { AdminPortal } from './admin/AdminPortal'
 import { MiLista } from './components/mi-lista/MiLista'
 import { WatchPartyRoom } from './components/watch-party/WatchPartyRoom'
 import { AnimeCatalog } from './components/catalogo/AnimeCatalog'
+import { useThemeAccent } from './hooks/useThemeAccent'
 
 function App() {
+  useThemeAccent()
   const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'mi-lista' | 'admin' | 'sala'>('catalogo')
 
   // Soporte de navegación por hash (ej: /#catalogo, /#mi-lista, /#admin o /#sala)

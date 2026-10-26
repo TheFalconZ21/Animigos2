@@ -22,6 +22,7 @@ import {
     useStudios,
 } from '../../hooks/useCatalog'
 import { useMyList } from '../../hooks/useMyList'
+import { useThemeAccent } from '../../hooks/useThemeAccent'
 import type { ApiAnimeData } from '../../services/userListApi'
 import { Dialogo } from '../mi-lista/piezas'
 import './catalogo.css'
@@ -65,9 +66,15 @@ const ORDERING_LIST = [
     { id: 'title', label: 'Título (A–Z)' },
 ]
 
+const getRecsText = (recs?: string[] | { user_id: number; username: string }[]) => {
+    if (!recs || !recs.length) return ''
+    return recs.map((r: any) => (typeof r === 'string' ? r : r.username || 'Amigo')).join(', ')
+}
+
 export const AnimeCatalog: React.FC = () => {
-    // --- Capa de Lógica / Estado de Mi Lista ---
+    // --- Capa de Lógica / Estado de Mi Lista y Tema ---
     const { filas, agregarAnime } = useMyList()
+    const { acento } = useThemeAccent()
     const myListIds = useMemo(() => new Set(filas.map((f) => f.malId)), [filas])
 
     // --- Modo de Vista: Top Animes vs De Temporada ---
@@ -192,10 +199,9 @@ export const AnimeCatalog: React.FC = () => {
                 nota: null,
                 episodiosVistos: 0,
                 favorito: false,
-                carpetaId: null,
+                carpetaId: undefined,
                 tags: [],
                 comentario: '',
-                modificado: new Date().toISOString(),
             }, anime)
             setAddedAnimeId(anime.mal_id)
             setTimeout(() => setAddedAnimeId(null), 2500)
@@ -205,7 +211,10 @@ export const AnimeCatalog: React.FC = () => {
     }
 
     return (
-        <section className="cat-root py-4 px-3 px-md-5">
+        <section
+            className="cat-root py-4 px-3 px-md-5"
+            style={{ '--cat-acento': acento, '--ml-acento': acento } as React.CSSProperties}
+        >
             <div className="container-fluid" style={{ maxWidth: '1440px' }}>
                 {/* ---------- Selector de Modo Centrado (Pill Bar) ---------- */}
                 <div className="d-flex justify-content-center mb-4">
@@ -571,10 +580,10 @@ export const AnimeCatalog: React.FC = () => {
                                         {anime.recommended_by && anime.recommended_by.length > 0 && (
                                             <div
                                                 className="cat-friends-recommend"
-                                                title={`Recomendado por: ${anime.recommended_by.join(', ')}`}
+                                                title={`Recomendado por: ${getRecsText(anime.recommended_by)}`}
                                             >
                                                 <Users size={11} className="shrink-0 text-secondary" />
-                                                <span className="truncate">{anime.recommended_by.join(', ')}</span>
+                                                <span className="truncate">{getRecsText(anime.recommended_by)}</span>
                                             </div>
                                         )}
 
@@ -711,7 +720,7 @@ export const AnimeCatalog: React.FC = () => {
                                 <div className="p-2.5 rounded-2 d-flex align-items-center gap-2" style={{ background: 'var(--cat-surface-2)', border: '1px solid var(--cat-border)' }}>
                                     <Sparkles size={15} className="text-warning shrink-0" />
                                     <span className="small text-secondary" style={{ fontSize: '0.76rem' }}>
-                                        Recomendado por: <strong className="text-white">{selectedAnime.recommended_by.join(', ')}</strong>
+                                        Recomendado por: <strong className="text-white">{getRecsText(selectedAnime.recommended_by)}</strong>
                                     </span>
                                 </div>
                             )}

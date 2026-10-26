@@ -1,23 +1,24 @@
 /* ============================================================
    CATÁLOGO DE ANIMES — ANIMIGOS
-   Estética oficial de alta densidad y proporciones óptimas:
-   - Paleta deep obsidian (#070b12 / #0b0f19)
+   Estética oficial minimalista y de alta densidad:
+   - Fondo principal: NEGRO PURO (#080808)
+   - Superficies: Obsidian puro (#111116 / #18181f / #202029)
+   - Acentos dinámicos: Vinculados al tema seleccionado en "Mi Lista" (--ml-acento)
    - Grilla responsive 5 columnas (aspect-ratio 3/4 óptimo)
-   - Badges precisos en esquinas del póster (Ranking, Temporada, MAL score)
-   - Píldoras de amigos y botones de acción limpios
+   - Badges limpios en esquinas del póster (Ranking, Temporada, Score)
    ============================================================ */
 
 .cat-root {
-    --cat-bg: #070b12;
-    --cat-surface: rgba(13, 19, 32, 0.7);
-    --cat-surface-2: #101726;
-    --cat-surface-hover: #162035;
-    --cat-border: rgba(255, 255, 255, 0.08);
-    --cat-border-hover: rgba(255, 255, 255, 0.18);
-    --cat-text: #f8fafc;
-    --cat-text-muted: #94a3b8;
-    --cat-text-dim: #64748b;
-    --cat-acento: #e8508f;
+    --cat-bg: #080808;
+    --cat-surface: #111116;
+    --cat-surface-2: #18181f;
+    --cat-surface-hover: #202029;
+    --cat-border: rgba(255, 255, 255, 0.07);
+    --cat-border-hover: rgba(255, 255, 255, 0.16);
+    --cat-text: #f4f4f5;
+    --cat-text-muted: #a1a1aa;
+    --cat-text-dim: #71717a;
+    --cat-acento: var(--ml-acento, #e8508f);
     --cat-gold: #fcd34d;
     --cat-warning: #f59e0b;
 
@@ -30,12 +31,12 @@
 .cat-mode-pill-bar {
     display: inline-flex;
     align-items: center;
-    background: rgba(10, 15, 26, 0.85);
+    background: #111116;
     border: 1px solid var(--cat-border);
     border-radius: 9999px;
     padding: 4px;
     gap: 4px;
-    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
 }
 
 .cat-mode-pill-btn {
@@ -50,7 +51,7 @@
     background: transparent;
     border: none;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cat-mode-pill-btn:hover {
@@ -58,10 +59,10 @@
 }
 
 .cat-mode-pill-btn.active {
-    background: #cad5e2;
-    color: #05070b;
+    background: var(--cat-acento);
+    color: #0b0b10;
     font-weight: 800;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 2px 14px color-mix(in srgb, var(--cat-acento) 45%, transparent);
 }
 
 /* ---------- Caja de Filtros ---------- */
@@ -70,8 +71,7 @@
     border: 1px solid var(--cat-border);
     border-radius: 18px;
     padding: 1.25rem 1.4rem;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
 }
 
 .cat-filter-title {
@@ -80,7 +80,7 @@
     gap: 6px;
     font-size: 0.78rem;
     font-weight: 700;
-    color: #cbd5e1;
+    color: #f4f4f5;
     letter-spacing: 0.04em;
     margin-bottom: 0.85rem;
 }
@@ -127,20 +127,21 @@
     width: 100%;
     appearance: none;
     padding-right: 1.8rem;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.65rem center;
     cursor: pointer;
-    transition: border-color 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .cat-select:focus {
     outline: none;
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: var(--cat-acento);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--cat-acento) 25%, transparent);
 }
 
 .cat-select option {
-    background: #0d1320;
+    background: #18181f;
     color: #ffffff;
 }
 
@@ -174,12 +175,13 @@
     padding: 0.55rem 0.9rem 0.55rem 2.4rem;
     font-size: 0.84rem;
     width: 100%;
-    transition: border-color 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .cat-search-control:focus {
     outline: none;
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: var(--cat-acento);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--cat-acento) 25%, transparent);
 }
 
 .cat-search-control::placeholder {
@@ -187,20 +189,23 @@
 }
 
 .cat-btn-search {
-    background: #cbd5e2;
-    color: #05070b;
+    background: var(--cat-acento);
+    color: #0b0b10;
     border: none;
     border-radius: 10px;
     padding: 0.55rem 1.4rem;
     font-size: 0.84rem;
     font-weight: 700;
     cursor: pointer;
-    transition: filter 0.15s ease, transform 0.1s ease;
+    transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
     white-space: nowrap;
+    box-shadow: 0 2px 12px color-mix(in srgb, var(--cat-acento) 35%, transparent);
 }
 
 .cat-btn-search:hover {
-    filter: brightness(0.92);
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--cat-acento) 50%, transparent);
 }
 
 .cat-btn-search:active {
@@ -216,7 +221,7 @@
     border-radius: 9999px;
     font-size: 0.74rem;
     font-weight: 600;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--cat-surface-2);
     border: 1px solid var(--cat-border);
     color: var(--cat-text-muted);
     cursor: pointer;
@@ -230,10 +235,11 @@
 }
 
 .cat-toggle-chip.active {
-    background: #ffffff;
-    border-color: #ffffff;
-    color: #05070b;
+    background: var(--cat-acento);
+    border-color: var(--cat-acento);
+    color: #0b0b10;
     font-weight: 800;
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--cat-acento) 35%, transparent);
 }
 
 /* Divisor Fino */
@@ -275,21 +281,20 @@
 .cat-anime-card {
     border-radius: 16px;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    background: rgba(15, 23, 42, 0.55);
-    backdrop-filter: blur(8px);
+    border: 1px solid var(--cat-border);
+    background: var(--cat-surface);
     display: flex;
     flex-direction: column;
     height: 100%;
     transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
     position: relative;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
 .cat-anime-card:hover {
-    transform: scale(1.02);
-    border-color: rgba(255, 255, 255, 0.22);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+    transform: translateY(-4px) scale(1.015);
+    border-color: color-mix(in srgb, var(--cat-acento) 50%, var(--cat-border));
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.75), 0 0 18px color-mix(in srgb, var(--cat-acento) 18%, transparent);
 }
 
 /* Contenedor del Póster con Aspect Ratio 3/4 */
@@ -298,7 +303,7 @@
     aspect-ratio: 3 / 4;
     width: 100%;
     overflow: hidden;
-    background: #0a0f1d;
+    background: #080808;
     cursor: pointer;
 }
 
@@ -306,7 +311,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.4s ease;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cat-anime-card:hover .cat-poster-img {
@@ -319,7 +324,7 @@
     top: 8px;
     left: 8px;
     z-index: 10;
-    background: rgba(0, 0, 0, 0.82);
+    background: rgba(8, 8, 8, 0.88);
     backdrop-filter: blur(4px);
     color: var(--cat-gold);
     font-size: 10px;
@@ -339,9 +344,9 @@
     top: 8px;
     right: 8px;
     z-index: 10;
-    background: rgba(0, 0, 0, 0.82);
+    background: rgba(8, 8, 8, 0.88);
     backdrop-filter: blur(4px);
-    color: #cbd5e1;
+    color: #e4e4e7;
     font-size: 9px;
     font-weight: 700;
     padding: 2px 7px;
@@ -356,11 +361,12 @@
     bottom: 8px;
     right: 8px;
     z-index: 10;
-    background: rgba(2, 6, 23, 0.92);
+    background: rgba(8, 8, 8, 0.92);
+    backdrop-filter: blur(4px);
     color: var(--cat-gold);
     padding: 2px 8px;
     border-radius: 8px;
-    border: 1px solid rgba(146, 64, 14, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     font-weight: 800;
     font-size: 11px;
     display: flex;
@@ -393,6 +399,7 @@
     padding: 0;
     cursor: pointer;
     width: 100%;
+    transition: color 0.15s ease;
 }
 
 .cat-card-title:hover {
@@ -412,18 +419,22 @@
 }
 
 .cat-friends-recommend {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: color-mix(in srgb, var(--cat-acento) 10%, rgba(255, 255, 255, 0.03));
+    border: 1px solid color-mix(in srgb, var(--cat-acento) 30%, transparent);
     padding: 4px 8px;
     border-radius: 8px;
     font-size: 10px;
-    color: #cbd5e1;
+    color: #e4e4e7;
     display: flex;
     align-items: center;
     gap: 5px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.cat-friends-recommend svg {
+    color: var(--cat-acento);
 }
 
 .cat-btn-add {
@@ -437,27 +448,30 @@
     align-items: center;
     justify-content: center;
     gap: 5px;
-    border: none;
-    background: #e2e8f0;
-    color: #05070b;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--cat-surface-2);
+    color: #f4f4f5;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(226, 232, 240, 0.18);
-    transition: transform 0.15s ease, filter 0.15s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.15s ease;
 }
 
 .cat-btn-add:hover {
-    filter: brightness(0.92);
-    transform: scale(1.02);
+    background: var(--cat-acento);
+    color: #0b0b10;
+    border-color: var(--cat-acento);
+    box-shadow: 0 3px 12px color-mix(in srgb, var(--cat-acento) 40%, transparent);
+    transform: translateY(-1px);
 }
 
 .cat-btn-add.in-list {
-    background: rgba(52, 211, 153, 0.15);
+    background: rgba(52, 211, 153, 0.12);
     border: 1px solid rgba(52, 211, 153, 0.35);
     color: #34d399;
     box-shadow: none;
 }
 
-/* Botones de Navegación */
+/* Botones de Navegación y Paginación */
 .cat-nav-btn {
     background: var(--cat-surface-2);
     border: 1px solid var(--cat-border);
@@ -479,4 +493,35 @@
 .cat-nav-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+
+.cat-page-btn {
+    min-width: 34px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--cat-surface-2);
+    border: 1px solid var(--cat-border);
+    color: var(--cat-text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cat-page-btn:hover:not(:disabled) {
+    background: var(--cat-surface-hover);
+    color: #ffffff;
+    border-color: var(--cat-border-hover);
+}
+
+.cat-page-btn.active {
+    background: var(--cat-acento);
+    color: #0b0b10;
+    border-color: var(--cat-acento);
+    font-weight: 800;
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--cat-acento) 35%, transparent);
 }

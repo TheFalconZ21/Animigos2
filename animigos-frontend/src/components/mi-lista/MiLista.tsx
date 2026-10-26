@@ -1,8 +1,6 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { Folder, Hash, LayoutGrid, LayoutList, Loader2, Plus, Search, Send, SlidersHorizontal, X } from 'lucide-react'
 import {
-    ACENTO_POR_DEFECTO,
-    ACENTO_POR_GENERO,
     ESCALA_NOTAS,
     ESTADOS,
     medioDe,
@@ -13,6 +11,7 @@ import {
 } from './mi-lista-data'
 import type { ApiAnimeData } from '../../services/userListApi'
 import { useMyList } from '../../hooks/useMyList'
+import { useThemeAccent } from '../../hooks/useThemeAccent'
 import { AnimeFila } from './AnimeFila'
 import { PestanaCarpetas } from './PestanaCarpetas'
 import { PestanaTags } from './PestanaTags'
@@ -93,22 +92,13 @@ export function MiLista() {
     const [orden, setOrden] = useState<Orden>('nota-desc')
     const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS)
     const [verFiltros, setVerFiltros] = useState(false)
-    const [acentoModo, setAcentoModo] = useState('auto')
+    const { acento, acentoModo, setAcentoModo, generoDominante } = useThemeAccent()
 
     // --- Diálogos ---
     const [detalleId, setDetalleId] = useState<number | null>(null)
     const [paquete, setPaquete] = useState<Paquete | null>(null)
     const [agregarAbierto, setAgregarAbierto] = useState(false)
     const [verTodos, setVerTodos] = useState<string | null>(null)
-
-    const generoDominante = useMemo(() => {
-        const conteo = new Map<string, number>()
-        filas.forEach((f) => f.anime.genres.forEach((g) => conteo.set(g, (conteo.get(g) ?? 0) + 1)))
-        return [...conteo.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
-    }, [filas])
-
-    const acento =
-        acentoModo === 'auto' ? (generoDominante && ACENTO_POR_GENERO[generoDominante]) || ACENTO_POR_DEFECTO : acentoModo
 
     const handleAgregarAnime = async (nuevaEntrada: EntradaLista, _animeData?: ApiAnimeData) => {
         try {

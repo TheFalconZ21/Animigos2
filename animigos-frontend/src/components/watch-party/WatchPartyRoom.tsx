@@ -8,7 +8,6 @@ import {
     AlertTriangle,
     ChevronLeft,
     SlidersHorizontal,
-    Sparkles,
     Radio,
     Send,
     MessageSquare,
@@ -34,6 +33,7 @@ import {
 } from '../../services/watchPartyApi'
 import { useAuth } from '../../context/AuthContext'
 import { useCatalogSearch } from '../../hooks/useCatalog'
+import type { ApiAnimeData } from '../../services/userListApi'
 import { Dialogo } from '../mi-lista/piezas'
 import '../mi-lista/mi-lista.css'
 import './watch-party.css'
@@ -152,15 +152,15 @@ export const WatchPartyRoom: React.FC = () => {
         nominateCandidate,
         sendChat,
         sendReaction,
-    } = useWatchParty(selectedRoomId || '', userName, userToken)
+    } = useWatchParty({ roomId: selectedRoomId || '', userName, userToken })
 
     // Sincronizar votos guardados del usuario en el estado de sliders locales
     useEffect(() => {
         if (room?.candidates) {
             const initialMap: Record<string, number> = {}
             room.candidates.forEach((cand) => {
-                const existingVote = cand.votes?.find((v) => v.guest_name === userName)
-                initialMap[cand.id] = existingVote ? existingVote.score : 5
+                const existingVote = cand.votes?.find((v) => (v.voter_name || (v as any).guest_name) === userName)
+                initialMap[cand.id] = existingVote ? (existingVote.interest_score ?? (existingVote as any).score ?? 5) : 5
             })
             setLocalVotes(initialMap)
         }
@@ -182,7 +182,7 @@ export const WatchPartyRoom: React.FC = () => {
     }
 
     // Búsqueda de animes en catálogo general para postular
-    const { results: catalogResults, isSearching: isSearchingCatalog } = useCatalogSearch(nominateSearch)
+    const { data: catalogResults = [], isLoading: isSearchingCatalog } = useCatalogSearch(nominateSearch)
 
     const handleNominateAnime = async (animeId: number) => {
         try {
@@ -245,8 +245,8 @@ export const WatchPartyRoom: React.FC = () => {
         return member?.episodes_watched || 0
     }, [room?.members, userName])
 
-    const groupTarget = room?.target_episode || 1
-    const totalEpisodes = room?.winning_anime?.episodes || 24
+    const groupTarget = (room as any)?.target_episode || room?.current_episode || 1
+    const totalEpisodes = (room as any)?.winning_anime?.episodes || room?.selected_anime?.episodes || 24
     const totalMembers = room?.members?.length || 1
 
     // ==============================================================
@@ -1303,7 +1303,7 @@ export const WatchPartyRoom: React.FC = () => {
                         </div>
 
                         <div className="d-flex flex-column gap-2 overflow-y-auto" style={{ maxHeight: '300px' }}>
-                            {catalogResults.map((anime) => (
+                            {catalogResults.map((anime: ApiAnimeData) => (
                                 <div
                                     key={anime.mal_id}
                                     className="p-2 rounded-2 d-flex align-items-center justify-content-between gap-3"

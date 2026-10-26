@@ -22,6 +22,9 @@ export interface ApiAnimeData {
     status?: string
     season?: string
     season_year?: number | null
+    year?: number | null
+    season_display?: string
+    recommended_by?: string[] | { user_id: number; username: string }[]
     studio?: string
     genres: string[]
     type?: string
