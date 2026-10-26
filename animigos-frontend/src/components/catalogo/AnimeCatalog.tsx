@@ -554,7 +554,7 @@ export const AnimeCatalog: React.FC = () => {
                                         {/* Badge de Score MAL */}
                                         <div className="cat-score-badge">
                                             <Star size={11} fill="currentColor" />
-                                            <span>{anime.score ? Number(anime.score).toFixed(2) : '8.50'}</span>
+                                            <span>{anime.score ? Number(anime.score).toFixed(2) : 'N/A'}</span>
                                         </div>
                                     </div>
 
@@ -678,7 +678,7 @@ export const AnimeCatalog: React.FC = () => {
                                 <div className="flex-grow-1" style={{ minWidth: 0 }}>
                                     <div className="d-flex flex-wrap gap-2 mb-1">
                                         <span className="badge rounded-pill bg-black border border-warning text-warning font-mono">
-                                            ★ {selectedAnime.score || '9.0'} MAL
+                                            ★ {selectedAnime.score ? Number(selectedAnime.score).toFixed(2) : 'N/A'} MAL
                                         </span>
                                         <span className="badge rounded-pill bg-dark text-secondary">
                                             {selectedAnime.type || 'TV'} · {selectedAnime.episodes || '?'} eps

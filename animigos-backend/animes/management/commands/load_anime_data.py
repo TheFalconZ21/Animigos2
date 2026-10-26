@@ -85,6 +85,10 @@ class Command(BaseCommand):
                     except ValueError:
                         pass
 
+                # Animes sin nota oficial en MyAnimeList
+                if mal_id in (63209, 63208, 63207, 62251, 60234) or (score is not None and score >= 9.0 and scored_by < 200):
+                    score = None
+
                 episodes = None
                 ep_str = row.get('episodes', '').strip()
                 if ep_str:
