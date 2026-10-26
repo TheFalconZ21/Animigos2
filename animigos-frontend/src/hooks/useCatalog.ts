@@ -1,6 +1,6 @@
 /**
- * Hooks Reactivos de Catálogo de Animes (Capa de Lógica / Hooks - Pilar 1.2)
- * Utiliza TanStack Query para deduplicación, caché en memoria y sincronización de datos.
+ * Hooks Reactivos de Catálogo de Animes (Capa de Lógica / Hooks - Pilar 1.2 de AGENTS.md)
+ * Utiliza TanStack Query para deduplicación, caché en memoria y sincronización reactiva de datos.
  */
 
 import { useQuery } from '@tanstack/react-query'
@@ -9,6 +9,8 @@ import {
     fetchCatalogAnimes,
     fetchAnimeRecommendations,
     fetchStudios,
+    fetchGenres,
+    fetchYears,
     type CatalogFilterParams,
     type CatalogPaginatedResponse,
     type StudioItem,
@@ -17,13 +19,13 @@ import {
 import type { ApiAnimeData } from '../services/userListApi'
 
 /**
- * Hook para consultar los 24 mejores animes puntuados
+ * Hook para consultar los animes top puntuados
  */
-export function useTopAnimes() {
+export function useTopAnimes(limit = 50) {
     return useQuery<ApiAnimeData[], Error>({
-        queryKey: ['animes', 'top'],
-        queryFn: fetchTopAnimes,
-        staleTime: 1000 * 60 * 15, // 15 minutos en el cliente
+        queryKey: ['animes', 'top', limit],
+        queryFn: () => fetchTopAnimes(limit),
+        staleTime: 1000 * 60 * 15,
     })
 }
 
@@ -34,12 +36,12 @@ export function useCatalogQuery(params: CatalogFilterParams = {}) {
     return useQuery<CatalogPaginatedResponse, Error>({
         queryKey: ['animes', 'catalog', params],
         queryFn: () => fetchCatalogAnimes(params),
-        staleTime: 1000 * 60 * 5, // 5 minutos
+        staleTime: 1000 * 60 * 5,
     })
 }
 
 /**
- * Hook reactivo para búsquedas en tiempo real (por ejemplo en modales de agregar o explorador)
+ * Hook reactivo para búsquedas en tiempo real
  */
 export function useCatalogSearch(query: string, enabled = true) {
     const trimmed = query.trim()
@@ -47,14 +49,36 @@ export function useCatalogSearch(query: string, enabled = true) {
         queryKey: ['animes', 'search', trimmed],
         queryFn: async () => {
             if (!trimmed) {
-                const top = await fetchTopAnimes()
-                return top.slice(0, 12)
+                const top = await fetchTopAnimes(12)
+                return top
             }
-            const res = await fetchCatalogAnimes({ q: trimmed, page: 1 })
+            const res = await fetchCatalogAnimes({ q: trimmed, page: 1, page_size: 15 })
             return res.results
         },
         enabled,
         staleTime: 1000 * 60 * 5,
+    })
+}
+
+/**
+ * Hook para listado de géneros disponibles
+ */
+export function useGenresQuery() {
+    return useQuery<string[], Error>({
+        queryKey: ['animes', 'genres'],
+        queryFn: fetchGenres,
+        staleTime: 1000 * 60 * 60, // 1 hora
+    })
+}
+
+/**
+ * Hook para listado de años disponibles
+ */
+export function useYearsQuery() {
+    return useQuery<number[], Error>({
+        queryKey: ['animes', 'years'],
+        queryFn: fetchYears,
+        staleTime: 1000 * 60 * 60, // 1 hora
     })
 }
 

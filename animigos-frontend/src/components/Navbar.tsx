@@ -4,11 +4,11 @@ import { LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 interface NavbarProps {
-    currentView?: 'landing' | 'mi-lista' | 'sala'
-    onSelectView?: (view: 'landing' | 'mi-lista' | 'sala') => void
+    currentView?: 'landing' | 'catalogo' | 'mi-lista' | 'sala'
+    onSelectView?: (view: 'landing' | 'catalogo' | 'mi-lista' | 'sala') => void
 }
 
-export function Navbar({ currentView = 'landing', onSelectView }: NavbarProps) {
+export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) {
     const { user, isAuthenticated, logout } = useAuth()
     // 1. Creamos la referencia al contenedor del overflow
     const overflowRef = useRef<HTMLDivElement>(null)
@@ -36,8 +36,8 @@ export function Navbar({ currentView = 'landing', onSelectView }: NavbarProps) {
                     href="#"
                     onClick={(e) => {
                         e.preventDefault()
-                        window.location.hash = ''
-                        onSelectView?.('landing')
+                        window.location.hash = '#catalogo'
+                        onSelectView?.('catalogo')
                     }}
                 >
                     ANIMIGOS
@@ -52,12 +52,12 @@ export function Navbar({ currentView = 'landing', onSelectView }: NavbarProps) {
                     <ul className="nav navbar-nav justify-content-center">
                         <li className="nav-item">
                             <a
-                                className={`nav-link ${currentView === 'landing' ? 'active text-white' : 'text-secondary'}`}
+                                className={`nav-link ${currentView === 'catalogo' ? 'active text-white' : 'text-secondary'}`}
                                 href="#catalogo"
                                 onClick={(e) => {
                                     e.preventDefault()
                                     window.location.hash = '#catalogo'
-                                    onSelectView?.('landing')
+                                    onSelectView?.('catalogo')
                                 }}
                             >
                                 Catálogo

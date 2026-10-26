@@ -5,11 +5,12 @@ import { HeroShowcaseBg } from './components/HeroShowcaseBg'
 import { AdminPortal } from './admin/AdminPortal'
 import { MiLista } from './components/mi-lista/MiLista'
 import { WatchPartyRoom } from './components/watch-party/WatchPartyRoom'
+import { AnimeCatalog } from './components/catalogo/AnimeCatalog'
 
 function App() {
-  const [currentView, setCurrentView] = useState<'landing' | 'mi-lista' | 'admin' | 'sala'>('landing')
+  const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'mi-lista' | 'admin' | 'sala'>('catalogo')
 
-  // Soporte de navegación por hash (ej: /#mi-lista, /#admin o /#sala)
+  // Soporte de navegación por hash (ej: /#catalogo, /#mi-lista, /#admin o /#sala)
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash
@@ -19,8 +20,10 @@ function App() {
         setCurrentView('admin')
       } else if (hash === '#sala' || hash === '#votacion' || hash === '#listas' || hash.startsWith('#sala/')) {
         setCurrentView('sala')
-      } else if (hash === '#landing' || hash === '' || hash === '#catalogo') {
+      } else if (hash === '#landing') {
         setCurrentView('landing')
+      } else if (hash === '#catalogo' || hash === '#animes' || hash === '#top' || hash === '') {
+        setCurrentView('catalogo')
       }
     }
     handleHash()
@@ -75,7 +78,42 @@ function App() {
     )
   }
 
-  // 3. Si estamos en la vista "Mi Lista", renderizamos el módulo de listas personales
+  // 3. Si estamos en la vista de Catálogo de Animes
+  if (currentView === 'catalogo') {
+    return (
+      <>
+        <Navbar currentView="catalogo" onSelectView={setCurrentView} />
+        <main className="py-2">
+          <AnimeCatalog />
+        </main>
+        <LoginModal />
+
+        {/* Switcher flotante para previsualizar el Admin Portal */}
+        <div className="position-fixed bottom-0 end-0 p-3 z-3">
+          <button
+            type="button"
+            onClick={() => {
+              window.location.hash = '#admin'
+              setCurrentView('admin')
+            }}
+            className="admin-btn d-flex align-items-center gap-2 px-3 py-2 text-white shadow"
+            style={{
+              backgroundColor: '#0A0A0A',
+              border: '1px solid #1F1F1F',
+              borderRadius: '8px',
+              fontSize: '0.78rem',
+              fontFamily: 'var(--font-mono)'
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10B981' }}></span>
+            <span>ADMIN CONSOLE (5 Vistas)</span>
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  // 4. Si estamos en la vista "Mi Lista", renderizamos el módulo de listas personales
   if (currentView === 'mi-lista') {
     return (
       <>
