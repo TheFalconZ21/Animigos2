@@ -23,6 +23,7 @@ import {
     deleteMyListFolder,
     type ApiAnimeData,
 } from '../../services/userListApi'
+import { useAuth } from '../../context/AuthContext'
 import { AnimeFila } from './AnimeFila'
 import { PestanaCarpetas } from './PestanaCarpetas'
 import { PestanaTags } from './PestanaTags'
@@ -95,13 +96,14 @@ export function MiLista() {
     const [verFiltros, setVerFiltros] = useState(false)
     const [acentoModo, setAcentoModo] = useState('auto')
 
+    const { user } = useAuth()
     // --- Diálogos ---
     const [detalleId, setDetalleId] = useState<number | null>(null)
     const [paquete, setPaquete] = useState<Paquete | null>(null)
     const [agregarAbierto, setAgregarAbierto] = useState(false)
     const [verTodos, setVerTodos] = useState<string | null>(null)
 
-    // Carga inicial desde PostgreSQL / SQLite via REST API
+    // Carga inicial y reactiva desde PostgreSQL / SQLite via REST API
     useEffect(() => {
         let montado = true
         setCargando(true)
@@ -127,7 +129,7 @@ export function MiLista() {
         return () => {
             montado = false
         }
-    }, [])
+    }, [user?.id])
 
     const generoDominante = useMemo(() => {
         const conteo = new Map<string, number>()
@@ -181,7 +183,7 @@ export function MiLista() {
         }
     }
 
-    const handleAgregarAnime = async (nuevaEntrada: EntradaLista, animeData: ApiAnimeData) => {
+    const handleAgregarAnime = async (nuevaEntrada: EntradaLista, _animeData?: ApiAnimeData) => {
         try {
             const apiRes = await addAnimeToMyList({
                 mal_id: nuevaEntrada.malId,
@@ -513,6 +515,12 @@ export function MiLista() {
                                 <button type="button" className="ml-link ms-1" onClick={() => setFiltros(FILTROS_VACIOS)}>
                                     Quitar todos
                                 </button>
+                            </div>
+                        )}
+
+                        {errorCarga && (
+                            <div className="alert alert-danger py-2 px-3 mb-3 text-start d-flex align-items-center gap-2" role="alert" style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#fca5a5' }}>
+                                <span>⚠️ {errorCarga}</span>
                             </div>
                         )}
 

@@ -20,15 +20,21 @@ from .serializers import (
 def register_user(request):
     """
     Registra una nueva cuenta de usuario y crea automáticamente su perfil y preferencias.
+    Inicia la sesión segura mediante cookies HttpOnly en el cliente.
     """
     serializer = UserRegistrationSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
         login(request, user)
-        profile_serializer = ProfileSerializer(user.profile)
+        request.session.save()
+        profile, _ = Profile.objects.get_or_create(
+            user=user,
+            defaults={'display_name': user.first_name or user.username}
+        )
         return Response({
             'message': 'Usuario registrado exitosamente',
-            'user': profile_serializer.data
+            'authenticated': True,
+            'user': ProfileSerializer(profile).data
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -37,61 +43,81 @@ def register_user(request):
 @permission_classes([AllowAny])
 def login_user(request):
     """
-    Inicia sesión con credenciales de usuario.
+    Inicia sesión con credenciales de usuario (soporta username o correo electrónico).
+    Establece la sesión segura y retorna el perfil asociado.
     """
-    username = request.data.get('username')
+    username_or_email = request.data.get('username') or request.data.get('email')
     password = request.data.get('password')
 
-    if not username or not password:
-        return Response({'error': 'Usuario y contraseña requeridos'}, status=status.HTTP_400_BAD_REQUEST)
+    if not username_or_email or not password:
+        return Response({'error': 'Usuario o correo y contraseña requeridos'}, status=status.HTTP_400_BAD_REQUEST)
 
-    user = authenticate(request, username=username, password=password)
+    # Resolución dual: si se ingresó un correo, obtener el username canónico
+    target_username = username_or_email
+    if '@' in username_or_email:
+        user_by_email = User.objects.filter(email__iexact=username_or_email).first()
+        if user_by_email:
+            target_username = user_by_email.username
+
+    user = authenticate(request, username=target_username, password=password)
     if user is not None:
         login(request, user)
-        profile_serializer = ProfileSerializer(user.profile)
+        request.session.save()
+        profile, _ = Profile.objects.get_or_create(
+            user=user,
+            defaults={'display_name': user.first_name or user.username}
+        )
         return Response({
             'message': 'Sesión iniciada correctamente',
-            'user': profile_serializer.data
+            'authenticated': True,
+            'user': ProfileSerializer(profile).data
         }, status=status.HTTP_200_OK)
-    
-    return Response({'error': 'Credenciales inválidas'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    return Response({'error': 'Credenciales inválidas. Verifica tu usuario y contraseña.'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def logout_user(request):
+    """
+    Cierra la sesión activa del usuario y limpia la cookie de sesión.
+    """
     logout(request)
-    return Response({'message': 'Sesión cerrada correctamente'})
+    return Response({'message': 'Sesión cerrada correctamente', 'authenticated': False})
 
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_current_user(request):
     """
-    Retorna el perfil del usuario actual (o demo si no está autenticado).
+    Retorna el perfil del usuario actual si está autenticado.
+    Principio Zero Trust (Pilar 2.1): No asume identidad demo si el cliente no está autenticado.
     """
     if request.user.is_authenticated:
-        return Response(ProfileSerializer(request.user.profile).data)
-    
-    # Si no está logueado, retornar perfil anfitrión demo
-    first_user = User.objects.first()
-    if first_user and hasattr(first_user, 'profile'):
-        return Response(ProfileSerializer(first_user.profile).data)
+        profile, _ = Profile.objects.get_or_create(
+            user=request.user,
+            defaults={'display_name': request.user.first_name or request.user.username}
+        )
+        return Response({
+            'authenticated': True,
+            'user': ProfileSerializer(profile).data
+        })
 
-    return Response({'authenticated': False, 'message': 'No hay sesión activa'})
+    return Response({
+        'authenticated': False,
+        'user': None
+    })
 
 
 @api_view(['PATCH'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def update_profile(request):
     """
-    Actualiza datos de perfil (nombre, avatar, bio, anime favorito).
+    Actualiza datos de perfil (nombre, avatar, bio, anime favorito) del usuario autenticado.
+    Zero Trust: Requiere autenticación estricta (HTTP 401 si no hay sesión).
     """
-    user = request.user if request.user.is_authenticated else User.objects.first()
-    if not user or not hasattr(user, 'profile'):
-        return Response({'error': 'No se encontró perfil para actualizar'}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = ProfileSerializer(user.profile, data=request.data, partial=True)
+    profile = get_object_or_404(Profile, user=request.user)
+    serializer = ProfileSerializer(profile, data=request.data, partial=True)
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
@@ -99,16 +125,15 @@ def update_profile(request):
 
 
 @api_view(['PATCH'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def update_preferences(request):
     """
-    Actualiza preferencias del usuario para el recomendador (géneros favoritos, vetos, experiencia).
+    Actualiza preferencias del usuario para el recomendador.
+    Zero Trust: Requiere autenticación estricta.
     """
-    user = request.user if request.user.is_authenticated else User.objects.first()
-    if not user or not hasattr(user, 'profile') or not hasattr(user.profile, 'preferences'):
-        return Response({'error': 'No se encontraron preferencias para actualizar'}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = UserPreferencesSerializer(user.profile.preferences, data=request.data, partial=True)
+    profile = get_object_or_404(Profile, user=request.user)
+    preferences, _ = UserPreferences.objects.get_or_create(profile=profile)
+    serializer = UserPreferencesSerializer(preferences, data=request.data, partial=True)
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
@@ -120,12 +145,18 @@ def update_preferences(request):
 # -------------------------------------------------------------
 
 def _get_target_user(request):
+    """
+    Obtiene el usuario objetivo para la lista. Si no está autenticado,
+    utiliza un usuario invitado aislado para evitar alterar datos de otros usuarios.
+    """
     if request.user.is_authenticated:
         return request.user
-    first_user = User.objects.first()
-    if not first_user:
-        first_user = User.objects.create_user(username='otaku_demo', email='demo@animigos.cl')
-    return first_user
+
+    guest_user, _ = User.objects.get_or_create(
+        username='invitado_animigos',
+        defaults={'email': 'invitado@animigos.cl', 'first_name': 'Invitado'}
+    )
+    return guest_user
 
 
 def _ensure_initial_sample_data(user):

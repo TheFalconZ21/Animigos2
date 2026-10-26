@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { NavOverflow } from 'bootstrap'
+import { LogOut } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
 interface NavbarProps {
     currentView?: 'landing' | 'mi-lista'
@@ -7,6 +9,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ currentView = 'landing', onSelectView }: NavbarProps) {
+    const { user, isAuthenticated, logout } = useAuth()
     // 1. Creamos la referencia al contenedor del overflow
     const overflowRef = useRef<HTMLDivElement>(null)
 
@@ -28,7 +31,6 @@ export function Navbar({ currentView = 'landing', onSelectView }: NavbarProps) {
             <div className="container">
 
                 {/* Logo / Marca */}
-                {/* Usando la nueva clase de Bootstrap 6: fs-2xl */}
                 <a
                     className="navbar-brand fw-bold text-white fs-2xl"
                     href="#"
@@ -84,25 +86,56 @@ export function Navbar({ currentView = 'landing', onSelectView }: NavbarProps) {
                 </div>
 
                 {/* Botones de acción a la derecha */}
-                <div className="d-flex gap-2">
-                    <button
-                        className="btn btn-outline-light btn-sm px-3"
-                        onClick={() => {
-                            const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
-                            dialog?.showModal()
-                        }}
-                    >
-                        Log in
-                    </button>
+                <div className="d-flex align-items-center gap-2">
+                    {isAuthenticated && user ? (
+                        <div className="d-flex align-items-center gap-3">
+                            <div className="d-flex align-items-center gap-2">
+                                <img
+                                    src={user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                                    alt={user.display_name || user.username}
+                                    className="rounded-circle border border-dark"
+                                    style={{ width: '32px', height: '32px', objectFit: 'cover' }}
+                                    onError={(e) => {
+                                        e.currentTarget.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+                                    }}
+                                />
+                                <span className="small text-white fw-semibold d-none d-sm-inline">
+                                    {user.display_name || user.username}
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                className="btn btn-outline-danger btn-sm px-2 d-flex align-items-center gap-1"
+                                onClick={() => logout()}
+                                title="Cerrar sesión"
+                            >
+                                <LogOut size={14} />
+                                <span className="d-none d-md-inline small">Salir</span>
+                            </button>
+                        </div>
+                    ) : (
+                        <>
+                            <button
+                                className="btn btn-outline-light btn-sm px-3"
+                                onClick={() => {
+                                    const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                                    dialog?.showModal()
+                                }}
+                            >
+                                Log in
+                            </button>
 
-
-                    <button
-                        className="btn btn-primary btn-sm px-3"
-                        data-bs-toggle="modal"
-                        data-bs-target="#registerModal"
-                    >
-                        Regístrate
-                    </button>
+                            <button
+                                className="btn btn-primary btn-sm px-3"
+                                onClick={() => {
+                                    const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                                    dialog?.showModal()
+                                }}
+                            >
+                                Regístrate
+                            </button>
+                        </>
+                    )}
                 </div>
 
             </div>

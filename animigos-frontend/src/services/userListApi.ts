@@ -79,11 +79,12 @@ export interface MyListApiResponse {
 // -------------------------------------------------------------
 
 /**
- * Obtiene toda la colección del usuario desde PostgreSQL
+ * Obtiene toda la colección del usuario desde la base de datos
  */
 export async function fetchMyList(): Promise<MyListApiResponse> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/`, {
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
     })
     if (!res.ok) {
         throw new Error(`Error al obtener Mi Lista: ${res.statusText}`)
@@ -107,6 +108,7 @@ export async function addAnimeToMyList(payload: {
     const res = await fetch(`${API_BASE_URL}/users/my-list/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload),
     })
     if (!res.ok) {
@@ -134,6 +136,7 @@ export async function updateMyListEntry(
     const res = await fetch(`${API_BASE_URL}/users/my-list/${entryId}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(updates),
     })
     if (!res.ok) {
@@ -148,6 +151,7 @@ export async function updateMyListEntry(
 export async function deleteMyListEntry(entryId: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/${entryId}/`, {
         method: 'DELETE',
+        credentials: 'include',
     })
     if (!res.ok) {
         throw new Error(`Error al eliminar anime de la lista: ${res.statusText}`)
@@ -161,6 +165,7 @@ export async function createMyListFolder(name: string): Promise<ApiUserFolder> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/folders/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ name }),
     })
     if (!res.ok) {
@@ -177,6 +182,7 @@ export async function renameMyListFolder(folderId: string, name: string): Promis
     const res = await fetch(`${API_BASE_URL}/users/my-list/folders/${folderId}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ name }),
     })
     if (!res.ok) {
@@ -191,6 +197,7 @@ export async function renameMyListFolder(folderId: string, name: string): Promis
 export async function deleteMyListFolder(folderId: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/folders/${folderId}/`, {
         method: 'DELETE',
+        credentials: 'include',
     })
     if (!res.ok) {
         throw new Error(`Error al eliminar carpeta: ${res.statusText}`)
@@ -209,6 +216,7 @@ export async function searchCatalogAnimes(query: string, limit = 20): Promise<Ap
 
     const res = await fetch(url.toString(), {
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
     })
     if (!res.ok) {
         throw new Error(`Error al buscar animes en catálogo: ${res.statusText}`)

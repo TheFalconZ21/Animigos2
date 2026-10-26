@@ -14,7 +14,6 @@ import {
     CheckCircle2,
     RotateCcw,
     ShieldAlert,
-    Sparkles,
     Calendar,
     Flame,
     Zap,
@@ -28,7 +27,6 @@ import {
 } from 'lucide-react'
 import {
     getRooms,
-    pingRoom,
     moderateRoom,
     getRoomsCleanupPolicy,
     saveRoomsCleanupPolicy,
@@ -41,7 +39,6 @@ export function RoomsPage() {
     // ESTADO: Datos de Salas y KPIs
     // -------------------------------------------------------------
     const [rooms, setRooms] = useState<RoomItem[]>([])
-    const [totalRoomsCount, setTotalRoomsCount] = useState<number>(0)
     const [unfilteredTotal, setUnfilteredTotal] = useState<number>(0)
     const [loading, setLoading] = useState<boolean>(true)
     const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
@@ -124,7 +121,6 @@ export function RoomsPage() {
             }
             const data = await getRooms(params)
             setRooms(data.rooms)
-            setTotalRoomsCount(data.total)
             if (data.unfiltered_total !== undefined) {
                 setUnfilteredTotal(data.unfiltered_total)
             }
@@ -944,7 +940,6 @@ export function RoomsPage() {
                                     const isProcessing = moderatingRoomId === room.id
                                     const candidateTitle = room.selected_anime?.title || room.top_candidate?.title || 'Sin candidatos'
                                     const scoreDisplay = room.selected_anime?.score || room.top_candidate?.score || 0
-                                    const isLocked = room.is_locked || room.status === 'candidates'
 
                                     return (
                                         <div

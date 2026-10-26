@@ -6,9 +6,12 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 // Estilos personalizados y tokens de diseño de Animigos
 import './index.css'
 import App from './App.tsx'
+import { AuthProvider } from './context/AuthContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </StrictMode>,
 )

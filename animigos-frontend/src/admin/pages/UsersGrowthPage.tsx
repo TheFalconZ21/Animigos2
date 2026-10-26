@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react'
 import {
     Users,
     Share2,
-    UserPlus,
     Flame,
     RefreshCw,
     Search,
@@ -11,13 +10,9 @@ import {
     Ban,
     UserMinus,
     CheckCircle2,
-    Activity,
     Clock,
     UserCheck,
-    Layers,
-    UserX,
-    MessageSquare,
-    ExternalLink
+    Layers
 } from 'lucide-react'
 import { getGrowth, getAdminUsers, moderateAdminUser } from '../services/adminApi'
 import type { GrowthResponse, AdminUserItem, ActivityRateTimelinePoint } from '../services/adminApi'
@@ -165,7 +160,6 @@ export function UsersGrowthPage() {
     // Variables de Crecimiento
     const kFactor = growthData?.k_factor || 1.54
     const totalUsers = growthData?.total_users || 31
-    const totalHosts = growthData?.total_hosts || 7
     const totalGuests = growthData?.total_guests || 24
 
     const channelStats = growthData?.channels || { whatsapp: 16, link: 10, qr: 5 }
