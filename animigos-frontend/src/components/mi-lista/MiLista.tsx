@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react'
-import { Folder, Hash, LayoutGrid, LayoutList, Loader2, Plus, Search, Send, SlidersHorizontal, X } from 'lucide-react'
+import { Folder, Hash, LayoutGrid, LayoutList, Loader2, Plus, Search, Send, SlidersHorizontal, Upload, X } from 'lucide-react'
 import {
     ESCALA_NOTAS,
     ESTADOS,
@@ -18,6 +18,7 @@ import { PestanaTags } from './PestanaTags'
 import { AnimeDetalleDialog } from './AnimeDetalleDialog'
 import { RecomendarDialog, type Paquete } from './RecomendarDialog'
 import { AgregarDialog } from './AgregarDialog'
+import { ImportarMalXmlDialog } from './ImportarMalXmlDialog'
 import { VerTodosDialog } from './VerTodosDialog'
 import { LateralesAnime } from './LateralesAnime'
 import { SelloNota } from './piezas'
@@ -83,6 +84,7 @@ export function MiLista() {
         eliminarCarpeta,
         crearTag,
         eliminarTag,
+        refetch,
     } = useMyList()
 
     // --- Interfaz Local ---
@@ -98,6 +100,7 @@ export function MiLista() {
     const [detalleId, setDetalleId] = useState<number | null>(null)
     const [paquete, setPaquete] = useState<Paquete | null>(null)
     const [agregarAbierto, setAgregarAbierto] = useState(false)
+    const [importarAbierto, setImportarAbierto] = useState(false)
     const [verTodos, setVerTodos] = useState<string | null>(null)
 
     const handleAgregarAnime = async (nuevaEntrada: EntradaLista, _animeData?: ApiAnimeData) => {
@@ -242,6 +245,19 @@ export function MiLista() {
                         <div className="ml-header-acciones">
                             <button type="button" className="ml-btn ml-btn-acento" onClick={() => setAgregarAbierto(true)}>
                                 <Plus size={16} /> Agregar anime
+                            </button>
+                            <button
+                                type="button"
+                                className="ml-btn"
+                                style={{
+                                    background: 'var(--cat-surface-2, #18181f)',
+                                    border: '1px solid var(--cat-border, rgba(255, 255, 255, 0.1))',
+                                    color: '#f4f4f5',
+                                }}
+                                onClick={() => setImportarAbierto(true)}
+                                title="Importa tu lista oficial desde animelist.xml de MyAnimeList"
+                            >
+                                <Upload size={15} /> Importar MyAnimeList (.xml)
                             </button>
                             <select
                                 className="ml-select"
@@ -539,7 +555,13 @@ export function MiLista() {
                 onCerrar={() => setAgregarAbierto(false)}
                 onAgregar={handleAgregarAnime}
             />
+            <ImportarMalXmlDialog
+                abierto={importarAbierto}
+                onCerrar={() => setImportarAbierto(false)}
+                onExito={() => refetch()}
+            />
         </section>
+
     )
 }
 

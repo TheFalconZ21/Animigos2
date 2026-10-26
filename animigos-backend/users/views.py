@@ -5,6 +5,11 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
+from django.db import transaction
+import xml.etree.ElementTree as ET
+import time
+import urllib.request
+import json
 from animes.models import Anime
 from .models import Profile, UserPreferences, UserAnimeFolder, UserAnimeEntry
 from .serializers import (
@@ -363,3 +368,218 @@ def user_my_list_folder_detail_view(request, folder_id):
             folder.name = name
             folder.save(update_fields=['name', 'updated_at'])
         return Response(UserAnimeFolderSerializer(folder).data)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def import_mal_xml_view(request):
+    """
+    Importa la lista personal de anime a partir del archivo oficial animelist.xml de MyAnimeList.
+    - Cumple Pilares 2.1 y 2.2 de AGENTS.md (Zero Trust y Validación de Backend).
+    - Tasa de consultas ultra-conservadora: animes desconocidos se crean de inmediato como
+      placeholders locales con los metadatos del XML, y se enriquecen con MyAnimeList/Jikan
+      con un tope estricto de máximo 5 títulos y un delay de 1.5s entre peticiones para prevenir
+      bloqueos por rate limit.
+    """
+    user = _get_target_user(request)
+
+    file_obj = request.FILES.get('file')
+    raw_xml = request.data.get('xml_content')
+
+    if file_obj:
+        try:
+            content = file_obj.read().decode('utf-8', errors='replace')
+        except Exception as e:
+            return Response({'error': f'No se pudo leer el archivo XML: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+    elif raw_xml:
+        content = raw_xml
+    else:
+        return Response({'error': 'Debes enviar un archivo XML en el campo "file" o contenido en "xml_content"'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError as e:
+        return Response({'error': f'El archivo no tiene un formato XML válido: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+    anime_nodes = root.findall('anime')
+    if not anime_nodes:
+        return Response({'error': 'No se encontraron registros de anime (<anime>) en el archivo XML.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    STATUS_MAP = {
+        'completed': 'visto',
+        'watching': 'viendo',
+        'on-hold': 'pendiente',
+        'dropped': 'pendiente',
+        'plan to watch': 'pendiente',
+        'plantowatch': 'pendiente',
+    }
+
+    parsed_entries = []
+    mal_ids_set = set()
+
+    for node in anime_nodes:
+        aid_node = node.find('series_animedb_id')
+        if aid_node is None or not aid_node.text:
+            continue
+        try:
+            mal_id = int(aid_node.text.strip())
+        except ValueError:
+            continue
+
+        title_node = node.find('series_title')
+        title = title_node.text.strip() if (title_node is not None and title_node.text) else f"Anime #{mal_id}"
+
+        type_node = node.find('series_type')
+        series_type = type_node.text.strip() if (type_node is not None and type_node.text) else 'TV'
+
+        ep_node = node.find('series_episodes')
+        episodes = None
+        if ep_node is not None and ep_node.text:
+            try:
+                episodes = int(ep_node.text.strip())
+            except ValueError:
+                pass
+
+        st_node = node.find('my_status')
+        st_raw = (st_node.text.strip().lower() if (st_node is not None and st_node.text) else 'completed')
+        status_val = STATUS_MAP.get(st_raw, 'pendiente')
+
+        sc_node = node.find('my_score')
+        score_val = None
+        if sc_node is not None and sc_node.text:
+            try:
+                sc_int = int(sc_node.text.strip())
+                if 1 <= sc_int <= 10:
+                    score_val = sc_int
+            except ValueError:
+                pass
+
+        ep_watched_node = node.find('my_watched_episodes')
+        ep_watched = 0
+        if ep_watched_node is not None and ep_watched_node.text:
+            try:
+                ep_watched = max(0, int(ep_watched_node.text.strip()))
+            except ValueError:
+                pass
+
+        comments_node = node.find('my_comments')
+        notes_val = comments_node.text.strip() if (comments_node is not None and comments_node.text) else ''
+
+        tags_node = node.find('my_tags')
+        tags_list = []
+        if tags_node is not None and tags_node.text:
+            raw_tags = [t.strip() for t in tags_node.text.split(',') if t.strip()]
+            tags_list = [t if t.startswith('#') else f"#{t}" for t in raw_tags][:5]
+
+        is_fav = (score_val == 10) or any('fav' in t.lower() for t in tags_list)
+
+        parsed_entries.append({
+            'mal_id': mal_id,
+            'title': title,
+            'series_type': series_type,
+            'episodes': episodes,
+            'status': status_val,
+            'score': score_val,
+            'episodes_watched': ep_watched,
+            'notes': notes_val,
+            'tags': tags_list,
+            'is_favorite': is_fav,
+        })
+        mal_ids_set.add(mal_id)
+
+    # 1. Obtener animes existentes en nuestra BD
+    existing_animes = {a.mal_id: a for a in Anime.objects.filter(mal_id__in=mal_ids_set)}
+    
+    # 2. Animes faltantes: registrar inmediatamente con metadatos del XML para que no falle la importación
+    new_animes_created = 0
+    missing_animes_to_enrich = []
+    for entry in parsed_entries:
+        aid = entry['mal_id']
+        if aid not in existing_animes:
+            new_anime = Anime.objects.create(
+                mal_id=aid,
+                title=entry['title'],
+                type=entry['series_type'] or 'TV',
+                episodes=entry['episodes'],
+                synopsis='Importado automáticamente desde MyAnimeList.',
+                image_url='https://cdn.myanimelist.net/images/anime/placeholder.jpg',
+            )
+            existing_animes[aid] = new_anime
+            missing_animes_to_enrich.append(aid)
+            new_animes_created += 1
+
+    # 3. Enriquecimiento ultra-conservador: máx 5 títulos con delay 1.5s
+    enriched_count = 0
+    if missing_animes_to_enrich:
+        to_lookup = missing_animes_to_enrich[:5]
+        for aid in to_lookup:
+            time.sleep(1.5)  # Delay conservador para respetar rate limits
+            try:
+                req = urllib.request.Request(
+                    f"https://api.jikan.moe/v4/anime/{aid}",
+                    headers={'User-Agent': 'Animigos/2.0 (Anime Platform; respectful client)'}
+                )
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    if resp.status == 200:
+                        j_data = json.loads(resp.read().decode('utf-8')).get('data', {})
+                        if j_data:
+                            target_anime = existing_animes.get(aid)
+                            if target_anime:
+                                img = (j_data.get('images', {}).get('jpg', {}).get('large_image_url')
+                                       or j_data.get('images', {}).get('jpg', {}).get('image_url'))
+                                if img:
+                                    target_anime.image_url = img
+                                syn = j_data.get('synopsis')
+                                if syn:
+                                    target_anime.synopsis = syn
+                                studios = j_data.get('studios', [])
+                                if studios:
+                                    target_anime.studio = studios[0].get('name', '')
+                                genres = [g.get('name') for g in j_data.get('genres', []) if g.get('name')]
+                                if genres:
+                                    target_anime.genres = genres
+                                target_anime.save(update_fields=['image_url', 'synopsis', 'studio', 'genres'])
+                                enriched_count += 1
+            except Exception:
+                # Si falla o MyAnimeList/Jikan limita la cuota, salir silenciosamente sin interrumpir la importación
+                break
+
+    # 4. Guardar las entradas del usuario de forma atómica
+    created_count = 0
+    updated_count = 0
+
+    with transaction.atomic():
+        for entry in parsed_entries:
+            aid = entry['mal_id']
+            anime_obj = existing_animes.get(aid)
+            if not anime_obj:
+                continue
+
+            obj, was_created = UserAnimeEntry.objects.update_or_create(
+                user=user,
+                anime=anime_obj,
+                defaults={
+                    'status': entry['status'],
+                    'score': entry['score'],
+                    'episodes_watched': entry['episodes_watched'],
+                    'is_favorite': entry['is_favorite'],
+                    'tags': entry['tags'],
+                    'notes': entry['notes']
+                }
+            )
+            if was_created:
+                created_count += 1
+            else:
+                updated_count += 1
+
+    return Response({
+        'success': True,
+        'total_parsed': len(parsed_entries),
+        'imported': created_count + updated_count,
+        'created': created_count,
+        'updated': updated_count,
+        'new_animes_registered': new_animes_created,
+        'enriched_count': enriched_count,
+        'message': f"¡Listo! Se procesaron {len(parsed_entries)} animes ({created_count} añadidos, {updated_count} actualizados)."
+    }, status=status.HTTP_200_OK)
+

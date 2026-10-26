@@ -232,3 +232,36 @@ export async function searchCatalogAnimes(query: string, limit = 20): Promise<Ap
     // Si DRF retorna paginado { results: [...] } o array directo
     return Array.isArray(data) ? data : data.results || []
 }
+
+export interface ImportMalXmlResult {
+    success: boolean
+    total_parsed: number
+    imported: number
+    created: number
+    updated: number
+    new_animes_registered: number
+    enriched_count: number
+    message: string
+}
+
+/**
+ * Importa la lista de anime desde un archivo oficial animelist.xml de MyAnimeList
+ */
+export async function importMalXml(file: File): Promise<ImportMalXmlResult> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const res = await fetch(`${API_BASE_URL}/users/my-list/import-mal-xml/`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+        throw new Error(data.error || 'Error al importar lista de MyAnimeList')
+    }
+
+    return data
+}
+
