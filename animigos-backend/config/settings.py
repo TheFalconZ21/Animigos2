@@ -163,10 +163,17 @@ REST_FRAMEWORK = {
     ],
 }
 
-# CORS Configuration (Permitir conexión desde el Frontend React/Vite)
+# CORS Configuration (Permitir conexión desde el Frontend React/Vite en cualquier puerto local)
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5174',
+    'http://localhost:5175',
+    'http://127.0.0.1:5175',
+]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://(localhost|127\.0\.0\.1):(517[0-9]|3000)$",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
