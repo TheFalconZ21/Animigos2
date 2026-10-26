@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from animes.models import Anime
@@ -80,3 +81,66 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
             display_name=instance.first_name or instance.username
         )
         UserPreferences.objects.create(profile=profile)
+
+
+class UserAnimeFolder(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='anime_folders')
+    name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Carpeta de Anime"
+        verbose_name_plural = "Carpetas de Anime"
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'name'], name='unique_user_folder_name')
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.user.username})"
+
+
+class UserAnimeEntry(models.Model):
+    STATUS_CHOICES = [
+        ('visto', 'Visto'),
+        ('viendo', 'Viendo'),
+        ('pendiente', 'Pendiente'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='anime_list_entries')
+    anime = models.ForeignKey(Anime, on_delete=models.CASCADE, related_name='user_list_entries')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pendiente', db_index=True)
+    score = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        help_text="Calificación personal del usuario (1 a 10)"
+    )
+    episodes_watched = models.PositiveIntegerField(default=0)
+    is_favorite = models.BooleanField(default=False, db_index=True)
+    folder = models.ForeignKey(
+        UserAnimeFolder,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='entries'
+    )
+    tags = models.JSONField(
+        default=list, blank=True,
+        help_text="Lista de etiquetas personalizadas: ['#lloré', '#soundtrack-10']"
+    )
+    notes = models.TextField(blank=True, default='', help_text="Comentario o reseña personal")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Entrada de Mi Lista"
+        verbose_name_plural = "Entradas de Mi Lista"
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'anime'], name='unique_user_anime_list_entry')
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.anime.title} [{self.status}]"

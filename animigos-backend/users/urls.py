@@ -8,4 +8,9 @@ urlpatterns = [
     path('me/', views.get_current_user, name='user-me'),
     path('me/profile/', views.update_profile, name='user-profile-update'),
     path('me/preferences/', views.update_preferences, name='user-preferences-update'),
+    # Mi Lista personal
+    path('my-list/', views.user_my_list_view, name='user-my-list'),
+    path('my-list/<uuid:entry_id>/', views.user_my_list_entry_detail_view, name='user-my-list-entry-detail'),
+    path('my-list/folders/', views.user_my_list_folders_view, name='user-my-list-folders'),
+    path('my-list/folders/<uuid:folder_id>/', views.user_my_list_folder_detail_view, name='user-my-list-folder-detail'),
 ]

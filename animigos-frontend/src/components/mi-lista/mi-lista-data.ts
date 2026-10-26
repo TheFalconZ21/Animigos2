@@ -1,15 +1,16 @@
 import type { SyntheticEvent } from 'react'
 import { MOCK_TOP_ANIMES, type ExtendedAnime } from '../../data/anime-data'
 
+import type { ApiUserListEntry } from '../../services/userListApi'
+
 // ============================================================
-// MI LISTA — Tipos, escala de notas y datos de ejemplo
-// (Cuando exista la API, solo hay que reemplazar LISTA_INICIAL
-//  y CARPETAS_INICIALES por lo que devuelva el backend)
+// MI LISTA — Tipos, escala de notas y adaptadores de API
 // ============================================================
 
 export type EstadoLista = 'visto' | 'viendo' | 'pendiente'
 
 export interface EntradaLista {
+    id?: string
     malId: number
     estado: EstadoLista
     nota: number | null        // Puntuación personal 1-10 (null = sin nota)
@@ -27,7 +28,48 @@ export interface Carpeta {
 
 // Una entrada ya "unida" con los datos del anime
 export interface FilaLista extends EntradaLista {
+    id: string
     anime: ExtendedAnime
+}
+
+export function apiEntryToFila(entry: ApiUserListEntry): FilaLista {
+    const rawAnime = entry.anime
+    const scoreNum =
+        typeof rawAnime.score === 'number'
+            ? rawAnime.score
+            : rawAnime.score
+                ? parseFloat(String(rawAnime.score))
+                : 8.0
+
+    const anime: ExtendedAnime = {
+        malId: entry.mal_id,
+        title: rawAnime.title,
+        titleEnglish: rawAnime.title_english,
+        titleJapanese: rawAnime.title_japanese,
+        imageUrl: rawAnime.image_url,
+        score: isNaN(scoreNum) ? 8.0 : scoreNum,
+        rank: 1,
+        episodes: rawAnime.episodes || 24,
+        status: rawAnime.status || 'Finished Airing',
+        season: rawAnime.season,
+        year: rawAnime.season_year || undefined,
+        studio: rawAnime.studio || 'Desconocido',
+        genres: rawAnime.genres || [],
+        synopsis: rawAnime.synopsis || '',
+    }
+
+    return {
+        id: entry.id,
+        malId: entry.mal_id,
+        estado: entry.status,
+        nota: entry.score,
+        episodiosVistos: entry.episodes_watched,
+        favorito: entry.is_favorite,
+        tags: entry.tags || [],
+        comentario: entry.notes || '',
+        carpetaId: entry.folder_id || undefined,
+        anime,
+    }
 }
 
 // Escala estilo MyAnimeList

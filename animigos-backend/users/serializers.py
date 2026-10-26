@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Profile, UserPreferences
+from .models import Profile, UserPreferences, UserAnimeFolder, UserAnimeEntry
 from animes.serializers import AnimeSerializer
 
 class UserPreferencesSerializer(serializers.ModelSerializer):
@@ -61,3 +61,61 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             user.profile.save(update_fields=['display_name'])
 
         return user
+
+
+class UserAnimeFolderSerializer(serializers.ModelSerializer):
+    entries_count = serializers.SerializerMethodField()
+    average_score = serializers.SerializerMethodField()
+    covers = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserAnimeFolder
+        fields = [
+            'id',
+            'name',
+            'entries_count',
+            'average_score',
+            'covers',
+            'created_at',
+            'updated_at'
+        ]
+
+    def get_entries_count(self, obj):
+        return obj.entries.count()
+
+    def get_average_score(self, obj):
+        entries_with_score = obj.entries.filter(score__isnull=False)
+        if not entries_with_score.exists():
+            return None
+        scores = [e.score for e in entries_with_score]
+        return round(sum(scores) / len(scores), 1)
+
+    def get_covers(self, obj):
+        entries = obj.entries.select_related('anime').all()[:4]
+        return [e.anime.image_url for e in entries if e.anime.image_url]
+
+
+class UserAnimeEntrySerializer(serializers.ModelSerializer):
+    anime = AnimeSerializer(read_only=True)
+    mal_id = serializers.IntegerField(source='anime.mal_id', read_only=True)
+    folder_id = serializers.UUIDField(source='folder.id', read_only=True, allow_null=True)
+    folder_name = serializers.CharField(source='folder.name', read_only=True, allow_null=True)
+
+    class Meta:
+        model = UserAnimeEntry
+        fields = [
+            'id',
+            'mal_id',
+            'status',
+            'score',
+            'episodes_watched',
+            'is_favorite',
+            'folder_id',
+            'folder_name',
+            'tags',
+            'notes',
+            'anime',
+            'created_at',
+            'updated_at',
+        ]
+

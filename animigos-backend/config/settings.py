@@ -72,16 +72,30 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 # Database
-# Por defecto SQLite para desarrollo local ágil; si se proveen variables de PostgreSQL (AWS RDS), conmuta automáticamente.
-if os.getenv('POSTGRES_DB') and os.getenv('POSTGRES_HOST'):
+# Conexión híbrida resiliente: si PostgreSQL está configurado y el puerto responde,
+# usa PostgreSQL (AWS RDS / EC2); de lo contrario, conmuta transparentemente a SQLite local (db.sqlite3).
+import socket
+
+pg_host = os.getenv('POSTGRES_HOST')
+pg_port = os.getenv('POSTGRES_PORT', '5432')
+pg_db = os.getenv('POSTGRES_DB')
+
+def _check_db_reachable(host, port):
+    try:
+        with socket.create_connection((host, int(port)), timeout=0.8):
+            return True
+    except (socket.timeout, ConnectionRefusedError, OSError):
+        return False
+
+if pg_db and pg_host and _check_db_reachable(pg_host, pg_port):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('POSTGRES_DB'),
+            'NAME': pg_db,
             'USER': os.getenv('POSTGRES_USER', 'postgres'),
             'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
-            'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
-            'PORT': os.getenv('POSTGRES_PORT', '5432'),
+            'HOST': pg_host,
+            'PORT': pg_port,
         }
     }
 else:

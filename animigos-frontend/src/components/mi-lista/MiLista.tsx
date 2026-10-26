@@ -1,14 +1,11 @@
-import { useMemo, useState, type CSSProperties } from 'react'
-import { Folder, Hash, LayoutGrid, LayoutList, Plus, Search, Send, SlidersHorizontal, X } from 'lucide-react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Folder, Hash, LayoutGrid, LayoutList, Loader2, Plus, Search, Send, SlidersHorizontal, X } from 'lucide-react'
 import {
     ACENTO_POR_DEFECTO,
     ACENTO_POR_GENERO,
-    CARPETAS_INICIALES,
     ESCALA_NOTAS,
     ESTADOS,
-    LISTA_INICIAL,
-    TAGS_INICIALES,
-    buscarAnime,
+    apiEntryToFila,
     medioDe,
     promedio,
     type Carpeta,
@@ -16,6 +13,16 @@ import {
     type EstadoLista,
     type FilaLista,
 } from './mi-lista-data'
+import {
+    fetchMyList,
+    addAnimeToMyList,
+    updateMyListEntry,
+    deleteMyListEntry,
+    createMyListFolder,
+    renameMyListFolder,
+    deleteMyListFolder,
+    type ApiAnimeData,
+} from '../../services/userListApi'
 import { AnimeFila } from './AnimeFila'
 import { PestanaCarpetas } from './PestanaCarpetas'
 import { PestanaTags } from './PestanaTags'
@@ -28,10 +35,7 @@ import { SelloNota } from './piezas'
 import './mi-lista.css'
 
 // ============================================================
-// MI LISTA — Sección rediseñada
-// Antes: todo a la vista (lista + filtros + panel lateral + tags).
-// Ahora: 3 pestañas (Animes / Carpetas / Tags), filtros plegables
-// y "Agregar" como diálogo.
+// MI LISTA — Colección personal con persistencia real en BD
 // ============================================================
 
 type Pestana = 'animes' | 'carpetas' | 'tags'
@@ -75,10 +79,12 @@ const CHIPS_ESTADO: { id: FiltroEstado; label: string }[] = [
 ]
 
 export function MiLista() {
-    // --- Datos (cuando exista la API, vendrán del backend) ---
-    const [entradas, setEntradas] = useState<EntradaLista[]>(LISTA_INICIAL)
-    const [carpetas, setCarpetas] = useState<Carpeta[]>(CARPETAS_INICIALES)
-    const [tags, setTags] = useState<string[]>(TAGS_INICIALES)
+    // --- Estado Real sincronizado con la Base de Datos ---
+    const [filas, setFilas] = useState<FilaLista[]>([])
+    const [carpetas, setCarpetas] = useState<Carpeta[]>([])
+    const [tags, setTags] = useState<string[]>([])
+    const [cargando, setCargando] = useState(true)
+    const [errorCarga, setErrorCarga] = useState<string | null>(null)
 
     // --- Interfaz ---
     const [pestana, setPestana] = useState<Pestana>('animes')
@@ -93,17 +99,35 @@ export function MiLista() {
     const [detalleId, setDetalleId] = useState<number | null>(null)
     const [paquete, setPaquete] = useState<Paquete | null>(null)
     const [agregarAbierto, setAgregarAbierto] = useState(false)
-    const [verTodos, setVerTodos] = useState<string | null>(null) // Nombre de la categoría abierta
+    const [verTodos, setVerTodos] = useState<string | null>(null)
 
-    // Une cada entrada con los datos del anime
-    const filas = useMemo<FilaLista[]>(
-        () =>
-            entradas.flatMap((e) => {
-                const anime = buscarAnime(e.malId)
-                return anime ? [{ ...e, anime }] : []
-            }),
-        [entradas],
-    )
+    // Carga inicial desde PostgreSQL / SQLite via REST API
+    useEffect(() => {
+        let montado = true
+        setCargando(true)
+        setErrorCarga(null)
+
+        fetchMyList()
+            .then((data) => {
+                if (!montado) return
+                const filasMapeadas = data.entries.map(apiEntryToFila)
+                setFilas(filasMapeadas)
+                setCarpetas(data.folders.map((f) => ({ id: f.id, nombre: f.name })))
+                setTags(data.tags.map((t) => t.tag.replace(/^#/, '')))
+            })
+            .catch((err) => {
+                if (!montado) return
+                console.error('Error al cargar colección desde la base de datos:', err)
+                setErrorCarga('No se pudo conectar con la base de datos.')
+            })
+            .finally(() => {
+                if (montado) setCargando(false)
+            })
+
+        return () => {
+            montado = false
+        }
+    }, [])
 
     const generoDominante = useMemo(() => {
         const conteo = new Map<string, number>()
@@ -114,11 +138,99 @@ export function MiLista() {
     const acento =
         acentoModo === 'auto' ? (generoDominante && ACENTO_POR_GENERO[generoDominante]) || ACENTO_POR_DEFECTO : acentoModo
 
-    // --- Acciones sobre la lista ---
-    const actualizar = (malId: number, cambios: Partial<EntradaLista>) =>
-        setEntradas((prev) => prev.map((e) => (e.malId === malId ? { ...e, ...cambios } : e)))
+    // --- Mutaciones de estado con actualización optimista y persistencia en BD ---
+    const actualizar = async (malId: number, cambios: Partial<EntradaLista>) => {
+        const filaAnterior = filas.find((f) => f.malId === malId)
+        if (!filaAnterior) return
 
-    const quitar = (malId: number) => setEntradas((prev) => prev.filter((e) => e.malId !== malId))
+        // Actualización optimista inmediata en UI
+        setFilas((prev) => prev.map((f) => (f.malId === malId ? { ...f, ...cambios } : f)))
+
+        // Mapeo a payload estricto para Django REST Framework
+        const payload: Parameters<typeof updateMyListEntry>[1] = {}
+        if (cambios.estado !== undefined) payload.status = cambios.estado
+        if (cambios.nota !== undefined) payload.score = cambios.nota
+        if (cambios.episodiosVistos !== undefined) payload.episodes_watched = cambios.episodiosVistos
+        if (cambios.favorito !== undefined) payload.is_favorite = cambios.favorito
+        if (cambios.carpetaId !== undefined) payload.folder_id = cambios.carpetaId || null
+        if (cambios.tags !== undefined) payload.tags = cambios.tags
+        if (cambios.comentario !== undefined) payload.notes = cambios.comentario
+
+        try {
+            await updateMyListEntry(filaAnterior.id, payload)
+        } catch (err) {
+            console.error('Error al persistir actualización en base de datos:', err)
+            // Rollback en caso de falla de red
+            setFilas((prev) => prev.map((f) => (f.malId === malId ? filaAnterior : f)))
+        }
+    }
+
+    const quitar = async (malId: number) => {
+        const filaAnterior = filas.find((f) => f.malId === malId)
+        if (!filaAnterior) return
+
+        // Remoción optimista
+        setFilas((prev) => prev.filter((f) => f.malId !== malId))
+
+        try {
+            await deleteMyListEntry(filaAnterior.id)
+        } catch (err) {
+            console.error('Error al eliminar anime en base de datos:', err)
+            // Rollback
+            setFilas((prev) => [...prev, filaAnterior])
+        }
+    }
+
+    const handleAgregarAnime = async (nuevaEntrada: EntradaLista, animeData: ApiAnimeData) => {
+        try {
+            const apiRes = await addAnimeToMyList({
+                mal_id: nuevaEntrada.malId,
+                status: nuevaEntrada.estado,
+                score: nuevaEntrada.nota,
+                episodes_watched: nuevaEntrada.episodiosVistos,
+                is_favorite: nuevaEntrada.favorito,
+                folder_id: nuevaEntrada.carpetaId || null,
+                tags: nuevaEntrada.tags,
+                notes: nuevaEntrada.comentario || '',
+            })
+
+            const nuevaFila = apiEntryToFila(apiRes)
+            setFilas((prev) => [nuevaFila, ...prev.filter((f) => f.malId !== nuevaEntrada.malId)])
+        } catch (err) {
+            console.error('Error al agregar anime a la base de datos:', err)
+        } finally {
+            setAgregarAbierto(false)
+            setPestana('animes')
+        }
+    }
+
+    const handleCrearCarpeta = async (nombre: string) => {
+        try {
+            const nuevaCarpetaApi = await createMyListFolder(nombre)
+            setCarpetas((prev) => [...prev, { id: nuevaCarpetaApi.id, nombre: nuevaCarpetaApi.name }])
+        } catch (err) {
+            console.error('Error al crear carpeta en base de datos:', err)
+        }
+    }
+
+    const handleRenombrarCarpeta = async (id: string, nombre: string) => {
+        try {
+            await renameMyListFolder(id, nombre)
+            setCarpetas((prev) => prev.map((c) => (c.id === id ? { ...c, nombre } : c)))
+        } catch (err) {
+            console.error('Error al renombrar carpeta en base de datos:', err)
+        }
+    }
+
+    const handleEliminarCarpeta = async (id: string) => {
+        try {
+            await deleteMyListFolder(id)
+            setCarpetas((prev) => prev.filter((c) => c.id !== id))
+            setFilas((prev) => prev.map((f) => (f.carpetaId === id ? { ...f, carpetaId: undefined } : f)))
+        } catch (err) {
+            console.error('Error al eliminar carpeta en base de datos:', err)
+        }
+    }
 
     const recomendarUno = (fila: FilaLista) =>
         setPaquete({ titulo: fila.anime.title, criterio: 'Un anime de tu lista', filas: [fila] })
@@ -164,7 +276,7 @@ export function MiLista() {
             return true
         })
 
-        const posicion = new Map(entradas.map((e, i) => [e.malId, i]))
+        const posicion = new Map(filas.map((e, i) => [e.malId, i]))
         const nota = (f: FilaLista) => f.nota ?? -1
         const comparar: Record<Orden, (a: FilaLista, b: FilaLista) => number> = {
             'nota-desc': (a, b) => nota(b) - nota(a) || b.anime.score - a.anime.score,
@@ -175,7 +287,7 @@ export function MiLista() {
             agregado: (a, b) => posicion.get(b.malId)! - posicion.get(a.malId)!,
         }
         return resultado.sort(comparar[orden])
-    }, [filas, entradas, carpetas, busqueda, filtroEstado, filtros, orden])
+    }, [filas, carpetas, busqueda, filtroEstado, filtros, orden])
 
     // Filtros activos como pastillas que se pueden quitar
     const activos = (
@@ -404,11 +516,16 @@ export function MiLista() {
                             </div>
                         )}
 
-                        {visibles.length > 0 ? (
+                        {cargando ? (
+                            <div className="ml-vacio py-5 text-center">
+                                <Loader2 size={32} className="text-secondary mx-auto mb-3" style={{ animation: 'spin 1s linear infinite' }} />
+                                <p className="text-secondary mb-0">Cargando tu colección de animes desde la base de datos...</p>
+                            </div>
+                        ) : visibles.length > 0 ? (
                             <div className="ml-lista">
                                 {visibles.map((fila, i) => (
                                     <AnimeFila
-                                        key={fila.malId}
+                                        key={fila.id || fila.malId}
                                         fila={fila}
                                         posicion={i + 1}
                                         carpetas={carpetas}
@@ -451,12 +568,9 @@ export function MiLista() {
                         <PestanaCarpetas
                             carpetas={carpetas}
                             filas={filas}
-                            onCrear={(nombre) => setCarpetas([...carpetas, { id: `carpeta-${Date.now()}`, nombre }])}
-                            onRenombrar={(id, nombre) => setCarpetas(carpetas.map((c) => (c.id === id ? { ...c, nombre } : c)))}
-                            onEliminar={(id) => {
-                                setCarpetas(carpetas.filter((c) => c.id !== id))
-                                setEntradas((prev) => prev.map((e) => (e.carpetaId === id ? { ...e, carpetaId: undefined } : e)))
-                            }}
+                            onCrear={handleCrearCarpeta}
+                            onRenombrar={handleRenombrarCarpeta}
+                            onEliminar={handleEliminarCarpeta}
                             onMover={(malId, carpetaId) => actualizar(malId, { carpetaId })}
                             onRecomendar={(c) =>
                                 setPaquete({
@@ -479,7 +593,7 @@ export function MiLista() {
                             onCrear={(tag) => !tags.includes(tag) && setTags([...tags, tag])}
                             onEliminar={(tag) => {
                                 setTags(tags.filter((t) => t !== tag))
-                                setEntradas((prev) => prev.map((e) => ({ ...e, tags: e.tags.filter((t) => t !== tag) })))
+                                setFilas((prev) => prev.map((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) })))
                             }}
                             onFiltrar={(tag) => {
                                 setFiltros({ ...FILTROS_VACIOS, tag })
@@ -514,14 +628,10 @@ export function MiLista() {
             <RecomendarDialog paquete={paquete} carpetas={carpetas} onCerrar={() => setPaquete(null)} />
             <AgregarDialog
                 abierto={agregarAbierto}
-                idsEnLista={entradas.map((e) => e.malId)}
+                idsEnLista={filas.map((f) => f.malId)}
                 carpetas={carpetas}
                 onCerrar={() => setAgregarAbierto(false)}
-                onAgregar={(entrada) => {
-                    setEntradas([...entradas, entrada])
-                    setAgregarAbierto(false)
-                    setPestana('animes')
-                }}
+                onAgregar={handleAgregarAnime}
             />
         </section>
     )

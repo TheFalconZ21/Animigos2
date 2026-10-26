@@ -1,10 +1,9 @@
-import { useMemo, useState } from 'react'
-import { Plus, Search } from 'lucide-react'
-import { MOCK_TOP_ANIMES } from '../../data/anime-data'
+import { useEffect, useState } from 'react'
+import { Loader2, Plus, Search } from 'lucide-react'
+import { searchCatalogAnimes, type ApiAnimeData } from '../../services/userListApi'
 import { ESCALA_NOTAS, ESTADOS, type Carpeta, type EntradaLista, type EstadoLista, alFallarPoster } from './mi-lista-data'
 import { Dialogo } from './piezas'
 
-// Reemplaza el antiguo panel lateral "Agregar a Mi Lista"
 export function AgregarDialog({
     abierto,
     idsEnLista,
@@ -16,7 +15,7 @@ export function AgregarDialog({
     idsEnLista: number[]
     carpetas: Carpeta[]
     onCerrar: () => void
-    onAgregar: (entrada: EntradaLista) => void
+    onAgregar: (entrada: EntradaLista, animeData: ApiAnimeData) => void
 }) {
     return (
         <Dialogo abierto={abierto} onCerrar={onCerrar} etiqueta="Agregar a Mi Lista" ancho={560}>
@@ -32,75 +31,109 @@ function Contenido({
 }: {
     idsEnLista: number[]
     carpetas: Carpeta[]
-    onAgregar: (entrada: EntradaLista) => void
+    onAgregar: (entrada: EntradaLista, animeData: ApiAnimeData) => void
 }) {
     const [busqueda, setBusqueda] = useState('')
+    const [buscando, setBuscando] = useState(false)
+    const [catalogo, setCatalogo] = useState<ApiAnimeData[]>([])
     const [elegido, setElegido] = useState<number | null>(null)
     const [estado, setEstado] = useState<EstadoLista>('pendiente')
     const [nota, setNota] = useState<number | null>(null)
     const [carpetaId, setCarpetaId] = useState('')
 
-    // TODO backend: reemplazar por la búsqueda real del catálogo
-    const resultados = useMemo(() => {
-        const q = busqueda.trim().toLowerCase()
-        return MOCK_TOP_ANIMES.filter((a) => !idsEnLista.includes(a.malId))
-            .filter((a) => !q || a.title.toLowerCase().includes(q) || a.titleJapanese?.includes(q))
-            .slice(0, 8)
-    }, [busqueda, idsEnLista])
+    // Búsqueda dinámica en tiempo real contra el backend
+    useEffect(() => {
+        let cancelado = false
+        setBuscando(true)
 
-    const anime = MOCK_TOP_ANIMES.find((a) => a.malId === elegido)
+        const timer = setTimeout(() => {
+            searchCatalogAnimes(busqueda, 12)
+                .then((datos) => {
+                    if (!cancelado) {
+                        setCatalogo(datos)
+                    }
+                })
+                .catch((err) => {
+                    console.error('Error al consultar catálogo de animes:', err)
+                })
+                .finally(() => {
+                    if (!cancelado) setBuscando(false)
+                })
+        }, 280)
+
+        return () => {
+            cancelado = true
+            clearTimeout(timer)
+        }
+    }, [busqueda])
+
+    const resultados = catalogo.filter((a) => !idsEnLista.includes(a.mal_id))
+    const anime = catalogo.find((a) => a.mal_id === elegido)
 
     return (
         <form
             onSubmit={(e) => {
                 e.preventDefault()
                 if (!anime) return
-                onAgregar({
-                    malId: anime.malId,
-                    estado,
-                    nota: estado === 'pendiente' ? null : nota,
-                    episodiosVistos: estado === 'visto' ? anime.episodes : 0,
-                    favorito: false,
-                    tags: [],
-                    carpetaId: carpetaId || undefined,
-                })
+                onAgregar(
+                    {
+                        malId: anime.mal_id,
+                        estado,
+                        nota: estado === 'pendiente' ? null : nota,
+                        episodiosVistos: estado === 'visto' ? anime.episodes || 24 : 0,
+                        favorito: false,
+                        tags: [],
+                        carpetaId: carpetaId || undefined,
+                    },
+                    anime,
+                )
             }}
         >
             <div className="ml-dialog-cuerpo">
                 <span className="ml-eyebrow">Mi Lista</span>
                 <h2 className="h3 mt-1 mb-3">Agregar anime</h2>
 
-                <div className="ml-buscador">
+                <div className="ml-buscador position-relative">
                     <Search size={16} />
                     <input
                         data-autofocus
                         className="ml-input"
-                        placeholder="Busca por título…"
+                        placeholder="Busca por título en el catálogo…"
                         value={busqueda}
                         onChange={(e) => setBusqueda(e.target.value)}
                     />
+                    {buscando && (
+                        <span className="position-absolute end-0 me-3 text-secondary" style={{ top: '50%', transform: 'translateY(-50%)' }}>
+                            <Loader2 size={15} className="spinner-border-sm" style={{ animation: 'spin 1s linear infinite' }} />
+                        </span>
+                    )}
                 </div>
 
-                <div className="ml-resultados">
-                    {resultados.map((a) => (
-                        <button
-                            key={a.malId}
-                            type="button"
-                            className="ml-resultado"
-                            aria-pressed={elegido === a.malId}
-                            onClick={() => setElegido(a.malId)}
-                        >
-                            <img src={a.imageUrl} alt="" loading="lazy" onError={alFallarPoster} />
-                            <span style={{ minWidth: 0 }}>
-                                <span className="d-block fw-semibold text-truncate">{a.title}</span>
-                                <span className="small text-secondary">{a.studio} · {a.year} · ★ {a.score}</span>
-                            </span>
-                        </button>
-                    ))}
-                    {resultados.length === 0 && (
+                <div className="ml-resultados mt-2">
+                    {resultados.map((a) => {
+                        const scoreDisplay = a.score ? Number(a.score).toFixed(1) : 'S/P'
+                        return (
+                            <button
+                                key={a.mal_id}
+                                type="button"
+                                className="ml-resultado"
+                                aria-pressed={elegido === a.mal_id}
+                                onClick={() => setElegido(a.mal_id)}
+                            >
+                                <img src={a.image_url} alt="" loading="lazy" onError={alFallarPoster} />
+                                <span style={{ minWidth: 0 }}>
+                                    <span className="d-block fw-semibold text-truncate">{a.title}</span>
+                                    <span className="small text-secondary">
+                                        {a.studio || 'Estudio'} · {a.season_year || a.type || 'TV'} · ★ {scoreDisplay}
+                                    </span>
+                                </span>
+                            </button>
+                        )
+                    })}
+                    {!buscando && resultados.length === 0 && (
                         <div className="ml-vacio py-4">
                             <div className="ml-kaomoji">(・_・;)</div>
-                            No encontramos ese título.
+                            No encontramos títulos en el catálogo con esa búsqueda.
                         </div>
                     )}
                 </div>
