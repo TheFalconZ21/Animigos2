@@ -74,6 +74,27 @@ export interface MyListApiResponse {
     stats: ApiListStats
 }
 
+export interface AddAnimePayload {
+    mal_id: number
+    status?: EstadoLista
+    score?: number | null
+    episodes_watched?: number
+    is_favorite?: boolean
+    folder_id?: string | null
+    tags?: string[]
+    notes?: string
+}
+
+export interface UpdateAnimePayload {
+    status?: EstadoLista
+    score?: number | null
+    episodes_watched?: number
+    is_favorite?: boolean
+    folder_id?: string | null
+    tags?: string[]
+    notes?: string
+}
+
 // -------------------------------------------------------------
 // FUNCIONES DE API (CRUD)
 // -------------------------------------------------------------
@@ -95,16 +116,7 @@ export async function fetchMyList(): Promise<MyListApiResponse> {
 /**
  * Agrega un nuevo anime a la colección personal
  */
-export async function addAnimeToMyList(payload: {
-    mal_id: number
-    status?: EstadoLista
-    score?: number | null
-    episodes_watched?: number
-    is_favorite?: boolean
-    folder_id?: string | null
-    tags?: string[]
-    notes?: string
-}): Promise<ApiUserListEntry> {
+export async function addAnimeToMyList(payload: AddAnimePayload): Promise<ApiUserListEntry> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -123,15 +135,7 @@ export async function addAnimeToMyList(payload: {
  */
 export async function updateMyListEntry(
     entryId: string,
-    updates: Partial<{
-        status: EstadoLista
-        score: number | null
-        episodes_watched: number
-        is_favorite: boolean
-        folder_id: string | null
-        tags: string[]
-        notes: string
-    }>
+    updates: UpdateAnimePayload
 ): Promise<ApiUserListEntry> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/${entryId}/`, {
         method: 'PATCH',

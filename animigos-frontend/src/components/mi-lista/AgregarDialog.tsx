@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Loader2, Plus, Search } from 'lucide-react'
-import { searchCatalogAnimes, type ApiAnimeData } from '../../services/userListApi'
+import type { ApiAnimeData } from '../../services/userListApi'
 import { ESCALA_NOTAS, ESTADOS, type Carpeta, type EntradaLista, type EstadoLista, alFallarPoster } from './mi-lista-data'
 import { Dialogo } from './piezas'
+import { useCatalogSearch } from '../../hooks/useCatalog'
 
 export function AgregarDialog({
     abierto,
@@ -34,38 +35,11 @@ function Contenido({
     onAgregar: (entrada: EntradaLista, animeData: ApiAnimeData) => void
 }) {
     const [busqueda, setBusqueda] = useState('')
-    const [buscando, setBuscando] = useState(false)
-    const [catalogo, setCatalogo] = useState<ApiAnimeData[]>([])
+    const { data: catalogo = [], isLoading: buscando } = useCatalogSearch(busqueda)
     const [elegido, setElegido] = useState<number | null>(null)
     const [estado, setEstado] = useState<EstadoLista>('pendiente')
     const [nota, setNota] = useState<number | null>(null)
     const [carpetaId, setCarpetaId] = useState('')
-
-    // Búsqueda dinámica en tiempo real contra el backend
-    useEffect(() => {
-        let cancelado = false
-        setBuscando(true)
-
-        const timer = setTimeout(() => {
-            searchCatalogAnimes(busqueda, 12)
-                .then((datos) => {
-                    if (!cancelado) {
-                        setCatalogo(datos)
-                    }
-                })
-                .catch((err) => {
-                    console.error('Error al consultar catálogo de animes:', err)
-                })
-                .finally(() => {
-                    if (!cancelado) setBuscando(false)
-                })
-        }, 280)
-
-        return () => {
-            cancelado = true
-            clearTimeout(timer)
-        }
-    }, [busqueda])
 
     const resultados = catalogo.filter((a) => !idsEnLista.includes(a.mal_id))
     const anime = catalogo.find((a) => a.mal_id === elegido)

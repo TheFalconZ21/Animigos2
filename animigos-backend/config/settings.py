@@ -166,3 +166,23 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_AGE = 1209600  # 14 días de persistencia de sesión
 SESSION_SAVE_EVERY_REQUEST = True
 CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Caching Layer (Pilar 4.1 y 4.3 de la Directiva de Arquitectura: Proxy & Caché Intermedia)
+REDIS_URL = os.environ.get('REDIS_URL')
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+            'TIMEOUT': 300,
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'animigos-local-cache',
+            'TIMEOUT': 300,
+        }
+    }
+

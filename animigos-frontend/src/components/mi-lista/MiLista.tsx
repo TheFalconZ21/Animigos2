@@ -1,29 +1,18 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { Folder, Hash, LayoutGrid, LayoutList, Loader2, Plus, Search, Send, SlidersHorizontal, X } from 'lucide-react'
 import {
     ACENTO_POR_DEFECTO,
     ACENTO_POR_GENERO,
     ESCALA_NOTAS,
     ESTADOS,
-    apiEntryToFila,
     medioDe,
     promedio,
-    type Carpeta,
     type EntradaLista,
     type EstadoLista,
     type FilaLista,
 } from './mi-lista-data'
-import {
-    fetchMyList,
-    addAnimeToMyList,
-    updateMyListEntry,
-    deleteMyListEntry,
-    createMyListFolder,
-    renameMyListFolder,
-    deleteMyListFolder,
-    type ApiAnimeData,
-} from '../../services/userListApi'
-import { useAuth } from '../../context/AuthContext'
+import type { ApiAnimeData } from '../../services/userListApi'
+import { useMyList } from '../../hooks/useMyList'
 import { AnimeFila } from './AnimeFila'
 import { PestanaCarpetas } from './PestanaCarpetas'
 import { PestanaTags } from './PestanaTags'
@@ -36,7 +25,7 @@ import { SelloNota } from './piezas'
 import './mi-lista.css'
 
 // ============================================================
-// MI LISTA — Colección personal con persistencia real en BD
+// MI LISTA — Colección personal reactiva con TanStack Query y DRF
 // ============================================================
 
 type Pestana = 'animes' | 'carpetas' | 'tags'
@@ -80,14 +69,24 @@ const CHIPS_ESTADO: { id: FiltroEstado; label: string }[] = [
 ]
 
 export function MiLista() {
-    // --- Estado Real sincronizado con la Base de Datos ---
-    const [filas, setFilas] = useState<FilaLista[]>([])
-    const [carpetas, setCarpetas] = useState<Carpeta[]>([])
-    const [tags, setTags] = useState<string[]>([])
-    const [cargando, setCargando] = useState(true)
-    const [errorCarga, setErrorCarga] = useState<string | null>(null)
+    // --- Capa de Lógica / Hooks Reactivos (Pilar 1.2 y 4.3 de la Directiva de Arquitectura) ---
+    const {
+        filas,
+        carpetas,
+        tags,
+        cargando,
+        errorCarga,
+        actualizar,
+        quitar,
+        agregarAnime,
+        crearCarpeta,
+        renombrarCarpeta,
+        eliminarCarpeta,
+        crearTag,
+        eliminarTag,
+    } = useMyList()
 
-    // --- Interfaz ---
+    // --- Interfaz Local ---
     const [pestana, setPestana] = useState<Pestana>('animes')
     const [busqueda, setBusqueda] = useState('')
     const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos')
@@ -96,40 +95,11 @@ export function MiLista() {
     const [verFiltros, setVerFiltros] = useState(false)
     const [acentoModo, setAcentoModo] = useState('auto')
 
-    const { user } = useAuth()
     // --- Diálogos ---
     const [detalleId, setDetalleId] = useState<number | null>(null)
     const [paquete, setPaquete] = useState<Paquete | null>(null)
     const [agregarAbierto, setAgregarAbierto] = useState(false)
     const [verTodos, setVerTodos] = useState<string | null>(null)
-
-    // Carga inicial y reactiva desde PostgreSQL / SQLite via REST API
-    useEffect(() => {
-        let montado = true
-        setCargando(true)
-        setErrorCarga(null)
-
-        fetchMyList()
-            .then((data) => {
-                if (!montado) return
-                const filasMapeadas = data.entries.map(apiEntryToFila)
-                setFilas(filasMapeadas)
-                setCarpetas(data.folders.map((f) => ({ id: f.id, nombre: f.name })))
-                setTags(data.tags.map((t) => t.tag.replace(/^#/, '')))
-            })
-            .catch((err) => {
-                if (!montado) return
-                console.error('Error al cargar colección desde la base de datos:', err)
-                setErrorCarga('No se pudo conectar con la base de datos.')
-            })
-            .finally(() => {
-                if (montado) setCargando(false)
-            })
-
-        return () => {
-            montado = false
-        }
-    }, [user?.id])
 
     const generoDominante = useMemo(() => {
         const conteo = new Map<string, number>()
@@ -140,66 +110,11 @@ export function MiLista() {
     const acento =
         acentoModo === 'auto' ? (generoDominante && ACENTO_POR_GENERO[generoDominante]) || ACENTO_POR_DEFECTO : acentoModo
 
-    // --- Mutaciones de estado con actualización optimista y persistencia en BD ---
-    const actualizar = async (malId: number, cambios: Partial<EntradaLista>) => {
-        const filaAnterior = filas.find((f) => f.malId === malId)
-        if (!filaAnterior) return
-
-        // Actualización optimista inmediata en UI
-        setFilas((prev) => prev.map((f) => (f.malId === malId ? { ...f, ...cambios } : f)))
-
-        // Mapeo a payload estricto para Django REST Framework
-        const payload: Parameters<typeof updateMyListEntry>[1] = {}
-        if (cambios.estado !== undefined) payload.status = cambios.estado
-        if (cambios.nota !== undefined) payload.score = cambios.nota
-        if (cambios.episodiosVistos !== undefined) payload.episodes_watched = cambios.episodiosVistos
-        if (cambios.favorito !== undefined) payload.is_favorite = cambios.favorito
-        if (cambios.carpetaId !== undefined) payload.folder_id = cambios.carpetaId || null
-        if (cambios.tags !== undefined) payload.tags = cambios.tags
-        if (cambios.comentario !== undefined) payload.notes = cambios.comentario
-
-        try {
-            await updateMyListEntry(filaAnterior.id, payload)
-        } catch (err) {
-            console.error('Error al persistir actualización en base de datos:', err)
-            // Rollback en caso de falla de red
-            setFilas((prev) => prev.map((f) => (f.malId === malId ? filaAnterior : f)))
-        }
-    }
-
-    const quitar = async (malId: number) => {
-        const filaAnterior = filas.find((f) => f.malId === malId)
-        if (!filaAnterior) return
-
-        // Remoción optimista
-        setFilas((prev) => prev.filter((f) => f.malId !== malId))
-
-        try {
-            await deleteMyListEntry(filaAnterior.id)
-        } catch (err) {
-            console.error('Error al eliminar anime en base de datos:', err)
-            // Rollback
-            setFilas((prev) => [...prev, filaAnterior])
-        }
-    }
-
     const handleAgregarAnime = async (nuevaEntrada: EntradaLista, _animeData?: ApiAnimeData) => {
         try {
-            const apiRes = await addAnimeToMyList({
-                mal_id: nuevaEntrada.malId,
-                status: nuevaEntrada.estado,
-                score: nuevaEntrada.nota,
-                episodes_watched: nuevaEntrada.episodiosVistos,
-                is_favorite: nuevaEntrada.favorito,
-                folder_id: nuevaEntrada.carpetaId || null,
-                tags: nuevaEntrada.tags,
-                notes: nuevaEntrada.comentario || '',
-            })
-
-            const nuevaFila = apiEntryToFila(apiRes)
-            setFilas((prev) => [nuevaFila, ...prev.filter((f) => f.malId !== nuevaEntrada.malId)])
+            await agregarAnime(nuevaEntrada, _animeData)
         } catch (err) {
-            console.error('Error al agregar anime a la base de datos:', err)
+            console.error('Error al agregar anime a la lista:', err)
         } finally {
             setAgregarAbierto(false)
             setPestana('animes')
@@ -208,29 +123,25 @@ export function MiLista() {
 
     const handleCrearCarpeta = async (nombre: string) => {
         try {
-            const nuevaCarpetaApi = await createMyListFolder(nombre)
-            setCarpetas((prev) => [...prev, { id: nuevaCarpetaApi.id, nombre: nuevaCarpetaApi.name }])
+            await crearCarpeta(nombre)
         } catch (err) {
-            console.error('Error al crear carpeta en base de datos:', err)
+            console.error('Error al crear carpeta:', err)
         }
     }
 
     const handleRenombrarCarpeta = async (id: string, nombre: string) => {
         try {
-            await renameMyListFolder(id, nombre)
-            setCarpetas((prev) => prev.map((c) => (c.id === id ? { ...c, nombre } : c)))
+            await renombrarCarpeta(id, nombre)
         } catch (err) {
-            console.error('Error al renombrar carpeta en base de datos:', err)
+            console.error('Error al renombrar carpeta:', err)
         }
     }
 
     const handleEliminarCarpeta = async (id: string) => {
         try {
-            await deleteMyListFolder(id)
-            setCarpetas((prev) => prev.filter((c) => c.id !== id))
-            setFilas((prev) => prev.map((f) => (f.carpetaId === id ? { ...f, carpetaId: undefined } : f)))
+            await eliminarCarpeta(id)
         } catch (err) {
-            console.error('Error al eliminar carpeta en base de datos:', err)
+            console.error('Error al eliminar carpeta:', err)
         }
     }
 
@@ -598,11 +509,8 @@ export function MiLista() {
                         <PestanaTags
                             tags={tags}
                             filas={filas}
-                            onCrear={(tag) => !tags.includes(tag) && setTags([...tags, tag])}
-                            onEliminar={(tag) => {
-                                setTags(tags.filter((t) => t !== tag))
-                                setFilas((prev) => prev.map((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) })))
-                            }}
+                            onCrear={crearTag}
+                            onEliminar={eliminarTag}
                             onFiltrar={(tag) => {
                                 setFiltros({ ...FILTROS_VACIOS, tag })
                                 setFiltroEstado('todos')
