@@ -1,68 +1,133 @@
 /* ============================================================
    CATÁLOGO DE ANIMES — ANIMIGOS
-   Estética minimalista unificada con Mi Lista:
-   - Fondo negro puro (#080808)
-   - Títulos limpios sin card
-   - Cards compactas y cuadrículas con alta densidad visual
-   - Filtros obsidian (#111116) de alto contraste
+   Estética oficial de alta densidad y proporciones óptimas:
+   - Paleta deep obsidian (#070b12 / #0b0f19)
+   - Grilla responsive 5 columnas (aspect-ratio 3/4 óptimo)
+   - Badges precisos en esquinas del póster (Ranking, Temporada, MAL score)
+   - Píldoras de amigos y botones de acción limpios
    ============================================================ */
 
 .cat-root {
-    --cat-bg: #080808;
-    --cat-surface: #111116;
-    --cat-surface-2: #18181f;
-    --cat-surface-hover: #1f1f28;
-    --cat-border: rgba(255, 255, 255, 0.07);
-    --cat-border-hover: rgba(255, 255, 255, 0.16);
-    --cat-text: #f4f4f5;
-    --cat-text-muted: #a1a1aa;
-    --cat-text-dim: #71717a;
+    --cat-bg: #070b12;
+    --cat-surface: rgba(13, 19, 32, 0.7);
+    --cat-surface-2: #101726;
+    --cat-surface-hover: #162035;
+    --cat-border: rgba(255, 255, 255, 0.08);
+    --cat-border-hover: rgba(255, 255, 255, 0.18);
+    --cat-text: #f8fafc;
+    --cat-text-muted: #94a3b8;
+    --cat-text-dim: #64748b;
     --cat-acento: #e8508f;
-    --cat-warning: #fbbf24;
-    --cat-success: #34d399;
-    --cat-radio: 14px;
+    --cat-gold: #fcd34d;
+    --cat-warning: #f59e0b;
 
     background-color: var(--cat-bg);
     color: var(--cat-text-muted);
     min-height: 90vh;
 }
 
-/* ---------- Header de Catálogo sin Card ---------- */
-.cat-header {
-    padding: 1.5rem 0 0;
-    margin-bottom: 1.5rem;
+/* ---------- Barra Superior de Modo (Pill Toggle) ---------- */
+.cat-mode-pill-bar {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(10, 15, 26, 0.85);
+    border: 1px solid var(--cat-border);
+    border-radius: 9999px;
+    padding: 4px;
+    gap: 4px;
+    backdrop-filter: blur(8px);
 }
 
-/* ---------- Barra / Panel de Filtros ---------- */
+.cat-mode-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 18px;
+    border-radius: 9999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--cat-text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cat-mode-pill-btn:hover {
+    color: #ffffff;
+}
+
+.cat-mode-pill-btn.active {
+    background: #cad5e2;
+    color: #05070b;
+    font-weight: 800;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* ---------- Caja de Filtros ---------- */
 .cat-filter-card {
     background: var(--cat-surface);
     border: 1px solid var(--cat-border);
-    border-radius: var(--cat-radio);
+    border-radius: 18px;
     padding: 1.25rem 1.4rem;
-    margin-bottom: 1.5rem;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+.cat-filter-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.85rem;
+}
+
+.cat-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+@media (min-width: 640px) {
+    .cat-filter-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 992px) {
+    .cat-filter-grid {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+}
+
+.cat-filter-col {
+    display: flex;
+    flex-direction: column;
 }
 
 .cat-filter-label {
-    display: block;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--cat-text-dim);
-    margin-bottom: 0.35rem;
+    margin-bottom: 4px;
 }
 
 .cat-select {
     background: var(--cat-surface-2);
     border: 1px solid var(--cat-border);
-    color: var(--cat-text);
-    border-radius: 8px;
+    color: #ffffff;
+    border-radius: 10px;
     padding: 0.45rem 0.75rem;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     width: 100%;
     appearance: none;
     padding-right: 1.8rem;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.65rem center;
     cursor: pointer;
@@ -71,40 +136,87 @@
 
 .cat-select:focus {
     outline: none;
-    border-color: var(--cat-acento);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .cat-select option {
-    background: #18181f;
+    background: #0d1320;
     color: #ffffff;
 }
 
-.cat-search-input {
+/* Buscador con Botón */
+.cat-search-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 0.9rem;
+}
+
+.cat-search-input-wrapper {
+    position: relative;
+    flex: 1;
+}
+
+.cat-search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--cat-text-dim);
+    pointer-events: none;
+}
+
+.cat-search-control {
     background: var(--cat-surface-2);
     border: 1px solid var(--cat-border);
-    color: var(--cat-text);
-    border-radius: 8px;
-    padding: 0.5rem 0.85rem 0.5rem 2.25rem;
+    color: #ffffff;
+    border-radius: 10px;
+    padding: 0.55rem 0.9rem 0.55rem 2.4rem;
     font-size: 0.84rem;
     width: 100%;
     transition: border-color 0.15s ease;
 }
 
-.cat-search-input:focus {
+.cat-search-control:focus {
     outline: none;
-    border-color: var(--cat-acento);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
-/* ---------- Chips de Filtro Rápido ---------- */
+.cat-search-control::placeholder {
+    color: var(--cat-text-dim);
+}
+
+.cat-btn-search {
+    background: #cbd5e2;
+    color: #05070b;
+    border: none;
+    border-radius: 10px;
+    padding: 0.55rem 1.4rem;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.1s ease;
+    white-space: nowrap;
+}
+
+.cat-btn-search:hover {
+    filter: brightness(0.92);
+}
+
+.cat-btn-search:active {
+    transform: scale(0.98);
+}
+
+/* Chips Rápidos */
 .cat-toggle-chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.35rem 0.75rem;
-    border-radius: 999px;
-    font-size: 0.78rem;
+    gap: 5px;
+    padding: 0.3rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.74rem;
     font-weight: 600;
-    background: var(--cat-surface-2);
+    background: rgba(255, 255, 255, 0.04);
     border: 1px solid var(--cat-border);
     color: var(--cat-text-muted);
     cursor: pointer;
@@ -114,207 +226,257 @@
 
 .cat-toggle-chip:hover {
     border-color: var(--cat-border-hover);
-    color: var(--cat-text);
+    color: #ffffff;
 }
 
 .cat-toggle-chip.active {
     background: #ffffff;
     border-color: #ffffff;
-    color: #0b0b0f;
-    font-weight: 700;
+    color: #05070b;
+    font-weight: 800;
 }
 
-/* ---------- Tarjetas de Anime en el Catálogo ---------- */
+/* Divisor Fino */
+.cat-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    width: 100%;
+}
+
+/* ---------- Grilla de Animes Adaptativa (5 columnas en desktop) ---------- */
+.cat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+@media (min-width: 576px) {
+    .cat-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+    }
+}
+
+@media (min-width: 840px) {
+    .cat-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1.15rem;
+    }
+}
+
+@media (min-width: 1140px) {
+    .cat-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 1.25rem;
+    }
+}
+
+/* ---------- Tarjeta de Anime (Proporción y Densidad Óptima) ---------- */
 .cat-anime-card {
-    background: var(--cat-surface);
-    border: 1px solid var(--cat-border);
-    border-radius: 12px;
+    border-radius: 16px;
     overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(8px);
     display: flex;
     flex-direction: column;
     height: 100%;
-    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
     position: relative;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 
 .cat-anime-card:hover {
-    transform: translateY(-4px);
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6);
+    transform: scale(1.02);
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
 }
 
+/* Contenedor del Póster con Aspect Ratio 3/4 */
 .cat-poster-wrapper {
     position: relative;
+    aspect-ratio: 3 / 4;
     width: 100%;
-    padding-top: 142%; /* Relación aspecto ~1:1.42 */
-    background: var(--cat-surface-2);
     overflow: hidden;
+    background: #0a0f1d;
+    cursor: pointer;
 }
 
 .cat-poster-img {
-    position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s ease;
+    transition: transform 0.4s ease;
 }
 
 .cat-anime-card:hover .cat-poster-img {
     transform: scale(1.05);
 }
 
-/* Badges sobre el póster */
+/* Badge de Ranking (#1, #2...) */
 .cat-rank-badge {
     position: absolute;
     top: 8px;
     left: 8px;
-    z-index: 2;
-    background: #fbbf24;
-    color: #0b0b0f;
-    font-weight: 800;
-    font-size: 0.68rem;
-    padding: 0.15rem 0.45rem;
-    border-radius: 6px;
-    display: inline-flex;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.82);
+    backdrop-filter: blur(4px);
+    color: var(--cat-gold);
+    font-size: 10px;
+    font-weight: 900;
+    padding: 2px 7px;
+    border-radius: 8px;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 3px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
-.cat-rank-badge.secondary-rank {
-    background: rgba(0, 0, 0, 0.75);
-    color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
+/* Badge de Temporada */
 .cat-season-badge {
     position: absolute;
     top: 8px;
     right: 8px;
-    z-index: 2;
-    background: rgba(0, 0, 0, 0.75);
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.82);
     backdrop-filter: blur(4px);
-    color: #e4e4e7;
-    font-size: 0.68rem;
-    font-weight: 600;
-    padding: 0.15rem 0.45rem;
+    color: #cbd5e1;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 7px;
     border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
+/* Badge de Score MAL */
 .cat-score-badge {
     position: absolute;
     bottom: 8px;
     right: 8px;
-    z-index: 2;
-    background: rgba(11, 11, 15, 0.85);
-    backdrop-filter: blur(4px);
-    color: #fbbf24;
-    font-family: monospace;
+    z-index: 10;
+    background: rgba(2, 6, 23, 0.92);
+    color: var(--cat-gold);
+    padding: 2px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(146, 64, 14, 0.6);
     font-weight: 800;
-    font-size: 0.78rem;
-    padding: 0.2rem 0.5rem;
-    border-radius: 6px;
-    border: 1px solid rgba(251, 191, 36, 0.35);
-    display: inline-flex;
+    font-size: 11px;
+    display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 4px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 
-/* Información inferior de la tarjeta */
+/* Cuerpo de la Tarjeta */
 .cat-card-body {
-    padding: 0.85rem;
+    padding: 0.85rem 0.95rem;
+    flex: 1;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    flex-grow: 1;
     gap: 0.45rem;
 }
 
 .cat-card-title {
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     font-weight: 700;
     color: #ffffff;
-    line-height: 1.3;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
     margin: 0;
     text-align: left;
     background: none;
     border: none;
     padding: 0;
     cursor: pointer;
+    width: 100%;
 }
 
 .cat-card-title:hover {
     color: var(--cat-acento);
 }
 
-.cat-card-meta {
-    font-size: 0.72rem;
-    color: var(--cat-text-dim);
+.cat-card-studio {
+    font-size: 11px;
+    color: var(--cat-text-muted);
     display: flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 4px;
+    margin-top: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .cat-friends-recommend {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--cat-border);
-    border-radius: 6px;
-    padding: 0.3rem 0.5rem;
-    font-size: 0.68rem;
-    color: var(--cat-text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 10px;
+    color: #cbd5e1;
     display: flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 5px;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .cat-btn-add {
-    background: var(--cat-surface-2);
-    border: 1px solid var(--cat-border);
-    color: var(--cat-text);
-    border-radius: 6px;
-    padding: 0.35rem 0.6rem;
-    font-size: 0.75rem;
-    font-weight: 600;
     width: 100%;
-    display: inline-flex;
+    margin-top: 4px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.35rem;
+    gap: 5px;
+    border: none;
+    background: #e2e8f0;
+    color: #05070b;
     cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
+    box-shadow: 0 4px 12px rgba(226, 232, 240, 0.18);
+    transition: transform 0.15s ease, filter 0.15s ease;
 }
 
 .cat-btn-add:hover {
-    background: var(--cat-acento);
-    border-color: var(--cat-acento);
-    color: #0b0b0f;
+    filter: brightness(0.92);
+    transform: scale(1.02);
 }
 
 .cat-btn-add.in-list {
-    background: rgba(52, 211, 153, 0.12);
-    border-color: rgba(52, 211, 153, 0.35);
-    color: var(--cat-success);
+    background: rgba(52, 211, 153, 0.15);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    color: #34d399;
+    box-shadow: none;
 }
 
-/* ---------- Paginación ---------- */
-.cat-pagination-bar {
-    display: flex;
-    justify-content: space-between;
+/* Botones de Navegación */
+.cat-nav-btn {
+    background: var(--cat-surface-2);
+    border: 1px solid var(--cat-border);
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 4px 8px;
+    display: inline-flex;
     align-items: center;
-    padding: 1.5rem 0;
-    margin-top: 1rem;
-    border-top: 1px solid var(--cat-border);
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cat-nav-btn:hover:not(:disabled) {
+    background: var(--cat-surface-hover);
+    border-color: var(--cat-border-hover);
+}
+
+.cat-nav-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }

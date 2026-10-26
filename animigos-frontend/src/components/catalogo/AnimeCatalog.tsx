@@ -3,17 +3,17 @@ import {
     Search,
     SlidersHorizontal,
     Star,
-    Trophy,
+    Award,
     Calendar,
     Users,
     Check,
     Plus,
-    X,
     ChevronLeft,
     ChevronRight,
     Loader2,
     Film,
     Sparkles,
+    Building2,
 } from 'lucide-react'
 import {
     useCatalogQuery,
@@ -24,7 +24,6 @@ import {
 import { useMyList } from '../../hooks/useMyList'
 import type { ApiAnimeData } from '../../services/userListApi'
 import { Dialogo } from '../mi-lista/piezas'
-import '../mi-lista/mi-lista.css'
 import './catalogo.css'
 
 const GENRES_DEFAULT = [
@@ -59,22 +58,22 @@ const MIN_SCORES_LIST = [
 ]
 
 const ORDERING_LIST = [
-    { id: '-score', label: 'Puntuación MAL (Mayor a menor)' },
-    { id: 'score', label: 'Puntuación MAL (Menor a mayor)' },
-    { id: '-popularity', label: 'Popularidad (Más populares)' },
-    { id: '-season_year', label: 'Año (Más recientes)' },
+    { id: '-score', label: 'Puntuación MAL' },
+    { id: 'score', label: 'Puntuación MAL (Menor)' },
+    { id: '-popularity', label: 'Popularidad' },
+    { id: '-season_year', label: 'Año (Recientes)' },
     { id: 'title', label: 'Título (A–Z)' },
 ]
 
 export const AnimeCatalog: React.FC = () => {
-    // --- Capa de Lógica / Estado de Mi Lista para filtros cruzados ---
+    // --- Capa de Lógica / Estado de Mi Lista ---
     const { filas, agregarAnime } = useMyList()
     const myListIds = useMemo(() => new Set(filas.map((f) => f.malId)), [filas])
 
-    // --- Vista activa: 'top' (Catálogo principal) o 'seasonal' (Calendario) ---
+    // --- Modo de Vista: Top Animes vs De Temporada ---
     const [viewMode, setViewMode] = useState<'top' | 'seasonal'>('top')
 
-    // --- Estados de Filtros ---
+    // --- Filtros ---
     const [studio, setStudio] = useState('')
     const [genre, setGenre] = useState('')
     const [season, setSeason] = useState('')
@@ -97,7 +96,7 @@ export const AnimeCatalog: React.FC = () => {
     const [selectedAnime, setSelectedAnime] = useState<ApiAnimeData | null>(null)
     const [addedAnimeId, setAddedAnimeId] = useState<number | null>(null)
 
-    // --- Queries auxiliares (estudios, géneros, años) ---
+    // Queries auxiliares
     const { data: genresData } = useGenresQuery()
     const { data: yearsData } = useYearsQuery()
     const { data: studiosData } = useStudios()
@@ -109,7 +108,7 @@ export const AnimeCatalog: React.FC = () => {
     const filterParams = useMemo(() => {
         return {
             page: currentPage,
-            page_size: 50, // 50 animes a la vez según requerimiento
+            page_size: 50,
             q: submittedSearch.trim() || undefined,
             studio: studio || undefined,
             genre: genre || undefined,
@@ -140,14 +139,12 @@ export const AnimeCatalog: React.FC = () => {
         myListIds,
     ])
 
-    // --- Query principal de animes paginados (TanStack Query) ---
     const { data: catalogData, isLoading, isFetching, isError } = useCatalogQuery(filterParams)
 
     const animes = catalogData?.results || []
     const totalCount = catalogData?.count || 0
     const totalPages = Math.max(1, Math.ceil(totalCount / 50))
 
-    // Manejo de búsqueda por texto
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         setSubmittedSearch(searchInput.trim())
@@ -184,7 +181,6 @@ export const AnimeCatalog: React.FC = () => {
         submittedSearch
     )
 
-    // Agregar a Mi Lista con retroalimentación instantánea
     const handleQuickAdd = async (anime: ApiAnimeData, e?: React.MouseEvent) => {
         if (e) e.stopPropagation()
         if (myListIds.has(anime.mal_id)) return
@@ -209,76 +205,48 @@ export const AnimeCatalog: React.FC = () => {
     }
 
     return (
-        <section className="ml-root cat-root py-4 px-3 px-md-5">
-            <div className="container" style={{ maxWidth: '1360px' }}>
-                {/* ---------- Header Limpio (Sin Card) ---------- */}
-                <header className="cat-header">
-                    <span className="ml-eyebrow">CATÁLOGO OFICIAL · ANIMIGOS</span>
-                    <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-1">
-                        <div>
-                            <h1 className="ml-titulo">Catálogo de Animes</h1>
-                            <p className="ml-sub mb-0">
-                                Explora la base de datos completa clasificada por nota MAL descendiente. Descubre qué ver y agrégalo a tu lista.
-                            </p>
-                        </div>
-
-                        {/* Selector de Vista: [Top Animes] y [De Temporada] */}
-                        <div className="ml-tabs mb-0">
-                            <button
-                                type="button"
-                                className="ml-tab"
-                                aria-selected={viewMode === 'top'}
-                                onClick={() => {
-                                    setViewMode('top')
-                                    setSeason('')
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                <Trophy size={15} />
-                                <span>Top Animes</span>
-                            </button>
-                            <button
-                                type="button"
-                                className="ml-tab"
-                                aria-selected={viewMode === 'seasonal'}
-                                onClick={() => {
-                                    setViewMode('seasonal')
-                                    setSeason('fall')
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                <Calendar size={15} />
-                                <span>De Temporada (Calendario)</span>
-                            </button>
-                        </div>
+        <section className="cat-root py-4 px-3 px-md-5">
+            <div className="container-fluid" style={{ maxWidth: '1440px' }}>
+                {/* ---------- Selector de Modo Centrado (Pill Bar) ---------- */}
+                <div className="d-flex justify-content-center mb-4">
+                    <div className="cat-mode-pill-bar">
+                        <button
+                            type="button"
+                            className={`cat-mode-pill-btn ${viewMode === 'top' ? 'active' : ''}`}
+                            onClick={() => {
+                                setViewMode('top')
+                                setSeason('')
+                                setCurrentPage(1)
+                            }}
+                        >
+                            <Award size={14} />
+                            <span>Top Animes</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`cat-mode-pill-btn ${viewMode === 'seasonal' ? 'active' : ''}`}
+                            onClick={() => {
+                                setViewMode('seasonal')
+                                setSeason('fall')
+                                setCurrentPage(1)
+                            }}
+                        >
+                            <Calendar size={14} />
+                            <span>De Temporada (Calendario)</span>
+                        </button>
                     </div>
-                </header>
+                </div>
 
-                {/* ---------- Panel de Filtros de Catálogo ---------- */}
-                <div className="cat-filter-card">
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                        <div className="d-flex align-items-center gap-2">
-                            <SlidersHorizontal size={16} style={{ color: 'var(--cat-acento)' }} />
-                            <span className="small fw-bold text-white text-uppercase" style={{ letterSpacing: '0.06em' }}>
-                                Filtros de Catálogo
-                            </span>
-                        </div>
-                        {hasActiveFilters && (
-                            <button
-                                type="button"
-                                onClick={handleClearFilters}
-                                className="ml-btn ml-btn-fantasma ml-btn-sm py-0.5 px-2 text-danger"
-                                style={{ fontSize: '0.75rem' }}
-                            >
-                                <X size={12} /> Limpiar filtros
-                            </button>
-                        )}
+                {/* ---------- Caja de Filtros de Catálogo ---------- */}
+                <div className="cat-filter-card mb-4">
+                    <div className="cat-filter-title">
+                        <SlidersHorizontal size={14} style={{ color: 'var(--cat-warning)' }} />
+                        <span>Filtros de Catálogo</span>
                     </div>
 
-                    {/* Fila 1: Selectores desplegables */}
-                    <div className="row g-2 g-md-3 mb-3">
-                        {/* Estudio */}
-                        <div className="col-6 col-md-4 col-lg-2">
+                    {/* Grilla Horizontal de Filtros Desplegables */}
+                    <div className="cat-filter-grid">
+                        <div className="cat-filter-col">
                             <label className="cat-filter-label">ESTUDIO</label>
                             <select
                                 className="cat-select"
@@ -291,14 +259,13 @@ export const AnimeCatalog: React.FC = () => {
                                 <option value="">Todos los Estudios</option>
                                 {studiosData?.map((s) => (
                                     <option key={s.studio} value={s.studio}>
-                                        {s.studio} ({s.count})
+                                        {s.studio}
                                     </option>
                                 ))}
                             </select>
                         </div>
 
-                        {/* Género */}
-                        <div className="col-6 col-md-4 col-lg-2">
+                        <div className="cat-filter-col">
                             <label className="cat-filter-label">GÉNERO</label>
                             <select
                                 className="cat-select"
@@ -317,8 +284,7 @@ export const AnimeCatalog: React.FC = () => {
                             </select>
                         </div>
 
-                        {/* Temporada */}
-                        <div className="col-6 col-md-4 col-lg-2">
+                        <div className="cat-filter-col">
                             <label className="cat-filter-label">TEMPORADA</label>
                             <select
                                 className="cat-select"
@@ -336,8 +302,7 @@ export const AnimeCatalog: React.FC = () => {
                             </select>
                         </div>
 
-                        {/* Año */}
-                        <div className="col-6 col-md-4 col-lg-2">
+                        <div className="cat-filter-col">
                             <label className="cat-filter-label">AÑO</label>
                             <select
                                 className="cat-select"
@@ -356,8 +321,7 @@ export const AnimeCatalog: React.FC = () => {
                             </select>
                         </div>
 
-                        {/* Nota Mínima */}
-                        <div className="col-6 col-md-4 col-lg-2">
+                        <div className="cat-filter-col">
                             <label className="cat-filter-label">NOTA MÍNIMA</label>
                             <select
                                 className="cat-select"
@@ -375,8 +339,25 @@ export const AnimeCatalog: React.FC = () => {
                             </select>
                         </div>
 
-                        {/* Ordenar Por */}
-                        <div className="col-6 col-md-4 col-lg-2">
+                        <div className="cat-filter-col">
+                            <label className="cat-filter-label">FORMATO</label>
+                            <select
+                                className="cat-select"
+                                value={format}
+                                onChange={(e) => {
+                                    setFormat(e.target.value)
+                                    setCurrentPage(1)
+                                }}
+                            >
+                                {FORMATS_LIST.map((f) => (
+                                    <option key={f.id} value={f.id}>
+                                        {f.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="cat-filter-col">
                             <label className="cat-filter-label">ORDENAR POR</label>
                             <select
                                 className="cat-select"
@@ -395,58 +376,29 @@ export const AnimeCatalog: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Fila 2: Formato + Buscador con botón */}
-                    <form onSubmit={handleSearchSubmit} className="row g-2 align-items-center mb-3">
-                        <div className="col-12 col-md-3 col-lg-2">
-                            <select
-                                className="cat-select"
-                                value={format}
-                                onChange={(e) => {
-                                    setFormat(e.target.value)
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                {FORMATS_LIST.map((f) => (
-                                    <option key={f.id} value={f.id}>
-                                        {f.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="col-12 col-md-7 col-lg-8 position-relative">
-                            <Search
-                                size={15}
-                                className="position-absolute text-secondary"
-                                style={{ left: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-                            />
+                    {/* Fila de Buscador */}
+                    <form onSubmit={handleSearchSubmit} className="cat-search-row">
+                        <div className="cat-search-input-wrapper">
+                            <Search size={15} className="cat-search-icon" />
                             <input
                                 type="text"
                                 placeholder="Buscar en Top Animes por título, estudio..."
                                 value={searchInput}
                                 onChange={(e) => setSearchInput(e.target.value)}
-                                className="cat-search-input"
+                                className="cat-search-control"
                             />
                         </div>
-
-                        <div className="col-12 col-md-2 col-lg-2">
-                            <button
-                                type="submit"
-                                className="wp-btn-pill-primary w-100 justify-content-center py-2"
-                                style={{ borderRadius: '8px', fontSize: '0.82rem' }}
-                            >
-                                <span>Buscar</span>
-                            </button>
-                        </div>
+                        <button type="submit" className="cat-btn-search">
+                            Buscar
+                        </button>
                     </form>
 
-                    {/* Fila 3: Chips de filtro rápido */}
-                    <div className="d-flex flex-wrap align-items-center gap-2 pt-2 border-top" style={{ borderColor: 'var(--cat-border)' }}>
-                        <span className="small text-secondary fw-semibold me-1" style={{ fontSize: '0.75rem' }}>
+                    {/* Chips de Filtros Rápidos */}
+                    <div className="d-flex flex-wrap align-items-center gap-2 mt-3 pt-2.5 border-top border-dark">
+                        <span className="small text-secondary fw-semibold me-1" style={{ fontSize: '0.72rem' }}>
                             Filtros rápidos:
                         </span>
 
-                        {/* No secuelas */}
                         <button
                             type="button"
                             onClick={() => {
@@ -459,7 +411,6 @@ export const AnimeCatalog: React.FC = () => {
                             <span>No secuelas</span>
                         </button>
 
-                        {/* No en mi lista */}
                         <button
                             type="button"
                             onClick={() => {
@@ -472,7 +423,6 @@ export const AnimeCatalog: React.FC = () => {
                             <span>No en mi lista</span>
                         </button>
 
-                        {/* Recomendadas por amigos */}
                         <button
                             type="button"
                             onClick={() => {
@@ -484,26 +434,36 @@ export const AnimeCatalog: React.FC = () => {
                             <span>👥</span>
                             <span>Recomendadas por amigos</span>
                         </button>
+
+                        {hasActiveFilters && (
+                            <button
+                                type="button"
+                                onClick={handleClearFilters}
+                                className="btn btn-link text-secondary text-decoration-none p-0 ms-auto small"
+                                style={{ fontSize: '0.74rem' }}
+                            >
+                                ✕ Limpiar filtros
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {/* ---------- Barra de Resumen / Conteo ---------- */}
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <span className="small" style={{ color: 'var(--cat-text-dim)' }}>
+                {/* ---------- Conteo de Animes y Paginación Rápida ---------- */}
+                <div className="d-flex justify-content-between align-items-center my-3">
+                    <span className="small text-secondary" style={{ fontSize: '0.8rem' }}>
                         Mostrando <strong className="text-white">{animes.length}</strong> de <strong className="text-white">{totalCount}</strong> animes clasificados
                     </span>
 
-                    {/* Paginación Rápida Superior */}
                     {totalPages > 1 && (
                         <div className="d-flex align-items-center gap-2">
                             <button
                                 type="button"
                                 disabled={currentPage <= 1 || isFetching}
                                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                className="ml-btn ml-btn-sm py-1 px-2.5"
+                                className="cat-nav-btn"
                                 title="Página anterior"
                             >
-                                <ChevronLeft size={14} />
+                                <ChevronLeft size={13} />
                             </button>
                             <span className="small font-mono text-white">
                                 {currentPage} / {totalPages}
@@ -512,151 +472,146 @@ export const AnimeCatalog: React.FC = () => {
                                 type="button"
                                 disabled={currentPage >= totalPages || isFetching}
                                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                className="ml-btn ml-btn-sm py-1 px-2.5"
+                                className="cat-nav-btn"
                                 title="Página siguiente"
                             >
-                                <ChevronRight size={14} />
+                                <ChevronRight size={13} />
                             </button>
                         </div>
                     )}
                 </div>
 
-                {/* ---------- Grilla de Animes (50 animes) ---------- */}
+                <div className="cat-divider mb-4" />
+
+                {/* ---------- Grilla Adaptativa Óptima (5 columnas en desktop) ---------- */}
                 {isLoading ? (
                     <div className="text-center py-5">
-                        <Loader2 size={36} className="text-secondary mb-3" style={{ animation: 'spin 1s linear infinite' }} />
-                        <p style={{ color: 'var(--cat-text-dim)' }}>Cargando 50 animes del catálogo...</p>
+                        <Loader2 size={32} className="text-secondary mb-3" style={{ animation: 'spin 1s linear infinite' }} />
+                        <p className="small text-secondary">Cargando 50 animes clasificados...</p>
                     </div>
                 ) : isError ? (
                     <div className="p-5 text-center rounded-4" style={{ background: 'var(--cat-surface)', border: '1px dashed var(--cat-border)' }}>
-                        <p className="text-danger mb-2">Hubo un problema al cargar los animes del catálogo.</p>
-                        <button type="button" onClick={handleClearFilters} className="ml-btn ml-btn-acento ml-btn-sm">
+                        <p className="text-danger mb-2 small">Hubo un problema al cargar los animes del catálogo.</p>
+                        <button type="button" onClick={handleClearFilters} className="cat-btn-search py-1.5 px-3">
                             Restablecer Filtros
                         </button>
                     </div>
                 ) : animes.length === 0 ? (
                     <div className="p-5 text-center rounded-4" style={{ background: 'var(--cat-surface)', border: '1px dashed var(--cat-border)' }}>
-                        <Film size={36} className="text-secondary mb-2 opacity-50" />
+                        <Film size={32} className="text-secondary mb-2 opacity-50" />
                         <h3 className="h6 fw-bold text-white mb-1">No se encontraron animes con los filtros seleccionados</h3>
-                        <p className="small mb-3" style={{ color: 'var(--cat-text-dim)' }}>
-                            Prueba ajustando la nota mínima, quitando filtros rápidos o buscando otro término.
+                        <p className="small mb-3 text-secondary">
+                            Prueba relajando la nota mínima o quitando filtros rápidos.
                         </p>
-                        <button type="button" onClick={handleClearFilters} className="ml-btn ml-btn-acento ml-btn-sm">
+                        <button type="button" onClick={handleClearFilters} className="cat-btn-search py-1.5 px-3">
                             Limpiar todos los filtros
                         </button>
                     </div>
                 ) : (
-                    <div className="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3 g-md-4">
+                    <div className="cat-grid">
                         {animes.map((anime, index) => {
                             const globalRank = (currentPage - 1) * 50 + index + 1
-                            const isTop3 = globalRank <= 3
                             const inMyList = myListIds.has(anime.mal_id)
                             const justAdded = addedAnimeId === anime.mal_id
 
                             return (
-                                <div key={anime.mal_id} className="col">
-                                    <article className="cat-anime-card">
-                                        {/* Contenedor del Póster */}
-                                        <div
-                                            className="cat-poster-wrapper cursor-pointer"
-                                            onClick={() => setSelectedAnime(anime)}
-                                            title={`Ver detalle de ${anime.title}`}
-                                        >
-                                            <img
-                                                src={anime.image_url}
-                                                alt={anime.title}
-                                                loading="lazy"
-                                                className="cat-poster-img"
-                                            />
+                                <article key={anime.mal_id} className="cat-anime-card">
+                                    {/* Póster con Proporción Áurea 3/4 y Badges Superpuestos */}
+                                    <div
+                                        className="cat-poster-wrapper"
+                                        onClick={() => setSelectedAnime(anime)}
+                                        title={`Ver detalle de ${anime.title}`}
+                                    >
+                                        <img
+                                            src={anime.image_url}
+                                            alt={anime.title}
+                                            loading="lazy"
+                                            className="cat-poster-img"
+                                        />
 
-                                            {/* Badge de Ranking (#1, #2, #3...) */}
-                                            <span className={`cat-rank-badge ${!isTop3 ? 'secondary-rank' : ''}`}>
-                                                {isTop3 && <span>👑</span>}
-                                                <span>#{globalRank}</span>
-                                            </span>
-
-                                            {/* Temporada / Año */}
-                                            {anime.season_display && (
-                                                <span className="cat-season-badge">
-                                                    {anime.season_display}
-                                                </span>
-                                            )}
-
-                                            {/* Calificación MAL */}
-                                            <span className="cat-score-badge">
-                                                <Star size={11} fill="currentColor" />
-                                                <span>{anime.score ? Number(anime.score).toFixed(2) : '8.50'}</span>
-                                            </span>
+                                        {/* Badge de Ranking (#1, #2, #3...) */}
+                                        <div className="cat-rank-badge">
+                                            <Award size={10} className="text-warning" />
+                                            <span>#{globalRank}</span>
                                         </div>
 
-                                        {/* Información de la Tarjeta */}
-                                        <div className="cat-card-body">
-                                            <div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setSelectedAnime(anime)}
-                                                    className="cat-card-title"
-                                                    title={anime.title}
-                                                >
-                                                    {anime.title}
-                                                </button>
-
-                                                {/* Estudio y Episodios */}
-                                                <div className="cat-card-meta mt-1">
-                                                    <span>🏛️ {anime.studio || 'Estudio Varios'}</span>
-                                                    <span>·</span>
-                                                    <span>{anime.episodes ? `${anime.episodes} eps` : 'TV'}</span>
-                                                </div>
+                                        {/* Badge de Temporada */}
+                                        {anime.season_display && (
+                                            <div className="cat-season-badge">
+                                                {anime.season_display}
                                             </div>
+                                        )}
 
-                                            {/* Recomendadas por Amigos (como en la referencia) */}
-                                            <div
-                                                className="cat-friends-recommend"
-                                                title={`Recomendado por: ${anime.recommended_by?.join(', ') || 'Comunidad Animigos'}`}
-                                            >
-                                                <Users size={12} className="flex-shrink-0" style={{ color: 'var(--cat-acento)' }} />
-                                                <span className="text-truncate">
-                                                    {anime.recommended_by && anime.recommended_by.length > 0
-                                                        ? anime.recommended_by.join(', ')
-                                                        : 'Comunidad Animigos'}
-                                                </span>
-                                            </div>
+                                        {/* Badge de Score MAL */}
+                                        <div className="cat-score-badge">
+                                            <Star size={11} fill="currentColor" />
+                                            <span>{anime.score ? Number(anime.score).toFixed(2) : '8.50'}</span>
+                                        </div>
+                                    </div>
 
-                                            {/* Botón Acción Rápida: Agregar a Mi Lista */}
+                                    {/* Contenido Inferior de la Tarjeta */}
+                                    <div className="cat-card-body">
+                                        <div>
                                             <button
                                                 type="button"
-                                                onClick={(e) => handleQuickAdd(anime, e)}
-                                                className={`cat-btn-add ${inMyList ? 'in-list' : ''}`}
-                                                disabled={inMyList}
+                                                onClick={() => setSelectedAnime(anime)}
+                                                className="cat-card-title"
+                                                title={anime.title}
                                             >
-                                                {justAdded ? (
-                                                    <>
-                                                        <Check size={13} className="text-success" />
-                                                        <span>¡Guardado!</span>
-                                                    </>
-                                                ) : inMyList ? (
-                                                    <>
-                                                        <Check size={13} />
-                                                        <span>En mi lista</span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Plus size={13} />
-                                                        <span>Agregar a Mi Lista</span>
-                                                    </>
-                                                )}
+                                                {anime.title}
                                             </button>
+
+                                            <div className="cat-card-studio">
+                                                <Building2 size={11} className="text-secondary shrink-0" />
+                                                <span>{anime.studio || 'Estudio no especificado'}</span>
+                                            </div>
                                         </div>
-                                    </article>
-                                </div>
+
+                                        {/* Chip de Recomendados por Amigos */}
+                                        {anime.recommended_by && anime.recommended_by.length > 0 && (
+                                            <div
+                                                className="cat-friends-recommend"
+                                                title={`Recomendado por: ${anime.recommended_by.join(', ')}`}
+                                            >
+                                                <Users size={11} className="shrink-0 text-secondary" />
+                                                <span className="truncate">{anime.recommended_by.join(', ')}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Botón de Añadir a Mi Lista */}
+                                        <button
+                                            type="button"
+                                            onClick={(e) => handleQuickAdd(anime, e)}
+                                            className={`cat-btn-add ${inMyList ? 'in-list' : ''}`}
+                                            disabled={inMyList}
+                                        >
+                                            {justAdded ? (
+                                                <>
+                                                    <Check size={12} className="text-success" />
+                                                    <span>¡Guardado!</span>
+                                                </>
+                                            ) : inMyList ? (
+                                                <>
+                                                    <Check size={12} />
+                                                    <span>En mi lista</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Plus size={12} />
+                                                    <span>Añadir a Mi Lista</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </article>
                             )
                         })}
                     </div>
                 )}
 
-                {/* ---------- Paginación Inferior (50 a la vez) ---------- */}
+                {/* ---------- Paginación Inferior ---------- */}
                 {totalPages > 1 && (
-                    <div className="cat-pagination-bar">
+                    <div className="d-flex justify-content-between align-items-center py-4 mt-3 border-top border-dark">
                         <button
                             type="button"
                             disabled={currentPage <= 1 || isFetching}
@@ -664,18 +619,19 @@ export const AnimeCatalog: React.FC = () => {
                                 setCurrentPage((p) => Math.max(1, p - 1))
                                 window.scrollTo({ top: 0, behavior: 'smooth' })
                             }}
-                            className="ml-btn ml-btn-sm"
+                            className="cat-mode-pill-btn"
+                            style={{ background: 'var(--cat-surface-2)', border: '1px solid var(--cat-border)' }}
                         >
-                            <ChevronLeft size={15} />
+                            <ChevronLeft size={14} />
                             <span>Página Anterior</span>
                         </button>
 
-                        <div className="d-flex align-items-center gap-1">
+                        <div className="d-flex align-items-center gap-1.5">
                             <span className="small text-secondary">Página</span>
-                            <span className="small font-mono fw-bold text-white px-2 py-0.5 rounded bg-dark">
+                            <span className="small font-mono fw-bold text-white px-2 py-0.5 rounded bg-black border border-dark">
                                 {currentPage}
                             </span>
-                            <span className="small text-secondary">de {totalPages} ({totalCount} animes)</span>
+                            <span className="small text-secondary">de {totalPages}</span>
                         </div>
 
                         <button
@@ -685,10 +641,11 @@ export const AnimeCatalog: React.FC = () => {
                                 setCurrentPage((p) => Math.min(totalPages, p + 1))
                                 window.scrollTo({ top: 0, behavior: 'smooth' })
                             }}
-                            className="ml-btn ml-btn-sm"
+                            className="cat-mode-pill-btn"
+                            style={{ background: 'var(--cat-surface-2)', border: '1px solid var(--cat-border)' }}
                         >
                             <span>Siguiente Página</span>
-                            <ChevronRight size={15} />
+                            <ChevronRight size={14} />
                         </button>
                     </div>
                 )}
@@ -698,7 +655,7 @@ export const AnimeCatalog: React.FC = () => {
                     abierto={selectedAnime !== null}
                     onCerrar={() => setSelectedAnime(null)}
                     etiqueta={selectedAnime ? selectedAnime.title : 'Detalle'}
-                    ancho={560}
+                    ancho={540}
                 >
                     {selectedAnime && (
                         <div className="p-4 d-flex flex-column gap-3">
@@ -707,24 +664,24 @@ export const AnimeCatalog: React.FC = () => {
                                     src={selectedAnime.image_url}
                                     alt={selectedAnime.title}
                                     className="rounded-3 shadow"
-                                    style={{ width: 100, height: 142, objectFit: 'cover' }}
+                                    style={{ width: 90, height: 125, objectFit: 'cover' }}
                                 />
                                 <div className="flex-grow-1" style={{ minWidth: 0 }}>
                                     <div className="d-flex flex-wrap gap-2 mb-1">
-                                        <span className="wp-chip font-mono text-warning">
+                                        <span className="badge rounded-pill bg-black border border-warning text-warning font-mono">
                                             ★ {selectedAnime.score || '9.0'} MAL
                                         </span>
-                                        <span className="wp-chip">
+                                        <span className="badge rounded-pill bg-dark text-secondary">
                                             {selectedAnime.type || 'TV'} · {selectedAnime.episodes || '?'} eps
                                         </span>
                                     </div>
-                                    <h3 className="h6 fw-bold text-white mb-1">{selectedAnime.title}</h3>
+                                    <h3 className="h6 fw-bold text-white mb-1 text-truncate">{selectedAnime.title}</h3>
                                     {selectedAnime.title_english && (
-                                        <span className="small text-secondary d-block mb-1">
+                                        <span className="small text-secondary d-block mb-1 text-truncate">
                                             {selectedAnime.title_english}
                                         </span>
                                     )}
-                                    <div className="small font-mono" style={{ color: 'var(--cat-text-dim)', fontSize: '0.75rem' }}>
+                                    <div className="small font-mono text-secondary" style={{ fontSize: '0.74rem' }}>
                                         Estudio: <strong className="text-white">{selectedAnime.studio || 'N/A'}</strong> · Temporada: <strong className="text-white">{selectedAnime.season_display || 'N/A'}</strong>
                                     </div>
                                 </div>
@@ -734,7 +691,7 @@ export const AnimeCatalog: React.FC = () => {
                             {selectedAnime.genres && selectedAnime.genres.length > 0 && (
                                 <div className="d-flex flex-wrap gap-1.5">
                                     {selectedAnime.genres.map((g) => (
-                                        <span key={g} className="ml-tag">
+                                        <span key={g} className="badge bg-black border border-dark text-secondary">
                                             {g}
                                         </span>
                                     ))}
@@ -744,47 +701,46 @@ export const AnimeCatalog: React.FC = () => {
                             {/* Sinopsis */}
                             <div>
                                 <span className="cat-filter-label">SINOPSIS</span>
-                                <p className="small mb-0" style={{ color: 'var(--cat-text-muted)', lineHeight: 1.6, maxHeight: '180px', overflowY: 'auto' }}>
-                                    {selectedAnime.synopsis || 'Sin sinopsis disponible actualmente para este título.'}
+                                <p className="small mb-0 text-secondary" style={{ lineHeight: 1.6, maxHeight: '160px', overflowY: 'auto' }}>
+                                    {selectedAnime.synopsis || 'Sin sinopsis disponible actualmente.'}
                                 </p>
                             </div>
 
-                            {/* Amigos que recomiendan */}
+                            {/* Recomendado por amigos */}
                             {selectedAnime.recommended_by && selectedAnime.recommended_by.length > 0 && (
                                 <div className="p-2.5 rounded-2 d-flex align-items-center gap-2" style={{ background: 'var(--cat-surface-2)', border: '1px solid var(--cat-border)' }}>
-                                    <Sparkles size={16} className="text-warning flex-shrink-0" />
-                                    <span className="small" style={{ color: 'var(--cat-text-muted)', fontSize: '0.78rem' }}>
-                                        Recomendado con entusiasmo por: <strong className="text-white">{selectedAnime.recommended_by.join(', ')}</strong>
+                                    <Sparkles size={15} className="text-warning shrink-0" />
+                                    <span className="small text-secondary" style={{ fontSize: '0.76rem' }}>
+                                        Recomendado por: <strong className="text-white">{selectedAnime.recommended_by.join(', ')}</strong>
                                     </span>
                                 </div>
                             )}
 
-                            {/* Botones de Acción */}
-                            <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--cat-border)' }}>
+                            {/* Acciones */}
+                            <div className="d-flex justify-content-end gap-2 pt-2 border-top border-dark">
                                 <button
                                     type="button"
                                     onClick={() => setSelectedAnime(null)}
-                                    className="ml-btn ml-btn-fantasma ml-btn-sm"
+                                    className="cat-mode-pill-btn"
+                                    style={{ border: '1px solid var(--cat-border)' }}
                                 >
                                     Cerrar
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        handleQuickAdd(selectedAnime)
-                                    }}
+                                    onClick={() => handleQuickAdd(selectedAnime)}
                                     disabled={myListIds.has(selectedAnime.mal_id)}
-                                    className="ml-btn ml-btn-acento ml-btn-sm"
+                                    className="cat-btn-search py-1.5 px-3"
                                 >
                                     {myListIds.has(selectedAnime.mal_id) ? (
                                         <>
-                                            <Check size={14} />
-                                            <span>Ya está en Mi Lista</span>
+                                            <Check size={13} className="me-1" />
+                                            <span>En Mi Lista</span>
                                         </>
                                     ) : (
                                         <>
-                                            <Plus size={14} />
-                                            <span>Agregar a Mi Lista</span>
+                                            <Plus size={13} className="me-1" />
+                                            <span>Añadir a Mi Lista</span>
                                         </>
                                     )}
                                 </button>
