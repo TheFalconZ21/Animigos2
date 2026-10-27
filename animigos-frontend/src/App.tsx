@@ -6,13 +6,14 @@ import { AdminPortal } from './admin/AdminPortal'
 import { MiLista } from './components/mi-lista/MiLista'
 import { WatchPartyRoom } from './components/watch-party/WatchPartyRoom'
 import { AnimeCatalog } from './components/catalogo/AnimeCatalog'
+import { PerfilView } from './components/perfil/PerfilView'
 import { useThemeAccent } from './hooks/useThemeAccent'
 
 function App() {
   useThemeAccent()
-  const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'mi-lista' | 'admin' | 'sala'>('catalogo')
+  const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'mi-lista' | 'admin' | 'sala' | 'perfil'>('catalogo')
 
-  // Soporte de navegación por hash (ej: /#catalogo, /#mi-lista, /#admin o /#sala)
+  // Soporte de navegación por hash (ej: /#catalogo, /#mi-lista, /#admin, /#sala o /#perfil)
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash
@@ -22,6 +23,8 @@ function App() {
         setCurrentView('admin')
       } else if (hash === '#sala' || hash === '#votacion' || hash === '#listas' || hash.startsWith('#sala/')) {
         setCurrentView('sala')
+      } else if (hash === '#perfil' || hash === '#profile') {
+        setCurrentView('perfil')
       } else if (hash === '#landing') {
         setCurrentView('landing')
       } else if (hash === '#catalogo' || hash === '#animes' || hash === '#top' || hash === '') {
@@ -150,7 +153,42 @@ function App() {
     )
   }
 
-  // 3. De lo contrario, renderizamos la Landing Page pública
+  // 5. Si estamos en la vista de Perfil
+  if (currentView === 'perfil') {
+    return (
+      <>
+        <Navbar currentView="perfil" onSelectView={setCurrentView} />
+        <main className="py-2">
+          <PerfilView />
+        </main>
+        <LoginModal />
+
+        {/* Switcher flotante para previsualizar el Admin Portal */}
+        <div className="position-fixed bottom-0 end-0 p-3 z-3">
+          <button
+            type="button"
+            onClick={() => {
+              window.location.hash = '#admin'
+              setCurrentView('admin')
+            }}
+            className="admin-btn d-flex align-items-center gap-2 px-3 py-2 text-white shadow"
+            style={{
+              backgroundColor: '#0A0A0A',
+              border: '1px solid #1F1F1F',
+              borderRadius: '8px',
+              fontSize: '0.78rem',
+              fontFamily: 'var(--font-mono)'
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10B981' }}></span>
+            <span>ADMIN CONSOLE (5 Vistas)</span>
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  // 6. De lo contrario, renderizamos la Landing Page pública
   return (
     <>
       {/* Header de navegación público con soporte de Mi Lista */}

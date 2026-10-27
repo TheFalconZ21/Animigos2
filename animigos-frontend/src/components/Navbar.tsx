@@ -4,8 +4,8 @@ import { LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 interface NavbarProps {
-    currentView?: 'landing' | 'catalogo' | 'mi-lista' | 'sala'
-    onSelectView?: (view: 'landing' | 'catalogo' | 'mi-lista' | 'sala') => void
+    currentView?: 'landing' | 'catalogo' | 'mi-lista' | 'sala' | 'perfil'
+    onSelectView?: (view: 'landing' | 'catalogo' | 'mi-lista' | 'sala' | 'perfil') => void
 }
 
 export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) {
@@ -89,6 +89,19 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                                 Listas Grupales
                             </a>
                         </li>
+                        <li className="nav-item">
+                            <a
+                                className={`nav-link ${currentView === 'perfil' ? 'active' : ''}`}
+                                href="#perfil"
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    window.location.hash = '#perfil'
+                                    onSelectView?.('perfil')
+                                }}
+                            >
+                                Perfil
+                            </a>
+                        </li>
                     </ul>
                 </div>
 
@@ -96,20 +109,34 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                 <div className="d-flex align-items-center gap-2">
                     {isAuthenticated && user ? (
                         <div className="d-flex align-items-center gap-3">
-                            <div className="d-flex align-items-center gap-2">
+                            <a
+                                href="#perfil"
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    window.location.hash = '#perfil'
+                                    onSelectView?.('perfil')
+                                }}
+                                className="d-flex align-items-center gap-2 text-decoration-none"
+                                title="Ver tu Perfil"
+                            >
                                 <img
                                     src={user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
                                     alt={user.display_name || user.username}
-                                    className="rounded-circle border border-dark"
-                                    style={{ width: '32px', height: '32px', objectFit: 'cover' }}
+                                    className="rounded-circle border"
+                                    style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        objectFit: 'cover',
+                                        borderColor: currentView === 'perfil' ? 'var(--theme-acento, #e8508f)' : 'rgba(255,255,255,0.15)',
+                                    }}
                                     onError={(e) => {
                                         e.currentTarget.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
                                     }}
                                 />
-                                <span className="small text-white fw-semibold d-none d-sm-inline">
+                                <span className={`small fw-semibold d-none d-sm-inline ${currentView === 'perfil' ? 'text-white' : 'text-secondary'}`}>
                                     {user.display_name || user.username}
                                 </span>
-                            </div>
+                            </a>
                             <button
                                 type="button"
                                 className="btn btn-outline-danger btn-sm px-2 d-flex align-items-center gap-1"
