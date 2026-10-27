@@ -4,8 +4,9 @@
  */
 
 import type { ApiAnimeData } from './userListApi'
+import { getAuthHeaders } from './authApi'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 export interface CatalogFilterParams {
     q?: string
@@ -70,7 +71,7 @@ export async function fetchCatalogAnimes(params: CatalogFilterParams = {}): Prom
     const url = `${API_BASE_URL}/animes/?${searchParams.toString()}`
     const response = await fetch(url, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
 
@@ -87,7 +88,7 @@ export async function fetchCatalogAnimes(params: CatalogFilterParams = {}): Prom
 export async function fetchTopAnimes(limit = 50): Promise<ApiAnimeData[]> {
     const response = await fetch(`${API_BASE_URL}/animes/top/?limit=${limit}`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
 
@@ -104,7 +105,7 @@ export async function fetchTopAnimes(limit = 50): Promise<ApiAnimeData[]> {
 export async function fetchGenres(): Promise<string[]> {
     const response = await fetch(`${API_BASE_URL}/animes/genres/`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
 
@@ -124,7 +125,7 @@ export async function fetchGenres(): Promise<string[]> {
 export async function fetchYears(): Promise<number[]> {
     const response = await fetch(`${API_BASE_URL}/animes/years/`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
 
@@ -141,7 +142,7 @@ export async function fetchYears(): Promise<number[]> {
 export async function fetchAnimeRecommendations(malId: number, limit = 12): Promise<AnimeRecommendationItem[]> {
     const response = await fetch(`${API_BASE_URL}/animes/${malId}/recommendations/?limit=${limit}`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
 
@@ -158,7 +159,7 @@ export async function fetchAnimeRecommendations(malId: number, limit = 12): Prom
 export async function fetchStudios(): Promise<StudioItem[]> {
     const response = await fetch(`${API_BASE_URL}/animes/studios/`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
 
@@ -189,7 +190,7 @@ export interface AnimeScoreHistoryItem {
 export async function fetchAnimeScoreHistory(malId: number): Promise<AnimeScoreHistoryItem[]> {
     const response = await fetch(`${API_BASE_URL}/animes/${malId}/history/`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
 

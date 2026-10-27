@@ -3,7 +3,22 @@
  * Pilar 2.1: Zero Trust BFF - Las credenciales y sesiones se gestionan mediante cookies HttpOnly seguras.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+
+export function getAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
+    const sessionId = typeof localStorage !== 'undefined'
+        ? (localStorage.getItem('animigos_session_id') || localStorage.getItem('session_id'))
+        : null
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...extraHeaders,
+    }
+    if (sessionId) {
+        headers['X-Session-Id'] = sessionId
+        headers['Authorization'] = `Session ${sessionId}`
+    }
+    return headers
+}
 
 export interface UserPreferences {
     id: string
@@ -34,11 +49,13 @@ export interface UserProfile {
 export interface AuthResponse {
     message: string
     authenticated: boolean
+    session_id?: string
     user: UserProfile
 }
 
 export interface CurrentUserResponse {
     authenticated: boolean
+    session_id?: string
     user: UserProfile | null
 }
 
@@ -48,7 +65,7 @@ export interface CurrentUserResponse {
 export async function loginUser(usernameOrEmail: string, password: string): Promise<AuthResponse> {
     const res = await fetch(`${API_BASE_URL}/users/login/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify({
             username: usernameOrEmail,
@@ -59,6 +76,10 @@ export async function loginUser(usernameOrEmail: string, password: string): Prom
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
         throw new Error(data.error || 'Credenciales inválidas. Verifica tu usuario y contraseña.')
+    }
+    if (data.session_id) {
+        localStorage.setItem('animigos_session_id', data.session_id)
+        localStorage.setItem('session_id', data.session_id)
     }
     return data
 }
@@ -74,7 +95,7 @@ export async function registerUser(payload: {
 }): Promise<AuthResponse> {
     const res = await fetch(`${API_BASE_URL}/users/register/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify(payload),
     })
@@ -89,6 +110,10 @@ export async function registerUser(payload: {
             'Error al registrar la cuenta.'
         throw new Error(errorMsg)
     }
+    if (data.session_id) {
+        localStorage.setItem('animigos_session_id', data.session_id)
+        localStorage.setItem('session_id', data.session_id)
+    }
     return data
 }
 
@@ -96,11 +121,16 @@ export async function registerUser(payload: {
  * Cierra la sesión activa del usuario
  */
 export async function logoutUser(): Promise<void> {
-    await fetch(`${API_BASE_URL}/users/logout/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-    })
+    try {
+        await fetch(`${API_BASE_URL}/users/logout/`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            credentials: 'include',
+        })
+    } finally {
+        localStorage.removeItem('animigos_session_id')
+        localStorage.removeItem('session_id')
+    }
 }
 
 /**
@@ -109,13 +139,21 @@ export async function logoutUser(): Promise<void> {
 export async function getCurrentUser(): Promise<CurrentUserResponse> {
     try {
         const res = await fetch(`${API_BASE_URL}/users/me/`, {
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             credentials: 'include',
         })
         if (!res.ok) {
             return { authenticated: false, user: null }
         }
-        return await res.json()
+        const data = await res.json()
+        if (data.session_id) {
+            localStorage.setItem('animigos_session_id', data.session_id)
+            localStorage.setItem('session_id', data.session_id)
+        } else if (!data.authenticated) {
+            localStorage.removeItem('animigos_session_id')
+            localStorage.removeItem('session_id')
+        }
+        return data
     } catch {
         return { authenticated: false, user: null }
     }
@@ -132,7 +170,7 @@ export async function updateUserProfile(updates: Partial<{
 }>): Promise<UserProfile> {
     const res = await fetch(`${API_BASE_URL}/users/me/profile/`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify(updates),
     })

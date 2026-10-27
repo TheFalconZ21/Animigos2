@@ -14,12 +14,13 @@ import { useAuth } from './context/AuthContext'
 
 function App() {
   useThemeAccent()
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, loading } = useAuth()
   const isAdmin = Boolean(isAuthenticated && (user?.is_staff || user?.is_superuser))
   const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'mi-lista' | 'admin' | 'sala' | 'tablon' | 'calendario' | 'perfil'>('catalogo')
 
   // Redirigir si un usuario sin permisos intenta ver secciones privadas (Tablón, Mi Lista, Perfil, Admin)
   useEffect(() => {
+    if (loading) return
     if (!isAuthenticated && (currentView === 'tablon' || currentView === 'mi-lista' || currentView === 'perfil')) {
       setCurrentView('catalogo')
       window.location.hash = '#catalogo'
@@ -27,10 +28,11 @@ function App() {
       setCurrentView('catalogo')
       window.location.hash = '#catalogo'
     }
-  }, [isAuthenticated, isAdmin, currentView])
+  }, [isAuthenticated, isAdmin, currentView, loading])
 
   // Soporte de navegación por hash (ej: /#catalogo, /#mi-lista, /#admin, /#sala o /#perfil)
   useEffect(() => {
+    if (loading) return
     const handleHash = () => {
       const hash = window.location.hash
       if (hash === '#mi-lista') {
@@ -82,7 +84,7 @@ function App() {
     handleHash()
     window.addEventListener('hashchange', handleHash)
     return () => window.removeEventListener('hashchange', handleHash)
-  }, [isAuthenticated, isAdmin])
+  }, [isAuthenticated, isAdmin, loading])
 
   // Switcher flotante para la consola de administración (exclusivo para administradores)
   const renderAdminFloatingBtn = () => {

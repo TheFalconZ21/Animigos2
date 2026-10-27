@@ -2,7 +2,7 @@ import React, { useState, type CSSProperties } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useMyList } from '../../hooks/useMyList'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
-import { updateUserProfile } from '../../services/authApi'
+import { updateUserProfile, getAuthHeaders } from '../../services/authApi'
 import { ProfileHeader } from './ProfileHeader'
 import { FlagPickerModal, FLAG_PRESETS } from './FlagPickerModal'
 import { LateralCustomWallpaper } from './LateralCustomWallpaper'
@@ -223,10 +223,10 @@ export const PerfilView: React.FC = () => {
 
         if (user) {
             try {
-                const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+                const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
                 await fetch(`${API_BASE_URL}/users/me/preferences/`, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     credentials: 'include',
                     body: JSON.stringify({
                         privacy_settings: newConfig,
@@ -246,10 +246,10 @@ export const PerfilView: React.FC = () => {
 
         if (user) {
             try {
-                const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+                const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
                 await fetch(`${API_BASE_URL}/users/me/preferences/`, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     credentials: 'include',
                     body: JSON.stringify({
                         onboarding_completed: true,

@@ -425,7 +425,6 @@ export const AnimeCatalog: React.FC = () => {
                             }}
                             className={`cat-toggle-chip ${noSequels ? 'active' : ''}`}
                         >
-                            <span>🚫</span>
                             <span>No secuelas</span>
                         </button>
 
@@ -438,7 +437,6 @@ export const AnimeCatalog: React.FC = () => {
                                 }}
                                 className={`cat-toggle-chip ${notInMyList ? 'active' : ''}`}
                             >
-                                <span>📖</span>
                                 <span>No en mi lista</span>
                             </button>
                         )}
@@ -452,7 +450,6 @@ export const AnimeCatalog: React.FC = () => {
                                 }}
                                 className={`cat-toggle-chip ${recommendedByFriends ? 'active' : ''}`}
                             >
-                                <span>👥</span>
                                 <span>Recomendadas por amigos</span>
                             </button>
                         )}

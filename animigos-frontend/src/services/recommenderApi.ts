@@ -5,7 +5,7 @@
 
 import type { TmdbMovie } from '../components/perfil/perfil-types'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 export interface CalibrateAnimeCandidate {
     mal_id: number

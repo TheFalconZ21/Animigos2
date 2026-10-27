@@ -4,7 +4,9 @@
  * tipado estricto y comunicación con el BFF Django REST Framework.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+import { getAuthHeaders } from './authApi'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 export type EstadoLista = 'visto' | 'viendo' | 'pendiente'
 
@@ -107,7 +109,7 @@ export interface UpdateAnimePayload {
  */
 export async function fetchMyList(): Promise<MyListApiResponse> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/`, {
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
     if (!res.ok) {
@@ -122,7 +124,7 @@ export async function fetchMyList(): Promise<MyListApiResponse> {
 export async function addAnimeToMyList(payload: AddAnimePayload): Promise<ApiUserListEntry> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify(payload),
     })
@@ -142,7 +144,7 @@ export async function updateMyListEntry(
 ): Promise<ApiUserListEntry> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/${entryId}/`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify(updates),
     })
@@ -158,6 +160,7 @@ export async function updateMyListEntry(
 export async function deleteMyListEntry(entryId: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/${entryId}/`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
     if (!res.ok) {
@@ -171,7 +174,7 @@ export async function deleteMyListEntry(entryId: string): Promise<void> {
 export async function createMyListFolder(name: string): Promise<ApiUserFolder> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/folders/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify({ name }),
     })
@@ -188,7 +191,7 @@ export async function createMyListFolder(name: string): Promise<ApiUserFolder> {
 export async function renameMyListFolder(folderId: string, name: string): Promise<ApiUserFolder> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/folders/${folderId}/`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify({ name }),
     })
@@ -204,6 +207,7 @@ export async function renameMyListFolder(folderId: string, name: string): Promis
 export async function deleteMyListFolder(folderId: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/users/my-list/folders/${folderId}/`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
     if (!res.ok) {
@@ -215,21 +219,20 @@ export async function deleteMyListFolder(folderId: string): Promise<void> {
  * Consulta el catálogo general de animes en la BD para el diálogo de agregar
  */
 export async function searchCatalogAnimes(query: string, limit = 20): Promise<ApiAnimeData[]> {
-    const url = new URL(`${API_BASE_URL}/animes/`)
+    const url = new URL(`${API_BASE_URL}/animes/`, window.location.origin)
     if (query.trim()) {
         url.searchParams.set('q', query.trim())
     }
     url.searchParams.set('page_size', String(limit))
 
     const res = await fetch(url.toString(), {
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
     if (!res.ok) {
         throw new Error(`Error al buscar animes en catálogo: ${res.statusText}`)
     }
     const data = await res.json()
-    // Si DRF retorna paginado { results: [...] } o array directo
     return Array.isArray(data) ? data : data.results || []
 }
 
@@ -251,8 +254,14 @@ export async function importMalXml(file: File): Promise<ImportMalXmlResult> {
     const formData = new FormData()
     formData.append('file', file)
 
+    const authHeaders = getAuthHeaders()
+    const headersWithoutContentType: Record<string, string> = {}
+    if (authHeaders['X-Session-Id']) headersWithoutContentType['X-Session-Id'] = authHeaders['X-Session-Id']
+    if (authHeaders['Authorization']) headersWithoutContentType['Authorization'] = authHeaders['Authorization']
+
     const res = await fetch(`${API_BASE_URL}/users/my-list/import-mal-xml/`, {
         method: 'POST',
+        headers: headersWithoutContentType,
         body: formData,
         credentials: 'include',
     })

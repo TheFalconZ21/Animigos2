@@ -2,7 +2,9 @@
  * Admin API Service — Conexión directa a Django REST Framework (AWS PostgreSQL)
  */
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+import { getAuthHeaders } from '../../services/authApi';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 export interface OverviewTelemetryDay {
   day: string;
@@ -295,7 +297,10 @@ export interface AnimesResponse {
 // ----------------------------------------------------
 
 export async function getOverview(period = '7d'): Promise<OverviewResponse> {
-  const res = await fetch(`${API_BASE_URL}/admin/overview/?period=${period}`);
+  const res = await fetch(`${API_BASE_URL}/admin/overview/?period=${period}`, {
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener overview`);
   return res.json();
 }
@@ -315,7 +320,10 @@ export async function getRooms(params: RoomsFilterParams | string = 'all'): Prom
     if (params.candidates && params.candidates !== 'all') query.append('candidates', params.candidates);
   }
 
-  const res = await fetch(`${API_BASE_URL}/admin/rooms/?${query.toString()}`);
+  const res = await fetch(`${API_BASE_URL}/admin/rooms/?${query.toString()}`, {
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener salas`);
   return res.json();
 }
@@ -323,7 +331,8 @@ export async function getRooms(params: RoomsFilterParams | string = 'all'): Prom
 export async function pingRoom(roomId: string): Promise<{ success: boolean; message: string }> {
   const res = await fetch(`${API_BASE_URL}/admin/rooms/${roomId}/ping/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' }
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al enviar ping`);
   return res.json();
@@ -336,7 +345,8 @@ export async function moderateRoom(
 ): Promise<{ success: boolean; message: string; action: string; status?: string; is_locked?: boolean }> {
   const res = await fetch(`${API_BASE_URL}/admin/rooms/${roomId}/moderate/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
     body: JSON.stringify({ action, reason })
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al moderar sala`);
@@ -348,7 +358,10 @@ export async function getRoomsCleanupPolicy(): Promise<{
   matching_count: number;
   matching_rooms: any[];
 }> {
-  const res = await fetch(`${API_BASE_URL}/admin/rooms/cleanup-policy/`);
+  const res = await fetch(`${API_BASE_URL}/admin/rooms/cleanup-policy/`, {
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener política de limpieza`);
   return res.json();
 }
@@ -360,7 +373,8 @@ export async function saveRoomsCleanupPolicy(policy: Partial<RoomsCleanupPolicy>
 }> {
   const res = await fetch(`${API_BASE_URL}/admin/rooms/cleanup-policy/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
     body: JSON.stringify(policy)
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al guardar política de limpieza`);
@@ -375,14 +389,18 @@ export async function runRoomsCleanup(): Promise<{
 }> {
   const res = await fetch(`${API_BASE_URL}/admin/rooms/cleanup-run/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' }
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al ejecutar limpieza de salas`);
   return res.json();
 }
 
 export async function getAlgorithm(): Promise<AlgorithmResponse> {
-  const res = await fetch(`${API_BASE_URL}/admin/algorithm/`);
+  const res = await fetch(`${API_BASE_URL}/admin/algorithm/`, {
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener algoritmo`);
   return res.json();
 }
@@ -393,7 +411,8 @@ export async function calibrateAlgorithm(payload: {
 }): Promise<any> {
   const res = await fetch(`${API_BASE_URL}/admin/algorithm/calibrate/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
     body: JSON.stringify(payload)
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al calibrar algoritmo`);
@@ -409,7 +428,8 @@ export async function simulateAlgorithmCalculation(payload: {
 }): Promise<any> {
   const res = await fetch(`${API_BASE_URL}/admin/algorithm/simulate/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
     body: JSON.stringify(payload)
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al simular algoritmo`);
@@ -417,7 +437,10 @@ export async function simulateAlgorithmCalculation(payload: {
 }
 
 export async function getGrowth(): Promise<GrowthResponse> {
-  const res = await fetch(`${API_BASE_URL}/admin/growth/`);
+  const res = await fetch(`${API_BASE_URL}/admin/growth/`, {
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener métricas de crecimiento`);
   return res.json();
 }
@@ -436,7 +459,10 @@ export async function getAnimes(params: {
   if (params.studio) query.append('studio', params.studio);
   if (params.ordering) query.append('ordering', params.ordering);
 
-  const res = await fetch(`${API_BASE_URL}/animes/?${query.toString()}`);
+  const res = await fetch(`${API_BASE_URL}/animes/?${query.toString()}`, {
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener catálogo de animes`);
   return res.json();
 }
@@ -451,7 +477,10 @@ export async function getAdminUsers(params?: {
   if (params?.role && params.role !== 'all') query.append('role', params.role);
   if (params?.status && params.status !== 'all') query.append('status', params.status);
 
-  const res = await fetch(`${API_BASE_URL}/admin/users/?${query.toString()}`);
+  const res = await fetch(`${API_BASE_URL}/admin/users/?${query.toString()}`, {
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener lista de usuarios`);
   return res.json();
 }
@@ -463,7 +492,8 @@ export async function moderateAdminUser(
 ): Promise<{ status: string; message: string; user_id: string; moderation: any }> {
   const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/moderate/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
     body: JSON.stringify({ action, reason })
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al moderar usuario`);

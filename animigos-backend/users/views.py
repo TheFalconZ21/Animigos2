@@ -41,6 +41,7 @@ def register_user(request):
         return Response({
             'message': 'Usuario registrado exitosamente',
             'authenticated': True,
+            'session_id': request.session.session_key,
             'user': ProfileSerializer(profile).data
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -81,6 +82,7 @@ def login_user(request):
         return Response({
             'message': 'Sesión iniciada correctamente',
             'authenticated': True,
+            'session_id': request.session.session_key,
             'user': ProfileSerializer(profile).data
         }, status=status.HTTP_200_OK)
 
@@ -111,6 +113,7 @@ def get_current_user(request):
         )
         return Response({
             'authenticated': True,
+            'session_id': getattr(request.session, 'session_key', None),
             'user': ProfileSerializer(profile).data
         })
 

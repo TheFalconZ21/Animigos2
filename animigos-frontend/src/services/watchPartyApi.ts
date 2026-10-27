@@ -106,13 +106,16 @@ export interface FloatingReaction {
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+import { getAuthHeaders } from './authApi'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 const API_BASE = `${API_BASE_URL}/groups`
 
 export async function fetchAllRooms(token?: string): Promise<RoomSummary[]> {
-    const url = new URL(`${API_BASE}/`)
+    const url = new URL(`${API_BASE}/`, window.location.origin)
     if (token) url.searchParams.set('token', token)
     const res = await fetch(url.toString(), {
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
     if (!res.ok) throw new Error('No se pudieron cargar las salas grupales')
@@ -128,7 +131,7 @@ export async function createRoomApi(data: {
 }): Promise<RoomSummary> {
     const res = await fetch(`${API_BASE}/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify(data),
     })
@@ -138,6 +141,7 @@ export async function createRoomApi(data: {
 
 export async function fetchRoomByCode(code: string): Promise<RoomSummary> {
     const res = await fetch(`${API_BASE}/by_code/?code=${encodeURIComponent(code)}`, {
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
     if (!res.ok) throw new Error('Sala no encontrada con el código ingresado')
@@ -146,6 +150,7 @@ export async function fetchRoomByCode(code: string): Promise<RoomSummary> {
 
 export async function fetchRoomById(id: string): Promise<RoomSummary> {
     const res = await fetch(`${API_BASE}/${id}/`, {
+        headers: getAuthHeaders(),
         credentials: 'include',
     })
     if (!res.ok) throw new Error('No se pudo cargar la información de la sala')
@@ -155,7 +160,7 @@ export async function fetchRoomById(id: string): Promise<RoomSummary> {
 export async function joinRoomApi(roomId: string, guestName: string, guestToken: string): Promise<any> {
     const res = await fetch(`${API_BASE}/${roomId}/join/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify({ guest_name: guestName, guest_token: guestToken }),
     })
