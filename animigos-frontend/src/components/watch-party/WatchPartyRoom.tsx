@@ -93,15 +93,23 @@ export const WatchPartyRoom: React.FC = () => {
         loadRooms()
     }, [userToken])
 
-    // Soporte de navegación por hash: #sala/<codigo>
+    // Soporte de navegación por hash: #sala/<codigo> o #sala / #listas
     useEffect(() => {
-        const hash = window.location.hash
-        const match = hash.match(/sala[=/]([a-zA-Z0-9_-]+)/i)
-        const initialCode = match ? match[1] : ''
+        const handleHashChange = () => {
+            const hash = window.location.hash
+            const match = hash.match(/sala[=/]([a-zA-Z0-9_-]+)/i)
+            const initialCode = match ? match[1] : ''
 
-        if (initialCode) {
-            handleOpenByCode(initialCode)
+            if (initialCode) {
+                handleOpenByCode(initialCode)
+            } else if (hash === '#sala' || hash === '#listas' || hash === '#votacion') {
+                setSelectedRoomId(null)
+            }
         }
+
+        handleHashChange()
+        window.addEventListener('hashchange', handleHashChange)
+        return () => window.removeEventListener('hashchange', handleHashChange)
     }, [])
 
     const loadRooms = async () => {
@@ -548,7 +556,7 @@ export const WatchPartyRoom: React.FC = () => {
                     type="button"
                     onClick={() => {
                         setSelectedRoomId(null)
-                        window.location.hash = ''
+                        window.location.hash = '#listas'
                     }}
                     className="ml-btn ml-btn-fantasma ml-btn-sm mb-3"
                 >
@@ -624,7 +632,7 @@ export const WatchPartyRoom: React.FC = () => {
                                 type="button"
                                 onClick={() => {
                                     setSelectedRoomId(null)
-                                    window.location.hash = ''
+                                    window.location.hash = '#listas'
                                 }}
                                 className="ml-btn ml-btn-fantasma ml-peligro"
                                 title="Abandonar sala"
