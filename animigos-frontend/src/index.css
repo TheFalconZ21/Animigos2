@@ -572,3 +572,47 @@ h6 {
   background: var(--admin-border-divider);
   border-radius: 2px;
 }
+
+/* ============================================================
+   BARRA DE NAVEGACIÓN PRINCIPAL (GLASS-NAV & ACCENT SYNC)
+   ============================================================ */
+.glass-nav {
+  background: rgba(8, 8, 8, 0.88) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.glass-nav .nav-overflow {
+  display: flex;
+  align-items: center;
+}
+
+.glass-nav .nav-link {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.42rem 1.05rem;
+  border-radius: 999px;
+  color: #a1a1aa !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+  outline: none !important;
+}
+
+.glass-nav .nav-link:hover {
+  color: #ffffff !important;
+}
+
+.glass-nav .nav-link.active {
+  color: #ffffff !important;
+  background: color-mix(in srgb, var(--theme-acento, var(--ml-acento, #e8508f)) 15%, transparent);
+  border-color: color-mix(in srgb, var(--theme-acento, var(--ml-acento, #e8508f)) 45%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--theme-acento, var(--ml-acento, #e8508f)) 24%, transparent);
+}
+
+.glass-nav .nav-link:focus,
+.glass-nav .nav-link:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-acento, var(--ml-acento, #e8508f)) 45%, transparent) !important;
+}

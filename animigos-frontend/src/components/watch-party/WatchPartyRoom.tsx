@@ -34,6 +34,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { useCatalogSearch } from '../../hooks/useCatalog'
 import type { ApiAnimeData } from '../../services/userListApi'
+import { useThemeAccent } from '../../hooks/useThemeAccent'
 import { Dialogo } from '../mi-lista/piezas'
 import '../mi-lista/mi-lista.css'
 import './watch-party.css'
@@ -41,6 +42,7 @@ import './watch-party.css'
 const QUICK_EMOJIS = ['🍿', '🎉', '🔥', '👏', '😱', '❤️']
 
 export const WatchPartyRoom: React.FC = () => {
+    const { acento } = useThemeAccent()
     const { user } = useAuth()
     const userName = user?.display_name || user?.username || 'Invitado'
     const userToken = user ? `user_${user.id}` : 'guest_anon'
@@ -254,7 +256,10 @@ export const WatchPartyRoom: React.FC = () => {
     // ==============================================================
     if (!selectedRoomId) {
         return (
-            <div className="ml-root wp-root py-4 px-3 px-md-5">
+            <div
+                className="ml-root wp-root py-4 px-3 px-md-5"
+                style={{ '--ml-acento': acento, '--wp-acento': acento } as React.CSSProperties}
+            >
                 <div className="container" style={{ maxWidth: '1200px' }}>
                     {/* Header Principal sin Card */}
                     <header className="wp-header-clean">
@@ -450,7 +455,10 @@ export const WatchPartyRoom: React.FC = () => {
     // VISTA 2 & 3: SALA SELECCIONADA (SIN CARD EN EL TÍTULO)
     // ==============================================================
     return (
-        <div className="ml-root wp-root py-4 px-3 px-md-5">
+        <div
+            className="ml-root wp-root py-4 px-3 px-md-5"
+            style={{ '--ml-acento': acento, '--wp-acento': acento } as React.CSSProperties}
+        >
             <div className="container" style={{ maxWidth: '1240px' }}>
                 {/* Botón de Retorno Limpio */}
                 <button

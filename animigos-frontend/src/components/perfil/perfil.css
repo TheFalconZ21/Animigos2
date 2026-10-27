@@ -1,0 +1,633 @@
+/* ============================================================
+   ANIMIGOS — MÓDULO PERFIL DE USUARIO
+   Hereda estrictamente el Design System de "Mi Lista":
+   - Fondo casi negro profundo (#0b0c10 / #080808)
+   - Tarjetas elevadas (#15161c / #1a1b23) con bordes finos (#262833 / rgba(255,255,255,0.06))
+   - Acento dinámico sincronizado con Mi Lista: var(--perfil-acento)
+   - Rosa neón (#f43f5e) y cian (#38bdf8) complementarios
+   - Estética cyberpunk sutil y tipografía limpia
+   ============================================================ */
+
+.perfil-root {
+    --perfil-bg: #0b0c10;
+    --perfil-card: #15161c;
+    --perfil-card-2: #1a1b23;
+    --perfil-card-hover: #1f202b;
+    --perfil-border: rgba(255, 255, 255, 0.07);
+    --perfil-border-strong: rgba(255, 255, 255, 0.14);
+    --perfil-text: #f4f4f5;
+    --perfil-text-muted: #9ca3af;
+    --perfil-text-dim: #71717a;
+
+    --perfil-acento: var(--theme-acento, var(--ml-acento, #a78bfa));
+    --perfil-acento-soft: color-mix(in srgb, var(--perfil-acento) 14%, transparent);
+    --perfil-acento-border: color-mix(in srgb, var(--perfil-acento) 35%, transparent);
+    --perfil-acento-glow: color-mix(in srgb, var(--perfil-acento) 25%, transparent);
+
+    --perfil-pink: #f43f5e;
+    --perfil-pink-soft: rgba(244, 63, 94, 0.14);
+    --perfil-cyan: #38bdf8;
+    --perfil-cyan-soft: rgba(56, 189, 248, 0.14);
+    --perfil-amber: #fbbf24;
+    --perfil-green: #34d399;
+
+    --perfil-radius: 16px;
+    --perfil-radius-sm: 10px;
+
+    background-color: var(--perfil-bg);
+    color: var(--perfil-text-muted);
+    min-height: 92vh;
+    padding-bottom: 4rem;
+}
+
+/* ---------- 1. Cabecera del Perfil ---------- */
+.perfil-header-card {
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    border-radius: var(--perfil-radius);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1.75rem;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+}
+
+.perfil-banner-bg {
+    height: 140px;
+    background: linear-gradient(135deg, rgba(21, 22, 28, 0.95), rgba(11, 12, 16, 0.98)),
+                radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--perfil-acento) 28%, transparent), transparent 60%),
+                radial-gradient(circle at 20% 80%, rgba(244, 63, 94, 0.18), transparent 50%);
+    position: relative;
+    border-bottom: 1px solid var(--perfil-border);
+}
+
+.perfil-banner-overlay {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(255, 255, 255, 0.015) 0px,
+        rgba(255, 255, 255, 0.015) 1px,
+        transparent 1px,
+        transparent 4px
+    );
+    pointer-events: none;
+}
+
+.perfil-header-body {
+    padding: 0 1.75rem 1.75rem;
+    position: relative;
+    margin-top: -55px;
+}
+
+.perfil-avatar-wrapper {
+    position: relative;
+    width: 104px;
+    height: 104px;
+    flex-shrink: 0;
+}
+
+.perfil-avatar-img {
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3.5px solid var(--perfil-card);
+    box-shadow: 0 0 24px var(--perfil-acento-glow), 0 8px 20px rgba(0, 0, 0, 0.6);
+    background-color: var(--perfil-card-2);
+}
+
+.perfil-avatar-btn {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border-strong);
+    color: var(--perfil-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.perfil-avatar-btn:hover {
+    background: var(--perfil-acento);
+    color: #0b0b0f;
+    border-color: var(--perfil-acento);
+    transform: scale(1.1);
+}
+
+.perfil-badge-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--perfil-acento-soft);
+    border: 1px solid var(--perfil-acento-border);
+    color: var(--perfil-acento);
+}
+
+.perfil-social-link {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    color: var(--perfil-text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 700;
+    transition: all 0.15s ease;
+}
+
+.perfil-social-link:hover {
+    color: #ffffff;
+    border-color: var(--perfil-border-strong);
+    background: var(--perfil-card-hover);
+    transform: translateY(-2px);
+}
+
+/* ---------- 2. Tarjeta Destacada: Test de Gustos (Recomendador IA) ---------- */
+.perfil-taste-card {
+    background: linear-gradient(135deg, rgba(26, 27, 35, 0.95), rgba(21, 22, 28, 0.98));
+    border: 1px solid var(--perfil-acento-border);
+    border-radius: var(--perfil-radius);
+    padding: 1.5rem 1.75rem;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 2rem;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 20px var(--perfil-acento-glow);
+}
+
+.perfil-taste-card::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--perfil-acento-glow), transparent 70%);
+    pointer-events: none;
+}
+
+.perfil-taste-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+}
+
+.perfil-taste-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--perfil-acento), var(--perfil-pink));
+    border-radius: 999px;
+    transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 0 10px var(--perfil-acento);
+}
+
+.perfil-chip-taste {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--perfil-border);
+    color: var(--perfil-text);
+    font-size: 0.74rem;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 0.22rem 0.6rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+/* ---------- 3. Dashboard de Estadísticas ---------- */
+.perfil-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.perfil-metric-card {
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    border-radius: var(--perfil-radius-sm);
+    padding: 1.15rem 1.35rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.perfil-metric-card:hover {
+    border-color: var(--perfil-border-strong);
+    transform: translateY(-2px);
+}
+
+.perfil-metric-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    flex-shrink: 0;
+}
+
+.perfil-metric-value {
+    font-family: var(--font-heading);
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.1;
+}
+
+.perfil-metric-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--perfil-text-dim);
+}
+
+/* Medidor Circular de Score */
+.perfil-gauge-wrap {
+    position: relative;
+    width: 82px;
+    height: 82px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.perfil-gauge-svg {
+    transform: rotate(-90deg);
+}
+
+.perfil-gauge-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.06);
+    stroke-width: 6;
+}
+
+.perfil-gauge-meter {
+    fill: none;
+    stroke: var(--perfil-acento);
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.8s ease;
+    filter: drop-shadow(0 0 6px var(--perfil-acento-glow));
+}
+
+.perfil-gauge-number {
+    position: absolute;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 1.25rem;
+    color: #ffffff;
+}
+
+/* Barra de Desglose de Estado (Estilo Mi Lista) */
+.perfil-breakdown-card {
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    border-radius: var(--perfil-radius-sm);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.perfil-breakdown-bar {
+    display: flex;
+    height: 14px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+    margin: 1rem 0 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.perfil-breakdown-seg {
+    height: 100%;
+    transition: width 0.4s ease;
+}
+
+.perfil-seg-visto { background: var(--perfil-acento); }
+.perfil-seg-viendo { background: var(--perfil-cyan); }
+.perfil-seg-pendiente { background: #e4e4e7; }
+.perfil-seg-dropeado { background: var(--perfil-pink); }
+
+.perfil-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--perfil-text-muted);
+}
+
+.perfil-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+/* ---------- Top 10 Animes Favoritos ---------- */
+.perfil-fav-card {
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    border-radius: var(--perfil-radius-sm);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.perfil-fav-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+    gap: 0.85rem;
+}
+
+.perfil-fav-item {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    aspect-ratio: 2/3;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.perfil-fav-item:hover {
+    transform: translateY(-4px) scale(1.02);
+    border-color: var(--perfil-acento-border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 14px var(--perfil-acento-glow);
+}
+
+.perfil-fav-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.perfil-fav-rank {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: rgba(11, 12, 16, 0.85);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.7rem;
+    color: #ffffff;
+    padding: 0.15rem 0.4rem;
+}
+
+.perfil-fav-score {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    background: rgba(11, 12, 16, 0.9);
+    backdrop-filter: blur(4px);
+    border: 1px solid var(--perfil-amber);
+    border-radius: 6px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--perfil-amber);
+    padding: 0.12rem 0.35rem;
+}
+
+.perfil-fav-empty {
+    border: 1.5px dashed var(--perfil-border);
+    border-radius: 10px;
+    aspect-ratio: 2/3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    color: var(--perfil-text-dim);
+    text-align: center;
+    padding: 0.5rem;
+    font-size: 0.7rem;
+}
+
+/* ---------- 4. Muro de Comentarios & Editor ---------- */
+.perfil-comments-card {
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    border-radius: var(--perfil-radius-sm);
+    padding: 1.5rem;
+}
+
+.perfil-comment-box {
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    transition: border-color 0.2s ease;
+}
+
+.perfil-comment-box:focus-within {
+    border-color: var(--perfil-acento-border);
+    box-shadow: 0 0 16px var(--perfil-acento-glow);
+}
+
+.perfil-comment-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--perfil-border);
+}
+
+.perfil-comment-tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--perfil-text-dim);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.perfil-comment-tab-btn.active {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.perfil-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: auto;
+}
+
+.perfil-toolbar-btn {
+    background: transparent;
+    border: none;
+    color: var(--perfil-text-dim);
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.15s ease;
+}
+
+.perfil-toolbar-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.perfil-comment-textarea {
+    width: 100%;
+    min-height: 90px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 0.88rem;
+    padding: 0.85rem 1rem;
+    resize: vertical;
+}
+
+.perfil-comment-preview {
+    min-height: 90px;
+    padding: 0.85rem 1rem;
+    color: var(--perfil-text);
+    font-size: 0.88rem;
+}
+
+.perfil-comment-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    border-top: 1px solid var(--perfil-border);
+    background: rgba(0, 0, 0, 0.15);
+}
+
+/* Lista de Comentarios */
+.perfil-comment-item {
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.85rem;
+    transition: border-color 0.15s ease;
+}
+
+.perfil-comment-item:hover {
+    border-color: var(--perfil-border-strong);
+}
+
+.perfil-spoiler-box {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px dashed var(--perfil-pink);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    cursor: pointer;
+    margin: 0.4rem 0;
+    transition: all 0.2s ease;
+}
+
+.perfil-spoiler-blur {
+    filter: blur(5px);
+    user-select: none;
+    pointer-events: none;
+}
+
+/* ---------- 5. Toggles y Switches Pill (Privacidad) ---------- */
+.perfil-switch-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1rem;
+    border-radius: 10px;
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    margin-bottom: 0.75rem;
+}
+
+.perfil-pill-toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--perfil-border);
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.perfil-pill-toggle.is-on {
+    background: var(--perfil-acento);
+    border-color: var(--perfil-acento);
+}
+
+.perfil-pill-handle {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+    transition: transform 0.2s ease;
+}
+
+.perfil-pill-toggle.is-on .perfil-pill-handle {
+    transform: translateX(20px);
+}
+
+/* ---------- 6. Wizard Test de Gustos (Modal) ---------- */
+.perfil-wizard-step {
+    padding: 1.5rem;
+}
+
+.perfil-trope-card {
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+    height: 100%;
+}
+
+.perfil-trope-card:hover {
+    border-color: var(--perfil-border-strong);
+    background: var(--perfil-card-hover);
+}
+
+.perfil-trope-card.is-selected {
+    background: var(--perfil-acento-soft);
+    border-color: var(--perfil-acento);
+    box-shadow: 0 0 14px var(--perfil-acento-glow);
+}

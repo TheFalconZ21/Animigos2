@@ -16,9 +16,9 @@
     --wp-border-hover: rgba(255, 255, 255, 0.16);
     --wp-text: #f4f4f5;
     --wp-text-muted: #a1a1aa;
-    --wp-text-dim: #71717a;
-    --wp-acento: #e8508f;
-    --wp-acento-suave: rgba(232, 80, 143, 0.14);
+    --wp-acento: var(--theme-acento, var(--ml-acento, #e8508f));
+    --wp-acento-suave: color-mix(in srgb, var(--wp-acento) 14%, transparent);
+    --wp-acento-glow: color-mix(in srgb, var(--wp-acento) 25%, transparent);
     --wp-warning: #fbbf24;
     --wp-success: #34d399;
     --wp-danger: #f87171;

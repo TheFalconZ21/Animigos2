@@ -1,0 +1,194 @@
+import React from 'react'
+import {
+    Camera,
+    Edit3,
+    Shield,
+    Settings,
+    Calendar,
+    Sparkles,
+} from 'lucide-react'
+import type { SocialLinks, PrivacyConfig } from './perfil-types'
+
+interface ProfileHeaderProps {
+    displayName: string
+    username: string
+    avatarUrl: string
+    bio: string
+    memberSince: string
+    socials: SocialLinks
+    privacy: PrivacyConfig
+    onOpenEditModal: () => void
+    onOpenPrivacyModal: () => void
+    onChangeAvatarClick: () => void
+    isCurrentUser?: boolean
+}
+
+export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
+    displayName,
+    username,
+    avatarUrl,
+    bio,
+    memberSince,
+    socials,
+    privacy,
+    onOpenEditModal,
+    onOpenPrivacyModal,
+    onChangeAvatarClick,
+    isCurrentUser = true,
+}) => {
+    return (
+        <div className="perfil-header-card">
+            {/* Banner superior estilizado con mesh sutil */}
+            <div className="perfil-banner-bg">
+                <div className="perfil-banner-overlay" />
+                <div className="position-absolute top-0 end-0 p-3 d-flex align-items-center gap-2">
+                    <span className="ml-lomo d-none d-md-flex" lang="ja" aria-hidden="true" style={{ height: 110 }}>
+                        プロフィール
+                    </span>
+                </div>
+            </div>
+
+            {/* Cuerpo de la cabecera */}
+            <div className="perfil-header-body">
+                <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3">
+                    {/* Identidad: Avatar circular con botón flotante */}
+                    <div className="d-flex flex-column flex-sm-row align-items-sm-end gap-3.5">
+                        <div className="perfil-avatar-wrapper">
+                            <img
+                                src={avatarUrl}
+                                alt={displayName}
+                                className="perfil-avatar-img"
+                                onError={(e) => {
+                                    e.currentTarget.src =
+                                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+                                }}
+                            />
+                            {isCurrentUser && (
+                                <button
+                                    type="button"
+                                    onClick={onChangeAvatarClick}
+                                    className="perfil-avatar-btn"
+                                    title="Cambiar foto de perfil"
+                                    aria-label="Cambiar foto de perfil"
+                                >
+                                    <Camera size={15} />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Nombre, handle y badges */}
+                        <div className="pt-2">
+                            <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                <h1 className="h4 fw-bold text-white mb-0">{displayName}</h1>
+                                <span className="perfil-badge-status">
+                                    <Sparkles size={12} />
+                                    <span>Otaku Veterano 🍿</span>
+                                </span>
+                            </div>
+
+                            <div className="d-flex flex-wrap align-items-center gap-2 text-secondary small mb-2">
+                                <span className="fw-semibold font-mono" style={{ color: 'var(--perfil-text-muted)' }}>
+                                    @{username}
+                                </span>
+                                <span>·</span>
+                                <span className="d-inline-flex align-items-center gap-1">
+                                    <Calendar size={13} /> Miembro desde {memberSince}
+                                </span>
+                                {!privacy.isListPublic && (
+                                    <>
+                                        <span>·</span>
+                                        <span className="badge rounded-pill bg-dark border border-secondary text-secondary py-0.5 px-2" style={{ fontSize: '0.68rem' }}>
+                                            🔒 Perfil Privado
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Biografía */}
+                            <p className="small text-white mb-2" style={{ maxWidth: 640, lineHeight: 1.5 }}>
+                                {bio}
+                            </p>
+
+                            {/* Redes sociales vinculadas */}
+                            <div className="d-flex align-items-center gap-2 pt-1">
+                                {socials.mal && (
+                                    <a
+                                        href={`https://myanimelist.net/profile/${socials.mal}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="perfil-social-link"
+                                        title={`MyAnimeList: ${socials.mal}`}
+                                    >
+                                        MAL
+                                    </a>
+                                )}
+                                {socials.anilist && (
+                                    <a
+                                        href={`https://anilist.co/user/${socials.anilist}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="perfil-social-link"
+                                        title={`AniList: ${socials.anilist}`}
+                                    >
+                                        AL
+                                    </a>
+                                )}
+                                {socials.discord && (
+                                    <span className="perfil-social-link" title={`Discord: ${socials.discord}`}>
+                                        DC
+                                    </span>
+                                )}
+                                {socials.twitter && (
+                                    <a
+                                        href={`https://twitter.com/${socials.twitter.replace(/^@/, '')}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="perfil-social-link"
+                                        title={`Twitter / X: ${socials.twitter}`}
+                                    >
+                                        𝕏
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Botones de Acción Rápida */}
+                    {isCurrentUser && (
+                        <div className="d-flex flex-wrap align-items-center gap-2 pt-2 pt-md-0">
+                            <button
+                                type="button"
+                                onClick={onOpenEditModal}
+                                className="ml-btn ml-btn-acento ml-btn-sm d-inline-flex align-items-center gap-1.5"
+                            >
+                                <Edit3 size={14} />
+                                <span>Editar Perfil</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={onOpenPrivacyModal}
+                                className="ml-btn ml-btn-fantasma ml-btn-sm d-inline-flex align-items-center gap-1.5 border"
+                                style={{ borderColor: 'var(--perfil-border)', background: 'var(--perfil-card-2)' }}
+                                title="Configuración de Privacidad"
+                            >
+                                <Shield size={14} />
+                                <span>Privacidad</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={onOpenPrivacyModal}
+                                className="ml-btn ml-btn-fantasma ml-btn-sm p-2 border"
+                                style={{ borderColor: 'var(--perfil-border)', background: 'var(--perfil-card-2)' }}
+                                title="Configuración de Cuenta"
+                            >
+                                <Settings size={14} />
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    )
+}

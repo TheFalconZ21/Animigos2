@@ -59,6 +59,7 @@ export function useThemeAccent() {
         if (typeof document !== 'undefined') {
             document.documentElement.style.setProperty('--ml-acento', acento)
             document.documentElement.style.setProperty('--cat-acento', acento)
+            document.documentElement.style.setProperty('--wp-acento', acento)
             document.documentElement.style.setProperty('--theme-acento', acento)
         }
     }, [acento])
