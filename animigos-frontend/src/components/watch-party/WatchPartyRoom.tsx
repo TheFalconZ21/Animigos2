@@ -395,81 +395,79 @@ export const WatchPartyRoom: React.FC = () => {
                             </button>
                         </div>
                     ) : (
-                        <div className="row g-3">
+                        <div className="wp-rooms-grid">
                             {roomsList.map((r) => {
                                 const statusLabel =
                                     r.status === 'voting'
                                         ? 'Votación en curso'
                                         : r.status === 'candidates'
-                                        ? 'Candidatos abiertos'
-                                        : r.status === 'watching'
-                                        ? 'Viendo en grupo'
-                                        : 'Completado'
+                                            ? 'Candidatos abiertos'
+                                            : r.status === 'watching'
+                                                ? 'Viendo en grupo'
+                                                : 'Completado'
 
                                 return (
-                                    <div key={r.id} className="col-12 col-lg-6">
-                                        <div className="wp-room-card">
-                                            {/* Fila Superior: Badge de Estado y Miembros */}
-                                            <div className="d-flex justify-content-between align-items-center mb-2">
-                                                <span className="wp-chip">
-                                                    {statusLabel}
+                                    <div key={r.id} className="wp-room-card">
+                                        {/* Fila Superior: Badge de Estado y Miembros */}
+                                        <div className="d-flex justify-content-between align-items-center mb-2">
+                                            <span className="wp-chip">
+                                                {statusLabel}
+                                            </span>
+                                            <span className="small d-flex align-items-center gap-1" style={{ color: 'var(--wp-text-dim)' }}>
+                                                <Users size={13} />
+                                                <span>{r.members?.length || r.members_count || 1} integrantes</span>
+                                            </span>
+                                        </div>
+
+                                        {/* Título y Descripción */}
+                                        <div className="mb-3">
+                                            <h3 className="h6 fw-bold text-white mb-1">{r.name}</h3>
+                                            <p className="small mb-0 text-truncate" style={{ color: 'var(--wp-text-muted)', lineHeight: 1.5 }}>
+                                                {r.description || 'Grupo de maratón y coordinación semanal entre amigos.'}
+                                            </p>
+                                        </div>
+
+                                        {/* Fila de Código y Copiar Enlace */}
+                                        <div className="d-flex justify-content-between align-items-center mb-3">
+                                            <div className="d-flex align-items-center gap-2">
+                                                <span className="small" style={{ color: 'var(--wp-text-dim)', fontSize: '0.78rem' }}>Código:</span>
+                                                <span className="wp-code-box font-mono fw-bold text-white">
+                                                    {r.invite_code}
                                                 </span>
-                                                <span className="small d-flex align-items-center gap-1" style={{ color: 'var(--wp-text-dim)' }}>
-                                                    <Users size={13} />
-                                                    <span>{r.members?.length || r.members_count || 1} integrantes</span>
-                                                </span>
                                             </div>
 
-                                            {/* Título y Descripción */}
-                                            <div className="mb-3">
-                                                <h3 className="h6 fw-bold text-white mb-1">{r.name}</h3>
-                                                <p className="small mb-0 text-truncate" style={{ color: 'var(--wp-text-muted)', lineHeight: 1.5 }}>
-                                                    {r.description || 'Grupo de maratón y coordinación semanal entre amigos.'}
-                                                </p>
-                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleCopy(r.invite_code, e)}
+                                                className="ml-btn ml-btn-sm"
+                                                style={{ fontSize: '0.76rem' }}
+                                            >
+                                                {copiedCode === r.invite_code ? <Check size={12} className="text-success" /> : <Share2 size={12} />}
+                                                <span>{copiedCode === r.invite_code ? 'Copiado' : 'Copiar Enlace'}</span>
+                                            </button>
+                                        </div>
 
-                                            {/* Fila de Código y Copiar Enlace */}
-                                            <div className="d-flex justify-content-between align-items-center mb-3">
-                                                <div className="d-flex align-items-center gap-2">
-                                                    <span className="small" style={{ color: 'var(--wp-text-dim)', fontSize: '0.78rem' }}>Código:</span>
-                                                    <span className="wp-code-box font-mono fw-bold text-white">
-                                                        {r.invite_code}
-                                                    </span>
-                                                </div>
+                                        {/* Acciones de Tarjeta: Entrar y Abandonar */}
+                                        <div className="d-flex align-items-center justify-content-between gap-2 pt-1 border-top" style={{ borderColor: 'var(--wp-border)' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedRoomId(r.id)
+                                                    window.location.hash = `#sala/${r.invite_code}`
+                                                }}
+                                                className="wp-btn-pill-primary flex-grow-1 justify-content-center"
+                                            >
+                                                <span>Entrar a la Sala de Votación</span>
+                                                <span>→</span>
+                                            </button>
 
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => handleCopy(r.invite_code, e)}
-                                                    className="ml-btn ml-btn-sm"
-                                                    style={{ fontSize: '0.76rem' }}
-                                                >
-                                                    {copiedCode === r.invite_code ? <Check size={12} className="text-success" /> : <Share2 size={12} />}
-                                                    <span>{copiedCode === r.invite_code ? 'Copiado' : 'Copiar Enlace'}</span>
-                                                </button>
-                                            </div>
-
-                                            {/* Acciones de Tarjeta: Entrar y Abandonar */}
-                                            <div className="d-flex align-items-center justify-content-between gap-2 pt-1 border-top" style={{ borderColor: 'var(--wp-border)' }}>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSelectedRoomId(r.id)
-                                                        window.location.hash = `#sala/${r.invite_code}`
-                                                    }}
-                                                    className="wp-btn-pill-primary flex-grow-1 justify-content-center"
-                                                >
-                                                    <span>Entrar a la Sala de Votación</span>
-                                                    <span>→</span>
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    className="wp-btn-pill-danger"
-                                                    title="Abandonar esta sala"
-                                                >
-                                                    <LogOut size={13} />
-                                                </button>
-                                            </div>
+                                            <button
+                                                type="button"
+                                                className="wp-btn-pill-danger"
+                                                title="Abandonar esta sala"
+                                            >
+                                                <LogOut size={13} />
+                                            </button>
                                         </div>
                                     </div>
                                 )
@@ -757,13 +755,12 @@ export const WatchPartyRoom: React.FC = () => {
                                                 {/* Etiqueta de Consenso */}
                                                 <div className="mb-2">
                                                     <span
-                                                        className={`wp-consenso-tag ${
-                                                            isConsensusWinner
+                                                        className={`wp-consenso-tag ${isConsensusWinner
                                                                 ? 'tag-ganador'
                                                                 : isPolarized
-                                                                ? 'tag-polarizado'
-                                                                : ''
-                                                        }`}
+                                                                    ? 'tag-polarizado'
+                                                                    : ''
+                                                            }`}
                                                     >
                                                         {isConsensusWinner && '👑 '}
                                                         {isPolarized && '⚡ '}

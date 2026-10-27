@@ -46,7 +46,7 @@
 
 /* ---------- Botones de Alto Contraste ---------- */
 .wp-btn-pill-primary {
-    background-color: #ffffff;
+    background-color: var(--wp-acento, var(--ml-acento, #e8508f));
     color: #0b0b0f !important;
     font-weight: 700;
     border-radius: 10px;
@@ -58,12 +58,14 @@
     font-size: 0.85rem;
     text-decoration: none;
     cursor: pointer;
-    transition: transform 0.15s ease, filter 0.15s ease;
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--wp-acento, var(--ml-acento, #e8508f)) 25%, transparent);
+    transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
 }
 
 .wp-btn-pill-primary:hover {
-    filter: brightness(0.92);
+    filter: brightness(1.1);
     transform: translateY(-1px);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--wp-acento, var(--ml-acento, #e8508f)) 45%, transparent);
 }
 
 .wp-btn-pill-primary:active {
@@ -131,7 +133,19 @@
     color: var(--wp-success);
 }
 
-/* ---------- Tarjetas de Salas (Dashboard) ---------- */
+/* ---------- Grilla y Tarjetas de Salas (Dashboard) ---------- */
+.wp-rooms-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+}
+
+@media (max-width: 768px) {
+    .wp-rooms-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .wp-room-card {
     background: var(--wp-surface);
     border: 1px solid var(--wp-border);

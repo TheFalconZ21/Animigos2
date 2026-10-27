@@ -412,7 +412,7 @@ export const AnimeCatalog: React.FC = () => {
                     </form>
 
                     {/* Chips de Filtros Rápidos */}
-                    <div className="d-flex flex-wrap align-items-center gap-2 mt-3 pt-2.5 border-top border-dark">
+                    <div className="d-flex flex-wrap align-items-center gap-2 mt-5 pt-2.5">
                         <span className="small text-secondary fw-semibold me-1" style={{ fontSize: '0.72rem' }}>
                             Filtros rápidos:
                         </span>
