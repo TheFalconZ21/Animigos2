@@ -23,6 +23,7 @@ import {
 } from '../../hooks/useCatalog'
 import { useMyList } from '../../hooks/useMyList'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
+import { useAuth } from '../../context/AuthContext'
 import type { ApiAnimeData } from '../../services/userListApi'
 import { Dialogo } from '../mi-lista/piezas'
 import { AnimeScoreHistoryChart } from './AnimeScoreHistoryChart'
@@ -73,7 +74,8 @@ const getRecsText = (recs?: string[] | { user_id: number; username: string }[]) 
 }
 
 export const AnimeCatalog: React.FC = () => {
-    // --- Capa de Lógica / Estado de Mi Lista y Tema ---
+    // --- Capa de Lógica / Estado de Mi Lista, Auth y Tema ---
+    const { isAuthenticated } = useAuth()
     const { filas, agregarAnime } = useMyList()
     const { acento } = useThemeAccent()
     const myListIds = useMemo(() => new Set(filas.map((f) => f.malId)), [filas])
@@ -126,9 +128,9 @@ export const AnimeCatalog: React.FC = () => {
             format: format || undefined,
             ordering: ordering || '-score',
             no_sequels: noSequels ? true : undefined,
-            not_in_my_list: notInMyList ? true : undefined,
-            exclude_ids: notInMyList && filas.length ? Array.from(myListIds).join(',') : undefined,
-            recommended_by_friends: recommendedByFriends ? true : undefined,
+            not_in_my_list: (isAuthenticated && notInMyList) ? true : undefined,
+            exclude_ids: (isAuthenticated && notInMyList && filas.length) ? Array.from(myListIds).join(',') : undefined,
+            recommended_by_friends: (isAuthenticated && recommendedByFriends) ? true : undefined,
         }
     }, [
         currentPage,
@@ -145,6 +147,7 @@ export const AnimeCatalog: React.FC = () => {
         recommendedByFriends,
         filas,
         myListIds,
+        isAuthenticated,
     ])
 
     const { data: catalogData, isLoading, isFetching, isError } = useCatalogQuery(filterParams)
@@ -184,13 +187,18 @@ export const AnimeCatalog: React.FC = () => {
         format ||
         ordering !== '-score' ||
         noSequels ||
-        notInMyList ||
-        recommendedByFriends ||
+        (isAuthenticated && notInMyList) ||
+        (isAuthenticated && recommendedByFriends) ||
         submittedSearch
     )
 
     const handleQuickAdd = async (anime: ApiAnimeData, e?: React.MouseEvent) => {
         if (e) e.stopPropagation()
+        if (!isAuthenticated) {
+            const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+            dialog?.showModal()
+            return
+        }
         if (myListIds.has(anime.mal_id)) return
         try {
             await agregarAnime({
@@ -421,29 +429,33 @@ export const AnimeCatalog: React.FC = () => {
                             <span>No secuelas</span>
                         </button>
 
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setNotInMyList(!notInMyList)
-                                setCurrentPage(1)
-                            }}
-                            className={`cat-toggle-chip ${notInMyList ? 'active' : ''}`}
-                        >
-                            <span>📖</span>
-                            <span>No en mi lista</span>
-                        </button>
+                        {isAuthenticated && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setNotInMyList(!notInMyList)
+                                    setCurrentPage(1)
+                                }}
+                                className={`cat-toggle-chip ${notInMyList ? 'active' : ''}`}
+                            >
+                                <span>📖</span>
+                                <span>No en mi lista</span>
+                            </button>
+                        )}
 
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setRecommendedByFriends(!recommendedByFriends)
-                                setCurrentPage(1)
-                            }}
-                            className={`cat-toggle-chip ${recommendedByFriends ? 'active' : ''}`}
-                        >
-                            <span>👥</span>
-                            <span>Recomendadas por amigos</span>
-                        </button>
+                        {isAuthenticated && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setRecommendedByFriends(!recommendedByFriends)
+                                    setCurrentPage(1)
+                                }}
+                                className={`cat-toggle-chip ${recommendedByFriends ? 'active' : ''}`}
+                            >
+                                <span>👥</span>
+                                <span>Recomendadas por amigos</span>
+                            </button>
+                        )}
 
                         {hasActiveFilters && (
                             <button
@@ -577,8 +589,8 @@ export const AnimeCatalog: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* Chip de Recomendados por Amigos */}
-                                        {anime.recommended_by && anime.recommended_by.length > 0 && (
+                                        {/* Chip de Recomendados por Amigos (solo para usuarios autenticados) */}
+                                        {isAuthenticated && anime.recommended_by && anime.recommended_by.length > 0 && (
                                             <div
                                                 className="cat-friends-recommend"
                                                 title={`Recomendado por: ${getRecsText(anime.recommended_by)}`}
@@ -719,8 +731,8 @@ export const AnimeCatalog: React.FC = () => {
                             {/* Evolución Histórica de la Nota (2018-2026 + Mensual) */}
                             <AnimeScoreHistoryChart malId={selectedAnime.mal_id} title={selectedAnime.title} />
 
-                            {/* Recomendado por amigos */}
-                            {selectedAnime.recommended_by && selectedAnime.recommended_by.length > 0 && (
+                            {/* Recomendado por amigos (solo usuarios autenticados) */}
+                            {isAuthenticated && selectedAnime.recommended_by && selectedAnime.recommended_by.length > 0 && (
                                 <div className="p-2.5 rounded-2 d-flex align-items-center gap-2" style={{ background: 'var(--cat-surface-2)', border: '1px solid var(--cat-border)' }}>
                                     <Sparkles size={15} className="text-warning shrink-0" />
                                     <span className="small text-secondary" style={{ fontSize: '0.76rem' }}>

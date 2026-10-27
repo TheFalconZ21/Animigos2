@@ -24,7 +24,7 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                 instance.dispose()
             }
         }
-    }, [])
+    }, [isAuthenticated])
 
     return (
         <nav className="navbar navbar-expand border-bottom border-dark py-2 sticky-top glass-nav">
@@ -50,19 +50,21 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                     data-bs-toggle="nav-overflow"
                 >
                     <ul className="nav navbar-nav justify-content-center">
-                        <li className="nav-item">
-                            <a
-                                className={`nav-link ${currentView === 'tablon' ? 'active' : ''}`}
-                                href="#tablon"
-                                onClick={(e) => {
-                                    e.preventDefault()
-                                    window.location.hash = '#tablon'
-                                    onSelectView?.('tablon')
-                                }}
-                            >
-                                Tablón
-                            </a>
-                        </li>
+                        {isAuthenticated && (
+                            <li className="nav-item">
+                                <a
+                                    className={`nav-link ${currentView === 'tablon' ? 'active' : ''}`}
+                                    href="#tablon"
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        window.location.hash = '#tablon'
+                                        onSelectView?.('tablon')
+                                    }}
+                                >
+                                    Tablón
+                                </a>
+                            </li>
+                        )}
                         <li className="nav-item">
                             <a
                                 className={`nav-link ${currentView === 'catalogo' ? 'active' : ''}`}
@@ -76,19 +78,21 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                                 Catálogo
                             </a>
                         </li>
-                        <li className="nav-item">
-                            <a
-                                className={`nav-link ${currentView === 'mi-lista' ? 'active' : ''}`}
-                                href="#mi-lista"
-                                onClick={(e) => {
-                                    e.preventDefault()
-                                    window.location.hash = '#mi-lista'
-                                    onSelectView?.('mi-lista')
-                                }}
-                            >
-                                Mi Lista
-                            </a>
-                        </li>
+                        {isAuthenticated && (
+                            <li className="nav-item">
+                                <a
+                                    className={`nav-link ${currentView === 'mi-lista' ? 'active' : ''}`}
+                                    href="#mi-lista"
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        window.location.hash = '#mi-lista'
+                                        onSelectView?.('mi-lista')
+                                    }}
+                                >
+                                    Mi Lista
+                                </a>
+                            </li>
+                        )}
                         <li className="nav-item">
                             <a
                                 className={`nav-link ${currentView === 'sala' ? 'active' : ''}`}

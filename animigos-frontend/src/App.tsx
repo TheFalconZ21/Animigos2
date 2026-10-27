@@ -10,19 +10,43 @@ import { Tablon } from './components/tablon/Tablon'
 import { Calendario } from './components/calendario/Calendario'
 import { PerfilView } from './components/perfil/PerfilView'
 import { useThemeAccent } from './hooks/useThemeAccent'
+import { useAuth } from './context/AuthContext'
 
 function App() {
   useThemeAccent()
+  const { isAuthenticated } = useAuth()
   const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'mi-lista' | 'admin' | 'sala' | 'tablon' | 'calendario' | 'perfil'>('catalogo')
+
+  // Redirigir si un usuario invitado intenta ver secciones privadas (Tablón, Mi Lista, Perfil)
+  useEffect(() => {
+    if (!isAuthenticated && (currentView === 'tablon' || currentView === 'mi-lista' || currentView === 'perfil')) {
+      setCurrentView('catalogo')
+      window.location.hash = '#catalogo'
+    }
+  }, [isAuthenticated, currentView])
 
   // Soporte de navegación por hash (ej: /#catalogo, /#mi-lista, /#admin, /#sala o /#perfil)
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash
       if (hash === '#mi-lista') {
-        setCurrentView('mi-lista')
+        if (!isAuthenticated) {
+          window.location.hash = '#catalogo'
+          setCurrentView('catalogo')
+          const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+          dialog?.showModal()
+        } else {
+          setCurrentView('mi-lista')
+        }
       } else if (hash === '#tablon' || hash === '#dashboard') {
-        setCurrentView('tablon')
+        if (!isAuthenticated) {
+          window.location.hash = '#catalogo'
+          setCurrentView('catalogo')
+          const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+          dialog?.showModal()
+        } else {
+          setCurrentView('tablon')
+        }
       } else if (hash === '#calendario' || hash === '#estrenos') {
         setCurrentView('calendario')
       } else if (hash === '#admin') {
@@ -30,7 +54,14 @@ function App() {
       } else if (hash === '#sala' || hash === '#votacion' || hash === '#listas' || hash.startsWith('#sala/')) {
         setCurrentView('sala')
       } else if (hash === '#perfil' || hash === '#profile') {
-        setCurrentView('perfil')
+        if (!isAuthenticated) {
+          window.location.hash = '#catalogo'
+          setCurrentView('catalogo')
+          const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+          dialog?.showModal()
+        } else {
+          setCurrentView('perfil')
+        }
       } else if (hash === '#landing') {
         setCurrentView('landing')
       } else if (hash === '#catalogo' || hash === '#animes' || hash === '#top' || hash === '') {
@@ -40,7 +71,7 @@ function App() {
     handleHash()
     window.addEventListener('hashchange', handleHash)
     return () => window.removeEventListener('hashchange', handleHash)
-  }, [])
+  }, [isAuthenticated])
 
   // 1. Si estamos en modo administración, mostramos el Admin Portal completo
   if (currentView === 'admin') {
@@ -257,16 +288,18 @@ function App() {
                 >
                   <span>📺 Watch Party en Vivo</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.location.hash = '#mi-lista'
-                    setCurrentView('mi-lista')
-                  }}
-                  className="btn btn-outline-light btn-sm px-4 py-2 fw-semibold shadow-sm"
-                >
-                  Explorar Mi Lista
-                </button>
+                {isAuthenticated && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.hash = '#mi-lista'
+                      setCurrentView('mi-lista')
+                    }}
+                    className="btn btn-outline-light btn-sm px-4 py-2 fw-semibold shadow-sm"
+                  >
+                    Explorar Mi Lista
+                  </button>
+                )}
                 <a href="#catalogo" className="btn btn-outline-secondary btn-sm px-4 py-2">
                   Ver Catálogo
                 </a>

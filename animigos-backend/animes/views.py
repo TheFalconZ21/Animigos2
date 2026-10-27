@@ -162,12 +162,13 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
                 except Exception:
                     pass
 
-        # 11. Filtro Recomendadas por Amigos
+        # 11. Filtro Recomendadas por Amigos (solo usuarios autenticados)
         if recommended_by_friends and str(recommended_by_friends).lower() in ('true', '1', 'yes'):
-            qs = qs.filter(
-                Q(user_list_entries__score__gte=8) |
-                Q(score__gte=8.0)
-            ).distinct()
+            if self.request.user and self.request.user.is_authenticated:
+                qs = qs.filter(
+                    Q(user_list_entries__score__gte=8) |
+                    Q(score__gte=8.0)
+                ).distinct()
 
         # 12. Ordenación (por defecto Nota MAL descendiente con desempate por miembros)
         ordering_param = params.get('ordering', '-score')
