@@ -183,7 +183,19 @@ class Command(BaseCommand):
                             anime.score = score_val
                             anime.rank = rank_val
                             anime.last_synced_at = timezone.now()
-                            anime.save(update_fields=['score', 'rank', 'last_synced_at'])
+                            updated_fields = ['score', 'rank', 'last_synced_at']
+
+                            # Si no tenía imagen o tenía placeholder, asignar la imagen real extraída de MAL
+                            if item.get('image_url') and (not anime.image_url or 'placeholder' in anime.image_url):
+                                anime.image_url = item['image_url']
+                                updated_fields.append('image_url')
+
+                            # Si tenía scored_by en 0 y tenemos miembros en el Top
+                            if (not anime.scored_by or anime.scored_by == 0) and item.get('members', 0) > 0:
+                                anime.scored_by = item['members']
+                                updated_fields.append('scored_by')
+
+                            anime.save(update_fields=updated_fields)
                             total_animes_updated += 1
 
                             AnimeScoreHistory.objects.update_or_create(
@@ -194,22 +206,24 @@ class Command(BaseCommand):
                                     'month': today.month,
                                     'score': score_val,
                                     'scored_by': anime.scored_by,
-                                    'members': anime.popularity or 0,
+                                    'members': anime.popularity or item.get('members', 0),
                                     'rank': rank_val,
                                     'popularity': anime.popularity,
                                 }
                             )
                             total_history_recorded += 1
                     else:
-                        # Si no estaba en BD, crearlo
+                        # Si no estaba en BD, crearlo con imagen real y miembros
                         if not dry_run:
                             anime = Anime.objects.create(
                                 mal_id=mal_id,
                                 title=item['title'],
                                 score=score_val,
                                 rank=rank_val,
+                                scored_by=item.get('members', 0),
                                 synopsis='Importado desde Top MyAnimeList.',
-                                image_url='https://cdn.myanimelist.net/images/anime/placeholder.jpg',
+                                image_url=item.get('image_url') or 'https://cdn.myanimelist.net/images/anime/placeholder.jpg',
+                                type=item.get('type') or 'TV',
                             )
                             existing_animes[mal_id] = anime
                             total_animes_created += 1
@@ -335,11 +349,35 @@ class Command(BaseCommand):
                 except ValueError:
                     pass
 
+            # Extraer póster oficial en alta resolución
+            img_m = re.search(r'<img[^>]+(?:data-src|src)="([^"]+)"', r)
+            img_url = ''
+            if img_m:
+                raw_img = img_m.group(1).strip()
+                # Quitar thumbnail /r/50x70/ y query params para resolución completa
+                img_url = re.sub(r'/r/\d+x\d+/', '/', raw_img).split('?')[0]
+
+            # Extraer número de miembros de MAL
+            members_m = re.search(r'([\d,]+)\s+members', r)
+            members_val = 0
+            if members_m:
+                try:
+                    members_val = int(members_m.group(1).replace(',', ''))
+                except ValueError:
+                    pass
+
+            # Extraer formato (TV, Movie, OVA, etc.)
+            type_m = re.search(r'<div class="information[^>]*>\s*([A-Za-z]+)', r)
+            series_type = type_m.group(1).strip() if type_m else 'TV'
+
             results.append({
                 'mal_id': aid,
                 'title': title,
                 'score': score,
                 'rank': rank,
+                'image_url': img_url,
+                'members': members_val,
+                'type': series_type,
             })
 
         return results
