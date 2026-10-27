@@ -192,49 +192,101 @@ CURATED_TMDB_MOVIES = [
 ]
 
 
+import unicodedata
+
+# Cargar catálogo curado extenso desde archivo JSON si existe
+CURATED_PATH = os.path.join(os.path.dirname(__file__), 'curated_movies.json')
+if os.path.exists(CURATED_PATH):
+    try:
+        with open(CURATED_PATH, 'r', encoding='utf-8') as f:
+            CURATED_TMDB_MOVIES = json.load(f)
+    except Exception as e:
+        pass
+
+TMDB_GENRE_IDS = {
+    28: 'Acción', 12: 'Aventura', 16: 'Animación', 35: 'Comedia', 80: 'Crimen',
+    99: 'Documental', 18: 'Drama', 10751: 'Familia', 14: 'Fantasía', 36: 'Historia',
+    27: 'Terror', 10402: 'Música', 9648: 'Misterio', 10749: 'Romance',
+    878: 'Ciencia ficción', 10770: 'Película de TV', 53: 'Suspense', 10752: 'Bélica', 37: 'Western'
+}
+
+def _normalize_text(text: str) -> str:
+    """Elimina acentos y pasa a minúsculas para búsqueda tolerante."""
+    if not text:
+        return ''
+    return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn').lower()
+
+
 def search_tmdb_movies(query: str):
     """
-    Busca películas en TMDB vía API pública o mediante índice curado de alta velocidad.
+    Busca películas en TMDB vía API pública oficial o mediante índice local normalizado.
     """
-    q_clean = query.strip().lower()
-    if not q_clean:
-        return CURATED_TMDB_MOVIES[:6]
+    q_raw = query.strip()
+    q_norm = _normalize_text(q_raw)
+    
+    # Si la consulta está vacía, retornar las películas más populares como sugerencias iniciales
+    if not q_norm:
+        return CURATED_TMDB_MOVIES[:8]
 
     # 1. Intentar consulta a TMDB API si hay clave configurada
     if TMDB_API_KEY:
         try:
-            encoded_query = urllib.parse.quote(query)
-            url = f"https://api.themoviedb.org/3/search/movie?api_key={TMDB_API_KEY}&query={encoded_query}&language=es-ES&page=1"
+            encoded_query = urllib.parse.quote(q_raw)
+            url = f"https://api.themoviedb.org/3/search/movie?api_key={TMDB_API_KEY}&query={encoded_query}&language=es-ES&page=1&include_adult=false"
             req = urllib.request.Request(url, headers={'User-Agent': 'Animigos/2.0'})
-            with urllib.request.urlopen(req, timeout=3.5) as resp:
+            with urllib.request.urlopen(req, timeout=4.0) as resp:
                 data = json.loads(resp.read().decode('utf-8'))
                 results = data.get('results', [])
                 if results:
                     mapped = []
                     for m in results[:10]:
+                        genre_ids = m.get('genre_ids', [])
+                        genres = [TMDB_GENRE_IDS[gid] for gid in genre_ids if gid in TMDB_GENRE_IDS]
+                        if not genres:
+                            genres = ['Cine']
                         mapped.append({
                             'id': m.get('id'),
                             'title': m.get('title') or m.get('original_title'),
                             'original_title': m.get('original_title', ''),
                             'release_year': (m.get('release_date') or '')[:4],
                             'poster_path': f"https://image.tmdb.org/t/p/w500{m.get('poster_path')}" if m.get('poster_path') else 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500',
-                            'genres': ['Cine', 'Película'],
-                            'overview': m.get('overview') or 'Sin sinopsis disponible en español.',
+                            'genres': genres,
+                            'overview': m.get('overview') or 'Sinopsis en proceso de sincronización con TMDB.',
                             'vote_average': m.get('vote_average', 7.5),
                         })
                     return mapped
-        except Exception as e:
-            # Fallback seguro sin interrumpir al usuario
+        except Exception:
             pass
 
-    # 2. Búsqueda en catálogo curado local
+    # 2. Búsqueda en catálogo curado local con coincidencia normalizada y por palabras
+    query_tokens = [t for t in q_norm.split() if len(t) >= 2]
     matches = []
-    for m in CURATED_TMDB_MOVIES:
-        searchable_text = f"{m['title']} {m['original_title']} {m['overview']} {' '.join(m['genres'])}".lower()
-        if q_clean in searchable_text:
-            matches.append(m)
 
-    return matches if matches else CURATED_TMDB_MOVIES[:4]
+    for m in CURATED_TMDB_MOVIES:
+        title_norm = _normalize_text(m.get('title', ''))
+        orig_norm = _normalize_text(m.get('original_title', ''))
+        overview_norm = _normalize_text(m.get('overview', ''))
+        genres_norm = _normalize_text(' '.join(m.get('genres', [])))
+        keywords_norm = _normalize_text(' '.join(m.get('keywords', [])))
+
+        full_search_text = f"{title_norm} {orig_norm} {overview_norm} {genres_norm} {keywords_norm}"
+
+        # Coincidencia exacta de frase
+        if q_norm in title_norm or q_norm in orig_norm:
+            matches.append((100, m))
+        elif q_norm in full_search_text:
+            matches.append((80, m))
+        elif query_tokens and all(tok in full_search_text for tok in query_tokens):
+            matches.append((60, m))
+        elif query_tokens and any(tok in title_norm or tok in orig_norm for tok in query_tokens):
+            matches.append((40, m))
+
+    if matches:
+        matches.sort(key=lambda x: x[0], reverse=True)
+        return [m for _, m in matches[:10]]
+
+    # Si no hubo coincidencia, retornar lista vacía (para que la UI muestre el estado de no encontrado)
+    return []
 
 
 def cross_reference_tmdb_movies_with_anime(selected_movies: list):

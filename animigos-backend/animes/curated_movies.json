@@ -1,0 +1,1066 @@
+[
+  {
+    "id": 603,
+    "title": "Matrix (The Matrix)",
+    "original_title": "The Matrix",
+    "release_year": "1999",
+    "poster_path": "https://image.tmdb.org/t/p/w500/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg",
+    "genres": [
+      "Ciencia ficción",
+      "Acción"
+    ],
+    "overview": "Un hacker informático descubre la verdadera naturaleza de su realidad y su papel en la guerra contra sus controladores que gobiernan el mundo simulado.",
+    "keywords": [
+      "cyberpunk",
+      "simulación",
+      "realidad virtual",
+      "artes marciales",
+      "inteligencia artificial"
+    ]
+  },
+  {
+    "id": 27205,
+    "title": "El Origen (Inception)",
+    "original_title": "Inception",
+    "release_year": "2010",
+    "poster_path": "https://image.tmdb.org/t/p/w500/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg",
+    "genres": [
+      "Ciencia ficción",
+      "Misterio",
+      "Acción"
+    ],
+    "overview": "Un ladrón que roba secretos corporativos mediante tecnología de compartir sueños es contratado para implantar una idea en la mente del heredero de un conglomerado.",
+    "keywords": [
+      "sueño",
+      "subconsciente",
+      "conspiración",
+      "tiempo",
+      "psicológico"
+    ]
+  },
+  {
+    "id": 157336,
+    "title": "Interestelar (Interstellar)",
+    "original_title": "Interstellar",
+    "release_year": "2014",
+    "poster_path": "https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
+    "genres": [
+      "Ciencia ficción",
+      "Drama",
+      "Aventura"
+    ],
+    "overview": "Un grupo de exploradores hace uso de un agujero de gusano recientemente descubierto para superar las limitaciones de los viajes espaciales y salvar a la humanidad.",
+    "keywords": [
+      "espacio",
+      "tiempo",
+      "agujero negro",
+      "familia",
+      "supervivencia"
+    ]
+  },
+  {
+    "id": 335984,
+    "title": "Blade Runner 2049",
+    "original_title": "Blade Runner 2049",
+    "release_year": "2017",
+    "poster_path": "https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
+    "genres": [
+      "Ciencia ficción",
+      "Drama",
+      "Misterio"
+    ],
+    "overview": "Treinta años después de los eventos de la primera película, un nuevo blade runner descubre un secreto enterrado que podría sumergir a la sociedad en el caos.",
+    "keywords": [
+      "cyberpunk",
+      "androide",
+      "distopía",
+      "identidad",
+      "investigación"
+    ]
+  },
+  {
+    "id": 78,
+    "title": "Blade Runner",
+    "original_title": "Blade Runner",
+    "release_year": "1982",
+    "poster_path": "https://image.tmdb.org/t/p/w500/vfK758u15QYx52lGcxkZc3zY5zB.jpg",
+    "genres": [
+      "Ciencia ficción",
+      "Drama",
+      "Suspense"
+    ],
+    "overview": "En un Los Ángeles distópico del siglo XXI, un cazador de replicantes debe dar caza a un grupo de androides que han escapado de colonias exteriores.",
+    "keywords": [
+      "cyberpunk",
+      "androide",
+      "filosofía",
+      "neon",
+      "distopía"
+    ]
+  },
+  {
+    "id": 438631,
+    "title": "Duna (Dune)",
+    "original_title": "Dune",
+    "release_year": "2021",
+    "poster_path": "https://image.tmdb.org/t/p/w500/d5NXSklXo0qyIYkgV94XAgMIckC.jpg",
+    "genres": [
+      "Ciencia ficción",
+      "Aventura"
+    ],
+    "overview": "Paul Atreides, un joven brillante con un destino más grande que él, viaja al planeta más peligroso del universo para asegurar el futuro de su familia y su pueblo.",
+    "keywords": [
+      "desierto",
+      "imperio",
+      "política",
+      "profecía",
+      "guerra"
+    ]
+  },
+  {
+    "id": 693134,
+    "title": "Duna: Parte Dos (Dune: Part Two)",
+    "original_title": "Dune: Part Two",
+    "release_year": "2024",
+    "poster_path": "https://image.tmdb.org/t/p/w500/czembW0Rk1Ke7Ra29MvBzdyipSu.jpg",
+    "genres": [
+      "Ciencia ficción",
+      "Aventura",
+      "Acción"
+    ],
+    "overview": "Paul Atreides se une a Chani y a los Fremen mientras busca venganza contra los conspiradores que destruyeron a su familia.",
+    "keywords": [
+      "venganza",
+      "profecía",
+      "guerra santa",
+      "desierto",
+      "poder"
+    ]
+  },
+  {
+    "id": 280,
+    "title": "Terminator 2: El Juicio Final",
+    "original_title": "Terminator 2: Judgment Day",
+    "release_year": "1991",
+    "poster_path": "https://image.tmdb.org/t/p/w500/5M0j0B18abtBI5F2lRtlFLUFppd.jpg",
+    "genres": [
+      "Acción",
+      "Ciencia ficción",
+      "Suspense"
+    ],
+    "overview": "Un cíborg reprogramado es enviado al pasado para proteger a un joven John Connor de un modelo de Terminator líquido infinitamente más avanzado.",
+    "keywords": [
+      "viaje en el tiempo",
+      "robot",
+      "apocalipsis",
+      "inteligencia artificial",
+      "acción"
+    ]
+  },
+  {
+    "id": 348,
+    "title": "Alien: El Octavo Pasajero",
+    "original_title": "Alien",
+    "release_year": "1979",
+    "poster_path": "https://image.tmdb.org/t/p/w500/vfrQk5IPloGg1v9Rzbh2Eg3VGyM.jpg",
+    "genres": [
+      "Terror",
+      "Ciencia ficción"
+    ],
+    "overview": "La tripulación de la nave espacial Nostromo intercepta una señal de socorro de un planeta desconocido y descubre una forma de vida letal.",
+    "keywords": [
+      "espacio",
+      "monstruo",
+      "terror psicológico",
+      "supervivencia",
+      "claustrofobia"
+    ]
+  },
+  {
+    "id": 679,
+    "title": "Aliens: El Regreso",
+    "original_title": "Aliens",
+    "release_year": "1986",
+    "poster_path": "https://image.tmdb.org/t/p/w500/r1x5JG2FbmgrWWBioqVs5Vfo3O9.jpg",
+    "genres": [
+      "Acción",
+      "Ciencia ficción",
+      "Terror"
+    ],
+    "overview": "Ellen Ripley regresa al planeta donde encontró al alienígena, esta vez acompañada de una unidad de marines coloniales fuertemente armados.",
+    "keywords": [
+      "marines",
+      "guerra espacial",
+      "acción",
+      "supervivencia",
+      "madre"
+    ]
+  },
+  {
+    "id": 19995,
+    "title": "Avatar",
+    "original_title": "Avatar",
+    "release_year": "2009",
+    "poster_path": "https://image.tmdb.org/t/p/w500/kyeqWdyUXW608qlYkRqosgbbJyK.jpg",
+    "genres": [
+      "Acción",
+      "Aventura",
+      "Fantasía",
+      "Ciencia ficción"
+    ],
+    "overview": "Un marine parapléjico es enviado al exótico planeta Pandora en una misión única, pero pronto se encuentra dividido entre seguir órdenes y proteger el mundo.",
+    "keywords": [
+      "planeta alienígena",
+      "naturaleza",
+      "guerra colonial",
+      "conexión neuronal"
+    ]
+  },
+  {
+    "id": 76600,
+    "title": "Avatar: El Camino del Agua",
+    "original_title": "Avatar: The Way of Water",
+    "release_year": "2022",
+    "poster_path": "https://image.tmdb.org/t/p/w500/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg",
+    "genres": [
+      "Ciencia ficción",
+      "Aventura",
+      "Acción"
+    ],
+    "overview": "Jake Sully y Neytiri forman una familia y exploran las regiones de Pandora cuando una antigua amenaza regresa.",
+    "keywords": [
+      "océano",
+      "familia",
+      "supervivencia",
+      "guerra"
+    ]
+  },
+  {
+    "id": 105,
+    "title": "Volver al Futuro (Back to the Future)",
+    "original_title": "Back to the Future",
+    "release_year": "1985",
+    "poster_path": "https://image.tmdb.org/t/p/w500/fNOH9f1aA7XRTzl1sAOx9iF553Q.jpg",
+    "genres": [
+      "Aventura",
+      "Comedia",
+      "Ciencia ficción"
+    ],
+    "overview": "Un estudiante de secundaria es enviado accidentalmente treinta años hacia el pasado en un automóvil DeLorean que viaja en el tiempo.",
+    "keywords": [
+      "viajes en el tiempo",
+      "paradoja",
+      "años 80",
+      "humor",
+      "ciencia"
+    ]
+  },
+  {
+    "id": 329865,
+    "title": "La Llegada (Arrival)",
+    "original_title": "Arrival",
+    "release_year": "2016",
+    "poster_path": "https://image.tmdb.org/t/p/w500/x2FJsf1ElAgr63Y3PNPtJrcmpoe.jpg",
+    "genres": [
+      "Drama",
+      "Ciencia ficción",
+      "Misterio"
+    ],
+    "overview": "Una lingüista experta es reclutada por el ejército para comunicarse con una forma de vida extraterrestre que ha aterrizado en la Tierra.",
+    "keywords": [
+      "lenguaje",
+      "tiempo no lineal",
+      "extraterrestres",
+      "filosofía",
+      "emoción"
+    ]
+  },
+  {
+    "id": 137113,
+    "title": "Al Filo del Mañana (Edge of Tomorrow)",
+    "original_title": "Edge of Tomorrow",
+    "release_year": "2014",
+    "poster_path": "https://image.tmdb.org/t/p/w500/uUHvllBh7v95pHMI3a5cW0Bae3o.jpg",
+    "genres": [
+      "Acción",
+      "Ciencia ficción"
+    ],
+    "overview": "Un soldado en una guerra alienígena se encuentra atrapado en un bucle temporal, reviviendo el mismo día de batalla una y otra vez.",
+    "keywords": [
+      "bucle temporal",
+      "guerra alienígena",
+      "mecha",
+      "superación",
+      "manga"
+    ]
+  },
+  {
+    "id": 264660,
+    "title": "Ex Machina",
+    "original_title": "Ex Machina",
+    "release_year": "2014",
+    "poster_path": "https://image.tmdb.org/t/p/w500/dmkWCSk1pkm6P37n7k8bW3g1sUf.jpg",
+    "genres": [
+      "Drama",
+      "Ciencia ficción",
+      "Suspense"
+    ],
+    "overview": "Un programador es seleccionado para participar en un experimento revolucionario de inteligencia artificial evaluando a una robot humanoide.",
+    "keywords": [
+      "inteligencia artificial",
+      "manipulación",
+      "test de turing",
+      "psicológico"
+    ]
+  },
+  {
+    "id": 62,
+    "title": "2001: Odisea del Espacio",
+    "original_title": "2001: A Space Odyssey",
+    "release_year": "1968",
+    "poster_path": "https://image.tmdb.org/t/p/w500/ve72VxNqjGM69UmKAdORW9rIRaH.jpg",
+    "genres": [
+      "Ciencia ficción",
+      "Misterio",
+      "Aventura"
+    ],
+    "overview": "Un viaje a Júpiter con la inteligencia artificial HAL 9000 se vuelve misterioso tras el descubrimiento de un monolito extraterrestre.",
+    "keywords": [
+      "espacio",
+      "HAL 9000",
+      "monolito",
+      "evolución",
+      "filosofía"
+    ]
+  },
+  {
+    "id": 550,
+    "title": "El Club de la Pelea (Fight Club)",
+    "original_title": "Fight Club",
+    "release_year": "1999",
+    "poster_path": "https://image.tmdb.org/t/p/w500/bptfVGEQuv6vDTIMVCHjJ9Dz8PX.jpg",
+    "genres": [
+      "Drama",
+      "Suspense"
+    ],
+    "overview": "Un oficinista insomne y un carismático vendedor de jabón forman un club de lucha subterráneo que evoluciona hacia algo mucho más grande.",
+    "keywords": [
+      "anarquía",
+      "doble identidad",
+      "sociedad de consumo",
+      "giro de trama",
+      "psicológico"
+    ]
+  },
+  {
+    "id": 807,
+    "title": "Seven (Los Siete Pecados Capitales)",
+    "original_title": "Se7en",
+    "release_year": "1995",
+    "poster_path": "https://image.tmdb.org/t/p/w500/6yoghtyTpznpBik8EngEmJskVUO.jpg",
+    "genres": [
+      "Crimen",
+      "Misterio",
+      "Suspense"
+    ],
+    "overview": "Dos detectives de homicidios rastrean a un asesino en serie que utiliza los siete pecados capitales como motivo de sus crímenes.",
+    "keywords": [
+      "asesino en serie",
+      "pecados capitales",
+      "detectives",
+      "lluvia",
+      "final impactante"
+    ]
+  },
+  {
+    "id": 274,
+    "title": "El Silencio de los Inocentes (The Silence of the Lambs)",
+    "original_title": "The Silence of the Lambs",
+    "release_year": "1991",
+    "poster_path": "https://image.tmdb.org/t/p/w500/uS9m8OBk1A8eM9I042bx8XXpqAq.jpg",
+    "genres": [
+      "Crimen",
+      "Drama",
+      "Suspense"
+    ],
+    "overview": "Una joven cadete del FBI debe confiar en un brillante psiquiatra encarcelado y asesino caníbal, el Dr. Hannibal Lecter, para atrapar a otro homicida.",
+    "keywords": [
+      "Hannibal Lecter",
+      "FBI",
+      "duelo intelectual",
+      "canibalismo",
+      "mente criminal"
+    ]
+  },
+  {
+    "id": 11324,
+    "title": "La Isla Siniestra (Shutter Island)",
+    "original_title": "Shutter Island",
+    "release_year": "2010",
+    "poster_path": "https://image.tmdb.org/t/p/w500/4GDy0PHYX3VRNT9I5keZ4a59GMc.jpg",
+    "genres": [
+      "Drama",
+      "Suspense",
+      "Misterio"
+    ],
+    "overview": "En 1954, un agente judicial investiga la desaparición de una paciente asesina de un hospital psiquiátrico en una isla remota.",
+    "keywords": [
+      "psiquiátrico",
+      "locura",
+      "paranoia",
+      "giro de guion",
+      "alucinaciones"
+    ]
+  },
+  {
+    "id": 77,
+    "title": "Memento",
+    "original_title": "Memento",
+    "release_year": "2000",
+    "poster_path": "https://image.tmdb.org/t/p/w500/yuNs09hvpHVU1cBTCA99Uh43709.jpg",
+    "genres": [
+      "Misterio",
+      "Suspense"
+    ],
+    "overview": "Un hombre con pérdida de memoria a corto plazo intenta encontrar al asesino de su esposa usando notas tatuadas en su propio cuerpo.",
+    "keywords": [
+      "memoria",
+      "narrativa inversa",
+      "obsesión",
+      "venganza",
+      "engaño"
+    ]
+  },
+  {
+    "id": 496243,
+    "title": "Parásitos (Parasite)",
+    "original_title": "Gisaengchung",
+    "release_year": "2019",
+    "poster_path": "https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg",
+    "genres": [
+      "Comedia",
+      "Suspense",
+      "Drama"
+    ],
+    "overview": "Una familia desempleada se infiltra gradualmente en la vida de una familia acaudalada como sirvientes y tutores, desatando consecuencias inesperadas.",
+    "keywords": [
+      "clases sociales",
+      "engaño",
+      "humor negro",
+      "tensión",
+      "corea"
+    ]
+  },
+  {
+    "id": 44214,
+    "title": "El Cisne Negro (Black Swan)",
+    "original_title": "Black Swan",
+    "release_year": "2010",
+    "poster_path": "https://image.tmdb.org/t/p/w500/8AcuL7i29u2eQ1WcWfN3N3J140K.jpg",
+    "genres": [
+      "Drama",
+      "Suspense"
+    ],
+    "overview": "Una bailarina de ballet se obsesiona con la perfección artística mientras compite por el papel principal de El Lago de los Cisnes.",
+    "keywords": [
+      "perfeccionismo",
+      "psicosis",
+      "ballet",
+      "doble personalidad",
+      "obsesión"
+    ]
+  },
+  {
+    "id": 155,
+    "title": "El Caballero de la Noche (The Dark Knight)",
+    "original_title": "The Dark Knight",
+    "release_year": "2008",
+    "poster_path": "https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg",
+    "genres": [
+      "Drama",
+      "Acción",
+      "Crimen",
+      "Suspense"
+    ],
+    "overview": "Batman se enfrenta al Joker, una mente maestra criminal que busca sumergir a Gotham City en la anarquía.",
+    "keywords": [
+      "Joker",
+      "moral",
+      "justicia",
+      "caos",
+      "crimen organizado"
+    ]
+  },
+  {
+    "id": 272,
+    "title": "Batman Inicia (Batman Begins)",
+    "original_title": "Batman Begins",
+    "release_year": "2005",
+    "poster_path": "https://image.tmdb.org/t/p/w500/1P3QtW1IkivqdxOP6io1elQITY9.jpg",
+    "genres": [
+      "Acción",
+      "Crimen",
+      "Drama"
+    ],
+    "overview": "Tras el asesinato de sus padres, Bruce Wayne viaja por el mundo aprendiendo a combatir la injusticia antes de regresar a Gotham.",
+    "keywords": [
+      "origen",
+      "ninja",
+      "miedo",
+      "entrenamiento",
+      "justicia"
+    ]
+  },
+  {
+    "id": 49026,
+    "title": "El Caballero de la Noche Asciende (The Dark Knight Rises)",
+    "original_title": "The Dark Knight Rises",
+    "release_year": "2012",
+    "poster_path": "https://image.tmdb.org/t/p/w500/hrJ0iK9yvP19nC8pC6q2P9fF16F.jpg",
+    "genres": [
+      "Acción",
+      "Crimen",
+      "Drama",
+      "Suspense"
+    ],
+    "overview": "Ocho años después del reinado de terror del Joker, el implacable terrorista Bane obliga a Batman a salir de su exilio autoimpuesto.",
+    "keywords": [
+      "Bane",
+      "revolución",
+      "esperanza",
+      "sacrificio",
+      "guerra urbana"
+    ]
+  },
+  {
+    "id": 98,
+    "title": "Gladiador (Gladiator)",
+    "original_title": "Gladiator",
+    "release_year": "2000",
+    "poster_path": "https://image.tmdb.org/t/p/w500/pGw5b3v2X8gM9hL0C8yG6G6T6hK.jpg",
+    "genres": [
+      "Acción",
+      "Drama",
+      "Aventura"
+    ],
+    "overview": "Un general romano traicionado por el corrupto príncipe Cómodo busca venganza como gladiador en la arena del Coliseo.",
+    "keywords": [
+      "roma",
+      "venganza",
+      "honor",
+      "arena",
+      "imperio"
+    ]
+  },
+  {
+    "id": 299536,
+    "title": "Avengers: Infinity War",
+    "original_title": "Avengers: Infinity War",
+    "release_year": "2018",
+    "poster_path": "https://image.tmdb.org/t/p/w500/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg",
+    "genres": [
+      "Aventura",
+      "Acción",
+      "Ciencia ficción"
+    ],
+    "overview": "Los Vengadores y sus aliados deben estar dispuestos a sacrificarlo todo en un intento de derrotar al poderoso Thanos.",
+    "keywords": [
+      "Thanos",
+      "gemas del infinito",
+      "apocalipsis",
+      "superhéroes",
+      "sacrificio"
+    ]
+  },
+  {
+    "id": 299534,
+    "title": "Avengers: Endgame",
+    "original_title": "Avengers: Endgame",
+    "release_year": "2019",
+    "poster_path": "https://image.tmdb.org/t/p/w500/or06FN3Dka5tukK1e9sl16pB3iy.jpg",
+    "genres": [
+      "Aventura",
+      "Ciencia ficción",
+      "Acción"
+    ],
+    "overview": "Tras los devastadores eventos de Infinity War, los Vengadores restantes se reúnen una vez más para deshacer las acciones de Thanos.",
+    "keywords": [
+      "viajes temporales",
+      "despedida",
+      "batalla final",
+      "superación",
+      "universo"
+    ]
+  },
+  {
+    "id": 324857,
+    "title": "Spider-Man: Un Nuevo Universo (Into the Spider-Verse)",
+    "original_title": "Spider-Man: Into the Spider-Verse",
+    "release_year": "2018",
+    "poster_path": "https://image.tmdb.org/t/p/w500/iiZZdoQBEYBv6id8su7ImL0oCbD.jpg",
+    "genres": [
+      "Animación",
+      "Acción",
+      "Aventura",
+      "Ciencia ficción"
+    ],
+    "overview": "El adolescente de Brooklyn Miles Morales es mordido por una araña radiactiva y descubre las infinitas posibilidades del Spider-Verso.",
+    "keywords": [
+      "multiverso",
+      "animación revolucionaria",
+      "responsabilidad",
+      "cómics",
+      "música"
+    ]
+  },
+  {
+    "id": 569094,
+    "title": "Spider-Man: A Través del Spider-Verso",
+    "original_title": "Spider-Man: Across the Spider-Verse",
+    "release_year": "2023",
+    "poster_path": "https://image.tmdb.org/t/p/w500/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg",
+    "genres": [
+      "Animación",
+      "Acción",
+      "Aventura",
+      "Ciencia ficción"
+    ],
+    "overview": "Miles Morales es catapultado a través del Multiverso, donde se encuentra con un equipo de Spider-Gente encargado de proteger su existencia.",
+    "keywords": [
+      "multiverso",
+      "canon",
+      "destino",
+      "miguel o hara",
+      "arte visual"
+    ]
+  },
+  {
+    "id": 245891,
+    "title": "John Wick",
+    "original_title": "John Wick",
+    "release_year": "2014",
+    "poster_path": "https://image.tmdb.org/t/p/w500/b9bPhU1E8Z8W3i4P6pZ6wT6H6p.jpg",
+    "genres": [
+      "Acción",
+      "Suspense"
+    ],
+    "overview": "Un ex asesino a sueldo sale de su retiro para cazar a los mafiosos que le quitaron todo.",
+    "keywords": [
+      "venganza",
+      "asesinos",
+      "hotel continental",
+      "armas",
+      "artes marciales"
+    ]
+  },
+  {
+    "id": 76341,
+    "title": "Mad Max: Furia en el Camino",
+    "original_title": "Mad Max: Fury Road",
+    "release_year": "2015",
+    "poster_path": "https://image.tmdb.org/t/p/w500/8tZYtuWezp8JbcsvHYO0O46tFbo.jpg",
+    "genres": [
+      "Acción",
+      "Aventura",
+      "Ciencia ficción"
+    ],
+    "overview": "En un desierto postapocalíptico, Max se une a Imperator Furiosa para escapar de las garras de un tirano y su ejército motorizado.",
+    "keywords": [
+      "postapocalipsis",
+      "vehículos",
+      "adrenalina",
+      "desierto",
+      "supervivencia"
+    ]
+  },
+  {
+    "id": 120,
+    "title": "El Señor de los Anillos: La Comunidad del Anillo",
+    "original_title": "The Lord of the Rings: The Fellowship of the Ring",
+    "release_year": "2001",
+    "poster_path": "https://image.tmdb.org/t/p/w500/6oom5QYQ2yQTMJIbnvbkBL9cDK6.jpg",
+    "genres": [
+      "Aventura",
+      "Fantasía",
+      "Acción"
+    ],
+    "overview": "Un tímido joven hobbit de la Comarca y ocho compañeros emprenden un peligroso viaje hacia el Monte del Destino para destruir el Anillo Único.",
+    "keywords": [
+      "anillo",
+      "tierra media",
+      "magia",
+      "hobbits",
+      "fantasía épica"
+    ]
+  },
+  {
+    "id": 121,
+    "title": "El Señor de los Anillos: Las Dos Torres",
+    "original_title": "The Lord of the Rings: The Two Towers",
+    "release_year": "2002",
+    "poster_path": "https://image.tmdb.org/t/p/w500/5VTN0pR8gcqV3EPUHHfMGnJYN9L.jpg",
+    "genres": [
+      "Aventura",
+      "Fantasía",
+      "Acción"
+    ],
+    "overview": "Frodo y Sam continúan su camino a Mordor acompañados de Gollum, mientras Aragorn y sus aliados defienden el reino de Rohan.",
+    "keywords": [
+      "abismo de helm",
+      "gollum",
+      "guerra",
+      "tierra media",
+      "alianza"
+    ]
+  },
+  {
+    "id": 122,
+    "title": "El Señor de los Anillos: El Retorno del Rey",
+    "original_title": "The Lord of the Rings: The Return of the King",
+    "release_year": "2003",
+    "poster_path": "https://image.tmdb.org/t/p/w500/uexxJunCGaeaPQBvf36CnMH02up.jpg",
+    "genres": [
+      "Aventura",
+      "Fantasía",
+      "Acción"
+    ],
+    "overview": "Las fuerzas de Sauron asedian Minas Tirith en la confrontación culminante por el destino de la Tierra Media.",
+    "keywords": [
+      "batalla final",
+      "rey",
+      "mordor",
+      "sacrificio",
+      "tierra media"
+    ]
+  },
+  {
+    "id": 671,
+    "title": "Harry Potter y la Piedra Filosofal",
+    "original_title": "Harry Potter and the Philosopher's Stone",
+    "release_year": "2001",
+    "poster_path": "https://image.tmdb.org/t/p/w500/wuMc08IPKEatf9rnMNXvIDxqP4W.jpg",
+    "genres": [
+      "Aventura",
+      "Fantasía"
+    ],
+    "overview": "Un niño huérfano descubre en su undécimo cumpleaños que es un mago y es invitado a estudiar en el Colegio Hogwarts de Magia y Hechicería.",
+    "keywords": [
+      "hogwarts",
+      "magia",
+      "amistad",
+      "hechizos",
+      "voldemort"
+    ]
+  },
+  {
+    "id": 673,
+    "title": "Harry Potter y el Prisionero de Azkaban",
+    "original_title": "Harry Potter and the Prisoner of Azkaban",
+    "release_year": "2004",
+    "poster_path": "https://image.tmdb.org/t/p/w500/aWxHgp47Q0y7Uu39C7i3n5p8mE1.jpg",
+    "genres": [
+      "Aventura",
+      "Fantasía"
+    ],
+    "overview": "Harry Potter regresa para su tercer año en Hogwarts cuando el infame asesino Sirius Black escapa de la prisión de Azkaban.",
+    "keywords": [
+      "dementores",
+      "sirius black",
+      "viaje temporal",
+      "magia oscura",
+      "patronus"
+    ]
+  },
+  {
+    "id": 329,
+    "title": "Parque Jurásico (Jurassic Park)",
+    "original_title": "Jurassic Park",
+    "release_year": "1993",
+    "poster_path": "https://image.tmdb.org/t/p/w500/oU7Oq2kFAAlGqbU4VoAE36g4ho1.jpg",
+    "genres": [
+      "Aventura",
+      "Ciencia ficción"
+    ],
+    "overview": "Un parque temático con dinosaurios clonados genéticamente se convierte en una pesadilla cuando los sistemas de seguridad fallan.",
+    "keywords": [
+      "dinosaurios",
+      "genética",
+      "tiranosaurio",
+      "isla",
+      "supervivencia"
+    ]
+  },
+  {
+    "id": 11,
+    "title": "Star Wars: Una Nueva Esperanza (Episodio IV)",
+    "original_title": "Star Wars",
+    "release_year": "1977",
+    "poster_path": "https://image.tmdb.org/t/p/w500/6FfCtAuVAW8XJjZ7eWeLibRLWTw.jpg",
+    "genres": [
+      "Aventura",
+      "Acción",
+      "Ciencia ficción"
+    ],
+    "overview": "Luke Skywalker une fuerzas con un caballero Jedi, un arrogante piloto y dos droides para rescatar a la galaxia de la Estrella de la Muerte.",
+    "keywords": [
+      "fuerza",
+      "jedi",
+      "estrella de la muerte",
+      "darth vader",
+      "galaxia"
+    ]
+  },
+  {
+    "id": 1891,
+    "title": "Star Wars: El Imperio Contraataca (Episodio V)",
+    "original_title": "The Empire Strikes Back",
+    "release_year": "1980",
+    "poster_path": "https://image.tmdb.org/t/p/w500/nNAeTmF4CtdSgMDplXTDPOpYzsX.jpg",
+    "genres": [
+      "Aventura",
+      "Acción",
+      "Ciencia ficción"
+    ],
+    "overview": "Mientras los rebeldes sufren el asedio del Imperio, Luke Skywalker viaja al planeta Dagobah para ser entrenado por el Maestro Yoda.",
+    "keywords": [
+      "yoda",
+      "yo soy tu padre",
+      "darth vader",
+      "hoth",
+      "jedi"
+    ]
+  },
+  {
+    "id": 238,
+    "title": "El Padrino (The Godfather)",
+    "original_title": "The Godfather",
+    "release_year": "1972",
+    "poster_path": "https://image.tmdb.org/t/p/w500/3bhkrj58Vtu7enYsRolD1fZdja1.jpg",
+    "genres": [
+      "Drama",
+      "Crimen"
+    ],
+    "overview": "El patriarca de una dinastía del crimen organizado transfiere el control de su imperio clandestino a su reacio hijo menor.",
+    "keywords": [
+      "mafia",
+      "familia",
+      "corleone",
+      "honor",
+      "traición"
+    ]
+  },
+  {
+    "id": 240,
+    "title": "El Padrino Parte II (The Godfather Part II)",
+    "original_title": "The Godfather Part II",
+    "release_year": "1974",
+    "poster_path": "https://image.tmdb.org/t/p/w500/hek3koDUyMrk7Nt750e2YvYKhvD.jpg",
+    "genres": [
+      "Drama",
+      "Crimen"
+    ],
+    "overview": "Retrata los primeros años de Vito Corleone en Nueva York mientras su hijo Michael consolida su control sobre el sindicato criminal.",
+    "keywords": [
+      "mafia",
+      "poder",
+      "corrupción",
+      "venganza",
+      "cuba"
+    ]
+  },
+  {
+    "id": 278,
+    "title": "Sueño de Fuga (The Shawshank Redemption)",
+    "original_title": "The Shawshank Redemption",
+    "release_year": "1994",
+    "poster_path": "https://image.tmdb.org/t/p/w500/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg",
+    "genres": [
+      "Drama",
+      "Crimen"
+    ],
+    "overview": "Un banquero condenado a cadena perpetua por un crimen que no cometió forja una entrañable amistad en prisión manteniendo viva la esperanza.",
+    "keywords": [
+      "prisión",
+      "esperanza",
+      "amistad",
+      "escape",
+      "justicia"
+    ]
+  },
+  {
+    "id": 680,
+    "title": "Pulp Fiction (Tiempos Violentos)",
+    "original_title": "Pulp Fiction",
+    "release_year": "1994",
+    "poster_path": "https://image.tmdb.org/t/p/w500/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg",
+    "genres": [
+      "Suspense",
+      "Crimen"
+    ],
+    "overview": "Las vidas de dos sicarios de la mafia, un boxeador, la esposa de un gángster y dos bandidos se entrelazan en cuatro relatos de violencia.",
+    "keywords": [
+      "sicarios",
+      "maletín",
+      "diálogos de culto",
+      "tarantino",
+      "crimen"
+    ]
+  },
+  {
+    "id": 769,
+    "title": "Buenos Muchachos (GoodFellas)",
+    "original_title": "GoodFellas",
+    "release_year": "1990",
+    "poster_path": "https://image.tmdb.org/t/p/w500/aKuFiU82s5ISJpGZp7YkIr3kCUd.jpg",
+    "genres": [
+      "Drama",
+      "Crimen"
+    ],
+    "overview": "La historia de Henry Hill y su vida en la mafia italoamericana junto a Jimmy Conway y Tommy DeSimone.",
+    "keywords": [
+      "mafia",
+      "cocaína",
+      "gángsters",
+      "scorsese",
+      "traición"
+    ]
+  },
+  {
+    "id": 13,
+    "title": "Forrest Gump",
+    "original_title": "Forrest Gump",
+    "release_year": "1994",
+    "poster_path": "https://image.tmdb.org/t/p/w500/arw2VCBveWOVZr6pxd9XTd1TdQa.jpg",
+    "genres": [
+      "Comedia",
+      "Drama",
+      "Romance"
+    ],
+    "overview": "Las presidencias de Kennedy y Johnson, Vietnam, Watergate y otros acontecimientos históricos se desarrollan desde la perspectiva de un hombre de Alabama.",
+    "keywords": [
+      "inocencia",
+      "vietnam",
+      "amor",
+      "destino",
+      "correr"
+    ]
+  },
+  {
+    "id": 597,
+    "title": "Titanic",
+    "original_title": "Titanic",
+    "release_year": "1997",
+    "poster_path": "https://image.tmdb.org/t/p/w500/9xjZS2rlVxm8SFx8kPC3aIGCOYQ.jpg",
+    "genres": [
+      "Drama",
+      "Romance"
+    ],
+    "overview": "Una joven aristócrata se enamora de un bondadoso artista pobre a bordo del lujoso e infortunado transatlántico RMS Titanic.",
+    "keywords": [
+      "naufragio",
+      "amor trágico",
+      "iceberg",
+      "mar",
+      "clases sociales"
+    ]
+  },
+  {
+    "id": 872585,
+    "title": "Oppenheimer",
+    "original_title": "Oppenheimer",
+    "release_year": "2023",
+    "poster_path": "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+    "genres": [
+      "Drama",
+      "Historia"
+    ],
+    "overview": "La historia del científico estadounidense J. Robert Oppenheimer y su papel en el desarrollo de la bomba atómica durante el Proyecto Manhattan.",
+    "keywords": [
+      "ciencia",
+      "bomba atómica",
+      "guerra",
+      "moral",
+      "historia"
+    ]
+  },
+  {
+    "id": 244786,
+    "title": "Whiplash: Música y Obsesión",
+    "original_title": "Whiplash",
+    "release_year": "2014",
+    "poster_path": "https://image.tmdb.org/t/p/w500/7fn624j5lj3xTme2SgiLCe3P6V3.jpg",
+    "genres": [
+      "Drama",
+      "Música"
+    ],
+    "overview": "Un prometedor joven baterista se inscribe en un conservatorio de música donde su instructor no se detendrá ante nada para explotar su potencial.",
+    "keywords": [
+      "perfeccionismo",
+      "jazz",
+      "batería",
+      "presión psicológica",
+      "obsesión"
+    ]
+  },
+  {
+    "id": 808,
+    "title": "Shrek",
+    "original_title": "Shrek",
+    "release_year": "2001",
+    "poster_path": "https://image.tmdb.org/t/p/w500/iB64vpL3dIObOtMZgX3RqWIXGpE.jpg",
+    "genres": [
+      "Animación",
+      "Comedia",
+      "Fantasía",
+      "Aventura"
+    ],
+    "overview": "Un ogro solitario emprende una misión para rescatar a una princesa de un dragón con el fin de recuperar la tranquilidad de su pantano.",
+    "keywords": [
+      "ogro",
+      "humor",
+      "parodia",
+      "cuento de hadas",
+      "burro"
+    ]
+  },
+  {
+    "id": 10193,
+    "title": "Toy Story 3",
+    "original_title": "Toy Story 3",
+    "release_year": "2010",
+    "poster_path": "https://image.tmdb.org/t/p/w500/AbbXspwhIR19GFYknAAA9OOrh9F.jpg",
+    "genres": [
+      "Animación",
+      "Familia",
+      "Comedia"
+    ],
+    "overview": "Woody, Buzz y el resto de los juguetes son donados accidentalmente a una guardería cuando Andy se prepara para ir a la universidad.",
+    "keywords": [
+      "juguetes",
+      "crecer",
+      "amistad",
+      "despedida",
+      "nostalgia"
+    ]
+  },
+  {
+    "id": 129,
+    "title": "El Viaje de Chihiro (Spirited Away)",
+    "original_title": "Sen to Chihiro no Kamikakushi",
+    "release_year": "2001",
+    "poster_path": "https://image.tmdb.org/t/p/w500/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg",
+    "genres": [
+      "Animación",
+      "Fantasía",
+      "Aventura"
+    ],
+    "overview": "Una niña de 10 años se adentra en un mundo mágico gobernado por dioses, brujas y espíritus, donde sus padres son transformados en cerdos.",
+    "keywords": [
+      "ghibli",
+      "espíritus",
+      "baños termales",
+      "haku",
+      "crecimiento"
+    ]
+  }
+]

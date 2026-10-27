@@ -117,24 +117,26 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
     const [calibratedRecommendations, setCalibratedRecommendations] = useState<CalibratedRecommendation[]>([])
     const [addedAnimeIds, setAddedAnimeIds] = useState<number[]>([])
 
-    // Debounce búsqueda TMDB
+    const [isMovieInputFocused, setIsMovieInputFocused] = useState(false)
+
+    // Búsqueda TMDB con debounce rápido (150ms) y sugerencias iniciales
     useEffect(() => {
-        if (!movieSearchQuery.trim()) {
-            setMovieSearchResults([])
-            return
-        }
+        let isMounted = true
         const timer = setTimeout(async () => {
             setIsSearchingMovies(true)
             try {
                 const results = await searchTmdbMovies(movieSearchQuery)
-                setMovieSearchResults(results)
+                if (isMounted) setMovieSearchResults(results)
             } catch (err) {
                 console.error('Error buscando películas en TMDB:', err)
             } finally {
-                setIsSearchingMovies(false)
+                if (isMounted) setIsSearchingMovies(false)
             }
-        }, 320)
-        return () => clearTimeout(timer)
+        }, 150)
+        return () => {
+            isMounted = false
+            clearTimeout(timer)
+        }
     }, [movieSearchQuery])
 
     // Cargar animes iniciales sugeridos para el paso 3
@@ -403,14 +405,16 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                             Busca obras que te hayan fascinado (ej: <em>Inception, Interstellar, The Matrix, Blade Runner, Dune, Severance...</em>).
                         </p>
 
-                        <div className="position-relative mb-3">
+                        <div className="position-relative mb-2">
                             <div className="d-flex align-items-center position-relative">
                                 <Search size={15} className="position-absolute start-0 ms-3 text-secondary" />
                                 <input
                                     type="text"
                                     className="cat-search-control w-100 ps-5"
-                                    placeholder="Buscar película o serie en TMDB..."
+                                    placeholder="Escribe el nombre de una película (ej: Matrix, Batman, Dune, El Padrino...)"
                                     value={movieSearchQuery}
+                                    onFocus={() => setIsMovieInputFocused(true)}
+                                    onBlur={() => setTimeout(() => setIsMovieInputFocused(false), 200)}
                                     onChange={(e) => setMovieSearchQuery(e.target.value)}
                                 />
                                 {isSearchingMovies && (
@@ -418,45 +422,81 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                                 )}
                             </div>
 
-                            {/* Dropdown de resultados TMDB */}
-                            {movieSearchResults.length > 0 && (
+                            {/* Dropdown de opciones en vivo */}
+                            {(isMovieInputFocused || movieSearchQuery.trim().length > 0) && (
                                 <div
                                     className="position-absolute start-0 end-0 mt-1 rounded-3 border shadow-lg overflow-hidden z-3"
                                     style={{
                                         background: 'var(--perfil-card)',
                                         borderColor: 'var(--perfil-border-strong)',
-                                        maxHeight: '220px',
+                                        maxHeight: '250px',
                                         overflowY: 'auto',
                                     }}
                                 >
-                                    {movieSearchResults.map((movie) => (
-                                        <div
-                                            key={movie.id}
-                                            onClick={() => addMovie(movie)}
-                                            className="p-2 d-flex align-items-center gap-2.5 border-bottom border-dark"
-                                            style={{ cursor: 'pointer', transition: 'background-color 0.15s ease' }}
-                                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--perfil-card-2)')}
-                                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                                        >
-                                            <img
-                                                src={movie.posterPath || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500'}
-                                                alt=""
-                                                className="rounded"
-                                                style={{ width: 34, height: 48, objectFit: 'cover' }}
-                                            />
-                                            <div className="flex-grow-1 min-w-0">
-                                                <div className="small fw-bold text-white text-truncate">
-                                                    {movie.title} {movie.releaseYear && `(${movie.releaseYear})`}
+                                    <div className="px-3 py-1.5 border-bottom border-dark bg-dark bg-opacity-50 d-flex align-items-center justify-content-between">
+                                        <span className="small text-secondary fw-semibold font-mono" style={{ fontSize: '0.68rem' }}>
+                                            {movieSearchQuery.trim()
+                                                ? `OPCIONES ENCONTRADAS (${movieSearchResults.length})`
+                                                : 'PELÍCULAS POPULARES SUGERIDAS:'}
+                                        </span>
+                                        <span className="small text-secondary" style={{ fontSize: '0.65rem' }}>
+                                            Haz clic para agregar
+                                        </span>
+                                    </div>
+
+                                    {movieSearchResults.length > 0 ? (
+                                        movieSearchResults.map((movie) => (
+                                            <div
+                                                key={movie.id}
+                                                onClick={() => addMovie(movie)}
+                                                className="p-2 d-flex align-items-center gap-2.5 border-bottom border-dark"
+                                                style={{ cursor: 'pointer', transition: 'background-color 0.15s ease' }}
+                                                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--perfil-card-2)')}
+                                                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                            >
+                                                <img
+                                                    src={movie.posterPath || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500'}
+                                                    alt=""
+                                                    className="rounded"
+                                                    style={{ width: 34, height: 48, objectFit: 'cover' }}
+                                                />
+                                                <div className="flex-grow-1 min-w-0">
+                                                    <div className="small fw-bold text-white text-truncate">
+                                                        {movie.title} {movie.releaseYear && `(${movie.releaseYear})`}
+                                                    </div>
+                                                    <div className="small text-secondary text-truncate" style={{ fontSize: '0.72rem' }}>
+                                                        {movie.genres.join(', ') || movie.overview}
+                                                    </div>
                                                 </div>
-                                                <div className="small text-secondary text-truncate" style={{ fontSize: '0.72rem' }}>
-                                                    {movie.genres.join(', ') || movie.overview}
-                                                </div>
+                                                <Plus size={16} className="text-secondary" />
                                             </div>
-                                            <Plus size={16} className="text-secondary" />
+                                        ))
+                                    ) : (
+                                        <div className="p-3 text-center small" style={{ color: 'var(--perfil-text-muted)' }}>
+                                            No se encontró "{movieSearchQuery}" en el catálogo curado offline.
+                                            <span className="d-block mt-1 text-white">Prueba con: Matrix, El Padrino, Dune, Batman, Interstellar, Spider-Man...</span>
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             )}
+                        </div>
+
+                        {/* Botones de sugerencias rápidas */}
+                        <div className="d-flex flex-wrap align-items-center gap-1.5 mb-3">
+                            <span className="small text-secondary fw-semibold" style={{ fontSize: '0.7rem' }}>
+                                Sugerencias:
+                            </span>
+                            {['Matrix', 'Dune', 'El Padrino', 'The Dark Knight', 'Interstellar', 'Fight Club', 'Spider-Man'].map((item) => (
+                                <button
+                                    key={item}
+                                    type="button"
+                                    onClick={() => setMovieSearchQuery(item)}
+                                    className="badge bg-dark border border-secondary text-secondary py-1 px-2 btn-link text-decoration-none"
+                                    style={{ fontSize: '0.68rem', cursor: 'pointer' }}
+                                >
+                                    + {item}
+                                </button>
+                            ))}
                         </div>
 
                         {/* Lista de películas seleccionadas */}
