@@ -3,8 +3,6 @@ import {
     Search,
     SlidersHorizontal,
     Star,
-    Award,
-    Calendar,
     Users,
     Check,
     Plus,
@@ -14,6 +12,7 @@ import {
     Film,
     Sparkles,
     Building2,
+    Award,
 } from 'lucide-react'
 import {
     useCatalogQuery,
@@ -80,8 +79,6 @@ export const AnimeCatalog: React.FC = () => {
     const { acento } = useThemeAccent()
     const myListIds = useMemo(() => new Set(filas.map((f) => f.malId)), [filas])
 
-    // --- Modo de Vista: Top Animes vs De Temporada ---
-    const [viewMode, setViewMode] = useState<'top' | 'seasonal'>('top')
 
     // --- Filtros ---
     const [studio, setStudio] = useState('')
@@ -225,35 +222,6 @@ export const AnimeCatalog: React.FC = () => {
             style={{ '--cat-acento': acento, '--ml-acento': acento } as React.CSSProperties}
         >
             <div className="container-fluid" style={{ maxWidth: '1440px' }}>
-                {/* ---------- Selector de Modo Centrado (Pill Bar) ---------- */}
-                <div className="d-flex justify-content-center mb-4">
-                    <div className="cat-mode-pill-bar">
-                        <button
-                            type="button"
-                            className={`cat-mode-pill-btn ${viewMode === 'top' ? 'active' : ''}`}
-                            onClick={() => {
-                                setViewMode('top')
-                                setSeason('')
-                                setCurrentPage(1)
-                            }}
-                        >
-                            <Award size={14} />
-                            <span>Top Animes</span>
-                        </button>
-                        <button
-                            type="button"
-                            className={`cat-mode-pill-btn ${viewMode === 'seasonal' ? 'active' : ''}`}
-                            onClick={() => {
-                                setViewMode('seasonal')
-                                setSeason('fall')
-                                setCurrentPage(1)
-                            }}
-                        >
-                            <Calendar size={14} />
-                            <span>De Temporada (Calendario)</span>
-                        </button>
-                    </div>
-                </div>
 
                 {/* ---------- Caja de Filtros de Catálogo ---------- */}
                 <div className="cat-filter-card mb-4">

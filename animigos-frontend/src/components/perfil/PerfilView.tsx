@@ -29,9 +29,13 @@ const getStorageFlagKey = (uid?: number | string) => `animigos_user_flag_banner_
 const getStorageLateralKey = (uid?: number | string) => `animigos_user_lateral_wallpaper_${uid ?? 'guest'}`
 
 export const PerfilView: React.FC = () => {
-    const { acento } = useThemeAccent()
+    const { acento, acentoModo, setAcentoModo } = useThemeAccent()
     const { user, refreshUser } = useAuth()
     const { filas, actualizar } = useMyList()
+
+    // Modo de edición visual rápida (lápiz): foto de perfil, flag, laterales
+    const [isVisualEditOpen, setIsVisualEditOpen] = useState(false)
+    const [lateralModalOpen, setLateralModalOpen] = useState(false)
 
     // 1. Datos de perfil reactivos
     const [displayName, setDisplayName] = useState<string>(() => user?.display_name || user?.username || '')
@@ -273,6 +277,9 @@ export const PerfilView: React.FC = () => {
             <LateralCustomWallpaper
                 config={lateralConfig}
                 onChangeConfig={handleSaveLateralConfig}
+                isEditMode={isVisualEditOpen}
+                externalModalOpen={lateralModalOpen}
+                onCloseExternalModal={() => setLateralModalOpen(false)}
             />
 
             <div className="container position-relative z-1" style={{ maxWidth: '1240px' }}>
@@ -297,6 +304,11 @@ export const PerfilView: React.FC = () => {
                     onOpenPrivacyModal={() => setPrivacyModalOpen(true)}
                     onChangeAvatarClick={() => setAvatarModalOpen(true)}
                     onOpenFlagModal={() => setFlagModalOpen(true)}
+                    onOpenLateralModal={() => setLateralModalOpen(true)}
+                    isVisualEditOpen={isVisualEditOpen}
+                    onToggleVisualEdit={() => setIsVisualEditOpen((prev) => !prev)}
+                    acentoModo={acentoModo}
+                    onChangeAcentoModo={setAcentoModo}
                     isCurrentUser={true}
                 />
 

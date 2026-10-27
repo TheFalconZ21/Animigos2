@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Check, Image as ImageIcon, Link as LinkIcon, User, Sparkles } from 'lucide-react'
+import { Check, Image as ImageIcon, Link as LinkIcon, User, Sparkles, Palette } from 'lucide-react'
 import { Dialogo } from '../mi-lista/piezas'
+import { useThemeAccent, OPCIONES_ACENTO } from '../../hooks/useThemeAccent'
 import type { SocialLinks } from './perfil-types'
 
 const PRESET_AVATARS = [
@@ -38,6 +39,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     onSave,
     onOpenAvatarPicker,
 }) => {
+    const { acentoModo, setAcentoModo } = useThemeAccent()
     const [name, setName] = useState(initialName || '')
     const [bio, setBio] = useState(initialBio || '')
     const [avatarUrl, setAvatarUrl] = useState(initialAvatar || '')
@@ -245,6 +247,45 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                                 style={{ fontSize: '0.78rem', padding: '0.4rem 0.65rem' }}
                             />
                         </div>
+                    </div>
+                </div>
+
+                {/* Selector de Color y Paleta de la Plataforma */}
+                <div>
+                    <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-2">
+                        <Palette size={14} style={{ color: 'var(--perfil-acento)' }} />
+                        <span>Paleta y Color de Acento de la Plataforma</span>
+                    </label>
+                    <div className="d-flex flex-wrap gap-2">
+                        {OPCIONES_ACENTO.map((opcion) => {
+                            const isSelected = acentoModo === opcion.id
+                            return (
+                                <button
+                                    key={opcion.id}
+                                    type="button"
+                                    onClick={() => setAcentoModo(opcion.id)}
+                                    className="btn btn-sm d-inline-flex align-items-center gap-2 px-2.5 py-1.5 rounded-3 border"
+                                    style={{
+                                        background: isSelected ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                                        borderColor: isSelected ? (opcion.color || 'var(--perfil-acento)') : 'var(--perfil-border)',
+                                        color: isSelected ? '#ffffff' : 'var(--perfil-text-muted)',
+                                        fontSize: '0.78rem',
+                                        transition: 'all 0.15s ease',
+                                    }}
+                                >
+                                    <span
+                                        className="rounded-circle"
+                                        style={{
+                                            width: '12px',
+                                            height: '12px',
+                                            backgroundColor: opcion.color || 'var(--perfil-acento)',
+                                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                                        }}
+                                    />
+                                    <span>{opcion.label}</span>
+                                </button>
+                            )
+                        })}
                     </div>
                 </div>
 

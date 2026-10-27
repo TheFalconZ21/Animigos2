@@ -4,6 +4,21 @@ import { ACENTO_POR_DEFECTO, ACENTO_POR_GENERO } from '../components/mi-lista/mi
 
 const STORAGE_KEY = 'animigos_tema_acento'
 
+export interface OpcionAcento {
+    id: string
+    label: string
+    color: string
+}
+
+export const OPCIONES_ACENTO: OpcionAcento[] = [
+    { id: 'auto', label: 'Automático (por género)', color: '#e8508f' },
+    { id: '#e8508f', label: 'Sakura', color: '#e8508f' },
+    { id: '#38bdf8', label: 'Cielo', color: '#38bdf8' },
+    { id: '#a78bfa', label: 'Lavanda', color: '#a78bfa' },
+    { id: '#34d399', label: 'Jade', color: '#34d399' },
+    { id: '#fbbf24', label: 'Ámbar', color: '#fbbf24' },
+]
+
 export function useThemeAccent() {
     const { filas } = useMyList()
     const [acentoModo, setAcentoModoState] = useState<string>(() => {

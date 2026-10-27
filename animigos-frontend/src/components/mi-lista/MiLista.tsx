@@ -51,14 +51,6 @@ const ORDENES: { id: Orden; label: string }[] = [
     { id: 'agregado', label: 'Agregados últimamente' },
 ]
 
-const ACENTOS = [
-    { id: 'auto', label: 'Automático (por género)' },
-    { id: '#e8508f', label: 'Sakura' },
-    { id: '#38bdf8', label: 'Cielo' },
-    { id: '#a78bfa', label: 'Lavanda' },
-    { id: '#34d399', label: 'Jade' },
-    { id: '#fbbf24', label: 'Ámbar' },
-]
 
 const CHIPS_ESTADO: { id: FiltroEstado; label: string }[] = [
     { id: 'todos', label: 'Todos' },
@@ -94,7 +86,7 @@ export function MiLista() {
     const [orden, setOrden] = useState<Orden>('nota-desc')
     const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS)
     const [verFiltros, setVerFiltros] = useState(false)
-    const { acento, acentoModo, setAcentoModo, generoDominante } = useThemeAccent()
+    const { acento, generoDominante } = useThemeAccent()
 
     // --- Diálogos ---
     const [detalleId, setDetalleId] = useState<number | null>(null)
@@ -259,15 +251,6 @@ export function MiLista() {
                             >
                                 <Upload size={15} /> Importar MyAnimeList (.xml)
                             </button>
-                            <select
-                                className="ml-select"
-                                value={acentoModo}
-                                onChange={(e) => setAcentoModo(e.target.value)}
-                                aria-label="Color de acento"
-                                title="Color de acento de tu lista"
-                            >
-                                {ACENTOS.map((a) => <option key={a.id} value={a.id}>Acento: {a.label}</option>)}
-                            </select>
                         </div>
                     </div>
 

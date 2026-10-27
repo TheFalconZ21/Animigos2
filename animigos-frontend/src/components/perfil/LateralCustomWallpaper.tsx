@@ -33,16 +33,29 @@ const LATERAL_PRESETS = [
 interface LateralCustomWallpaperProps {
     config: LateralWallpaperConfig
     onChangeConfig: (newConfig: LateralWallpaperConfig) => void
+    isEditMode?: boolean
+    externalModalOpen?: boolean
+    onCloseExternalModal?: () => void
 }
 
 export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
     config,
     onChangeConfig,
+    isEditMode = false,
+    externalModalOpen = false,
+    onCloseExternalModal,
 }) => {
     const [modalOpen, setModalOpen] = useState(false)
     const [customUrl, setCustomUrl] = useState(config.imageUrl)
     const [opacity, setOpacity] = useState(config.opacity)
     const [enabled, setEnabled] = useState(config.enabled)
+
+    const isDialogOpen = modalOpen || externalModalOpen
+
+    const handleClose = () => {
+        setModalOpen(false)
+        onCloseExternalModal?.()
+    }
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -63,7 +76,7 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
             opacity,
             enabled,
         })
-        setModalOpen(false)
+        handleClose()
     }
 
     return (
@@ -96,21 +109,23 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
                 </>
             )}
 
-            {/* Botón flotante para personalizar laterales */}
-            <button
-                type="button"
-                onClick={() => setModalOpen(true)}
-                className="perfil-lateral-control-btn"
-                title="Personalizar Imagen o GIF de fondo lateral"
-            >
-                <ImageIcon size={14} style={{ color: 'var(--perfil-acento)' }} />
-                <span>Laterales (GIF / Imagen)</span>
-            </button>
+            {/* Botón flotante para personalizar laterales (visible únicamente si el modo de edición visual está habilitado) */}
+            {isEditMode && (
+                <button
+                    type="button"
+                    onClick={() => setModalOpen(true)}
+                    className="perfil-lateral-control-btn animate-fade-in"
+                    title="Personalizar Imagen o GIF de fondo lateral"
+                >
+                    <ImageIcon size={14} style={{ color: 'var(--perfil-acento)' }} />
+                    <span>Laterales (GIF / Imagen)</span>
+                </button>
+            )}
 
             {/* Modal de Configuración de Laterales */}
             <Dialogo
-                abierto={modalOpen}
-                onCerrar={() => setModalOpen(false)}
+                abierto={isDialogOpen}
+                onCerrar={handleClose}
                 etiqueta="Personalizar Fondo Lateral (GIF / Imagen)"
                 ancho={540}
             >
