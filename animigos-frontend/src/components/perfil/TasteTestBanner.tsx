@@ -1,5 +1,6 @@
 import React from 'react'
 import { Sparkles, Brain, CheckCircle2, ArrowRight } from 'lucide-react'
+import { ProfesorDoki } from '../doki/ProfesorDoki'
 import type { TasteTestAnswers } from './perfil-types'
 
 interface TasteTestBannerProps {
@@ -30,7 +31,7 @@ export const TasteTestBanner: React.FC<TasteTestBannerProps> = ({ answers, onOpe
                         >
                             <Brain size={15} />
                         </div>
-                        <span className="ml-eyebrow">RECOMENDADOR NEURONAL · ANIMIGOS IA</span>
+                        <span className="ml-eyebrow">RECOMENDADOR NEURONAL · PROFESOR DOKI DOKI</span>
                         {isCalibrated ? (
                             <span className="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2 py-1 small d-inline-flex align-items-center gap-1">
                                 <CheckCircle2 size={11} /> Calibrado
@@ -48,9 +49,18 @@ export const TasteTestBanner: React.FC<TasteTestBannerProps> = ({ answers, onOpe
                             : `Perfil de Afinidad Calibrado al ${answers.calibratedPercentage}%`}
                     </h3>
 
-                    <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
-                        El recomendador de Animigos utiliza tus tropos, arquetipos favoritos y reglas de contenido para predecir con alta precisión qué animes de la temporada amarás u odiarás en tus watch parties.
-                    </p>
+                    {/* Speech bubble del Profesor Doki Doki */}
+                    <ProfesorDoki
+                        size="sm"
+                        expression={isCalibrated ? 'aprobacion' : 'explicando'}
+                        dialogue={
+                            isCalibrated
+                                ? <span>¡Excelente! Ya sinteticé el ADN de tus <strong>{answers.likedAnimeIds?.length || 2} animes vistos</strong> y tus <strong>películas de TMDB</strong> para darte recomendaciones de alta precisión.</span>
+                                : <span>¡Konnichiwa! Aún no completas tu test. Cuéntame qué <strong>películas</strong> y <strong>animes ya viste</strong> para calibrar tu feed.</span>
+                        }
+                        className="my-2"
+                        align="compact"
+                    />
 
                     {/* Barra de progreso de calibración */}
                     <div className="d-flex align-items-center gap-3 mb-3">
@@ -100,11 +110,11 @@ export const TasteTestBanner: React.FC<TasteTestBannerProps> = ({ answers, onOpe
                         }}
                     >
                         <Sparkles size={16} />
-                        <span>{isCalibrated ? 'Recalibrar Preferencias' : 'Iniciar Test de Preferencias'}</span>
+                        <span>{isCalibrated ? 'Recalibrar con Profesor Doki Doki' : 'Iniciar Test de Calibración'}</span>
                         <ArrowRight size={14} />
                     </button>
                     <span className="small text-secondary" style={{ fontSize: '0.72rem' }}>
-                        Toma menos de 2 minutos · 4 pasos rápidos
+                        Toma menos de 2 minutos · Guiado paso a paso
                     </span>
                 </div>
             </div>

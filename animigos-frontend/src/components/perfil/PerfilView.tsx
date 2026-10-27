@@ -1,15 +1,13 @@
-import React, { useState, useEffect, type CSSProperties } from 'react'
+import React, { useState, type CSSProperties } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useMyList } from '../../hooks/useMyList'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
 import { updateUserProfile } from '../../services/authApi'
-import { getAnimeRecommendationsFromMovies } from '../../services/tmdbService'
 import { ProfileHeader } from './ProfileHeader'
 import { FlagPickerModal, FLAG_PRESETS } from './FlagPickerModal'
 import { LateralCustomWallpaper } from './LateralCustomWallpaper'
 import { TasteTestBanner } from './TasteTestBanner'
 import { TasteTestModal } from './TasteTestModal'
-import { TmdbCrossRecommendations } from './TmdbCrossRecommendations'
 import { AnimeStatsDashboard } from './AnimeStatsDashboard'
 import { CommentsWall } from './CommentsWall'
 import { EditProfileModal } from './EditProfileModal'
@@ -19,7 +17,6 @@ import type {
     PrivacyConfig,
     TasteTestAnswers,
     LateralWallpaperConfig,
-    TmdbAnimeRecommendation,
 } from './perfil-types'
 import '../mi-lista/mi-lista.css'
 import './perfil.css'
@@ -33,7 +30,7 @@ const STORAGE_LATERAL_KEY = 'animigos_user_lateral_wallpaper'
 export const PerfilView: React.FC = () => {
     const { acento } = useThemeAccent()
     const { user, refreshUser } = useAuth()
-    const { filas, actualizar, agregarAnime } = useMyList()
+    const { filas, actualizar } = useMyList()
 
     // 1. Datos de perfil reactivos
     const [displayName, setDisplayName] = useState<string>(() => {
@@ -143,30 +140,10 @@ export const PerfilView: React.FC = () => {
                     overview: 'Un blade runner descubre un secreto que podría sumergir a la sociedad en el caos.',
                 },
             ],
+            likedAnimeIds: [1535, 9253],
             calibratedPercentage: 90,
         }
     })
-
-    // 6. Recomendaciones del Cruce TMDB x Anime
-    const [tmdbRecommendations, setTmdbRecommendations] = useState<TmdbAnimeRecommendation[]>([])
-    const [addedAnimeIds, setAddedAnimeIds] = useState<number[]>([])
-
-    // Cargar recomendaciones de cruce cuando cambian las películas
-    useEffect(() => {
-        let isMounted = true
-        const fetchRecoms = async () => {
-            if (tasteAnswers.favoriteMovies && tasteAnswers.favoriteMovies.length > 0) {
-                const recs = await getAnimeRecommendationsFromMovies(tasteAnswers.favoriteMovies)
-                if (isMounted && recs.length > 0) {
-                    setTmdbRecommendations(recs)
-                }
-            }
-        }
-        fetchRecoms()
-        return () => {
-            isMounted = false
-        }
-    }, [tasteAnswers.favoriteMovies])
 
     // Modales
     const [editModalOpen, setEditModalOpen] = useState(false)
@@ -249,12 +226,6 @@ export const PerfilView: React.FC = () => {
         setTasteAnswers(answers)
         localStorage.setItem(STORAGE_TASTE_KEY, JSON.stringify(answers))
 
-        // Actualizar recomendaciones cruzadas con las nuevas películas
-        if (answers.favoriteMovies && answers.favoriteMovies.length > 0) {
-            const recs = await getAnimeRecommendationsFromMovies(answers.favoriteMovies)
-            setTmdbRecommendations(recs)
-        }
-
         if (user) {
             try {
                 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
@@ -272,27 +243,6 @@ export const PerfilView: React.FC = () => {
             } catch (e) {
                 console.error('Error guardando preferencias en backend:', e)
             }
-        }
-    }
-
-    // Agregar anime recomendado a Mi Lista
-    const handleAddAnimeToList = async (animeId: number) => {
-        const target = tmdbRecommendations.find((r) => r.animeId === animeId)
-        if (!target) return
-
-        try {
-            await agregarAnime({
-                malId: animeId,
-                estado: 'pendiente',
-                nota: null,
-                episodiosVistos: 0,
-                favorito: false,
-                tags: ['Cruce TMDB', target.matchedMovie],
-                comentario: `Recomendado por afinidad con ${target.matchedMovie}`,
-            })
-            setAddedAnimeIds((prev) => [...prev, animeId])
-        } catch (err) {
-            console.error('Error al agregar anime:', err)
         }
     }
 
@@ -332,18 +282,9 @@ export const PerfilView: React.FC = () => {
                     isCurrentUser={true}
                 />
 
-                {/* 3. Tarjeta Destacada: Test de Gustos (Recomendador IA) */}
+                {/* 3. Tarjeta Destacada: Test de Gustos (Profesor Doki Doki) */}
                 <TasteTestBanner
                     answers={tasteAnswers}
-                    onOpenWizard={() => setTasteModalOpen(true)}
-                />
-
-                {/* 4. Cruce de Películas de Cine (TMDB) x Animigos */}
-                <TmdbCrossRecommendations
-                    favoriteMovies={tasteAnswers.favoriteMovies || []}
-                    recommendations={tmdbRecommendations}
-                    addedAnimeIds={addedAnimeIds}
-                    onAddAnimeToList={handleAddAnimeToList}
                     onOpenWizard={() => setTasteModalOpen(true)}
                 />
 

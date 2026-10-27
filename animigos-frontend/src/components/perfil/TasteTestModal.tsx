@@ -6,15 +6,24 @@ import {
     Sparkles,
     ThumbsDown,
     ThumbsUp,
-    Zap,
     Clapperboard,
     Search,
     Plus,
     X,
     Loader2,
+    Star,
+    BookmarkCheck,
 } from 'lucide-react'
 import { Dialogo } from '../mi-lista/piezas'
 import { searchTmdbMovies } from '../../services/tmdbService'
+import {
+    searchTestAnimes,
+    calibrateAndGetRecommendations,
+    type CalibrateAnimeCandidate,
+    type CalibratedRecommendation,
+} from '../../services/recommenderApi'
+import { ProfesorDoki, type DokiExpression } from '../doki/ProfesorDoki'
+import { useMyList } from '../../hooks/useMyList'
 import type { TasteTestAnswers, TmdbMovie } from './perfil-types'
 
 const TROPES_OPTIONS = [
@@ -35,8 +44,8 @@ const GENRES_ALL = [
 
 const PACING_OPTIONS = [
     { id: 'fast_12', title: 'Ritmo Dinámico (12 episodios)', desc: 'Cero relleno, tramas condensadas que van al grano.' },
-    { id: 'deep_24', title: 'Desarrollo Profundo (24+ episodios)', desc: 'Construcción de mundo paciente y arcos de personajes maduros.' },
-    { id: 'movies', title: 'Películas de Gran Impacto', desc: 'Producción de alta escala cinematográfica en 2 horas.' },
+    { id: 'deep_24', title: 'Desarrollo Profundo (24+ episodios)', desc: 'Construcción de mundo paciente y arcos maduros.' },
+    { id: 'movies', title: 'Películas de Gran Impacto', desc: 'Producción cinematográfica épica en 2 horas.' },
     { id: 'episodic', title: 'Autoconclusivo (Caso por Episodio)', desc: 'Fácil de pausar y retomar en cualquier momento.' },
 ]
 
@@ -61,16 +70,19 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
     initialAnswers,
     onComplete,
 }) => {
+    const { agregarAnime } = useMyList()
     const [step, setStep] = useState<number>(1)
     const [isSaving, setIsSaving] = useState<boolean>(false)
+    const [isCalibrating, setIsCalibrating] = useState<boolean>(false)
 
+    // Estados de respuestas
     const [selectedTropes, setSelectedTropes] = useState<string[]>(initialAnswers?.tropes || ['mastermind', 'dark_fantasy'])
     const [favGenres, setFavGenres] = useState<string[]>(initialAnswers?.favoriteGenres || ['Psychological', 'Action', 'Sci-Fi'])
     const [dislikedGenres, setDislikedGenres] = useState<string[]>(initialAnswers?.dislikedGenres || ['Horror'])
     const [pacing, setPacing] = useState<string>(initialAnswers?.pacing || 'fast_12')
     const [contentFilters, setContentFilters] = useState<string[]>(initialAnswers?.contentFilters || ['no_fanservice', 'conclusive_ending'])
 
-    // Películas TMDB
+    // Paso 1: Películas TMDB
     const [favoriteMovies, setFavoriteMovies] = useState<TmdbMovie[]>(initialAnswers?.favoriteMovies || [
         {
             id: 27205,
@@ -91,43 +103,70 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
             overview: 'Un blade runner descubre un secreto que podría sumergir a la sociedad en el caos.',
         },
     ])
-
     const [movieSearchQuery, setMovieSearchQuery] = useState('')
     const [movieSearchResults, setMovieSearchResults] = useState<TmdbMovie[]>([])
     const [isSearchingMovies, setIsSearchingMovies] = useState(false)
 
-    // Búsqueda en TMDB con debounce
+    // Paso 3: Animes ya vistos y favoritos
+    const [likedAnimeList, setLikedAnimeList] = useState<CalibrateAnimeCandidate[]>([])
+    const [animeSearchQuery, setAnimeSearchQuery] = useState('')
+    const [animeSearchResults, setAnimeSearchResults] = useState<CalibrateAnimeCandidate[]>([])
+    const [isSearchingAnimes, setIsSearchingAnimes] = useState(false)
+
+    // Paso 5: Resultados de la calibración
+    const [calibratedRecommendations, setCalibratedRecommendations] = useState<CalibratedRecommendation[]>([])
+    const [addedAnimeIds, setAddedAnimeIds] = useState<number[]>([])
+
+    // Debounce búsqueda TMDB
     useEffect(() => {
         if (!movieSearchQuery.trim()) {
             setMovieSearchResults([])
             return
         }
-
         const timer = setTimeout(async () => {
             setIsSearchingMovies(true)
             try {
                 const results = await searchTmdbMovies(movieSearchQuery)
                 setMovieSearchResults(results)
+            } catch (err) {
+                console.error('Error buscando películas en TMDB:', err)
             } finally {
                 setIsSearchingMovies(false)
             }
-        }, 250)
-
+        }, 320)
         return () => clearTimeout(timer)
     }, [movieSearchQuery])
 
-    const addMovie = (movie: TmdbMovie) => {
-        if (!favoriteMovies.some((m) => m.id === movie.id)) {
-            setFavoriteMovies([...favoriteMovies, movie])
+    // Cargar animes iniciales sugeridos para el paso 3
+    useEffect(() => {
+        const fetchInitialAnimes = async () => {
+            const initialList = await searchTestAnimes('')
+            if (likedAnimeList.length === 0 && initialList.length > 0) {
+                // Preseleccionar los dos primeros como favoritos por defecto si no hay nada
+                setLikedAnimeList(initialList.slice(0, 2))
+            }
+            setAnimeSearchResults(initialList)
         }
-        setMovieSearchQuery('')
-        setMovieSearchResults([])
-    }
+        fetchInitialAnimes()
+    }, [])
 
-    const removeMovie = (movieId: number) => {
-        setFavoriteMovies(favoriteMovies.filter((m) => m.id !== movieId))
-    }
+    // Búsqueda de animes con debounce
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            setIsSearchingAnimes(true)
+            try {
+                const results = await searchTestAnimes(animeSearchQuery)
+                setAnimeSearchResults(results)
+            } catch (err) {
+                console.error('Error buscando animes:', err)
+            } finally {
+                setIsSearchingAnimes(false)
+            }
+        }, 300)
+        return () => clearTimeout(timer)
+    }, [animeSearchQuery])
 
+    // Helpers de mutación de listas
     const toggleTrope = (id: string) => {
         setSelectedTropes((prev) =>
             prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
@@ -135,37 +174,116 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
     }
 
     const toggleFavGenre = (g: string) => {
+        if (dislikedGenres.includes(g)) {
+            setDislikedGenres((prev) => prev.filter((x) => x !== g))
+        }
         setFavGenres((prev) =>
             prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]
         )
-        setDislikedGenres((prev) => prev.filter((x) => x !== g))
     }
 
     const toggleDislikedGenre = (g: string) => {
+        if (favGenres.includes(g)) {
+            setFavGenres((prev) => prev.filter((x) => x !== g))
+        }
         setDislikedGenres((prev) =>
             prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]
         )
-        setFavGenres((prev) => prev.filter((x) => x !== g))
     }
 
-    const toggleFilter = (id: string) => {
+    const toggleFilter = (f: string) => {
         setContentFilters((prev) =>
-            prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
+            prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]
         )
     }
 
-    const handleFinish = async () => {
+    const addMovie = (movie: TmdbMovie) => {
+        if (!favoriteMovies.some((m) => m.id === movie.id)) {
+            setFavoriteMovies((prev) => [...prev, movie])
+        }
+        setMovieSearchQuery('')
+        setMovieSearchResults([])
+    }
+
+    const removeMovie = (id: number) => {
+        setFavoriteMovies((prev) => prev.filter((m) => m.id !== id))
+    }
+
+    const addLikedAnime = (anime: CalibrateAnimeCandidate) => {
+        if (!likedAnimeList.some((a) => a.mal_id === anime.mal_id)) {
+            setLikedAnimeList((prev) => [...prev, anime])
+        }
+    }
+
+    const removeLikedAnime = (malId: number) => {
+        setLikedAnimeList((prev) => prev.filter((a) => a.mal_id !== malId))
+    }
+
+    // Ejecutar calibración y avanzar a resultados
+    const handleRunCalibration = async () => {
+        setIsCalibrating(true)
+        setStep(5)
+        try {
+            const likedIds = likedAnimeList.map((a) => a.mal_id)
+            const recs = await calibrateAndGetRecommendations({
+                tmdb_movies: favoriteMovies,
+                liked_anime_ids: likedIds,
+                favorite_genres: favGenres,
+                disliked_genres: dislikedGenres,
+                tropes: selectedTropes,
+                pacing: pacing,
+            })
+            setCalibratedRecommendations(recs)
+        } catch (err) {
+            console.error('Error calculando recomendaciones de calibración:', err)
+        } finally {
+            setIsCalibrating(false)
+        }
+    }
+
+    // Agregar anime recomendado a Mi Lista
+    const handleAddRecToList = async (rec: CalibratedRecommendation) => {
+        try {
+            await agregarAnime({
+                malId: rec.anime_id,
+                estado: 'pendiente',
+                nota: null,
+                episodiosVistos: 0,
+                favorito: false,
+                tags: ['Calibrado Doki Doki', rec.anime_studio],
+                comentario: `Recomendado por Profesor Doki Doki: ${rec.match_reason}`,
+            })
+            setAddedAnimeIds((prev) => [...prev, rec.anime_id])
+        } catch (e) {
+            console.error('Error agregando anime recomendado:', e)
+        }
+    }
+
+    // Finalizar y Guardar Todo
+    const handleFinishTest = async () => {
         setIsSaving(true)
         try {
-            await onComplete({
+            const finalScore = Math.min(
+                100,
+                50 +
+                    (favoriteMovies.length > 0 ? 15 : 0) +
+                    (likedAnimeList.length > 0 ? 15 : 0) +
+                    (favGenres.length > 0 ? 10 : 0) +
+                    (selectedTropes.length > 0 ? 10 : 0)
+            )
+
+            const finalAnswers: TasteTestAnswers = {
                 tropes: selectedTropes,
                 favoriteGenres: favGenres,
                 dislikedGenres,
                 pacing,
                 contentFilters,
                 favoriteMovies,
-                calibratedPercentage: 100,
-            })
+                likedAnimeIds: likedAnimeList.map((a) => a.mal_id),
+                calibratedPercentage: finalScore,
+            }
+
+            await onComplete(finalAnswers)
             onClose()
             setStep(1)
         } catch (err) {
@@ -175,17 +293,71 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
         }
     }
 
+    // Determinar la expresión y diálogo del Profesor Doki según el paso
+    const getDokiMeta = (): { expression: DokiExpression; dialogue: React.ReactNode } => {
+        switch (step) {
+            case 1:
+                return {
+                    expression: 'explicando',
+                    dialogue: (
+                        <span>
+                            ¡Konnichiwa! Soy el <strong>Profesor Doki Doki</strong>. Para empezar, escribe de <strong>1 a 5 de tus películas o series favoritas de cine/TV</strong>. ¡Extraeré su ADN desde TMDB para hallar animes con el mismo impacto!
+                        </span>
+                    ),
+                }
+            case 2:
+                return {
+                    expression: 'emocionado_serio',
+                    dialogue: (
+                        <span>
+                            ¡Gran selección! Ahora selecciona los <strong>tropos narrativos y géneros</strong> que te aceleran el pulso. Puedes marcar en verde los que amas y en rojo los que prefieres evitar.
+                        </span>
+                    ),
+                }
+            case 3:
+                return {
+                    expression: 'emocionado_feliz',
+                    dialogue: (
+                        <span>
+                            ¡Este es el paso más crucial! Dime <strong>qué animes ya viste y te fascinaron</strong>. Con esto rastrearé el mismo <strong>estudio de animación, autor, año y joyas de alta nota</strong> para ti.
+                        </span>
+                    ),
+                }
+            case 4:
+                return {
+                    expression: 'pensando',
+                    dialogue: (
+                        <span>
+                            ¡Casi listos! Dime tu <strong>ritmo y duración preferida</strong> para maratonear, además de filtros especiales de contenido (como historias con final cerrado o cero relleno).
+                        </span>
+                    ),
+                }
+            case 5:
+            default:
+                return {
+                    expression: 'celebracion',
+                    dialogue: (
+                        <span>
+                            ¡Eureka! Mi algoritmo neuronal ha cruzado tus animes vistos con tus películas de TMDB. Aquí tienes tus <strong>recomendaciones supremas con alta nota y afinidad</strong>. ¡Agrégalas a tu lista!
+                        </span>
+                    ),
+                }
+        }
+    }
+
+    const dokiMeta = getDokiMeta()
+
     return (
-        <Dialogo abierto={open} onCerrar={onClose} etiqueta="Test de Preferencias Anime e IA (TMDB)" ancho={640}>
-            <div className="p-4 d-flex flex-column gap-3">
+        <Dialogo abierto={open} onCerrar={onClose} etiqueta="Calibrador de Preferencias Anime · Profesor Doki Doki" ancho={740}>
+            <div className="p-3 p-md-4 d-flex flex-column gap-3">
                 {/* Cabecera del Wizard */}
                 <div className="d-flex align-items-center justify-content-between border-bottom pb-3" style={{ borderColor: 'var(--perfil-border)' }}>
                     <div>
                         <div className="d-flex align-items-center gap-1.5 mb-1">
                             <Sparkles size={14} style={{ color: 'var(--perfil-acento)' }} />
-                            <span className="ml-eyebrow">RECOMENDADOR NEURONAL · TMDB x ANIMIGOS</span>
+                            <span className="ml-eyebrow">LABORATORIO NEURONAL · ANIMIGOS x TMDB</span>
                         </div>
-                        <h3 className="h5 fw-bold text-white mb-0">Calibrador de Gustos</h3>
+                        <h3 className="h5 fw-bold text-white mb-0">Calibrador de Preferencias</h3>
                     </div>
 
                     <div className="d-flex align-items-center gap-2">
@@ -198,7 +370,12 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                                         width: 8,
                                         height: 8,
                                         borderRadius: '50%',
-                                        backgroundColor: i === step ? 'var(--perfil-acento)' : i < step ? 'var(--perfil-green)' : 'rgba(255,255,255,0.15)',
+                                        backgroundColor:
+                                            i === step
+                                                ? 'var(--perfil-acento)'
+                                                : i < step
+                                                ? 'var(--perfil-green)'
+                                                : 'rgba(255,255,255,0.15)',
                                         transition: 'background-color 0.2s ease',
                                     }}
                                 />
@@ -207,132 +384,32 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                     </div>
                 </div>
 
-                {/* PASO 1: TROPOS Y ARQUETIPOS */}
+                {/* Asistente Profesor Doki Doki con Burbuja de Diálogo Reactiva */}
+                <ProfesorDoki
+                    size="md"
+                    expression={dokiMeta.expression}
+                    dialogue={dokiMeta.dialogue}
+                    badgeText={`Paso ${step}`}
+                />
+
+                {/* PASO 1: PELÍCULAS Y SERIES TMDB */}
                 {step === 1 && (
-                    <div className="py-2">
-                        <h4 className="h6 fw-bold text-white mb-1">1. ¿Qué tropos y dinámicas te enganchan más?</h4>
-                        <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
-                            Selecciona los arquetipos narrativos que hacen que no puedas soltar una historia.
-                        </p>
-                        <div className="row g-2">
-                            {TROPES_OPTIONS.map((t) => {
-                                const isSelected = selectedTropes.includes(t.id)
-                                return (
-                                    <div key={t.id} className="col-12 col-sm-6">
-                                        <div
-                                            className={`perfil-trope-card ${isSelected ? 'is-selected' : ''}`}
-                                            onClick={() => toggleTrope(t.id)}
-                                        >
-                                            <div className="d-flex align-items-center justify-content-between mb-1">
-                                                <span className="fw-semibold small text-white">{t.title}</span>
-                                                <div
-                                                    style={{
-                                                        width: 18,
-                                                        height: 18,
-                                                        borderRadius: 4,
-                                                        border: isSelected ? 'none' : '1px solid var(--perfil-border)',
-                                                        background: isSelected ? 'var(--perfil-acento)' : 'transparent',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        color: '#000',
-                                                    }}
-                                                >
-                                                    {isSelected && <Check size={12} strokeWidth={3} />}
-                                                </div>
-                                            </div>
-                                            <p className="small mb-0" style={{ color: 'var(--perfil-text-dim)', fontSize: '0.73rem' }}>
-                                                {t.desc}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* PASO 2: GÉNEROS FAVORITOS & VETADOS */}
-                {step === 2 && (
-                    <div className="py-2">
-                        <h4 className="h6 fw-bold text-white mb-1">2. Géneros Favoritos y Filtros de Descarte</h4>
-                        <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
-                            Indica qué géneros amas (<ThumbsUp size={12} className="text-success" />) y cuáles prefieres evitar (<ThumbsDown size={12} className="text-danger" />).
-                        </p>
-
-                        <div className="mb-3">
-                            <span className="small text-secondary fw-semibold d-block mb-2">TUS GÉNEROS FAVORITOS:</span>
-                            <div className="d-flex flex-wrap gap-1.5">
-                                {GENRES_ALL.map((g) => {
-                                    const isFav = favGenres.includes(g)
-                                    return (
-                                        <button
-                                            key={g}
-                                            type="button"
-                                            onClick={() => toggleFavGenre(g)}
-                                            className="ml-chip"
-                                            aria-pressed={isFav}
-                                            style={{
-                                                borderColor: isFav ? 'var(--perfil-acento)' : undefined,
-                                                background: isFav ? 'var(--perfil-acento-soft)' : undefined,
-                                                color: isFav ? '#ffffff' : undefined,
-                                            }}
-                                        >
-                                            {isFav && <Check size={12} className="me-1 text-success" />}
-                                            {g}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-
-                        <div>
-                            <span className="small text-secondary fw-semibold d-block mb-2">GÉNEROS QUE DESEAS EXCLUIR:</span>
-                            <div className="d-flex flex-wrap gap-1.5">
-                                {GENRES_ALL.map((g) => {
-                                    const isDisliked = dislikedGenres.includes(g)
-                                    return (
-                                        <button
-                                            key={g}
-                                            type="button"
-                                            onClick={() => toggleDislikedGenre(g)}
-                                            className="ml-chip"
-                                            aria-pressed={isDisliked}
-                                            style={{
-                                                borderColor: isDisliked ? 'var(--perfil-pink)' : undefined,
-                                                background: isDisliked ? 'var(--perfil-pink-soft)' : undefined,
-                                                color: isDisliked ? 'var(--perfil-pink)' : undefined,
-                                            }}
-                                        >
-                                            {isDisliked && <ThumbsDown size={11} className="me-1 text-danger" />}
-                                            {g}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* PASO 3: PELÍCULAS FAVORITAS DE CINE (TMDB) */}
-                {step === 3 && (
-                    <div className="py-2">
+                    <div className="py-1">
                         <div className="d-flex align-items-center gap-2 mb-1">
                             <Clapperboard size={16} style={{ color: 'var(--perfil-cyan)' }} />
-                            <h4 className="h6 fw-bold text-white mb-0">3. Películas Favoritas de Cine (Cruce TMDB)</h4>
+                            <h4 className="h6 fw-bold text-white mb-0">1. Películas o Series de Cine/TV Favoritas (TMDB)</h4>
                         </div>
                         <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
-                            Extraemos automáticamente los géneros, temas y sinopsis de <strong>The Movie Database (TMDB)</strong> para cruzarlos con el catálogo de anime y darte recomendaciones perfectas.
+                            Busca obras que te hayan fascinado (ej: <em>Inception, Interstellar, The Matrix, Blade Runner, Dune, Severance...</em>).
                         </p>
 
-                        {/* Buscador de Películas TMDB */}
                         <div className="position-relative mb-3">
                             <div className="d-flex align-items-center position-relative">
                                 <Search size={15} className="position-absolute start-0 ms-3 text-secondary" />
                                 <input
                                     type="text"
                                     className="cat-search-control w-100 ps-5"
-                                    placeholder="Buscar película en TMDB (ej: Inception, Interstellar, Blade Runner, Dune...)"
+                                    placeholder="Buscar película o serie en TMDB..."
                                     value={movieSearchQuery}
                                     onChange={(e) => setMovieSearchQuery(e.target.value)}
                                 />
@@ -341,7 +418,7 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                                 )}
                             </div>
 
-                            {/* Dropdown de resultados de búsqueda */}
+                            {/* Dropdown de resultados TMDB */}
                             {movieSearchResults.length > 0 && (
                                 <div
                                     className="position-absolute start-0 end-0 mt-1 rounded-3 border shadow-lg overflow-hidden z-3"
@@ -385,15 +462,15 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                         {/* Lista de películas seleccionadas */}
                         <div>
                             <span className="small text-secondary fw-semibold d-block mb-2">
-                                TUS PELÍCULAS REGISTRADAS PARA EL CRUCE ({favoriteMovies.length}):
+                                TUS OBRAS REGISTRADAS ({favoriteMovies.length}):
                             </span>
 
                             {favoriteMovies.length === 0 ? (
                                 <div className="p-3 rounded-2 text-center small text-secondary border border-dashed border-secondary-subtle">
-                                    Agrega al menos una película para cruzarla con los animes de la plataforma.
+                                    Agrega al menos una película o serie para extraer sus temas y sinopsis.
                                 </div>
                             ) : (
-                                <div className="d-flex flex-column gap-2" style={{ maxHeight: 220, overflowY: 'auto' }}>
+                                <div className="d-flex flex-column gap-2" style={{ maxHeight: 200, overflowY: 'auto' }}>
                                     {favoriteMovies.map((movie) => (
                                         <div
                                             key={movie.id}
@@ -420,7 +497,7 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                                                 type="button"
                                                 onClick={() => removeMovie(movie.id)}
                                                 className="btn btn-link text-secondary p-1"
-                                                title="Eliminar película"
+                                                title="Eliminar"
                                             >
                                                 <X size={15} />
                                             </button>
@@ -432,74 +509,75 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                     </div>
                 )}
 
-                {/* PASO 4: RITMO NARRATIVO & FORMATO */}
-                {step === 4 && (
-                    <div className="py-2">
-                        <h4 className="h6 fw-bold text-white mb-1">4. Ritmo Narrativo y Duración Ideal</h4>
-                        <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
-                            El recomendador priorizará series con la cadencia de capítulos que mejor se adapte a tu rutina.
+                {/* PASO 2: GÉNEROS Y TROPOS */}
+                {step === 2 && (
+                    <div className="py-1">
+                        <h4 className="h6 fw-bold text-white mb-1">2. Arquetipos Narrativos y Géneros</h4>
+                        <p className="small mb-2" style={{ color: 'var(--perfil-text-muted)' }}>
+                            Selecciona los tropos que te enganchan de inmediato:
                         </p>
-                        <div className="d-flex flex-column gap-2">
-                            {PACING_OPTIONS.map((p) => {
-                                const isSelected = pacing === p.id
+                        <div className="row g-2 mb-3" style={{ maxHeight: 180, overflowY: 'auto' }}>
+                            {TROPES_OPTIONS.map((t) => {
+                                const isSelected = selectedTropes.includes(t.id)
                                 return (
-                                    <div
-                                        key={p.id}
-                                        className={`perfil-trope-card ${isSelected ? 'is-selected' : ''}`}
-                                        onClick={() => setPacing(p.id)}
-                                    >
-                                        <div className="d-flex align-items-center justify-content-between mb-1">
-                                            <span className="fw-semibold small text-white d-flex align-items-center gap-2">
-                                                <Zap size={14} style={{ color: isSelected ? 'var(--perfil-acento)' : 'var(--perfil-text-dim)' }} />
-                                                {p.title}
-                                            </span>
-                                            <div
-                                                style={{
-                                                    width: 18,
-                                                    height: 18,
-                                                    borderRadius: '50%',
-                                                    border: isSelected ? '5px solid var(--perfil-acento)' : '1px solid var(--perfil-border)',
-                                                    background: '#ffffff',
-                                                }}
-                                            />
+                                    <div key={t.id} className="col-12 col-sm-6">
+                                        <div
+                                            className={`perfil-trope-card ${isSelected ? 'is-selected' : ''}`}
+                                            onClick={() => toggleTrope(t.id)}
+                                        >
+                                            <div className="d-flex align-items-center justify-content-between mb-1">
+                                                <span className="fw-semibold small text-white">{t.title}</span>
+                                                <div
+                                                    style={{
+                                                        width: 18,
+                                                        height: 18,
+                                                        borderRadius: 4,
+                                                        border: isSelected ? 'none' : '1px solid var(--perfil-border)',
+                                                        background: isSelected ? 'var(--perfil-acento)' : 'transparent',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        color: '#000',
+                                                    }}
+                                                >
+                                                    {isSelected && <Check size={12} strokeWidth={3} />}
+                                                </div>
+                                            </div>
+                                            <p className="small mb-0" style={{ color: 'var(--perfil-text-dim)', fontSize: '0.73rem' }}>
+                                                {t.desc}
+                                            </p>
                                         </div>
-                                        <p className="small mb-0 ps-4" style={{ color: 'var(--perfil-text-dim)', fontSize: '0.74rem' }}>
-                                            {p.desc}
-                                        </p>
                                     </div>
                                 )
                             })}
                         </div>
-                    </div>
-                )}
 
-                {/* PASO 5: FILTROS DE CONTENIDO Y REGLAS */}
-                {step === 5 && (
-                    <div className="py-2">
-                        <h4 className="h6 fw-bold text-white mb-1">5. Filtros de Calidad y Preferencias Finales</h4>
-                        <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
-                            Ajusta los últimos filtros de contenido para garantizar recomendaciones 100% afinadas.
-                        </p>
-                        <div className="d-flex flex-column gap-2">
-                            {FILTER_OPTIONS.map((f) => {
-                                const isChecked = contentFilters.includes(f.id)
+                        {/* Géneros Favoritos y Vetados */}
+                        <span className="small text-secondary fw-semibold d-block mb-1.5">
+                            GÉNEROS FAVORITOS (VERDE) Y VETADOS (ROJO):
+                        </span>
+                        <div className="d-flex flex-wrap gap-1.5">
+                            {GENRES_ALL.map((g) => {
+                                const isFav = favGenres.includes(g)
+                                const isDisliked = dislikedGenres.includes(g)
                                 return (
-                                    <div
-                                        key={f.id}
-                                        className={`perfil-switch-wrap ${isChecked ? 'border-primary' : ''}`}
-                                        onClick={() => toggleFilter(f.id)}
-                                        style={{ cursor: 'pointer' }}
-                                    >
-                                        <span className="small fw-semibold text-white">{f.label}</span>
+                                    <div key={g} className="btn-group btn-group-sm">
                                         <button
                                             type="button"
-                                            className={`perfil-pill-toggle ${isChecked ? 'is-on' : ''}`}
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                toggleFilter(f.id)
-                                            }}
+                                            onClick={() => toggleFavGenre(g)}
+                                            className={`btn btn-sm ${isFav ? 'btn-success' : 'btn-dark border-secondary'}`}
+                                            style={{ fontSize: '0.72rem' }}
                                         >
-                                            <span className="perfil-pill-handle" />
+                                            <ThumbsUp size={11} className="me-1" />
+                                            {g}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleDislikedGenre(g)}
+                                            className={`btn btn-sm ${isDisliked ? 'btn-danger' : 'btn-dark border-secondary'}`}
+                                            title={`Vetar ${g}`}
+                                        >
+                                            <ThumbsDown size={11} />
                                         </button>
                                     </div>
                                 )
@@ -508,41 +586,306 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                     </div>
                 )}
 
-                {/* Controles del Wizard */}
-                <div className="d-flex align-items-center justify-content-between pt-3 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
+                {/* PASO 3: ANIMES QUE YA VISTE Y TE ENCANTARON */}
+                {step === 3 && (
+                    <div className="py-1">
+                        <div className="d-flex align-items-center gap-2 mb-1">
+                            <Star size={16} style={{ color: 'var(--perfil-amber)' }} />
+                            <h4 className="h6 fw-bold text-white mb-0">3. Animes que ya viste y te encantaron</h4>
+                        </div>
+                        <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
+                            El recomendador usará estos animes para encontrar obras del <strong>mismo estudio, misma era y con alto reconocimiento de la comunidad</strong> (y no te recomendará estos que ya viste).
+                        </p>
+
+                        <div className="position-relative mb-3">
+                            <div className="d-flex align-items-center position-relative">
+                                <Search size={15} className="position-absolute start-0 ms-3 text-secondary" />
+                                <input
+                                    type="text"
+                                    className="cat-search-control w-100 ps-5"
+                                    placeholder="Buscar anime que ya viste (ej: Death Note, Attack on Titan, Steins;Gate...)"
+                                    value={animeSearchQuery}
+                                    onChange={(e) => setAnimeSearchQuery(e.target.value)}
+                                />
+                                {isSearchingAnimes && (
+                                    <Loader2 size={16} className="position-absolute end-0 me-3 text-secondary" style={{ animation: 'spin 1s linear infinite' }} />
+                                )}
+                            </div>
+
+                            {/* Resultados de animes */}
+                            {animeSearchResults.length > 0 && (
+                                <div
+                                    className="mt-2 rounded-3 border p-2"
+                                    style={{
+                                        background: 'var(--perfil-card)',
+                                        borderColor: 'var(--perfil-border)',
+                                        maxHeight: 180,
+                                        overflowY: 'auto',
+                                    }}
+                                >
+                                    <div className="row g-2">
+                                        {animeSearchResults.map((a) => {
+                                            const isSelected = likedAnimeList.some((item) => item.mal_id === a.mal_id)
+                                            return (
+                                                <div key={a.mal_id} className="col-12 col-sm-6">
+                                                    <div
+                                                        className={`p-2 rounded-2 border d-flex align-items-center justify-content-between gap-2 ${
+                                                            isSelected ? 'border-primary bg-primary bg-opacity-10' : 'border-secondary'
+                                                        }`}
+                                                        style={{ cursor: 'pointer' }}
+                                                        onClick={() => (isSelected ? removeLikedAnime(a.mal_id) : addLikedAnime(a))}
+                                                    >
+                                                        <div className="d-flex align-items-center gap-2 min-w-0">
+                                                            <img
+                                                                src={a.image_url}
+                                                                alt=""
+                                                                className="rounded"
+                                                                style={{ width: 28, height: 38, objectFit: 'cover' }}
+                                                            />
+                                                            <div className="min-w-0">
+                                                                <div className="small fw-bold text-white text-truncate" style={{ fontSize: '0.74rem' }}>
+                                                                    {a.title}
+                                                                </div>
+                                                                <div className="small text-secondary font-mono" style={{ fontSize: '0.68rem' }}>
+                                                                    ★ {a.score} · {a.studio || 'Estudio N/A'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <button type="button" className={`btn btn-sm p-1 ${isSelected ? 'text-primary' : 'text-secondary'}`}>
+                                                            {isSelected ? <Check size={14} /> : <Plus size={14} />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Animes seleccionados */}
+                        <div>
+                            <span className="small text-secondary fw-semibold d-block mb-1.5">
+                                ANIMES MARCADOS COMO VISTOS Y FAVORITOS ({likedAnimeList.length}):
+                            </span>
+                            <div className="d-flex flex-wrap gap-1.5" style={{ maxHeight: 110, overflowY: 'auto' }}>
+                                {likedAnimeList.map((a) => (
+                                    <span
+                                        key={a.mal_id}
+                                        className="badge bg-dark border border-secondary text-white py-1 px-2 d-inline-flex align-items-center gap-1.5"
+                                        style={{ fontSize: '0.72rem' }}
+                                    >
+                                        <BookmarkCheck size={12} className="text-success" />
+                                        <span>{a.title}</span>
+                                        <X
+                                            size={12}
+                                            className="text-secondary"
+                                            style={{ cursor: 'pointer' }}
+                                            onClick={() => removeLikedAnime(a.mal_id)}
+                                        />
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* PASO 4: RITMO Y FILTROS */}
+                {step === 4 && (
+                    <div className="py-1">
+                        <h4 className="h6 fw-bold text-white mb-1">4. Ritmo y Filtros de Contenido</h4>
+                        <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
+                            Elige la cadencia de episodios que mejor encaje con tu tiempo libre:
+                        </p>
+                        <div className="row g-2 mb-3">
+                            {PACING_OPTIONS.map((p) => {
+                                const isSelected = pacing === p.id
+                                return (
+                                    <div key={p.id} className="col-12 col-sm-6">
+                                        <div
+                                            className={`perfil-trope-card ${isSelected ? 'is-selected' : ''}`}
+                                            onClick={() => setPacing(p.id)}
+                                        >
+                                            <div className="d-flex align-items-center justify-content-between mb-1">
+                                                <span className="fw-semibold small text-white">{p.title}</span>
+                                                <div
+                                                    style={{
+                                                        width: 16,
+                                                        height: 16,
+                                                        borderRadius: '50%',
+                                                        border: isSelected ? 'none' : '1px solid var(--perfil-border)',
+                                                        background: isSelected ? 'var(--perfil-acento)' : 'transparent',
+                                                    }}
+                                                />
+                                            </div>
+                                            <p className="small mb-0" style={{ color: 'var(--perfil-text-dim)', fontSize: '0.72rem' }}>
+                                                {p.desc}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+
+                        <span className="small text-secondary fw-semibold d-block mb-1.5">FILTROS DE RECOMENDACIÓN:</span>
+                        <div className="d-flex flex-wrap gap-2">
+                            {FILTER_OPTIONS.map((f) => {
+                                const isSelected = contentFilters.includes(f.id)
+                                return (
+                                    <button
+                                        key={f.id}
+                                        type="button"
+                                        onClick={() => toggleFilter(f.id)}
+                                        className={`btn btn-sm ${isSelected ? 'btn-primary' : 'btn-dark border-secondary'}`}
+                                        style={{ fontSize: '0.74rem' }}
+                                    >
+                                        {isSelected && <Check size={12} className="me-1" />}
+                                        {f.label}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* PASO 5: RESULTADOS DE CALIBRACIÓN */}
+                {step === 5 && (
+                    <div className="py-1">
+                        <div className="d-flex align-items-center justify-content-between mb-2">
+                            <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-1.5">
+                                <Sparkles size={16} style={{ color: 'var(--perfil-acento)' }} />
+                                <span>Recomendaciones Personalizadas por el Profesor Doki Doki</span>
+                            </h4>
+                            <span className="badge bg-success-subtle text-success border border-success-subtle small">
+                                100% Calibrado
+                            </span>
+                        </div>
+
+                        {isCalibrating ? (
+                            <div className="py-5 text-center">
+                                <Loader2 size={32} className="text-secondary mb-2" style={{ animation: 'spin 1s linear infinite' }} />
+                                <h5 className="h6 text-white">Sintetizando Afinidades Multidimensionales...</h5>
+                                <p className="small text-secondary">
+                                    El Profesor Doki Doki está cruzando el ADN de tus películas con tus animes favoritos.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="row g-2" style={{ maxHeight: 330, overflowY: 'auto' }}>
+                                {calibratedRecommendations.slice(0, 6).map((rec) => {
+                                    const isAdded = addedAnimeIds.includes(rec.anime_id)
+                                    return (
+                                        <div key={rec.anime_id} className="col-12 col-sm-6">
+                                            <div
+                                                className="p-2.5 rounded-3 border h-100 d-flex flex-column justify-content-between"
+                                                style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}
+                                            >
+                                                <div>
+                                                    <div className="d-flex gap-2.5 mb-2">
+                                                        <img
+                                                            src={rec.anime_poster}
+                                                            alt={rec.anime_title}
+                                                            className="rounded"
+                                                            style={{ width: 44, height: 60, objectFit: 'cover' }}
+                                                        />
+                                                        <div className="min-w-0 flex-grow-1">
+                                                            <div className="d-flex align-items-center justify-content-between gap-1 mb-1">
+                                                                <span className="badge bg-primary small py-0.5 px-1.5" style={{ fontSize: '0.68rem' }}>
+                                                                    {rec.affinity_score}% Afinidad
+                                                                </span>
+                                                                <span className="small text-warning font-mono" style={{ fontSize: '0.72rem' }}>
+                                                                    ★ {rec.anime_score}
+                                                                </span>
+                                                            </div>
+                                                            <h6 className="small fw-bold text-white mb-0 text-truncate" title={rec.anime_title}>
+                                                                {rec.anime_title}
+                                                            </h6>
+                                                            <span className="small text-secondary" style={{ fontSize: '0.68rem' }}>
+                                                                {rec.anime_studio} {rec.season_year && `(${rec.season_year})`}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <p className="small mb-2" style={{ color: 'var(--perfil-text-muted)', fontSize: '0.71rem', lineHeight: 1.35 }}>
+                                                        {rec.match_reason}
+                                                    </p>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAddRecToList(rec)}
+                                                    disabled={isAdded}
+                                                    className={`ml-btn ${isAdded ? 'ml-btn-fantasma' : 'ml-btn-acento'} ml-btn-sm w-100 justify-content-center py-1`}
+                                                    style={{ fontSize: '0.72rem' }}
+                                                >
+                                                    {isAdded ? (
+                                                        <>
+                                                            <Check size={12} className="text-success" />
+                                                            <span>En tu Lista</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Plus size={12} />
+                                                            <span>Agregar a Mi Lista</span>
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Footer del Wizard */}
+                <div className="d-flex align-items-center justify-content-between border-top pt-3" style={{ borderColor: 'var(--perfil-border)' }}>
                     {step > 1 ? (
                         <button
                             type="button"
-                            onClick={() => setStep(step - 1)}
+                            onClick={() => setStep((s) => s - 1)}
                             className="ml-btn ml-btn-fantasma ml-btn-sm"
+                            disabled={isSaving || isCalibrating}
                         >
-                            <ChevronLeft size={15} />
-                            <span>Atrás</span>
+                            <ChevronLeft size={14} />
+                            <span>Anterior</span>
                         </button>
                     ) : (
                         <div />
                     )}
 
-                    {step < 5 ? (
-                        <button
-                            type="button"
-                            onClick={() => setStep(step + 1)}
-                            className="ml-btn ml-btn-acento ml-btn-sm"
-                        >
-                            <span>Siguiente</span>
-                            <ChevronRight size={15} />
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            disabled={isSaving}
-                            onClick={handleFinish}
-                            className="ml-btn ml-btn-acento ml-btn-sm"
-                        >
-                            <Sparkles size={15} />
-                            <span>{isSaving ? 'Cruzando TMDB x Anime...' : 'Guardar y Calibrar IA al 100%'}</span>
-                        </button>
-                    )}
+                    <div className="d-flex align-items-center gap-2">
+                        {step < 4 ? (
+                            <button
+                                type="button"
+                                onClick={() => setStep((s) => s + 1)}
+                                className="ml-btn ml-btn-acento ml-btn-sm"
+                            >
+                                <span>Siguiente</span>
+                                <ChevronRight size={14} />
+                            </button>
+                        ) : step === 4 ? (
+                            <button
+                                type="button"
+                                onClick={handleRunCalibration}
+                                disabled={isCalibrating}
+                                className="ml-btn ml-btn-acento ml-btn-sm"
+                            >
+                                <Sparkles size={14} />
+                                <span>{isCalibrating ? 'Calibrando...' : 'Calibrar con Profesor Doki Doki'}</span>
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={handleFinishTest}
+                                disabled={isSaving}
+                                className="ml-btn ml-btn-acento ml-btn-sm"
+                            >
+                                <Check size={14} />
+                                <span>{isSaving ? 'Guardando...' : 'Guardar y Finalizar'}</span>
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </Dialogo>

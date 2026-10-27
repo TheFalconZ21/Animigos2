@@ -41,6 +41,7 @@ export interface TasteTestAnswers {
     pacing: string
     contentFilters: string[]
     favoriteMovies: TmdbMovie[]
+    likedAnimeIds: number[]
     calibratedPercentage: number
 }
 

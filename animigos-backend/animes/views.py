@@ -295,4 +295,96 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         recoms = cross_reference_tmdb_movies_with_anime(movies)
         return Response(recoms)
 
+    @action(detail=False, methods=['post'], url_path='calibrate-recommendations')
+    def calibrate_recommendations(self, request):
+        """
+        Calibrador Multidimensional del Profesor Doki Doki.
+        Cruza animes vistos y gustados, películas TMDB, estudio, época, tropos y calidad.
+        """
+        from .recommender import calibrate_and_recommend
+        data = request.data or {}
+        tmdb_movies = data.get('tmdb_movies', [])
+        liked_anime_ids = data.get('liked_anime_ids', [])
+        favorite_genres = data.get('favorite_genres', [])
+        disliked_genres = data.get('disliked_genres', [])
+        tropes = data.get('tropes', [])
+        pacing = data.get('pacing', '')
+
+        # Si el usuario está autenticado, actualizar sus preferencias de onboarding
+        if request.user and request.user.is_authenticated:
+            try:
+                from users.models import UserPreferences, UserAnimeEntry
+                pref, _ = UserPreferences.objects.get_or_create(profile=request.user.profile)
+                pref.onboarding_completed = True
+                pref.favorite_genres = favorite_genres
+                pref.disliked_genres = disliked_genres
+                pref.preferred_duration = pacing
+                # Guardar data de calibración en privacy_settings / metadata
+                p_settings = pref.privacy_settings or {}
+                p_settings['tmdb_movies'] = tmdb_movies
+                p_settings['liked_anime_ids'] = liked_anime_ids
+                p_settings['tropes'] = tropes
+                pref.privacy_settings = p_settings
+                pref.save()
+
+                # Registrar los animes indicados como vistos si no están en su lista
+                for mal_id in liked_anime_ids:
+                    try:
+                        anime_obj = Anime.objects.filter(mal_id=mal_id).first()
+                        if anime_obj:
+                            UserAnimeEntry.objects.get_or_create(
+                                user=request.user,
+                                anime=anime_obj,
+                                defaults={'status': 'visto', 'score': 9, 'is_favorite': True}
+                            )
+                    except Exception:
+                        pass
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Error sincronizando preferencias de calibración: {e}")
+
+        recommendations = calibrate_and_recommend(
+            user=request.user if request.user.is_authenticated else None,
+            tmdb_movies=tmdb_movies,
+            liked_anime_ids=liked_anime_ids,
+            favorite_genres=favorite_genres,
+            disliked_genres=disliked_genres,
+            tropes=tropes,
+            pacing=pacing,
+            limit=12
+        )
+        return Response(recommendations)
+
+    @action(detail=False, methods=['get'], url_path='test-search')
+    def test_search(self, request):
+        """
+        Buscador optimizado para el paso de 'Animes que ya viste' en el calibrador.
+        """
+        q = request.query_params.get('q', '').strip()
+        if not q or len(q) < 2:
+            # Retornar animes icónicos populares como sugerencias iniciales
+            top_animes = Anime.objects.filter(
+                score__gte=8.2, scored_by__gte=50000
+            ).order_by('-score')[:12]
+        else:
+            top_animes = Anime.objects.filter(
+                Q(title__icontains=q) | Q(title_english__icontains=q)
+            ).order_by('-score', '-scored_by')[:12]
+
+        results = [
+            {
+                'mal_id': a.mal_id,
+                'title': a.title,
+                'title_english': a.title_english,
+                'image_url': a.image_url,
+                'score': float(a.score) if a.score else 0.0,
+                'season_year': a.season_year,
+                'studio': a.studio,
+                'genres': a.genres[:3] if isinstance(a.genres, list) else [],
+            }
+            for a in top_animes
+        ]
+        return Response(results)
+
+
 

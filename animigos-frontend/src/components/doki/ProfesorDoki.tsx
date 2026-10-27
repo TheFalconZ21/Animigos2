@@ -1,0 +1,107 @@
+import React from 'react'
+import './profesor-doki.css'
+
+export type DokiExpression =
+    | 'tranquilo'
+    | 'emocionado_serio'
+    | 'emocionado_triste'
+    | 'sorprendido'
+    | 'preocupado'
+    | 'pensando'
+    | 'cansado'
+    | 'emocionado_feliz'
+    | 'sonrojado'
+    | 'explicando'
+    | 'risa'
+    | 'celebracion'
+    | 'six_seven'
+    | 'comiendo'
+    | 'cantando'
+    | 'idea_encontrada'
+    | 'shock'
+    | 'aprobacion'
+
+export interface DokiExpressionMeta {
+    label: string
+    file: string
+    row: number
+    col: number
+    sheet: 'final1' | 'final2'
+}
+
+export const DOKI_EXPRESSIONS: Record<DokiExpression, DokiExpressionMeta> = {
+    tranquilo: { label: 'Tranquilo', file: '/profesor-doki/tranquilo.webp', row: 1, col: 1, sheet: 'final1' },
+    emocionado_serio: { label: 'Emocionado (serio)', file: '/profesor-doki/emocionado_serio.webp', row: 1, col: 2, sheet: 'final1' },
+    emocionado_triste: { label: 'Emocionado (triste)', file: '/profesor-doki/emocionado_triste.webp', row: 1, col: 3, sheet: 'final1' },
+    sorprendido: { label: 'Sorprendido', file: '/profesor-doki/sorprendido.webp', row: 2, col: 1, sheet: 'final1' },
+    preocupado: { label: 'Preocupado', file: '/profesor-doki/preocupado.webp', row: 2, col: 2, sheet: 'final1' },
+    pensando: { label: 'Pensando', file: '/profesor-doki/pensando.webp', row: 2, col: 3, sheet: 'final1' },
+    cansado: { label: 'Cansado', file: '/profesor-doki/cansado.webp', row: 3, col: 1, sheet: 'final1' },
+    emocionado_feliz: { label: 'Emocionado (feliz)', file: '/profesor-doki/emocionado_feliz.webp', row: 3, col: 2, sheet: 'final1' },
+    sonrojado: { label: 'Sonrojado', file: '/profesor-doki/sonrojado.webp', row: 3, col: 3, sheet: 'final1' },
+    explicando: { label: 'Explicando', file: '/profesor-doki/explicando.webp', row: 1, col: 1, sheet: 'final2' },
+    risa: { label: 'Risa', file: '/profesor-doki/risa.webp', row: 1, col: 2, sheet: 'final2' },
+    celebracion: { label: 'Celebración', file: '/profesor-doki/celebracion.webp', row: 1, col: 3, sheet: 'final2' },
+    six_seven: { label: 'Six Seven', file: '/profesor-doki/six_seven.webp', row: 2, col: 1, sheet: 'final2' },
+    comiendo: { label: 'Comiendo', file: '/profesor-doki/comiendo.webp', row: 2, col: 2, sheet: 'final2' },
+    cantando: { label: 'Cantando', file: '/profesor-doki/cantando.webp', row: 2, col: 3, sheet: 'final2' },
+    idea_encontrada: { label: 'Idea encontrada', file: '/profesor-doki/idea_encontrada.webp', row: 3, col: 1, sheet: 'final2' },
+    shock: { label: 'Sorprendido (Shock)', file: '/profesor-doki/shock.webp', row: 3, col: 2, sheet: 'final2' },
+    aprobacion: { label: 'Perfecto (Aprobación)', file: '/profesor-doki/aprobacion.webp', row: 3, col: 3, sheet: 'final2' },
+}
+
+interface ProfesorDokiProps {
+    expression?: DokiExpression
+    dialogue?: React.ReactNode
+    title?: string
+    size?: 'sm' | 'md' | 'lg'
+    className?: string
+    badgeText?: string
+    align?: 'left' | 'center' | 'compact'
+}
+
+export const ProfesorDoki: React.FC<ProfesorDokiProps> = ({
+    expression = 'explicando',
+    dialogue,
+    title = 'Profesor Doki Doki',
+    size = 'md',
+    className = '',
+    badgeText,
+    align = 'left',
+}) => {
+    const meta = DOKI_EXPRESSIONS[expression] || DOKI_EXPRESSIONS.explicando
+
+    const sizeClass = {
+        sm: 'doki-size-sm',
+        md: 'doki-size-md',
+        lg: 'doki-size-lg',
+    }[size]
+
+    return (
+        <div className={`doki-container doki-align-${align} ${className}`}>
+            <div className={`doki-avatar-wrap ${sizeClass}`}>
+                <div className="doki-avatar-glow" />
+                <img
+                    src={meta.file}
+                    alt={`Profesor Doki Doki - ${meta.label}`}
+                    className="doki-avatar-img"
+                    onError={(e) => {
+                        // Fallback a PNG si webp fallara
+                        e.currentTarget.src = meta.file.replace('.webp', '.png')
+                    }}
+                />
+                {badgeText && <span className="doki-badge-floating">{badgeText}</span>}
+            </div>
+
+            {dialogue && (
+                <div className="doki-dialogue-bubble">
+                    <div className="doki-dialogue-header">
+                        <span className="doki-dialogue-title">{title}</span>
+                        <span className="doki-dialogue-role">LABORATORIO IA</span>
+                    </div>
+                    <div className="doki-dialogue-content">{dialogue}</div>
+                </div>
+            )}
+        </div>
+    )
+}
