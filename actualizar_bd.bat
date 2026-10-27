@@ -16,12 +16,12 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 echo Ejecutando sincronizacion con MyAnimeList...
-echo - Alcance: Temporada actual, proxima y Top 5,000 animes
-echo - Pausa conservadora: 2.5s entre peticiones para evitar bloqueos
+echo - Alcance: Temporada actual, proxima y Catalogo Completo de MyAnimeList
+echo - Pausa conservadora: 2.0s entre peticiones para evitar bloqueos
 echo - Guardando registro en actualizacion_nocturna.log
 echo.
 
-.venv\Scripts\python.exe manage.py sync_mal_monthly --scope=full --pages=100 --delay=2.5 >> actualizacion_nocturna.log 2>&1
+.venv\Scripts\python.exe manage.py sync_mal_monthly --scope=full --pages=0 --delay=2.0 >> actualizacion_nocturna.log 2>&1
 
 echo ========================================================
 echo Proceso finalizado: %date% %time%
