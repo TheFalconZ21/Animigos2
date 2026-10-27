@@ -14,9 +14,12 @@ from core.constants import (
     CACHE_PREFIX_CATALOG,
     CACHE_PREFIX_TOP_ANIMES,
     CACHE_PREFIX_RECOMMENDATIONS,
-    CACHE_PREFIX_STUDIOS
+    CACHE_PREFIX_STUDIOS,
+    CACHE_PREFIX_SCHEDULE,
+    CACHE_PREFIX_UPCOMING,
 )
 from core.utils.cache import cached_api_response, build_cache_key
+from core.services.fuentes_externas import obtener_horario_semanal, obtener_proximos_lanzamientos
 
 
 class AnimeCatalogPagination(PageNumberPagination):
@@ -215,6 +218,36 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         top_animes = Anime.objects.filter(score__isnull=False, scored_by__gte=500).order_by('-score', '-scored_by')[:limit]
         serializer = self.get_serializer(top_animes, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    @cached_api_response(timeout=CACHE_TTL_MEDIUM, prefix=CACHE_PREFIX_SCHEDULE)
+    def schedule(self, request):
+        """
+        Episodios que se emiten en los próximos 7 días (proxy de AniList con caché de 30 min).
+        Cada emisión trae `airing_at` en Unix UTC; el frontend la agrupa por día local.
+        """
+        try:
+            return Response(obtener_horario_semanal())
+        except Exception:
+            return Response(
+                {'detail': 'No se pudo obtener el horario de emisión. Inténtalo más tarde.'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+    @action(detail=False, methods=['get'])
+    @cached_api_response(timeout=CACHE_TTL_LONG, prefix=CACHE_PREFIX_UPCOMING)
+    def upcoming(self, request):
+        """
+        Series nuevas, temporadas y películas que se estrenan en los próximos 90 días
+        (proxy de AniList con caché de 24 h: las fechas de estreno cambian poco).
+        """
+        try:
+            return Response(obtener_proximos_lanzamientos())
+        except Exception:
+            return Response(
+                {'detail': 'No se pudieron obtener los próximos lanzamientos. Inténtalo más tarde.'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
     @action(detail=False, methods=['get'])
     @cached_api_response(timeout=CACHE_TTL_LONG, prefix='genres')

@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { SHOWCASE_ROW_1, SHOWCASE_ROW_2, SHOWCASE_ROW_3, type ShowcaseAnime } from '../../data/showcase-animes'
+import { useHuecoLateral } from '../../hooks/useHuecoLateral'
+import { mezclar } from '../../shared/aleatorio'
 
 // ============================================================
 // Columnas de portadas que suben y bajan en los costados.
@@ -13,34 +15,11 @@ const ANCHO_COLUMNA = 150
 const ANCHO_MINIMO = 100
 const SEPARACION = 16
 
-function mezclar<T>(lista: T[]): T[] {
-    const copia = [...lista]
-    for (let i = copia.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[copia[i], copia[j]] = [copia[j], copia[i]]
-    }
-    return copia
-}
-
 export function LateralesAnime() {
-    const ref = useRef<HTMLDivElement>(null)
-    const [hueco, setHueco] = useState(0) // Píxeles libres entre el borde de la pantalla y el contenido
+    const { ref, hueco } = useHuecoLateral<HTMLDivElement>() // Píxeles libres entre el borde de la pantalla y el contenido
     const [portadas] = useState(() =>
         mezclar([...SHOWCASE_ROW_1, ...SHOWCASE_ROW_2, ...SHOWCASE_ROW_3]).slice(0, MAX_PORTADAS),
     )
-
-    useEffect(() => {
-        const contenedor = ref.current?.parentElement?.querySelector<HTMLElement>(':scope > .container')
-        if (!contenedor) return
-        const medir = () => {
-            const relleno = parseFloat(getComputedStyle(contenedor).paddingLeft)
-            setHueco(contenedor.getBoundingClientRect().left + relleno)
-        }
-        medir()
-        const observador = new ResizeObserver(medir)
-        observador.observe(document.documentElement)
-        return () => observador.disconnect()
-    }, [])
 
     // Dos columnas si caben a buen tamaño; si no, una que se achica hasta ANCHO_MINIMO
     const espacio = hueco - SEPARACION * 2

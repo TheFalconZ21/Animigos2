@@ -4,8 +4,8 @@ import { LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 interface NavbarProps {
-    currentView?: 'landing' | 'catalogo' | 'mi-lista' | 'sala' | 'perfil'
-    onSelectView?: (view: 'landing' | 'catalogo' | 'mi-lista' | 'sala' | 'perfil') => void
+    currentView?: 'landing' | 'catalogo' | 'mi-lista' | 'sala' | 'tablon' | 'calendario' | 'perfil'
+    onSelectView?: (view: 'landing' | 'catalogo' | 'mi-lista' | 'sala' | 'tablon' | 'calendario' | 'perfil') => void
 }
 
 export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) {
@@ -52,6 +52,19 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                     <ul className="nav navbar-nav justify-content-center">
                         <li className="nav-item">
                             <a
+                                className={`nav-link ${currentView === 'tablon' ? 'active' : ''}`}
+                                href="#tablon"
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    window.location.hash = '#tablon'
+                                    onSelectView?.('tablon')
+                                }}
+                            >
+                                Tablón
+                            </a>
+                        </li>
+                        <li className="nav-item">
+                            <a
                                 className={`nav-link ${currentView === 'catalogo' ? 'active' : ''}`}
                                 href="#catalogo"
                                 onClick={(e) => {
@@ -87,6 +100,19 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                                 }}
                             >
                                 Listas Grupales
+                            </a>
+                        </li>
+                        <li className="nav-item">
+                            <a
+                                className={`nav-link ${currentView === 'calendario' ? 'active' : ''}`}
+                                href="#calendario"
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    window.location.hash = '#calendario'
+                                    onSelectView?.('calendario')
+                                }}
+                            >
+                                Calendario
                             </a>
                         </li>
                         <li className="nav-item">

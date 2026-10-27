@@ -4,6 +4,7 @@ URL configuration for Animigos backend.
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from core.views import NewsView
 
 def api_root_view(request):
     return JsonResponse({
@@ -15,6 +16,9 @@ def api_root_view(request):
             "animes": "/api/animes/",
             "top_animes": "/api/animes/top/",
             "studios": "/api/animes/studios/",
+            "schedule": "/api/animes/schedule/",
+            "upcoming": "/api/animes/upcoming/",
+            "news": "/api/news/",
             "groups": "/api/groups/",
             "group_by_code": "/api/groups/by_code/?code=XYZ",
             "users": "/api/users/",
@@ -31,6 +35,7 @@ urlpatterns = [
     path('api/groups/', include('groups.urls')),
     path('api/admin/', include('groups.admin_urls')),
     path('api/users/', include('users.urls')),
+    path('api/news/', NewsView.as_view(), name='news'),
 ]
 
 if settings.DEBUG:

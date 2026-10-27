@@ -6,12 +6,14 @@ import { AdminPortal } from './admin/AdminPortal'
 import { MiLista } from './components/mi-lista/MiLista'
 import { WatchPartyRoom } from './components/watch-party/WatchPartyRoom'
 import { AnimeCatalog } from './components/catalogo/AnimeCatalog'
+import { Tablon } from './components/tablon/Tablon'
+import { Calendario } from './components/calendario/Calendario'
 import { PerfilView } from './components/perfil/PerfilView'
 import { useThemeAccent } from './hooks/useThemeAccent'
 
 function App() {
   useThemeAccent()
-  const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'mi-lista' | 'admin' | 'sala' | 'perfil'>('catalogo')
+  const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'mi-lista' | 'admin' | 'sala' | 'tablon' | 'calendario' | 'perfil'>('catalogo')
 
   // Soporte de navegación por hash (ej: /#catalogo, /#mi-lista, /#admin, /#sala o /#perfil)
   useEffect(() => {
@@ -19,6 +21,10 @@ function App() {
       const hash = window.location.hash
       if (hash === '#mi-lista') {
         setCurrentView('mi-lista')
+      } else if (hash === '#tablon' || hash === '#dashboard') {
+        setCurrentView('tablon')
+      } else if (hash === '#calendario' || hash === '#estrenos') {
+        setCurrentView('calendario')
       } else if (hash === '#admin') {
         setCurrentView('admin')
       } else if (hash === '#sala' || hash === '#votacion' || hash === '#listas' || hash.startsWith('#sala/')) {
@@ -114,6 +120,32 @@ function App() {
             <span>ADMIN CONSOLE (5 Vistas)</span>
           </button>
         </div>
+      </>
+    )
+  }
+
+  // El Tablón: dashboard social (feed de amigos, noticias y salas activas)
+  if (currentView === 'tablon') {
+    return (
+      <>
+        <Navbar currentView="tablon" onSelectView={setCurrentView} />
+        <main>
+          <Tablon />
+        </main>
+        <LoginModal />
+      </>
+    )
+  }
+
+  // Calendario de anime: episodios de la semana y próximos lanzamientos
+  if (currentView === 'calendario') {
+    return (
+      <>
+        <Navbar currentView="calendario" onSelectView={setCurrentView} />
+        <main>
+          <Calendario />
+        </main>
+        <LoginModal />
       </>
     )
   }
