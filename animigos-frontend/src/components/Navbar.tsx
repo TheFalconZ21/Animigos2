@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { NavOverflow } from 'bootstrap'
-import { LogOut } from 'lucide-react'
+import { LogOut, User as UserIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 interface NavbarProps {
@@ -115,26 +115,13 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                                 Calendario
                             </a>
                         </li>
-                        <li className="nav-item">
-                            <a
-                                className={`nav-link ${currentView === 'perfil' ? 'active' : ''}`}
-                                href="#perfil"
-                                onClick={(e) => {
-                                    e.preventDefault()
-                                    window.location.hash = '#perfil'
-                                    onSelectView?.('perfil')
-                                }}
-                            >
-                                Perfil
-                            </a>
-                        </li>
                     </ul>
                 </div>
 
-                {/* Botones de acción a la derecha */}
+                {/* Botones de acción a la derecha: Perfil (logeado) vs Login / Registro (invitado) */}
                 <div className="d-flex align-items-center gap-2">
                     {isAuthenticated && user ? (
-                        <div className="d-flex align-items-center gap-3">
+                        <div className="d-flex align-items-center gap-2">
                             <a
                                 href="#perfil"
                                 onClick={(e) => {
@@ -142,35 +129,57 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                                     window.location.hash = '#perfil'
                                     onSelectView?.('perfil')
                                 }}
-                                className="d-flex align-items-center gap-2 text-decoration-none"
+                                className={`btn btn-sm d-flex align-items-center gap-2 py-1 px-3 rounded-pill text-decoration-none transition-all ${
+                                    currentView === 'perfil'
+                                        ? 'text-white border-0 shadow-sm'
+                                        : 'btn-outline-secondary text-light'
+                                }`}
+                                style={{
+                                    backgroundColor: currentView === 'perfil' ? 'var(--theme-acento, #e8508f)' : 'rgba(255,255,255,0.06)',
+                                    border: currentView === 'perfil' ? 'none' : '1px solid rgba(255,255,255,0.18)',
+                                    color: currentView === 'perfil' ? '#ffffff' : 'var(--bs-light)',
+                                }}
                                 title="Ver tu Perfil"
                             >
-                                <img
-                                    src={user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-                                    alt={user.display_name || user.username}
-                                    className="rounded-circle border"
+                                {user.avatar_url && !user.avatar_url.includes('placeholder') ? (
+                                    <img
+                                        src={user.avatar_url}
+                                        alt={user.display_name || user.username}
+                                        className="rounded-circle"
+                                        style={{
+                                            width: '24px',
+                                            height: '24px',
+                                            objectFit: 'cover',
+                                            border: '1.5px solid rgba(255,255,255,0.4)',
+                                        }}
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none'
+                                        }}
+                                    />
+                                ) : (
+                                    <UserIcon size={16} />
+                                )}
+                                <span
+                                    className="fw-semibold small"
                                     style={{
-                                        width: '32px',
-                                        height: '32px',
-                                        objectFit: 'cover',
-                                        borderColor: currentView === 'perfil' ? 'var(--theme-acento, #e8508f)' : 'rgba(255,255,255,0.15)',
+                                        maxWidth: '150px',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
                                     }}
-                                    onError={(e) => {
-                                        e.currentTarget.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
-                                    }}
-                                />
-                                <span className={`small fw-semibold d-none d-sm-inline ${currentView === 'perfil' ? 'text-white' : 'text-secondary'}`}>
+                                >
                                     {user.display_name || user.username}
                                 </span>
                             </a>
+
                             <button
                                 type="button"
-                                className="btn btn-outline-danger btn-sm px-2 d-flex align-items-center gap-1"
+                                className="btn btn-outline-danger btn-sm p-1.5 rounded-circle d-flex align-items-center justify-content-center"
                                 onClick={() => logout()}
                                 title="Cerrar sesión"
+                                style={{ width: '32px', height: '32px' }}
                             >
                                 <LogOut size={14} />
-                                <span className="d-none d-md-inline small">Salir</span>
                             </button>
                         </div>
                     ) : (
