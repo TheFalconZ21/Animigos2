@@ -31,24 +31,24 @@ interface EditProfileModalProps {
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     open,
     onClose,
-    initialName,
-    initialBio,
-    initialAvatar,
-    initialSocials,
+    initialName = '',
+    initialBio = '',
+    initialAvatar = '',
+    initialSocials = {},
     onSave,
     onOpenAvatarPicker,
 }) => {
-    const [name, setName] = useState(initialName)
-    const [bio, setBio] = useState(initialBio)
-    const [avatarUrl, setAvatarUrl] = useState(initialAvatar)
-    const [socials, setSocials] = useState<SocialLinks>(initialSocials)
+    const [name, setName] = useState(initialName || '')
+    const [bio, setBio] = useState(initialBio || '')
+    const [avatarUrl, setAvatarUrl] = useState(initialAvatar || '')
+    const [socials, setSocials] = useState<SocialLinks>(initialSocials || {})
     const [isSaving, setIsSaving] = useState(false)
 
     useEffect(() => {
-        setAvatarUrl(initialAvatar)
-        setName(initialName)
-        setBio(initialBio)
-        setSocials(initialSocials)
+        setAvatarUrl(initialAvatar || '')
+        setName(initialName || '')
+        setBio(initialBio || '')
+        setSocials(initialSocials || {})
     }, [initialAvatar, initialName, initialBio, initialSocials, open])
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -56,10 +56,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         setIsSaving(true)
         try {
             await onSave({
-                displayName: name.trim(),
-                bio: bio.trim(),
-                avatarUrl: avatarUrl.trim(),
-                socials,
+                displayName: (name || '').trim(),
+                bio: (bio || '').trim(),
+                avatarUrl: (avatarUrl || '').trim(),
+                socials: socials || {},
             })
             onClose()
         } catch (err) {
@@ -188,13 +188,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         className="cat-search-control w-100"
                         rows={3}
                         placeholder="Cuéntale a tus amigos qué animes te gustan o qué estás viendo..."
-                        value={bio}
+                        value={bio || ''}
                         onChange={(e) => setBio(e.target.value)}
                         maxLength={240}
                         style={{ resize: 'none' }}
                     />
                     <div className="text-end small mt-1" style={{ color: 'var(--perfil-text-dim)', fontSize: '0.72rem' }}>
-                        {bio.length}/240 caracteres
+                        {(bio || '').length}/240 caracteres
                     </div>
                 </div>
 

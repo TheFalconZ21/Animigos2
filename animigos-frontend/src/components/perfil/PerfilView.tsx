@@ -37,7 +37,10 @@ export const PerfilView: React.FC = () => {
     const [displayName, setDisplayName] = useState<string>(() => {
         try {
             const saved = localStorage.getItem(STORAGE_PROFILE_KEY)
-            if (saved) return JSON.parse(saved).displayName
+            if (saved) {
+                const parsed = JSON.parse(saved)
+                if (parsed.displayName) return parsed.displayName
+            }
         } catch {}
         return user?.display_name || user?.username || 'Otaku Legendario'
     })
@@ -45,7 +48,10 @@ export const PerfilView: React.FC = () => {
     const [bio, setBio] = useState<string>(() => {
         try {
             const saved = localStorage.getItem(STORAGE_PROFILE_KEY)
-            if (saved) return JSON.parse(saved).bio
+            if (saved) {
+                const parsed = JSON.parse(saved)
+                if (typeof parsed.bio === 'string') return parsed.bio
+            }
         } catch {}
         return user?.bio || 'Coordinando las mejores watch parties de la temporada con mis amigos en Animigos 🍿'
     })
@@ -53,7 +59,10 @@ export const PerfilView: React.FC = () => {
     const [avatarUrl, setAvatarUrl] = useState<string>(() => {
         try {
             const saved = localStorage.getItem(STORAGE_PROFILE_KEY)
-            if (saved) return JSON.parse(saved).avatarUrl
+            if (saved) {
+                const parsed = JSON.parse(saved)
+                if (parsed.avatarUrl) return parsed.avatarUrl
+            }
         } catch {}
         return (
             user?.avatar_url ||
