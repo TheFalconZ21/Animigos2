@@ -16,4 +16,8 @@ urlpatterns = [
     path('my-list/folders/<uuid:folder_id>/', views.user_my_list_folder_detail_view, name='user-my-list-folder-detail'),
     # Catálogo de Avatares Predefinidos
     path('preset-avatars/', views.get_preset_avatars, name='preset-avatars'),
+    # Sistema de Amigos
+    path('me/friends/', views.user_friends_view, name='user-friends'),
+    path('me/friends/<int:friend_id>/', views.user_friends_view, name='user-friend-detail'),
+    path('suggested-friends/', views.suggested_friends_view, name='user-suggested-friends'),
 ]

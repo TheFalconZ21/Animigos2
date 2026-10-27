@@ -86,32 +86,6 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHash)
   }, [isAuthenticated, isAdmin, loading])
 
-  // Switcher flotante para la consola de administración (exclusivo para administradores)
-  const renderAdminFloatingBtn = () => {
-    if (!isAdmin) return null
-    return (
-      <div className="position-fixed bottom-0 end-0 p-3 z-3">
-        <button
-          type="button"
-          onClick={() => {
-            window.location.hash = '#admin'
-            setCurrentView('admin')
-          }}
-          className="admin-btn d-flex align-items-center gap-2 px-3 py-2 text-white shadow"
-          style={{
-            backgroundColor: '#0A0A0A',
-            border: '1px solid #1F1F1F',
-            borderRadius: '8px',
-            fontSize: '0.78rem',
-            fontFamily: 'var(--font-mono)'
-          }}
-        >
-          <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10B981' }}></span>
-          <span>ADMIN CONSOLE (5 Vistas)</span>
-        </button>
-      </div>
-    )
-  }
 
   // 1. Si estamos en modo administración, mostramos el Admin Portal completo
   if (currentView === 'admin' && isAdmin) {
@@ -134,7 +108,6 @@ function App() {
           <WatchPartyRoom />
         </main>
         <LoginModal />
-        {renderAdminFloatingBtn()}
       </>
     )
   }
@@ -149,7 +122,6 @@ function App() {
         </main>
         <LoginModal />
 
-        {renderAdminFloatingBtn()}
       </>
     )
   }
@@ -190,7 +162,6 @@ function App() {
         </main>
         <LoginModal />
 
-        {renderAdminFloatingBtn()}
       </>
     )
   }
@@ -205,7 +176,6 @@ function App() {
         </main>
         <LoginModal />
 
-        {renderAdminFloatingBtn()}
       </>
     )
   }
@@ -270,8 +240,6 @@ function App() {
 
       {/* Modal de Iniciar Sesión / Registro */}
       <LoginModal />
-
-      {renderAdminFloatingBtn()}
     </>
   )
 }

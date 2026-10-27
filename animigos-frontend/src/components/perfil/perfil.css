@@ -867,3 +867,164 @@
     border-color: var(--perfil-acento);
     box-shadow: 0 0 14px var(--perfil-acento-glow);
 }
+
+/* ---------- 8. Refuerzo Visual de Edición (Área Precortada) ---------- */
+.perfil-crop-target-flag {
+    position: absolute;
+    inset: 10px;
+    border: 2px dashed var(--perfil-acento);
+    border-radius: 12px;
+    background: rgba(10, 10, 16, 0.72);
+    backdrop-filter: blur(6px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 5;
+    padding: 1rem;
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5), 0 0 20px color-mix(in srgb, var(--perfil-acento) 20%, transparent);
+}
+
+.perfil-crop-target-flag:hover {
+    background: rgba(12, 12, 20, 0.88);
+    border-color: #ffffff;
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6), 0 0 35px color-mix(in srgb, var(--perfil-acento) 45%, transparent);
+    transform: scale(0.996);
+}
+
+.perfil-crop-target-avatar {
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2.5px dashed var(--perfil-acento);
+    background: rgba(10, 10, 16, 0.78);
+    backdrop-filter: blur(4px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 5;
+    box-shadow: 0 0 22px color-mix(in srgb, var(--perfil-acento) 35%, transparent);
+}
+
+.perfil-crop-target-avatar:hover {
+    background: rgba(14, 14, 24, 0.92);
+    border-color: #ffffff;
+    transform: scale(1.05);
+    box-shadow: 0 0 30px color-mix(in srgb, var(--perfil-acento) 55%, transparent);
+}
+
+/* Esquinas de recorte (Crop Corner Marks ⌜ ⌝ ⌞ ⌟) */
+.perfil-crop-corner {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-color: var(--perfil-acento);
+    border-style: solid;
+    pointer-events: none;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.perfil-crop-target-flag:hover .perfil-crop-corner {
+    border-color: #ffffff;
+}
+
+.perfil-crop-tl {
+    top: -2px;
+    left: -2px;
+    border-width: 3.5px 0 0 3.5px;
+    border-top-left-radius: 4px;
+}
+
+.perfil-crop-tr {
+    top: -2px;
+    right: -2px;
+    border-width: 3.5px 3.5px 0 0;
+    border-top-right-radius: 4px;
+}
+
+.perfil-crop-bl {
+    bottom: -2px;
+    left: -2px;
+    border-width: 0 0 3.5px 3.5px;
+    border-bottom-left-radius: 4px;
+}
+
+.perfil-crop-br {
+    bottom: -2px;
+    right: -2px;
+    border-width: 0 3.5px 3.5px 0;
+    border-bottom-right-radius: 4px;
+}
+
+/* Refuerzo para laterales en modo edición */
+.perfil-crop-target-lateral {
+    position: fixed;
+    top: 90px;
+    bottom: 30px;
+    width: clamp(70px, calc((100vw - 1260px) / 2), 220px);
+    border: 2px dashed var(--perfil-acento);
+    background: rgba(14, 14, 20, 0.65);
+    backdrop-filter: blur(8px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    z-index: 99;
+    padding: 1.25rem 0.5rem;
+    transition: all 0.25s ease;
+    box-shadow: 0 0 25px color-mix(in srgb, var(--perfil-acento) 25%, transparent);
+}
+
+.perfil-crop-target-lateral:hover {
+    background: rgba(16, 16, 26, 0.88);
+    border-color: #ffffff;
+    box-shadow: 0 0 40px color-mix(in srgb, var(--perfil-acento) 45%, transparent);
+}
+
+.perfil-crop-target-lateral-left {
+    left: 12px;
+    border-radius: 14px 0 0 14px;
+}
+
+.perfil-crop-target-lateral-right {
+    right: 12px;
+    border-radius: 0 14px 14px 0;
+}
+
+.perfil-crop-lateral-mobile-btn {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    background: rgba(16, 16, 24, 0.95);
+    backdrop-filter: blur(12px);
+    border: 2px dashed var(--perfil-acento);
+    color: #ffffff;
+    padding: 0.55rem 1.25rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8), 0 0 20px color-mix(in srgb, var(--perfil-acento) 35%, transparent);
+    transition: all 0.2s ease;
+}
+
+.perfil-crop-lateral-mobile-btn:hover {
+    background: var(--perfil-card-2);
+    border-color: #ffffff;
+    transform: translateX(-50%) scale(1.03);
+}
+

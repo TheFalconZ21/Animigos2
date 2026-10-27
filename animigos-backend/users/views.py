@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from django.conf import settings
 from animes.models import Anime
-from .models import Profile, UserPreferences, UserAnimeFolder, UserAnimeEntry
+from .models import Profile, UserPreferences, UserAnimeFolder, UserAnimeEntry, Friendship
 from .serializers import (
     ProfileSerializer,
     UserPreferencesSerializer,
@@ -591,5 +591,105 @@ def get_preset_avatars(request):
         'total_avatars': sum(c.get('count', 0) for c in filtered_categories),
         'categories': filtered_categories
     })
+
+
+@api_view(['GET', 'POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def user_friends_view(request, friend_id=None):
+    """
+    Gestiona la lista de amigos del usuario autenticado:
+    - GET: Obtiene la lista completa de amigos con su avatar, nombre y estadísticas.
+    - POST: Agrega un nuevo amigo mediante su username o correo electrónico.
+    - DELETE: Elimina a un amigo por su ID de usuario.
+    """
+    user = request.user
+
+    if request.method == 'GET':
+        friendships = Friendship.objects.filter(user=user).select_related('friend', 'friend__profile')
+        friends_data = []
+        for f in friendships:
+            fr = f.friend
+            prof = getattr(fr, 'profile', None)
+            anime_count = UserAnimeEntry.objects.filter(user=fr).count()
+            friends_data.append({
+                'id': fr.id,
+                'username': fr.username,
+                'display_name': (prof and prof.display_name) or fr.first_name or fr.username,
+                'avatar_url': (prof and prof.avatar_url) or '',
+                'bio': (prof and prof.bio) or '',
+                'anime_count': anime_count,
+                'created_at': f.created_at.isoformat(),
+            })
+        return Response({'friends': friends_data, 'total': len(friends_data)})
+
+    elif request.method == 'POST':
+        query = request.data.get('username_or_email') or request.data.get('username') or request.data.get('email')
+        if not query or not str(query).strip():
+            return Response({'error': 'Debes ingresar un nombre de usuario o correo electrónico.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        clean_query = str(query).strip()
+        if '@' in clean_query:
+            target_user = User.objects.filter(email__iexact=clean_query).first()
+        else:
+            clean_uname = clean_query.lstrip('@')
+            target_user = User.objects.filter(username__iexact=clean_uname).first()
+
+        if not target_user:
+            return Response({'error': f'No se encontró ningún usuario con "{clean_query}".'}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user.id == user.id:
+            return Response({'error': 'No puedes agregarte a ti mismo como amigo.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Crear amistad bidireccional
+        Friendship.objects.get_or_create(user=user, friend=target_user)
+        Friendship.objects.get_or_create(user=target_user, friend=user)
+
+        prof = getattr(target_user, 'profile', None)
+        return Response({
+            'message': f'¡Ahora eres amigo de {prof.display_name if prof else target_user.username}!',
+            'friend': {
+                'id': target_user.id,
+                'username': target_user.username,
+                'display_name': (prof and prof.display_name) or target_user.first_name or target_user.username,
+                'avatar_url': (prof and prof.avatar_url) or '',
+                'bio': (prof and prof.bio) or '',
+                'anime_count': UserAnimeEntry.objects.filter(user=target_user).count(),
+            }
+        }, status=status.HTTP_201_CREATED)
+
+    elif request.method == 'DELETE':
+        target_id = friend_id or request.data.get('friend_id')
+        if not target_id:
+            return Response({'error': 'ID de amigo requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        Friendship.objects.filter(user=user, friend_id=target_id).delete()
+        Friendship.objects.filter(user_id=target_id, friend=user).delete()
+        return Response({'message': 'Amigo eliminado correctamente'}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def suggested_friends_view(request):
+    """
+    Retorna usuarios registrados en la comunidad que aún no son amigos del usuario autenticado.
+    """
+    user = request.user
+    existing_friend_ids = set(Friendship.objects.filter(user=user).values_list('friend_id', flat=True))
+    existing_friend_ids.add(user.id)
+
+    candidates = User.objects.exclude(id__in=existing_friend_ids).select_related('profile')[:10]
+    results = []
+    for c in candidates:
+        prof = getattr(c, 'profile', None)
+        results.append({
+            'id': c.id,
+            'username': c.username,
+            'display_name': (prof and prof.display_name) or c.first_name or c.username,
+            'avatar_url': (prof and prof.avatar_url) or '',
+            'bio': (prof and prof.bio) or '',
+            'anime_count': UserAnimeEntry.objects.filter(user=c).count(),
+        })
+    return Response({'suggested': results})
+
 
 

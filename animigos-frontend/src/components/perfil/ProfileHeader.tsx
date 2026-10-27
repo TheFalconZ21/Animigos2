@@ -2,17 +2,12 @@ import React from 'react'
 import {
     Camera,
     Pencil,
-    Shield,
     Settings,
     Calendar,
     Sparkles,
-    Flag,
-    Image as ImageIcon,
-    Palette,
-    X,
+    Check,
 } from 'lucide-react'
 import type { SocialLinks, PrivacyConfig } from './perfil-types'
-import { OPCIONES_ACENTO } from '../../hooks/useThemeAccent'
 
 interface ProfileHeaderProps {
     displayName: string
@@ -23,15 +18,11 @@ interface ProfileHeaderProps {
     memberSince: string
     socials: SocialLinks
     privacy: PrivacyConfig
-    onOpenEditModal: () => void
-    onOpenPrivacyModal: () => void
+    onOpenConfigModal: () => void
     onChangeAvatarClick: () => void
     onOpenFlagModal: () => void
-    onOpenLateralModal: () => void
     isVisualEditOpen: boolean
     onToggleVisualEdit: () => void
-    acentoModo: string
-    onChangeAcentoModo: (nuevo: string) => void
     isCurrentUser?: boolean
 }
 
@@ -44,21 +35,17 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     memberSince,
     socials,
     privacy,
-    onOpenEditModal,
-    onOpenPrivacyModal,
+    onOpenConfigModal,
     onChangeAvatarClick,
     onOpenFlagModal,
-    onOpenLateralModal,
     isVisualEditOpen,
     onToggleVisualEdit,
-    acentoModo,
-    onChangeAcentoModo,
     isCurrentUser = true,
 }) => {
     return (
         <div className="perfil-header-card">
             {/* Banner superior con imagen tipo Flag */}
-            <div className="perfil-banner-bg">
+            <div className="perfil-banner-bg position-relative">
                 <img
                     src={flagUrl}
                     alt="Flag del Perfil"
@@ -69,17 +56,34 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 />
                 <div className="perfil-banner-overlay" />
 
-                {/* Modificación de Flag: habilitada únicamente cuando el modo lápiz está activo */}
+                {/* Refuerzo visual de edición tipo área precortada sobre el banner flag */}
                 {isCurrentUser && isVisualEditOpen && (
-                    <button
-                        type="button"
+                    <div
                         onClick={onOpenFlagModal}
-                        className="perfil-flag-btn animate-fade-in"
-                        title="Modificar imagen flag del perfil"
+                        className="perfil-crop-target-flag animate-fade-in"
+                        role="button"
+                        tabIndex={0}
+                        title="Haz clic para subir un archivo o elegir una imagen de la biblioteca para el banner flag"
                     >
-                        <Pencil size={13} style={{ color: 'var(--perfil-acento)' }} />
-                        <span>Modificar Flag</span>
-                    </button>
+                        <div className="perfil-crop-corner perfil-crop-tl" />
+                        <div className="perfil-crop-corner perfil-crop-tr" />
+                        <div className="perfil-crop-corner perfil-crop-bl" />
+                        <div className="perfil-crop-corner perfil-crop-br" />
+
+                        <Camera size={26} style={{ color: 'var(--perfil-acento)' }} />
+                        <div className="text-center">
+                            <div className="fw-bold text-white small">Banner Flag del Perfil</div>
+                            <div className="text-secondary small mt-0.5" style={{ fontSize: '0.74rem' }}>
+                                Haz clic aquí para subir un archivo nuevo o elegir de la biblioteca
+                            </div>
+                        </div>
+                        <span
+                            className="badge rounded-pill px-3 py-1 text-dark"
+                            style={{ background: 'var(--perfil-acento)', fontWeight: 700, fontSize: '0.72rem' }}
+                        >
+                            Subir o Elegir Imagen
+                        </span>
+                    </div>
                 )}
 
                 <div className="position-absolute bottom-0 end-0 p-3 d-flex align-items-center gap-2">
@@ -92,9 +96,9 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             {/* Cuerpo de la cabecera */}
             <div className="perfil-header-body">
                 <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3">
-                    {/* Identidad: Avatar circular con botón flotante */}
+                    {/* Identidad: Avatar circular */}
                     <div className="d-flex flex-column flex-sm-row align-items-sm-end gap-3.5">
-                        <div className="perfil-avatar-wrapper">
+                        <div className="perfil-avatar-wrapper position-relative">
                             <img
                                 src={avatarUrl}
                                 alt={displayName}
@@ -104,17 +108,24 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                                         'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
                                 }}
                             />
-                            {/* Modificación de Foto de Perfil: habilitada únicamente cuando el modo lápiz está activo */}
+
+                            {/* Refuerzo visual precortado para la foto de perfil en modo edición */}
                             {isCurrentUser && isVisualEditOpen && (
-                                <button
-                                    type="button"
+                                <div
                                     onClick={onChangeAvatarClick}
-                                    className="perfil-avatar-btn animate-fade-in"
-                                    title="Modificar foto de perfil"
-                                    aria-label="Modificar foto de perfil"
+                                    className="perfil-crop-target-avatar animate-fade-in"
+                                    role="button"
+                                    tabIndex={0}
+                                    title="Haz clic para modificar la foto de perfil (subir archivo o elegir del catálogo)"
                                 >
-                                    <Pencil size={14} />
-                                </button>
+                                    <Camera size={22} style={{ color: 'var(--perfil-acento)' }} />
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#ffffff', textAlign: 'center', lineHeight: 1.1 }}>
+                                        Cambiar<br />Avatar
+                                    </span>
+                                    <span className="small text-secondary" style={{ fontSize: '0.64rem' }}>
+                                        Subir / Elegir
+                                    </span>
+                                </div>
                             )}
                         </div>
 
@@ -195,44 +206,10 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                         </div>
                     </div>
 
-                    {/* Botones de Acción y Configuración de Usuario */}
+                    {/* Botones de Acción en Cabecera: Únicamente Editar (lápiz) y Configuración */}
                     {isCurrentUser && (
                         <div className="d-flex flex-wrap align-items-center gap-2 pt-2 pt-md-0">
-                            {/* Selector de color / acento de la plataforma */}
-                            <div
-                                className="d-flex align-items-center gap-1.5 px-2 py-1 rounded-3"
-                                style={{
-                                    background: 'var(--perfil-card-2)',
-                                    border: '1px solid var(--perfil-border)',
-                                }}
-                                title="Selector de color de la plataforma"
-                            >
-                                <Palette size={14} style={{ color: 'var(--perfil-acento)' }} />
-                                <select
-                                    className="ml-select border-0 p-0 text-white"
-                                    value={acentoModo}
-                                    onChange={(e) => onChangeAcentoModo(e.target.value)}
-                                    aria-label="Color de acento de la plataforma"
-                                    style={{
-                                        fontSize: '0.8rem',
-                                        background: 'transparent',
-                                        cursor: 'pointer',
-                                        outline: 'none',
-                                    }}
-                                >
-                                    {OPCIONES_ACENTO.map((a) => (
-                                        <option
-                                            key={a.id}
-                                            value={a.id}
-                                            style={{ background: '#18181f', color: '#ffffff' }}
-                                        >
-                                            Acento: {a.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Icono con un lápiz: Habilita la modificación de foto de perfil, imagen flag e imagen de los laterales */}
+                            {/* Icono con un lápiz: Habilita/Deshabilita la modificación visual (refuerzo de área precortada) */}
                             <button
                                 type="button"
                                 onClick={onToggleVisualEdit}
@@ -250,97 +227,26 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                                         : 'Habilitar modificación de foto de perfil, imagen flag e imagen de los laterales'
                                 }
                             >
-                                <Pencil size={14} />
-                                <span>{isVisualEditOpen ? 'Modo Edición Activo' : 'Personalizar Visuales'}</span>
+                                {isVisualEditOpen ? <Check size={14} /> : <Pencil size={14} />}
+                                <span>{isVisualEditOpen ? 'Finalizar Edición' : 'Editar'}</span>
                             </button>
 
+                            {/* Botón Configuración: Abre el modal con Paleta de Colores, Perfil y Privacidad */}
                             <button
                                 type="button"
-                                onClick={onOpenEditModal}
+                                onClick={onOpenConfigModal}
                                 className="ml-btn ml-btn-fantasma ml-btn-sm d-inline-flex align-items-center gap-1.5 border"
                                 style={{ borderColor: 'var(--perfil-border)', background: 'var(--perfil-card-2)' }}
+                                title="Configuración de Cuenta, Paleta y Privacidad"
                             >
                                 <Settings size={14} />
-                                <span>Editar Perfil</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={onOpenPrivacyModal}
-                                className="ml-btn ml-btn-fantasma ml-btn-sm d-inline-flex align-items-center gap-1.5 border"
-                                style={{ borderColor: 'var(--perfil-border)', background: 'var(--perfil-card-2)' }}
-                                title="Configuración de Privacidad"
-                            >
-                                <Shield size={14} />
-                                <span>Privacidad</span>
+                                <span>Configuración</span>
                             </button>
                         </div>
                     )}
                 </div>
-
-                {/* Barra interactiva de modificación visual (desplegada al activar el icono con lápiz) */}
-                {isCurrentUser && isVisualEditOpen && (
-                    <div
-                        className="perfil-visual-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2 p-2.5 px-3 rounded-3 mt-3 border animate-fade-in"
-                        style={{
-                            background: 'rgba(24, 24, 31, 0.95)',
-                            backdropFilter: 'blur(10px)',
-                            borderColor: 'var(--perfil-acento)',
-                            boxShadow: '0 4px 20px color-mix(in srgb, var(--perfil-acento) 22%, transparent)',
-                        }}
-                    >
-                        <div className="d-flex align-items-center gap-2">
-                            <Pencil size={15} style={{ color: 'var(--perfil-acento)' }} />
-                            <span className="small fw-semibold text-white">
-                                Modificación visual habilitada: Selecciona qué deseas cambiar
-                            </span>
-                        </div>
-                        <div className="d-flex flex-wrap align-items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={onChangeAvatarClick}
-                                className="ml-btn ml-btn-sm d-inline-flex align-items-center gap-1.5"
-                                style={{ background: 'var(--perfil-card)', fontSize: '0.78rem' }}
-                                title="Modificar foto de perfil"
-                            >
-                                <Camera size={13} style={{ color: 'var(--perfil-acento)' }} />
-                                <span>Foto de Perfil</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={onOpenFlagModal}
-                                className="ml-btn ml-btn-sm d-inline-flex align-items-center gap-1.5"
-                                style={{ background: 'var(--perfil-card)', fontSize: '0.78rem' }}
-                                title="Modificar imagen flag del perfil"
-                            >
-                                <Flag size={13} style={{ color: 'var(--perfil-acento)' }} />
-                                <span>Imagen Flag</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={onOpenLateralModal}
-                                className="ml-btn ml-btn-sm d-inline-flex align-items-center gap-1.5"
-                                style={{ background: 'var(--perfil-card)', fontSize: '0.78rem' }}
-                                title="Modificar fondos laterales (GIF o imagen)"
-                            >
-                                <ImageIcon size={13} style={{ color: 'var(--perfil-acento)' }} />
-                                <span>Imagen Laterales</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={onToggleVisualEdit}
-                                className="ml-btn ml-btn-fantasma ml-btn-sm py-1 px-2 text-secondary"
-                                title="Cerrar barra de modificación visual"
-                            >
-                                <X size={14} />
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     )
 }
+

@@ -10,8 +10,8 @@ import { TasteTestBanner } from './TasteTestBanner'
 import { TasteTestModal } from './TasteTestModal'
 import { AnimeStatsDashboard } from './AnimeStatsDashboard'
 import { CommentsWall } from './CommentsWall'
-import { EditProfileModal } from './EditProfileModal'
-import { PrivacySettingsModal } from './PrivacySettingsModal'
+import { ProfileSettingsModal } from './ProfileSettingsModal'
+import { UserFriendsSection } from './UserFriendsSection'
 import { AvatarPickerModal } from './AvatarPickerModal'
 import type {
     SocialLinks,
@@ -29,7 +29,7 @@ const getStorageFlagKey = (uid?: number | string) => `animigos_user_flag_banner_
 const getStorageLateralKey = (uid?: number | string) => `animigos_user_lateral_wallpaper_${uid ?? 'guest'}`
 
 export const PerfilView: React.FC = () => {
-    const { acento, acentoModo, setAcentoModo } = useThemeAccent()
+    const { acento } = useThemeAccent()
     const { user, refreshUser } = useAuth()
     const { filas, actualizar } = useMyList()
 
@@ -141,9 +141,8 @@ export const PerfilView: React.FC = () => {
     }, [user])
 
     // Modales
-    const [editModalOpen, setEditModalOpen] = useState(false)
+    const [configModalOpen, setConfigModalOpen] = useState(false)
     const [avatarModalOpen, setAvatarModalOpen] = useState(false)
-    const [privacyModalOpen, setPrivacyModalOpen] = useState(false)
     const [tasteModalOpen, setTasteModalOpen] = useState(false)
     const [flagModalOpen, setFlagModalOpen] = useState(false)
 
@@ -300,19 +299,18 @@ export const PerfilView: React.FC = () => {
                     }
                     socials={socials}
                     privacy={privacy}
-                    onOpenEditModal={() => setEditModalOpen(true)}
-                    onOpenPrivacyModal={() => setPrivacyModalOpen(true)}
+                    onOpenConfigModal={() => setConfigModalOpen(true)}
                     onChangeAvatarClick={() => setAvatarModalOpen(true)}
                     onOpenFlagModal={() => setFlagModalOpen(true)}
-                    onOpenLateralModal={() => setLateralModalOpen(true)}
                     isVisualEditOpen={isVisualEditOpen}
                     onToggleVisualEdit={() => setIsVisualEditOpen((prev) => !prev)}
-                    acentoModo={acentoModo}
-                    onChangeAcentoModo={setAcentoModo}
                     isCurrentUser={true}
                 />
 
-                {/* 3. Tarjeta Destacada: Test de Gustos (Profesor Doki Doki) */}
+                {/* 3. Sección de Amigos del Usuario */}
+                <UserFriendsSection currentUserUsername={user?.username} />
+
+                {/* 4. Tarjeta Destacada: Test de Gustos (Profesor Doki Doki) */}
                 <TasteTestBanner
                     answers={tasteAnswers}
                     onOpenWizard={() => setTasteModalOpen(true)}
@@ -342,15 +340,17 @@ export const PerfilView: React.FC = () => {
                 />
             </div>
 
-            {/* Modales Interactivos */}
-            <EditProfileModal
-                open={editModalOpen}
-                onClose={() => setEditModalOpen(false)}
+            {/* Modal de Configuración Unificado (Paleta/Acento, Perfil y Privacidad) */}
+            <ProfileSettingsModal
+                open={configModalOpen}
+                onClose={() => setConfigModalOpen(false)}
                 initialName={displayName}
                 initialBio={bio}
                 initialAvatar={avatarUrl}
                 initialSocials={socials}
-                onSave={handleSaveProfile}
+                initialPrivacy={privacy}
+                onSaveProfile={handleSaveProfile}
+                onSavePrivacy={handleSavePrivacy}
                 onOpenAvatarPicker={() => setAvatarModalOpen(true)}
             />
 
@@ -366,13 +366,6 @@ export const PerfilView: React.FC = () => {
                 onClose={() => setFlagModalOpen(false)}
                 currentFlagUrl={flagUrl}
                 onSaveFlag={handleSaveFlag}
-            />
-
-            <PrivacySettingsModal
-                open={privacyModalOpen}
-                onClose={() => setPrivacyModalOpen(false)}
-                initialConfig={privacy}
-                onSave={handleSavePrivacy}
             />
 
             <TasteTestModal

@@ -109,17 +109,74 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
                 </>
             )}
 
-            {/* Botón flotante para personalizar laterales (visible únicamente si el modo de edición visual está habilitado) */}
+            {/* Refuerzo visual precortado para laterales (visible en modo edición) */}
             {isEditMode && (
-                <button
-                    type="button"
-                    onClick={() => setModalOpen(true)}
-                    className="perfil-lateral-control-btn animate-fade-in"
-                    title="Personalizar Imagen o GIF de fondo lateral"
-                >
-                    <ImageIcon size={14} style={{ color: 'var(--perfil-acento)' }} />
-                    <span>Laterales (GIF / Imagen)</span>
-                </button>
+                <>
+                    {/* Lateral Izquierdo: Área precortada interactiva */}
+                    <div
+                        className="perfil-crop-target-lateral perfil-crop-target-lateral-left d-none d-xxl-flex animate-fade-in"
+                        onClick={() => setModalOpen(true)}
+                        role="button"
+                        tabIndex={0}
+                        title="Haz clic para personalizar el fondo lateral izquierdo (GIF o Imagen)"
+                    >
+                        <div className="perfil-crop-corner perfil-crop-tl" />
+                        <div className="perfil-crop-corner perfil-crop-tr" />
+                        <div className="perfil-crop-corner perfil-crop-bl" />
+                        <div className="perfil-crop-corner perfil-crop-br" />
+                        <ImageIcon size={24} style={{ color: 'var(--perfil-acento)' }} />
+                        <span
+                            className="small fw-bold text-white text-center"
+                            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: '1px' }}
+                        >
+                            Fondo Lateral Izquierdo
+                        </span>
+                        <span
+                            className="badge rounded-pill text-dark px-2 py-1 mt-auto"
+                            style={{ background: 'var(--perfil-acento)', fontSize: '0.68rem', fontWeight: 700 }}
+                        >
+                            Subir GIF / Imagen
+                        </span>
+                    </div>
+
+                    {/* Lateral Derecho: Área precortada interactiva */}
+                    <div
+                        className="perfil-crop-target-lateral perfil-crop-target-lateral-right d-none d-xxl-flex animate-fade-in"
+                        onClick={() => setModalOpen(true)}
+                        role="button"
+                        tabIndex={0}
+                        title="Haz clic para personalizar el fondo lateral derecho (GIF o Imagen)"
+                    >
+                        <div className="perfil-crop-corner perfil-crop-tl" />
+                        <div className="perfil-crop-corner perfil-crop-tr" />
+                        <div className="perfil-crop-corner perfil-crop-bl" />
+                        <div className="perfil-crop-corner perfil-crop-br" />
+                        <ImageIcon size={24} style={{ color: 'var(--perfil-acento)' }} />
+                        <span
+                            className="small fw-bold text-white text-center"
+                            style={{ writingMode: 'vertical-rl', letterSpacing: '1px' }}
+                        >
+                            Fondo Lateral Derecho
+                        </span>
+                        <span
+                            className="badge rounded-pill text-dark px-2 py-1 mt-auto"
+                            style={{ background: 'var(--perfil-acento)', fontSize: '0.68rem', fontWeight: 700 }}
+                        >
+                            Subir GIF / Imagen
+                        </span>
+                    </div>
+
+                    {/* Botón flotante para pantallas pequeñas / móviles */}
+                    <button
+                        type="button"
+                        onClick={() => setModalOpen(true)}
+                        className="perfil-crop-lateral-mobile-btn d-xxl-none animate-fade-in"
+                        title="Personalizar Imagen o GIF de fondo lateral"
+                    >
+                        <Sliders size={16} style={{ color: 'var(--perfil-acento)' }} />
+                        <span>Laterales (GIF / Imagen) · Haz clic para personalizar</span>
+                    </button>
+                </>
             )}
 
             {/* Modal de Configuración de Laterales */}
