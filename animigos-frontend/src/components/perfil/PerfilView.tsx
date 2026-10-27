@@ -3,26 +3,37 @@ import { useAuth } from '../../context/AuthContext'
 import { useMyList } from '../../hooks/useMyList'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
 import { updateUserProfile } from '../../services/authApi'
-import { LateralesAnime } from '../mi-lista/LateralesAnime'
+import { getAnimeRecommendationsFromMovies } from '../../services/tmdbService'
 import { ProfileHeader } from './ProfileHeader'
+import { FlagPickerModal, FLAG_PRESETS } from './FlagPickerModal'
+import { LateralCustomWallpaper } from './LateralCustomWallpaper'
 import { TasteTestBanner } from './TasteTestBanner'
 import { TasteTestModal } from './TasteTestModal'
+import { TmdbCrossRecommendations } from './TmdbCrossRecommendations'
 import { AnimeStatsDashboard } from './AnimeStatsDashboard'
 import { CommentsWall } from './CommentsWall'
 import { EditProfileModal } from './EditProfileModal'
 import { PrivacySettingsModal } from './PrivacySettingsModal'
-import type { SocialLinks, PrivacyConfig, TasteTestAnswers } from './perfil-types'
+import type {
+    SocialLinks,
+    PrivacyConfig,
+    TasteTestAnswers,
+    LateralWallpaperConfig,
+    TmdbAnimeRecommendation,
+} from './perfil-types'
 import '../mi-lista/mi-lista.css'
 import './perfil.css'
 
 const STORAGE_PROFILE_KEY = 'animigos_user_custom_profile'
 const STORAGE_PRIVACY_KEY = 'animigos_user_privacy_config'
 const STORAGE_TASTE_KEY = 'animigos_user_taste_test'
+const STORAGE_FLAG_KEY = 'animigos_user_flag_banner'
+const STORAGE_LATERAL_KEY = 'animigos_user_lateral_wallpaper'
 
 export const PerfilView: React.FC = () => {
     const { acento } = useThemeAccent()
     const { user, refreshUser } = useAuth()
-    const { filas, actualizar } = useMyList()
+    const { filas, actualizar, agregarAnime } = useMyList()
 
     // 1. Datos de perfil reactivos
     const [displayName, setDisplayName] = useState<string>(() => {
@@ -65,7 +76,29 @@ export const PerfilView: React.FC = () => {
         }
     })
 
-    // 2. Configuración de Privacidad
+    // 2. Imagen tipo Flag de la card superior
+    const [flagUrl, setFlagUrl] = useState<string>(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_FLAG_KEY)
+            if (saved) return saved
+        } catch {}
+        return FLAG_PRESETS[0].url
+    })
+
+    // 3. Fondo Lateral Personalizado (GIF o Imagen)
+    const [lateralConfig, setLateralConfig] = useState<LateralWallpaperConfig>(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_LATERAL_KEY)
+            if (saved) return JSON.parse(saved)
+        } catch {}
+        return {
+            imageUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=800&auto=format&fit=crop&q=80',
+            opacity: 45,
+            enabled: true,
+        }
+    })
+
+    // 4. Configuración de Privacidad
     const [privacy, setPrivacy] = useState<PrivacyConfig>(() => {
         try {
             const saved = localStorage.getItem(STORAGE_PRIVACY_KEY)
@@ -78,7 +111,7 @@ export const PerfilView: React.FC = () => {
         }
     })
 
-    // 3. Test de Gustos (Recomendador IA)
+    // 5. Test de Gustos (Recomendador IA con TMDB)
     const [tasteAnswers, setTasteAnswers] = useState<TasteTestAnswers>(() => {
         try {
             const saved = localStorage.getItem(STORAGE_TASTE_KEY)
@@ -90,23 +123,56 @@ export const PerfilView: React.FC = () => {
             dislikedGenres: ['Horror'],
             pacing: 'fast_12',
             contentFilters: ['no_fanservice', 'conclusive_ending'],
-            calibratedPercentage: 85,
+            favoriteMovies: [
+                {
+                    id: 27205,
+                    title: 'El Origen (Inception)',
+                    originalTitle: 'Inception',
+                    releaseYear: '2010',
+                    posterPath: 'https://image.tmdb.org/t/p/w500/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg',
+                    genres: ['Ciencia ficción', 'Misterio', 'Acción'],
+                    overview: 'Un ladrón que roba secretos corporativos mediante tecnología de compartir sueños.',
+                },
+                {
+                    id: 335984,
+                    title: 'Blade Runner 2049',
+                    originalTitle: 'Blade Runner 2049',
+                    releaseYear: '2017',
+                    posterPath: 'https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg',
+                    genres: ['Ciencia ficción', 'Drama', 'Misterio'],
+                    overview: 'Un blade runner descubre un secreto que podría sumergir a la sociedad en el caos.',
+                },
+            ],
+            calibratedPercentage: 90,
         }
     })
 
-    // Sincronizar si cambia el usuario de la sesión
+    // 6. Recomendaciones del Cruce TMDB x Anime
+    const [tmdbRecommendations, setTmdbRecommendations] = useState<TmdbAnimeRecommendation[]>([])
+    const [addedAnimeIds, setAddedAnimeIds] = useState<number[]>([])
+
+    // Cargar recomendaciones de cruce cuando cambian las películas
     useEffect(() => {
-        if (user) {
-            if (user.display_name) setDisplayName(user.display_name)
-            if (user.avatar_url) setAvatarUrl(user.avatar_url)
-            if (user.bio) setBio(user.bio)
+        let isMounted = true
+        const fetchRecoms = async () => {
+            if (tasteAnswers.favoriteMovies && tasteAnswers.favoriteMovies.length > 0) {
+                const recs = await getAnimeRecommendationsFromMovies(tasteAnswers.favoriteMovies)
+                if (isMounted && recs.length > 0) {
+                    setTmdbRecommendations(recs)
+                }
+            }
         }
-    }, [user])
+        fetchRecoms()
+        return () => {
+            isMounted = false
+        }
+    }, [tasteAnswers.favoriteMovies])
 
     // Modales
     const [editModalOpen, setEditModalOpen] = useState(false)
     const [privacyModalOpen, setPrivacyModalOpen] = useState(false)
     const [tasteModalOpen, setTasteModalOpen] = useState(false)
+    const [flagModalOpen, setFlagModalOpen] = useState(false)
 
     // Guardar Perfil
     const handleSaveProfile = async (data: {
@@ -120,7 +186,6 @@ export const PerfilView: React.FC = () => {
         setAvatarUrl(data.avatarUrl)
         setSocials(data.socials)
 
-        // Persistencia local inmediata
         localStorage.setItem(
             STORAGE_PROFILE_KEY,
             JSON.stringify({
@@ -131,7 +196,6 @@ export const PerfilView: React.FC = () => {
             })
         )
 
-        // Si está autenticado, sincronizar con Django BFF
         if (user) {
             try {
                 await updateUserProfile({
@@ -146,12 +210,23 @@ export const PerfilView: React.FC = () => {
         }
     }
 
+    // Guardar Flag
+    const handleSaveFlag = (newUrl: string) => {
+        setFlagUrl(newUrl)
+        localStorage.setItem(STORAGE_FLAG_KEY, newUrl)
+    }
+
+    // Guardar Configuración de Fondo Lateral
+    const handleSaveLateralConfig = (newConfig: LateralWallpaperConfig) => {
+        setLateralConfig(newConfig)
+        localStorage.setItem(STORAGE_LATERAL_KEY, JSON.stringify(newConfig))
+    }
+
     // Guardar Privacidad
     const handleSavePrivacy = async (newConfig: PrivacyConfig) => {
         setPrivacy(newConfig)
         localStorage.setItem(STORAGE_PRIVACY_KEY, JSON.stringify(newConfig))
 
-        // Si está autenticado, enviar a preferences
         if (user) {
             try {
                 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
@@ -174,7 +249,12 @@ export const PerfilView: React.FC = () => {
         setTasteAnswers(answers)
         localStorage.setItem(STORAGE_TASTE_KEY, JSON.stringify(answers))
 
-        // Sincronizar con backend si está autenticado
+        // Actualizar recomendaciones cruzadas con las nuevas películas
+        if (answers.favoriteMovies && answers.favoriteMovies.length > 0) {
+            const recs = await getAnimeRecommendationsFromMovies(answers.favoriteMovies)
+            setTmdbRecommendations(recs)
+        }
+
         if (user) {
             try {
                 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
@@ -195,36 +275,79 @@ export const PerfilView: React.FC = () => {
         }
     }
 
+    // Agregar anime recomendado a Mi Lista
+    const handleAddAnimeToList = async (animeId: number) => {
+        const target = tmdbRecommendations.find((r) => r.animeId === animeId)
+        if (!target) return
+
+        try {
+            await agregarAnime({
+                malId: animeId,
+                estado: 'pendiente',
+                nota: null,
+                episodiosVistos: 0,
+                favorito: false,
+                tags: ['Cruce TMDB', target.matchedMovie],
+                comentario: `Recomendado por afinidad con ${target.matchedMovie}`,
+            })
+            setAddedAnimeIds((prev) => [...prev, animeId])
+        } catch (err) {
+            console.error('Error al agregar anime:', err)
+        }
+    }
+
     return (
         <section
             className="ml-root perfil-root py-4 px-3 px-md-4"
             style={{ '--ml-acento': acento, '--perfil-acento': acento } as CSSProperties}
         >
-            <LateralesAnime />
+            {/* 1. Fondo Lateral Personalizado (GIF o Imagen) que flanquea el contenido */}
+            <LateralCustomWallpaper
+                config={lateralConfig}
+                onChangeConfig={handleSaveLateralConfig}
+            />
 
-            <div className="container" style={{ maxWidth: '1240px' }}>
-                {/* 1. Cabecera de Perfil */}
+            <div className="container position-relative z-1" style={{ maxWidth: '1240px' }}>
+                {/* 2. Cabecera de Perfil con Imagen tipo Flag */}
                 <ProfileHeader
                     displayName={displayName}
                     username={user?.username || 'otaku_master'}
                     avatarUrl={avatarUrl}
+                    flagUrl={flagUrl}
                     bio={bio}
-                    memberSince={user?.created_at ? new Date(user.created_at).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }) : 'Enero 2024'}
+                    memberSince={
+                        user?.created_at
+                            ? new Date(user.created_at).toLocaleDateString('es-ES', {
+                                  month: 'short',
+                                  year: 'numeric',
+                              })
+                            : 'Enero 2024'
+                    }
                     socials={socials}
                     privacy={privacy}
                     onOpenEditModal={() => setEditModalOpen(true)}
                     onOpenPrivacyModal={() => setPrivacyModalOpen(true)}
                     onChangeAvatarClick={() => setEditModalOpen(true)}
+                    onOpenFlagModal={() => setFlagModalOpen(true)}
                     isCurrentUser={true}
                 />
 
-                {/* 2. Tarjeta Destacada: Test de Gustos (Recomendador IA) */}
+                {/* 3. Tarjeta Destacada: Test de Gustos (Recomendador IA) */}
                 <TasteTestBanner
                     answers={tasteAnswers}
                     onOpenWizard={() => setTasteModalOpen(true)}
                 />
 
-                {/* 3. Dashboard de Estadísticas de Anime */}
+                {/* 4. Cruce de Películas de Cine (TMDB) x Animigos */}
+                <TmdbCrossRecommendations
+                    favoriteMovies={tasteAnswers.favoriteMovies || []}
+                    recommendations={tmdbRecommendations}
+                    addedAnimeIds={addedAnimeIds}
+                    onAddAnimeToList={handleAddAnimeToList}
+                    onOpenWizard={() => setTasteModalOpen(true)}
+                />
+
+                {/* 5. Dashboard de Estadísticas de Anime */}
                 <AnimeStatsDashboard
                     filas={filas}
                     showStats={privacy.showStats}
@@ -236,7 +359,7 @@ export const PerfilView: React.FC = () => {
                     }}
                 />
 
-                {/* 4. Muro de Comentarios y Actividad Social */}
+                {/* 6. Muro de Comentarios y Actividad Social */}
                 <CommentsWall
                     currentUser={{
                         id: user?.id || 'current_user',
@@ -257,6 +380,13 @@ export const PerfilView: React.FC = () => {
                 initialAvatar={avatarUrl}
                 initialSocials={socials}
                 onSave={handleSaveProfile}
+            />
+
+            <FlagPickerModal
+                open={flagModalOpen}
+                onClose={() => setFlagModalOpen(false)}
+                currentFlagUrl={flagUrl}
+                onSaveFlag={handleSaveFlag}
             />
 
             <PrivacySettingsModal

@@ -273,3 +273,26 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = AnimeScoreHistorySerializer(history_qs, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'], url_path='tmdb-search')
+    def tmdb_search(self, request):
+        """
+        Busca películas en TMDB extrayendo sus géneros y sinopsis.
+        Pilar 4.1 de AGENTS.md: Proxy backend seguro.
+        """
+        from .tmdb_service import search_tmdb_movies
+        q = request.query_params.get('q', '')
+        results = search_tmdb_movies(q)
+        return Response(results)
+
+    @action(detail=False, methods=['post'], url_path='tmdb-recommendations')
+    def tmdb_recommendations(self, request):
+        """
+        Cruza las películas de TMDB ingresadas por el usuario con el catálogo
+        de animes de Animigos para generar recomendaciones de alta afinidad.
+        """
+        from .tmdb_service import cross_reference_tmdb_movies_with_anime
+        movies = request.data.get('movies', [])
+        recoms = cross_reference_tmdb_movies_with_anime(movies)
+        return Response(recoms)
+
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
     Check,
     ChevronLeft,
@@ -7,9 +7,15 @@ import {
     ThumbsDown,
     ThumbsUp,
     Zap,
+    Clapperboard,
+    Search,
+    Plus,
+    X,
+    Loader2,
 } from 'lucide-react'
 import { Dialogo } from '../mi-lista/piezas'
-import type { TasteTestAnswers } from './perfil-types'
+import { searchTmdbMovies } from '../../services/tmdbService'
+import type { TasteTestAnswers, TmdbMovie } from './perfil-types'
 
 const TROPES_OPTIONS = [
     { id: 'power_scaling', title: 'Torneo & Escalamiento de Poder', desc: 'Entrenamientos, técnicas secretas y superación.' },
@@ -64,6 +70,64 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
     const [pacing, setPacing] = useState<string>(initialAnswers?.pacing || 'fast_12')
     const [contentFilters, setContentFilters] = useState<string[]>(initialAnswers?.contentFilters || ['no_fanservice', 'conclusive_ending'])
 
+    // Películas TMDB
+    const [favoriteMovies, setFavoriteMovies] = useState<TmdbMovie[]>(initialAnswers?.favoriteMovies || [
+        {
+            id: 27205,
+            title: 'El Origen (Inception)',
+            originalTitle: 'Inception',
+            releaseYear: '2010',
+            posterPath: 'https://image.tmdb.org/t/p/w500/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg',
+            genres: ['Ciencia ficción', 'Misterio', 'Acción'],
+            overview: 'Un ladrón que roba secretos corporativos mediante tecnología de compartir sueños.',
+        },
+        {
+            id: 335984,
+            title: 'Blade Runner 2049',
+            originalTitle: 'Blade Runner 2049',
+            releaseYear: '2017',
+            posterPath: 'https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg',
+            genres: ['Ciencia ficción', 'Drama', 'Misterio'],
+            overview: 'Un blade runner descubre un secreto que podría sumergir a la sociedad en el caos.',
+        },
+    ])
+
+    const [movieSearchQuery, setMovieSearchQuery] = useState('')
+    const [movieSearchResults, setMovieSearchResults] = useState<TmdbMovie[]>([])
+    const [isSearchingMovies, setIsSearchingMovies] = useState(false)
+
+    // Búsqueda en TMDB con debounce
+    useEffect(() => {
+        if (!movieSearchQuery.trim()) {
+            setMovieSearchResults([])
+            return
+        }
+
+        const timer = setTimeout(async () => {
+            setIsSearchingMovies(true)
+            try {
+                const results = await searchTmdbMovies(movieSearchQuery)
+                setMovieSearchResults(results)
+            } finally {
+                setIsSearchingMovies(false)
+            }
+        }, 250)
+
+        return () => clearTimeout(timer)
+    }, [movieSearchQuery])
+
+    const addMovie = (movie: TmdbMovie) => {
+        if (!favoriteMovies.some((m) => m.id === movie.id)) {
+            setFavoriteMovies([...favoriteMovies, movie])
+        }
+        setMovieSearchQuery('')
+        setMovieSearchResults([])
+    }
+
+    const removeMovie = (movieId: number) => {
+        setFavoriteMovies(favoriteMovies.filter((m) => m.id !== movieId))
+    }
+
     const toggleTrope = (id: string) => {
         setSelectedTropes((prev) =>
             prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
@@ -99,6 +163,7 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                 dislikedGenres,
                 pacing,
                 contentFilters,
+                favoriteMovies,
                 calibratedPercentage: 100,
             })
             onClose()
@@ -111,22 +176,22 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
     }
 
     return (
-        <Dialogo abierto={open} onCerrar={onClose} etiqueta="Test de Preferencias Anime IA" ancho={620}>
+        <Dialogo abierto={open} onCerrar={onClose} etiqueta="Test de Preferencias Anime e IA (TMDB)" ancho={640}>
             <div className="p-4 d-flex flex-column gap-3">
                 {/* Cabecera del Wizard */}
                 <div className="d-flex align-items-center justify-content-between border-bottom pb-3" style={{ borderColor: 'var(--perfil-border)' }}>
                     <div>
                         <div className="d-flex align-items-center gap-1.5 mb-1">
                             <Sparkles size={14} style={{ color: 'var(--perfil-acento)' }} />
-                            <span className="ml-eyebrow">RECOMENDADOR IA · CALIBRACIÓN</span>
+                            <span className="ml-eyebrow">RECOMENDADOR NEURONAL · TMDB x ANIMIGOS</span>
                         </div>
-                        <h3 className="h5 fw-bold text-white mb-0">Test de Preferencias</h3>
+                        <h3 className="h5 fw-bold text-white mb-0">Calibrador de Gustos</h3>
                     </div>
 
                     <div className="d-flex align-items-center gap-2">
-                        <span className="small text-white fw-semibold">Paso {step} de 4</span>
+                        <span className="small text-white fw-semibold">Paso {step} de 5</span>
                         <div className="d-flex gap-1">
-                            {[1, 2, 3, 4].map((i) => (
+                            {[1, 2, 3, 4, 5].map((i) => (
                                 <div
                                     key={i}
                                     style={{
@@ -145,9 +210,9 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                 {/* PASO 1: TROPOS Y ARQUETIPOS */}
                 {step === 1 && (
                     <div className="py-2">
-                        <h4 className="h6 fw-bold text-white mb-1">¿Qué tropos y dinámicas te enganchan más?</h4>
+                        <h4 className="h6 fw-bold text-white mb-1">1. ¿Qué tropos y dinámicas te enganchan más?</h4>
                         <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
-                            Selecciona los arquetipos narrativos que hacen que no puedas soltar un anime.
+                            Selecciona los arquetipos narrativos que hacen que no puedas soltar una historia.
                         </p>
                         <div className="row g-2">
                             {TROPES_OPTIONS.map((t) => {
@@ -190,9 +255,9 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                 {/* PASO 2: GÉNEROS FAVORITOS & VETADOS */}
                 {step === 2 && (
                     <div className="py-2">
-                        <h4 className="h6 fw-bold text-white mb-1">Géneros Favoritos y Filtros de Descarte</h4>
+                        <h4 className="h6 fw-bold text-white mb-1">2. Géneros Favoritos y Filtros de Descarte</h4>
                         <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
-                            Indica qué géneros amas (<ThumbsUp size={12} className="text-success" />) y cuáles prefieres evitar por completo (<ThumbsDown size={12} className="text-danger" />).
+                            Indica qué géneros amas (<ThumbsUp size={12} className="text-success" />) y cuáles prefieres evitar (<ThumbsDown size={12} className="text-danger" />).
                         </p>
 
                         <div className="mb-3">
@@ -249,10 +314,128 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                     </div>
                 )}
 
-                {/* PASO 3: RITMO NARRATIVO & FORMATO */}
+                {/* PASO 3: PELÍCULAS FAVORITAS DE CINE (TMDB) */}
                 {step === 3 && (
                     <div className="py-2">
-                        <h4 className="h6 fw-bold text-white mb-1">Ritmo Narrativo y Duración Ideal</h4>
+                        <div className="d-flex align-items-center gap-2 mb-1">
+                            <Clapperboard size={16} style={{ color: 'var(--perfil-cyan)' }} />
+                            <h4 className="h6 fw-bold text-white mb-0">3. Películas Favoritas de Cine (Cruce TMDB)</h4>
+                        </div>
+                        <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
+                            Extraemos automáticamente los géneros, temas y sinopsis de <strong>The Movie Database (TMDB)</strong> para cruzarlos con el catálogo de anime y darte recomendaciones perfectas.
+                        </p>
+
+                        {/* Buscador de Películas TMDB */}
+                        <div className="position-relative mb-3">
+                            <div className="d-flex align-items-center position-relative">
+                                <Search size={15} className="position-absolute start-0 ms-3 text-secondary" />
+                                <input
+                                    type="text"
+                                    className="cat-search-control w-100 ps-5"
+                                    placeholder="Buscar película en TMDB (ej: Inception, Interstellar, Blade Runner, Dune...)"
+                                    value={movieSearchQuery}
+                                    onChange={(e) => setMovieSearchQuery(e.target.value)}
+                                />
+                                {isSearchingMovies && (
+                                    <Loader2 size={16} className="position-absolute end-0 me-3 text-secondary" style={{ animation: 'spin 1s linear infinite' }} />
+                                )}
+                            </div>
+
+                            {/* Dropdown de resultados de búsqueda */}
+                            {movieSearchResults.length > 0 && (
+                                <div
+                                    className="position-absolute start-0 end-0 mt-1 rounded-3 border shadow-lg overflow-hidden z-3"
+                                    style={{
+                                        background: 'var(--perfil-card)',
+                                        borderColor: 'var(--perfil-border-strong)',
+                                        maxHeight: '220px',
+                                        overflowY: 'auto',
+                                    }}
+                                >
+                                    {movieSearchResults.map((movie) => (
+                                        <div
+                                            key={movie.id}
+                                            onClick={() => addMovie(movie)}
+                                            className="p-2 d-flex align-items-center gap-2.5 border-bottom border-dark"
+                                            style={{ cursor: 'pointer', transition: 'background-color 0.15s ease' }}
+                                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--perfil-card-2)')}
+                                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                        >
+                                            <img
+                                                src={movie.posterPath || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500'}
+                                                alt=""
+                                                className="rounded"
+                                                style={{ width: 34, height: 48, objectFit: 'cover' }}
+                                            />
+                                            <div className="flex-grow-1 min-w-0">
+                                                <div className="small fw-bold text-white text-truncate">
+                                                    {movie.title} {movie.releaseYear && `(${movie.releaseYear})`}
+                                                </div>
+                                                <div className="small text-secondary text-truncate" style={{ fontSize: '0.72rem' }}>
+                                                    {movie.genres.join(', ') || movie.overview}
+                                                </div>
+                                            </div>
+                                            <Plus size={16} className="text-secondary" />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Lista de películas seleccionadas */}
+                        <div>
+                            <span className="small text-secondary fw-semibold d-block mb-2">
+                                TUS PELÍCULAS REGISTRADAS PARA EL CRUCE ({favoriteMovies.length}):
+                            </span>
+
+                            {favoriteMovies.length === 0 ? (
+                                <div className="p-3 rounded-2 text-center small text-secondary border border-dashed border-secondary-subtle">
+                                    Agrega al menos una película para cruzarla con los animes de la plataforma.
+                                </div>
+                            ) : (
+                                <div className="d-flex flex-column gap-2" style={{ maxHeight: 220, overflowY: 'auto' }}>
+                                    {favoriteMovies.map((movie) => (
+                                        <div
+                                            key={movie.id}
+                                            className="p-2 rounded-3 border d-flex align-items-center justify-content-between gap-2"
+                                            style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}
+                                        >
+                                            <div className="d-flex align-items-center gap-2.5 min-w-0">
+                                                <img
+                                                    src={movie.posterPath || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500'}
+                                                    alt=""
+                                                    className="rounded"
+                                                    style={{ width: 32, height: 44, objectFit: 'cover' }}
+                                                />
+                                                <div className="min-w-0">
+                                                    <div className="small fw-bold text-white text-truncate">
+                                                        {movie.title} {movie.releaseYear && `(${movie.releaseYear})`}
+                                                    </div>
+                                                    <div className="small text-secondary text-truncate" style={{ fontSize: '0.72rem' }}>
+                                                        TMDB: {movie.genres.join(', ')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeMovie(movie.id)}
+                                                className="btn btn-link text-secondary p-1"
+                                                title="Eliminar película"
+                                            >
+                                                <X size={15} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* PASO 4: RITMO NARRATIVO & FORMATO */}
+                {step === 4 && (
+                    <div className="py-2">
+                        <h4 className="h6 fw-bold text-white mb-1">4. Ritmo Narrativo y Duración Ideal</h4>
                         <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
                             El recomendador priorizará series con la cadencia de capítulos que mejor se adapte a tu rutina.
                         </p>
@@ -290,10 +473,10 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                     </div>
                 )}
 
-                {/* PASO 4: FILTROS DE CONTENIDO Y REGLAS */}
-                {step === 4 && (
+                {/* PASO 5: FILTROS DE CONTENIDO Y REGLAS */}
+                {step === 5 && (
                     <div className="py-2">
-                        <h4 className="h6 fw-bold text-white mb-1">Filtros de Calidad y Preferencias Finales</h4>
+                        <h4 className="h6 fw-bold text-white mb-1">5. Filtros de Calidad y Preferencias Finales</h4>
                         <p className="small mb-3" style={{ color: 'var(--perfil-text-muted)' }}>
                             Ajusta los últimos filtros de contenido para garantizar recomendaciones 100% afinadas.
                         </p>
@@ -340,7 +523,7 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                         <div />
                     )}
 
-                    {step < 4 ? (
+                    {step < 5 ? (
                         <button
                             type="button"
                             onClick={() => setStep(step + 1)}
@@ -357,7 +540,7 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                             className="ml-btn ml-btn-acento ml-btn-sm"
                         >
                             <Sparkles size={15} />
-                            <span>{isSaving ? 'Calibrando Algoritmo...' : 'Guardar y Calibrar IA al 100%'}</span>
+                            <span>{isSaving ? 'Cruzando TMDB x Anime...' : 'Guardar y Calibrar IA al 100%'}</span>
                         </button>
                     )}
                 </div>

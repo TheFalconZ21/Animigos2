@@ -6,6 +6,7 @@ import {
     Settings,
     Calendar,
     Sparkles,
+    Flag,
 } from 'lucide-react'
 import type { SocialLinks, PrivacyConfig } from './perfil-types'
 
@@ -13,6 +14,7 @@ interface ProfileHeaderProps {
     displayName: string
     username: string
     avatarUrl: string
+    flagUrl: string
     bio: string
     memberSince: string
     socials: SocialLinks
@@ -20,6 +22,7 @@ interface ProfileHeaderProps {
     onOpenEditModal: () => void
     onOpenPrivacyModal: () => void
     onChangeAvatarClick: () => void
+    onOpenFlagModal: () => void
     isCurrentUser?: boolean
 }
 
@@ -27,6 +30,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     displayName,
     username,
     avatarUrl,
+    flagUrl,
     bio,
     memberSince,
     socials,
@@ -34,14 +38,36 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     onOpenEditModal,
     onOpenPrivacyModal,
     onChangeAvatarClick,
+    onOpenFlagModal,
     isCurrentUser = true,
 }) => {
     return (
         <div className="perfil-header-card">
-            {/* Banner superior estilizado con mesh sutil */}
+            {/* Banner superior con imagen tipo Flag */}
             <div className="perfil-banner-bg">
+                <img
+                    src={flagUrl}
+                    alt="Flag del Perfil"
+                    className="perfil-banner-flag-img"
+                    onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1200'
+                    }}
+                />
                 <div className="perfil-banner-overlay" />
-                <div className="position-absolute top-0 end-0 p-3 d-flex align-items-center gap-2">
+
+                {isCurrentUser && (
+                    <button
+                        type="button"
+                        onClick={onOpenFlagModal}
+                        className="perfil-flag-btn"
+                        title="Cambiar imagen flag del perfil"
+                    >
+                        <Flag size={13} style={{ color: 'var(--perfil-acento)' }} />
+                        <span>Cambiar Flag</span>
+                    </button>
+                )}
+
+                <div className="position-absolute bottom-0 end-0 p-3 d-flex align-items-center gap-2">
                     <span className="ml-lomo d-none d-md-flex" lang="ja" aria-hidden="true" style={{ height: 110 }}>
                         プロフィール
                     </span>

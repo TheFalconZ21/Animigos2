@@ -11,13 +11,48 @@ export interface PrivacyConfig {
     allowComments: 'everyone' | 'friends' | 'none'
 }
 
+export interface TmdbMovie {
+    id: number
+    title: string
+    originalTitle?: string
+    releaseYear?: string | number
+    posterPath?: string
+    genres: string[]
+    overview: string
+    voteAverage?: number
+}
+
+export interface TmdbAnimeRecommendation {
+    animeId: number
+    animeTitle: string
+    animePoster: string
+    animeScore: number
+    animeStudio?: string
+    genres: string[]
+    matchedMovie: string
+    matchReason: string
+    affinityScore: number
+}
+
 export interface TasteTestAnswers {
     tropes: string[]
     favoriteGenres: string[]
     dislikedGenres: string[]
     pacing: string
     contentFilters: string[]
+    favoriteMovies: TmdbMovie[]
     calibratedPercentage: number
+}
+
+export interface LateralWallpaperConfig {
+    imageUrl: string
+    opacity: number
+    enabled: boolean
+}
+
+export interface FlagBannerConfig {
+    imageUrl: string
+    title?: string
 }
 
 export interface ProfileComment {

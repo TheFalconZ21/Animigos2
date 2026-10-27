@@ -1,20 +1,20 @@
 /* ============================================================
    ANIMIGOS — MÓDULO PERFIL DE USUARIO
    Hereda estrictamente el Design System de "Mi Lista":
-   - Fondo casi negro profundo (#0b0c10 / #080808)
-   - Tarjetas elevadas (#15161c / #1a1b23) con bordes finos (#262833 / rgba(255,255,255,0.06))
+   - Fondo casi negro puro (#080808)
+   - Tarjetas elevadas (#101014 / #14151b) con bordes finos (#262833 / rgba(255,255,255,0.06))
    - Acento dinámico sincronizado con Mi Lista: var(--perfil-acento)
-   - Rosa neón (#f43f5e) y cian (#38bdf8) complementarios
-   - Estética cyberpunk sutil y tipografía limpia
+   - Banners tipo flag personalizables y laterales con GIF / imagen propia
+   - Cruce inteligente de películas TMDB con la base de datos de anime
    ============================================================ */
 
 .perfil-root {
-    --perfil-bg: #0b0c10;
-    --perfil-card: #15161c;
-    --perfil-card-2: #1a1b23;
-    --perfil-card-hover: #1f202b;
-    --perfil-border: rgba(255, 255, 255, 0.07);
-    --perfil-border-strong: rgba(255, 255, 255, 0.14);
+    --perfil-bg: #080808;
+    --perfil-card: #101014;
+    --perfil-card-2: #15161d;
+    --perfil-card-hover: #191b24;
+    --perfil-border: rgba(255, 255, 255, 0.06);
+    --perfil-border-strong: rgba(255, 255, 255, 0.12);
     --perfil-text: #f4f4f5;
     --perfil-text-muted: #9ca3af;
     --perfil-text-dim: #71717a;
@@ -36,11 +36,84 @@
 
     background-color: var(--perfil-bg);
     color: var(--perfil-text-muted);
-    min-height: 92vh;
-    padding-bottom: 4rem;
+    min-height: 94vh;
+    padding-bottom: 5rem;
+    position: relative;
 }
 
-/* ---------- 1. Cabecera del Perfil ---------- */
+/* ---------- Fondos Laterales Personalizables (GIF / Imagen) ---------- */
+.perfil-lateral-art {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: clamp(80px, calc((100vw - 1240px) / 2), 360px);
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+    display: none;
+}
+
+@media (min-width: 1380px) {
+    .perfil-lateral-art {
+        display: block;
+    }
+}
+
+.perfil-lateral-left {
+    left: 0;
+}
+
+.perfil-lateral-right {
+    right: 0;
+}
+
+.perfil-lateral-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    transition: opacity 0.3s ease;
+}
+
+.perfil-lateral-left .perfil-lateral-img {
+    mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.85) 30%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.85) 30%, transparent 100%);
+}
+
+.perfil-lateral-right .perfil-lateral-img {
+    mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.85) 30%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.85) 30%, transparent 100%);
+}
+
+.perfil-lateral-control-btn {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    z-index: 10;
+    background: rgba(16, 16, 20, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--perfil-border-strong);
+    color: #ffffff;
+    font-size: 0.76rem;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 0.45rem 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    transition: all 0.2s ease;
+}
+
+.perfil-lateral-control-btn:hover {
+    background: var(--perfil-card-2);
+    border-color: var(--perfil-acento);
+    color: var(--perfil-acento);
+    transform: translateY(-2px);
+}
+
+/* ---------- 1. Cabecera del Perfil con Imagen tipo Flag ---------- */
 .perfil-header-card {
     background: var(--perfil-card);
     border: 1px solid var(--perfil-border);
@@ -48,29 +121,64 @@
     position: relative;
     overflow: hidden;
     margin-bottom: 1.75rem;
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6);
 }
 
 .perfil-banner-bg {
-    height: 140px;
-    background: linear-gradient(135deg, rgba(21, 22, 28, 0.95), rgba(11, 12, 16, 0.98)),
-                radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--perfil-acento) 28%, transparent), transparent 60%),
-                radial-gradient(circle at 20% 80%, rgba(244, 63, 94, 0.18), transparent 50%);
+    height: 180px;
     position: relative;
+    overflow: hidden;
+    background: #0a0a0f;
     border-bottom: 1px solid var(--perfil-border);
+}
+
+.perfil-banner-flag-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    filter: brightness(0.78);
+    transition: transform 0.4s ease, filter 0.4s ease;
+}
+
+.perfil-header-card:hover .perfil-banner-flag-img {
+    filter: brightness(0.88);
+    transform: scale(1.015);
 }
 
 .perfil-banner-overlay {
     position: absolute;
     inset: 0;
-    background: repeating-linear-gradient(
-        0deg,
-        rgba(255, 255, 255, 0.015) 0px,
-        rgba(255, 255, 255, 0.015) 1px,
-        transparent 1px,
-        transparent 4px
-    );
+    background: linear-gradient(180deg, rgba(8, 8, 8, 0.15) 0%, rgba(8, 8, 8, 0.85) 100%),
+                repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0px, rgba(255, 255, 255, 0.012) 1px, transparent 1px, transparent 4px);
     pointer-events: none;
+}
+
+.perfil-flag-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(16, 16, 20, 0.75);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    z-index: 2;
+}
+
+.perfil-flag-btn:hover {
+    background: var(--perfil-acento);
+    color: #080808;
+    border-color: var(--perfil-acento);
+    transform: translateY(-1px);
 }
 
 .perfil-header-body {
@@ -92,7 +200,7 @@
     border-radius: 50%;
     object-fit: cover;
     border: 3.5px solid var(--perfil-card);
-    box-shadow: 0 0 24px var(--perfil-acento-glow), 0 8px 20px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 24px var(--perfil-acento-glow), 0 8px 24px rgba(0, 0, 0, 0.7);
     background-color: var(--perfil-card-2);
 }
 
@@ -159,14 +267,14 @@
 
 /* ---------- 2. Tarjeta Destacada: Test de Gustos (Recomendador IA) ---------- */
 .perfil-taste-card {
-    background: linear-gradient(135deg, rgba(26, 27, 35, 0.95), rgba(21, 22, 28, 0.98));
+    background: linear-gradient(135deg, rgba(20, 21, 28, 0.98), rgba(16, 16, 21, 0.99));
     border: 1px solid var(--perfil-acento-border);
     border-radius: var(--perfil-radius);
     padding: 1.5rem 1.75rem;
     position: relative;
     overflow: hidden;
     margin-bottom: 2rem;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 20px var(--perfil-acento-glow);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45), 0 0 24px var(--perfil-acento-glow);
 }
 
 .perfil-taste-card::before {
@@ -174,8 +282,8 @@
     position: absolute;
     top: -50px;
     right: -50px;
-    width: 180px;
-    height: 180px;
+    width: 200px;
+    height: 200px;
     border-radius: 50%;
     background: radial-gradient(circle, var(--perfil-acento-glow), transparent 70%);
     pointer-events: none;
@@ -211,7 +319,72 @@
     gap: 0.3rem;
 }
 
-/* ---------- 3. Dashboard de Estadísticas ---------- */
+/* ---------- 3. Cruce de Películas TMDB y Recomendaciones ---------- */
+.perfil-tmdb-section {
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    border-radius: var(--perfil-radius);
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 2rem;
+}
+
+.perfil-tmdb-movie-card {
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    border-radius: 12px;
+    padding: 0.75rem;
+    display: flex;
+    gap: 0.85rem;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.perfil-tmdb-movie-card:hover {
+    border-color: var(--perfil-border-strong);
+    background: var(--perfil-card-hover);
+}
+
+.perfil-tmdb-movie-poster {
+    width: 60px;
+    height: 88px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--perfil-border);
+    flex-shrink: 0;
+}
+
+.perfil-recommendation-card {
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    border-radius: 14px;
+    padding: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+    height: 100%;
+}
+
+.perfil-recommendation-card:hover {
+    border-color: var(--perfil-acento-border);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px var(--perfil-acento-glow);
+}
+
+.perfil-affinity-badge {
+    background: color-mix(in srgb, var(--perfil-acento) 15%, transparent);
+    border: 1px solid var(--perfil-acento-border);
+    color: var(--perfil-acento);
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+/* ---------- 4. Dashboard de Estadísticas ---------- */
 .perfil-metric-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -386,7 +559,7 @@
     position: absolute;
     top: 6px;
     left: 6px;
-    background: rgba(11, 12, 16, 0.85);
+    background: rgba(8, 8, 8, 0.85);
     backdrop-filter: blur(4px);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 6px;
@@ -401,7 +574,7 @@
     position: absolute;
     bottom: 6px;
     right: 6px;
-    background: rgba(11, 12, 16, 0.9);
+    background: rgba(8, 8, 8, 0.9);
     backdrop-filter: blur(4px);
     border: 1px solid var(--perfil-amber);
     border-radius: 6px;
@@ -426,7 +599,7 @@
     font-size: 0.7rem;
 }
 
-/* ---------- 4. Muro de Comentarios & Editor ---------- */
+/* ---------- 5. Muro de Comentarios & Editor ---------- */
 .perfil-comments-card {
     background: var(--perfil-card);
     border: 1px solid var(--perfil-border);
@@ -453,7 +626,7 @@
     align-items: center;
     gap: 0.25rem;
     padding: 0.5rem 0.75rem;
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.25);
     border-bottom: 1px solid var(--perfil-border);
 }
 
@@ -527,7 +700,7 @@
     justify-content: space-between;
     padding: 0.5rem 1rem;
     border-top: 1px solid var(--perfil-border);
-    background: rgba(0, 0, 0, 0.15);
+    background: rgba(0, 0, 0, 0.2);
 }
 
 /* Lista de Comentarios */
@@ -545,7 +718,7 @@
 }
 
 .perfil-spoiler-box {
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.6);
     border: 1px dashed var(--perfil-pink);
     border-radius: 8px;
     padding: 0.6rem 0.9rem;
@@ -554,13 +727,7 @@
     transition: all 0.2s ease;
 }
 
-.perfil-spoiler-blur {
-    filter: blur(5px);
-    user-select: none;
-    pointer-events: none;
-}
-
-/* ---------- 5. Toggles y Switches Pill (Privacidad) ---------- */
+/* ---------- 6. Toggles y Switches Pill (Privacidad) ---------- */
 .perfil-switch-wrap {
     display: flex;
     align-items: center;
@@ -605,11 +772,7 @@
     transform: translateX(20px);
 }
 
-/* ---------- 6. Wizard Test de Gustos (Modal) ---------- */
-.perfil-wizard-step {
-    padding: 1.5rem;
-}
-
+/* ---------- 7. Wizard Test de Gustos (Modal) ---------- */
 .perfil-trope-card {
     background: var(--perfil-card-2);
     border: 1px solid var(--perfil-border);
