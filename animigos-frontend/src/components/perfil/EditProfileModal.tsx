@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Check, Image as ImageIcon, Link as LinkIcon, User } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Check, Image as ImageIcon, Link as LinkIcon, User, Sparkles } from 'lucide-react'
 import { Dialogo } from '../mi-lista/piezas'
 import type { SocialLinks } from './perfil-types'
 
@@ -25,6 +25,7 @@ interface EditProfileModalProps {
         avatarUrl: string
         socials: SocialLinks
     }) => Promise<void>
+    onOpenAvatarPicker?: () => void
 }
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
@@ -35,12 +36,20 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     initialAvatar,
     initialSocials,
     onSave,
+    onOpenAvatarPicker,
 }) => {
     const [name, setName] = useState(initialName)
     const [bio, setBio] = useState(initialBio)
     const [avatarUrl, setAvatarUrl] = useState(initialAvatar)
     const [socials, setSocials] = useState<SocialLinks>(initialSocials)
     const [isSaving, setIsSaving] = useState(false)
+
+    useEffect(() => {
+        setAvatarUrl(initialAvatar)
+        setName(initialName)
+        setBio(initialBio)
+        setSocials(initialSocials)
+    }, [initialAvatar, initialName, initialBio, initialSocials, open])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -104,7 +113,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         </div>
                     </div>
 
-                    <div className="d-flex flex-wrap gap-2 pt-1">
+                    <div className="d-flex flex-wrap gap-2 pt-1 mb-2">
                         {PRESET_AVATARS.map((p) => (
                             <button
                                 key={p.label}
@@ -132,6 +141,27 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                             </button>
                         ))}
                     </div>
+
+                    {onOpenAvatarPicker && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onClose()
+                                onOpenAvatarPicker()
+                            }}
+                            className="btn btn-sm w-100 d-flex align-items-center justify-content-center gap-2 py-1.5 rounded-3 border"
+                            style={{
+                                backgroundColor: 'rgba(167, 139, 250, 0.12)',
+                                borderColor: 'var(--perfil-acento)',
+                                color: 'var(--perfil-acento)',
+                                fontSize: '0.78rem',
+                                fontWeight: 600,
+                            }}
+                        >
+                            <Sparkles size={14} />
+                            <span>Explorar Catálogo Oficial (+800 Avatares de Anime)</span>
+                        </button>
+                    )}
                 </div>
 
                 {/* Nombre para mostrar */}

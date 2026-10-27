@@ -12,6 +12,7 @@ import { AnimeStatsDashboard } from './AnimeStatsDashboard'
 import { CommentsWall } from './CommentsWall'
 import { EditProfileModal } from './EditProfileModal'
 import { PrivacySettingsModal } from './PrivacySettingsModal'
+import { AvatarPickerModal } from './AvatarPickerModal'
 import type {
     SocialLinks,
     PrivacyConfig,
@@ -147,9 +148,32 @@ export const PerfilView: React.FC = () => {
 
     // Modales
     const [editModalOpen, setEditModalOpen] = useState(false)
+    const [avatarModalOpen, setAvatarModalOpen] = useState(false)
     const [privacyModalOpen, setPrivacyModalOpen] = useState(false)
     const [tasteModalOpen, setTasteModalOpen] = useState(false)
     const [flagModalOpen, setFlagModalOpen] = useState(false)
+
+    // Seleccionar y guardar Avatar directamente
+    const handleSelectAvatar = async (newUrl: string) => {
+        setAvatarUrl(newUrl)
+        try {
+            const saved = localStorage.getItem(STORAGE_PROFILE_KEY)
+            const parsed = saved ? JSON.parse(saved) : {}
+            localStorage.setItem(
+                STORAGE_PROFILE_KEY,
+                JSON.stringify({ ...parsed, avatarUrl: newUrl })
+            )
+        } catch {}
+
+        if (user) {
+            try {
+                await updateUserProfile({ avatar_url: newUrl })
+                await refreshUser()
+            } catch (e) {
+                console.error('Error sincronizando avatar con el backend:', e)
+            }
+        }
+    }
 
     // Guardar Perfil
     const handleSaveProfile = async (data: {
@@ -277,7 +301,7 @@ export const PerfilView: React.FC = () => {
                     privacy={privacy}
                     onOpenEditModal={() => setEditModalOpen(true)}
                     onOpenPrivacyModal={() => setPrivacyModalOpen(true)}
-                    onChangeAvatarClick={() => setEditModalOpen(true)}
+                    onChangeAvatarClick={() => setAvatarModalOpen(true)}
                     onOpenFlagModal={() => setFlagModalOpen(true)}
                     isCurrentUser={true}
                 />
@@ -321,6 +345,14 @@ export const PerfilView: React.FC = () => {
                 initialAvatar={avatarUrl}
                 initialSocials={socials}
                 onSave={handleSaveProfile}
+                onOpenAvatarPicker={() => setAvatarModalOpen(true)}
+            />
+
+            <AvatarPickerModal
+                open={avatarModalOpen}
+                onClose={() => setAvatarModalOpen(false)}
+                currentAvatarUrl={avatarUrl}
+                onSelectAvatar={handleSelectAvatar}
             />
 
             <FlagPickerModal

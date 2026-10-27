@@ -23,6 +23,7 @@ build/
 
 # Archivos pesados de datos (> 50MB, exceden límite de GitHub)
 anime_dataset_2018_2026/usuarios/
+/Avatars/
 
 # OS & Editor files
 .vscode/
@@ -41,4 +42,8 @@ __pycache__/
 *$py.class
 *.sqlite3
 db.sqlite3
+
+# Logs
+*.log
+actualizacion_nocturna.log
 

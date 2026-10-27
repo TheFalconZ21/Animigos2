@@ -139,3 +139,40 @@ export async function updateUserProfile(updates: Partial<{
     }
     return res.json()
 }
+
+export interface PresetAvatarItem {
+    id: string
+    name: string
+    category: string
+    category_slug: string
+    url: string
+}
+
+export interface PresetAvatarCategory {
+    slug: string
+    name: string
+    count: number
+    avatars: PresetAvatarItem[]
+}
+
+export interface PresetAvatarsResponse {
+    total_categories: number
+    total_avatars: number
+    categories: PresetAvatarCategory[]
+}
+
+/**
+ * Obtiene el catálogo de avatares oficiales organizados por series de anime
+ */
+export async function fetchPresetAvatars(search?: string, category?: string): Promise<PresetAvatarsResponse> {
+    const params = new URLSearchParams()
+    if (search) params.append('search', search)
+    if (category) params.append('category', category)
+    const queryString = params.toString() ? `?${params.toString()}` : ''
+    const res = await fetch(`${API_BASE_URL}/users/preset-avatars/${queryString}`)
+    if (!res.ok) {
+        throw new Error('Error al cargar avatares predefinidos')
+    }
+    return res.json()
+}
+

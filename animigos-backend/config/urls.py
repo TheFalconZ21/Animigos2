@@ -21,6 +21,9 @@ def api_root_view(request):
         }
     })
 
+from django.conf import settings
+from django.conf.urls.static import static
+
 urlpatterns = [
     path('', api_root_view, name='api-root'),
     path('admin/', admin.site.urls),
@@ -29,3 +32,7 @@ urlpatterns = [
     path('api/admin/', include('groups.admin_urls')),
     path('api/users/', include('users.urls')),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+

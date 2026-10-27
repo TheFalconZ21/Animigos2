@@ -10,6 +10,8 @@ import xml.etree.ElementTree as ET
 import time
 import urllib.request
 import json
+from pathlib import Path
+from django.conf import settings
 from animes.models import Anime
 from .models import Profile, UserPreferences, UserAnimeFolder, UserAnimeEntry
 from .serializers import (
@@ -582,4 +584,69 @@ def import_mal_xml_view(request):
         'enriched_count': enriched_count,
         'message': f"¡Listo! Se procesaron {len(parsed_entries)} animes ({created_count} añadidos, {updated_count} actualizados)."
     }, status=status.HTTP_200_OK)
+
+
+# -------------------------------------------------------------
+# SECCIÓN: AVATARES PREDEFINIDOS (CATÁLOGO OPTIMIZADO)
+# -------------------------------------------------------------
+
+_CACHED_PRESET_AVATARS = None
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_preset_avatars(request):
+    """
+    Retorna el catálogo completo de 835 avatares optimizados en WebP,
+    agrupados por series de anime (74 categorías).
+    Permite filtrado opcional por 'search' o 'category'.
+    """
+    global _CACHED_PRESET_AVATARS
+
+    if _CACHED_PRESET_AVATARS is None:
+        catalog_path = Path(settings.MEDIA_ROOT) / 'avatars' / 'preset_avatars.json'
+        if catalog_path.exists():
+            try:
+                with open(catalog_path, 'r', encoding='utf-8') as f:
+                    _CACHED_PRESET_AVATARS = json.load(f)
+            except Exception:
+                _CACHED_PRESET_AVATARS = []
+        else:
+            _CACHED_PRESET_AVATARS = []
+
+    search_query = request.query_params.get('search', '').strip().lower()
+    category_slug = request.query_params.get('category', '').strip().lower()
+
+    if not search_query and not category_slug:
+        return Response({
+            'total_categories': len(_CACHED_PRESET_AVATARS),
+            'total_avatars': sum(c.get('count', 0) for c in _CACHED_PRESET_AVATARS),
+            'categories': _CACHED_PRESET_AVATARS
+        })
+
+    filtered_categories = []
+    for cat in _CACHED_PRESET_AVATARS:
+        if category_slug and cat.get('slug') != category_slug:
+            continue
+
+        matched_avatars = []
+        cat_name_matches = search_query and search_query in cat.get('name', '').lower()
+
+        for av in cat.get('avatars', []):
+            if not search_query or cat_name_matches or search_query in av.get('name', '').lower():
+                matched_avatars.append(av)
+
+        if matched_avatars:
+            filtered_categories.append({
+                'slug': cat.get('slug'),
+                'name': cat.get('name'),
+                'count': len(matched_avatars),
+                'avatars': matched_avatars
+            })
+
+    return Response({
+        'total_categories': len(filtered_categories),
+        'total_avatars': sum(c.get('count', 0) for c in filtered_categories),
+        'categories': filtered_categories
+    })
+
 

@@ -7,6 +7,7 @@ import urllib.request
 from django.core.management.base import BaseCommand
 from django.core.cache import cache
 from django.db import transaction
+from django.utils import timezone
 from animes.models import Anime, AnimeScoreHistory
 
 UNRATED_ANIME_IDS = {63209, 63208, 63207, 62251, 60234}
@@ -28,7 +29,7 @@ class Command(BaseCommand):
             '--pages',
             type=int,
             default=2,
-            help='Cantidad de páginas del Top Anime a consultar (50 títulos por página, default: 2 = 100 títulos)'
+            help='Cantidad de páginas del Top Anime a consultar (50 títulos por página, default: 2 = 100 títulos. Usa 0 para sincronizar todo el ranking disponible en MAL)'
         )
         parser.add_argument(
             '--delay',
@@ -123,6 +124,8 @@ class Command(BaseCommand):
                                 updated_fields.append('genres')
 
                             if updated_fields:
+                                anime.last_synced_at = timezone.now()
+                                updated_fields.append('last_synced_at')
                                 anime.save(update_fields=updated_fields)
                                 total_animes_updated += 1
 
@@ -150,13 +153,22 @@ class Command(BaseCommand):
         # 2. Sincronización de Top Anime (Refresco de notas consolidadas)
         # -------------------------------------------------------------
         if scope in ('top', 'full'):
-            self.stdout.write(f"\nConsultando Top Anime de MyAnimeList ({pages} páginas)...")
-            for page_idx in range(pages):
+            desc_pages = f"{pages} páginas ({pages * 50:,} animes)" if pages > 0 else "todo el catálogo disponible en MyAnimeList"
+            self.stdout.write(f"\nConsultando Top Anime de MyAnimeList ({desc_pages})...")
+            page_idx = 0
+            while True:
+                if pages > 0 and page_idx >= pages:
+                    break
+
                 offset = page_idx * 50
                 url = f"https://myanimelist.net/topanime.php?limit={offset}"
                 self.stdout.write(f"  Página {page_idx + 1} (offset={offset})...")
 
                 top_items = self._fetch_top_page(url)
+                if not top_items:
+                    self.stdout.write(self.style.WARNING(f"  -> No se encontraron más animes en offset={offset}. Fin del ranking en MyAnimeList."))
+                    break
+
                 for item in top_items:
                     mal_id = item['mal_id']
                     score_val = item['score']
@@ -170,7 +182,8 @@ class Command(BaseCommand):
                         if not dry_run:
                             anime.score = score_val
                             anime.rank = rank_val
-                            anime.save(update_fields=['score', 'rank'])
+                            anime.last_synced_at = timezone.now()
+                            anime.save(update_fields=['score', 'rank', 'last_synced_at'])
                             total_animes_updated += 1
 
                             AnimeScoreHistory.objects.update_or_create(
@@ -213,6 +226,7 @@ class Command(BaseCommand):
                             )
                             total_history_recorded += 1
 
+                page_idx += 1
                 time.sleep(delay)
 
         if not dry_run:
