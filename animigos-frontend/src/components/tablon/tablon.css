@@ -1,0 +1,1281 @@
+/* ============================================================
+   EL TABLÓN (回覧板) — Estilos propios del dashboard social
+   Se apoya en los tokens y piezas de Mi Lista (.ml-root, ml-btn,
+   ml-tabs, ml-segmentado, ml-lomo...). Aquí solo va lo nuevo (tb-).
+   ============================================================ */
+
+/* ---------- Banner: tablero de corcho ---------- */
+
+.tb-banner {
+    position: relative;
+    display: flex;
+    margin: 2rem 0 1.5rem;
+    border: 1px solid var(--ml-acento-borde);
+    border-radius: 18px;
+    background-color: var(--ml-superficie);
+    overflow: hidden;
+}
+
+.tb-banner-texto {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 2rem 2rem 1.75rem;
+}
+
+.tb-banner-sub {
+    margin: 0 0 1.25rem;
+    font-size: 0.92rem;
+    line-height: 1.6;
+}
+
+.tb-banner-sub strong {
+    color: var(--ml-texto);
+}
+
+.tb-banner-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.tb-corcho {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 1 480px;
+    padding: 1.5rem 1.5rem 1.5rem 0;
+}
+
+/* Cada portada va "clavada": marco blanco como foto revelada y cinta washi arriba */
+.tb-clavado {
+    position: relative;
+    flex: 0 0 auto;
+    width: 112px;
+    margin: 0 -10px;
+    padding: 6px 6px 0;
+    background: #f4f4f5;
+    border-radius: 4px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
+    transition: transform 0.25s var(--ml-ease), z-index 0s;
+}
+
+.tb-clavado:nth-child(even) {
+    margin-top: 28px;
+}
+
+.tb-clavado:hover {
+    z-index: 2;
+    transform: rotate(0deg) translateY(-6px) scale(1.05) !important;
+}
+
+.tb-clavado img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 2px;
+}
+
+.tb-clavado figcaption {
+    padding: 0.35rem 0.1rem 0.45rem;
+    color: #27272a;
+    font-size: 0.66rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tb-washi {
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    width: 52px;
+    height: 18px;
+    transform: translateX(-50%) rotate(-4deg);
+    background: repeating-linear-gradient(
+        45deg,
+        color-mix(in srgb, var(--ml-acento) 70%, transparent) 0 6px,
+        color-mix(in srgb, var(--ml-acento) 50%, transparent) 6px 12px
+    );
+    opacity: 0.9;
+}
+
+.tb-lomo {
+    flex-shrink: 0;
+    width: 42px;
+    border-left: 1px solid var(--ml-acento-borde);
+    background: color-mix(in srgb, var(--ml-acento) 22%, transparent);
+    color: #fff;
+    font-size: 0.95rem;
+    letter-spacing: 0.4em;
+    font-weight: 800;
+}
+
+/* ---------- Fondo: afiches que se alternan a los costados ---------- */
+
+.tb-afiche {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0.3;
+    /* Bordes que se funden: hacia el contenido y arriba/abajo */
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+}
+
+.tb-afiche-izq {
+    left: 0;
+    -webkit-mask-image: linear-gradient(to right, #000 55%, transparent), linear-gradient(transparent, #000 14%, #000 86%, transparent);
+    mask-image: linear-gradient(to right, #000 55%, transparent), linear-gradient(transparent, #000 14%, #000 86%, transparent);
+}
+
+.tb-afiche-der {
+    right: 0;
+    -webkit-mask-image: linear-gradient(to left, #000 55%, transparent), linear-gradient(transparent, #000 14%, #000 86%, transparent);
+    mask-image: linear-gradient(to left, #000 55%, transparent), linear-gradient(transparent, #000 14%, #000 86%, transparent);
+}
+
+.tb-afiche-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    animation: tb-afiche-entra 1.8s ease both;
+}
+
+@keyframes tb-afiche-entra {
+    from {
+        opacity: 0;
+        transform: scale(1.05);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Título del anime en vertical, pegado al borde exterior, como el lomo de un afiche */
+.tb-afiche-titulo {
+    position: absolute;
+    bottom: 16%;
+    writing-mode: vertical-rl;
+    max-height: 60%;
+    overflow: hidden;
+    color: #fff;
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    animation: tb-aparece 1.8s ease both;
+}
+
+@keyframes tb-aparece {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.tb-afiche-izq .tb-afiche-titulo {
+    left: 14px;
+    transform: rotate(180deg);
+}
+
+.tb-afiche-der .tb-afiche-titulo {
+    right: 14px;
+}
+
+/* ---------- Recuadro principal rotativo (Tablón ↔ Noticias del día) ---------- */
+
+.tb-rotativo {
+    margin: 2rem 0 1.5rem;
+}
+
+/* Las dos capas ocupan la misma celda: el cambio es un fundido sin saltos de altura */
+.tb-rotativo-capas {
+    display: grid;
+}
+
+.tb-capa {
+    grid-area: 1 / 1;
+    min-width: 0;
+    transition: opacity 0.7s ease, transform 0.7s var(--ml-ease), visibility 0s linear 0.7s;
+}
+
+.tb-capa[data-activa="false"] {
+    opacity: 0;
+    transform: translateY(8px);
+    visibility: hidden;
+}
+
+.tb-capa[data-activa="true"] {
+    transition-delay: 0s;
+}
+
+.tb-rotativo .tb-banner {
+    height: 100%;
+    margin: 0;
+}
+
+.tb-rotativo-control {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+}
+
+.tb-rotativo-pausa {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-right: 0.3rem;
+    font-size: 0.7rem;
+    color: var(--ml-texto-3);
+}
+
+.tb-rotativo-boton {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.75rem;
+    overflow: hidden;
+    border: 1px solid var(--ml-borde);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ml-texto-3);
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.tb-rotativo-boton:hover {
+    color: var(--ml-texto);
+}
+
+.tb-rotativo-boton[aria-pressed="true"] {
+    border-color: var(--ml-acento-borde);
+    color: var(--ml-texto);
+}
+
+/* Barra que se llena durante los 15 s de cada vista */
+.tb-rotativo-progreso {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--ml-acento);
+    transform-origin: left;
+    animation-name: tb-progreso;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+
+@keyframes tb-progreso {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+}
+
+/* Banner de noticias del día */
+.tb-banner-titular {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin: 0.45rem 0 0.6rem;
+    font-size: clamp(1.45rem, 2.8vw, 2rem);
+    font-weight: 800;
+    line-height: 1.15;
+}
+
+.tb-banner-noticias .tb-banner-sub {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.tb-clavado-noticia {
+    width: 330px;
+    margin: 0;
+    transform: rotate(-2deg);
+}
+
+.tb-clavado-noticia img {
+    aspect-ratio: 16 / 10;
+}
+
+.tb-clavado-vacio {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 16 / 10;
+    border-radius: 2px;
+    background: #e4e4e7;
+    color: var(--ml-acento);
+    font-family: var(--font-heading);
+    font-size: 2rem;
+    font-weight: 800;
+}
+
+/* ---------- Distribución: feed + columna lateral ---------- */
+
+.tb-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.tb-principal {
+    min-width: 0;
+}
+
+.tb-filtros {
+    margin: 0 0 1rem;
+}
+
+.tb-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+/* ---------- Noticia fijada ---------- */
+
+.tb-fijada {
+    margin-bottom: 0.9rem;
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--ml-acento-borde);
+    border-radius: 14px;
+    background: var(--ml-superficie);
+}
+
+.tb-fijada-cabecera,
+.tb-fijada-pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.tb-fijada-titulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ml-acento);
+}
+
+.tb-segmentado-sm button {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.74rem;
+}
+
+.tb-fijada-cuerpo {
+    padding: 0.9rem 0 1rem;
+    animation: ml-entrar 0.35s var(--ml-ease);
+}
+
+.tb-fijada-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.76rem;
+    color: var(--ml-texto-3);
+}
+
+.tb-fuente {
+    font-weight: 700;
+    color: var(--ml-texto-2);
+}
+
+.tb-fijada-noticia {
+    margin: 0.35rem 0 0.4rem;
+    font-size: 1.3rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.tb-fijada-cuerpo p {
+    font-size: 0.88rem;
+}
+
+.tb-fijada-pie {
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--ml-borde-fuerte);
+}
+
+.tb-contador {
+    min-width: 3.2rem;
+    text-align: center;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.tb-girando {
+    animation: tb-girar 0.8s linear infinite;
+}
+
+@keyframes tb-girar {
+    to { transform: rotate(360deg); }
+}
+
+/* ---------- Publicación ---------- */
+
+.tb-post {
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--ml-borde);
+    border-radius: 14px;
+    background: var(--ml-superficie);
+    animation: ml-entrar 0.35s var(--ml-ease);
+}
+
+.tb-post-cabecera {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+}
+
+.tb-avatar {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--ml-borde-fuerte);
+}
+
+.tb-avatar-inicial {
+    display: grid;
+    place-items: center;
+    background: var(--ml-acento-suave);
+    color: var(--ml-acento);
+    font-family: var(--font-heading);
+    font-weight: 800;
+}
+
+.tb-post-autor {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.tb-post-autor strong {
+    color: var(--ml-texto);
+    font-size: 0.92rem;
+}
+
+.tb-post-autor span {
+    font-size: 0.76rem;
+    color: var(--ml-texto-3);
+}
+
+.tb-post-tipo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--ml-texto-3);
+    white-space: nowrap;
+}
+
+.tb-post-tipo svg {
+    color: var(--ml-acento);
+}
+
+.tb-post-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--ml-borde);
+}
+
+.tb-accion {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--ml-texto-2);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.tb-accion:hover:not(:disabled) {
+    background: var(--ml-superficie-2);
+    color: var(--ml-texto);
+}
+
+.tb-accion[aria-pressed="true"] {
+    color: var(--ml-acento);
+}
+
+.tb-accion:disabled {
+    cursor: default;
+}
+
+.tb-accion-num {
+    font-size: 0.72rem;
+    padding: 0 0.4rem;
+    border-radius: 6px;
+    background: var(--ml-superficie-2);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Recomendación */
+.tb-reco {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 1rem;
+}
+
+.tb-reco-poster {
+    width: 92px;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--ml-borde-fuerte);
+}
+
+.tb-para-ti {
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ml-acento);
+}
+
+.tb-reco-titulo {
+    margin: 0.1rem 0 0.2rem;
+    font-size: 1.1rem;
+}
+
+.tb-reco-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.78rem;
+    color: var(--ml-texto-3);
+}
+
+.tb-reco-meta span:first-child {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--ml-acento);
+    font-weight: 700;
+}
+
+/* Globo de diálogo con colita apuntando hacia arriba */
+.tb-burbuja {
+    position: relative;
+    margin: 0.85rem 0 0;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--ml-borde-fuerte);
+    border-radius: 12px;
+    background: var(--ml-superficie-2);
+    color: var(--ml-texto);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.tb-burbuja::before {
+    content: "";
+    position: absolute;
+    top: -7px;
+    left: 18px;
+    width: 12px;
+    height: 12px;
+    background: var(--ml-superficie-2);
+    border-left: 1px solid var(--ml-borde-fuerte);
+    border-top: 1px solid var(--ml-borde-fuerte);
+    transform: rotate(45deg);
+}
+
+/* Invitación: entrada de cine con talón recortable */
+.tb-ticket {
+    display: flex;
+    border: 1px solid var(--ml-borde-fuerte);
+    border-radius: 12px;
+    background: var(--ml-superficie-2);
+}
+
+.tb-ticket-cuerpo {
+    flex: 1;
+    min-width: 0;
+    padding: 1rem 1.1rem;
+}
+
+.tb-ticket-etiqueta {
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ml-acento);
+}
+
+.tb-ticket-nombre {
+    margin: 0.15rem 0 0.4rem;
+    font-size: 1.1rem;
+}
+
+.tb-ticket-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    font-size: 0.8rem;
+}
+
+.tb-ticket-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.tb-ticket-meta strong {
+    color: var(--ml-texto);
+}
+
+.tb-ticket-talon {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 130px;
+    flex-shrink: 0;
+    padding: 0.9rem;
+    border-left: 2px dashed var(--ml-borde-fuerte);
+}
+
+/* Muescas de la entrada (arriba y abajo de la línea punteada) */
+.tb-ticket-talon::before,
+.tb-ticket-talon::after {
+    content: "";
+    position: absolute;
+    left: -9px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--ml-superficie);
+}
+
+.tb-ticket-talon::before { top: -9px; }
+.tb-ticket-talon::after { bottom: -9px; }
+
+.tb-ticket-codigo {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: var(--ml-texto);
+}
+
+/* "Busco anime…": nota adhesiva de papel claro con sello 求む */
+.tb-nota {
+    position: relative;
+    padding: 1.1rem 1.2rem 1rem;
+    border-radius: 4px 4px 14px 4px;
+    background: #f4f4f5;
+    color: #27272a;
+    transform: rotate(-0.6deg);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+
+.tb-nota-sello {
+    position: absolute;
+    top: -12px;
+    right: 14px;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid var(--ml-acento);
+    background: #f4f4f5;
+    color: var(--ml-acento);
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    font-weight: 800;
+    transform: rotate(12deg);
+}
+
+.tb-nota-texto {
+    margin: 0 3rem 0.85rem 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.tb-nota-pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    font-size: 0.8rem;
+    color: #52525b;
+}
+
+.tb-nota-pie strong {
+    color: #18181b;
+}
+
+/* Encuesta */
+.tb-encuesta-pregunta {
+    margin: 0 0 0.75rem;
+    font-size: 1.05rem;
+    line-height: 1.35;
+}
+
+.tb-encuesta-opciones {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.tb-opcion {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.65rem 0.9rem;
+    border: 1px solid var(--ml-borde-fuerte);
+    border-radius: 10px;
+    background: var(--ml-superficie-2);
+    color: var(--ml-texto);
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-align: left;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+}
+
+.tb-opcion:hover:not(:disabled) {
+    border-color: var(--ml-acento-borde);
+}
+
+.tb-opcion:disabled {
+    cursor: default;
+}
+
+.tb-opcion[aria-pressed="true"] {
+    border-color: var(--ml-acento);
+}
+
+.tb-opcion-barra {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--ml-acento-suave);
+    transition: width 0.5s var(--ml-ease);
+}
+
+.tb-opcion[aria-pressed="true"] .tb-opcion-barra {
+    background: color-mix(in srgb, var(--ml-acento) 30%, transparent);
+}
+
+.tb-opcion-texto,
+.tb-opcion-pct {
+    position: relative;
+}
+
+.tb-opcion-pct {
+    font-variant-numeric: tabular-nums;
+    color: var(--ml-texto-2);
+}
+
+.tb-encuesta-total {
+    margin: 0.6rem 0 0;
+    font-size: 0.76rem;
+    color: var(--ml-texto-3);
+}
+
+/* Logro: sello hanko grande */
+.tb-hito {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.tb-hito-sello {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 78px;
+    height: 78px;
+    border-radius: 50%;
+    border: 3px solid var(--ml-acento);
+    box-shadow: inset 0 0 0 4px var(--ml-superficie), inset 0 0 0 5px var(--ml-acento-borde);
+    background: var(--ml-acento-suave);
+    color: var(--ml-acento);
+    font-family: var(--font-heading);
+    font-size: 1.35rem;
+    font-weight: 800;
+    transform: rotate(-10deg);
+}
+
+.tb-hito-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0 0 0.25rem;
+    font-size: 1.05rem;
+}
+
+.tb-hito-info p {
+    margin: 0 0 0.4rem;
+    font-size: 0.86rem;
+}
+
+.tb-hito-info .tb-accion {
+    margin-left: -0.75rem;
+}
+
+/* ---------- Columna lateral: salas ---------- */
+
+/* La columna completa (salas + hoy en emisión) acompaña el scroll */
+.tb-columna {
+    position: sticky;
+    top: 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.tb-lateral {
+    padding: 1.1rem;
+    border: 1px solid var(--ml-borde);
+    border-radius: 14px;
+    background: var(--ml-superficie);
+}
+
+.tb-lateral-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.85rem;
+}
+
+.tb-lateral-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 0;
+    font-size: 1rem;
+}
+
+.tb-sala {
+    padding: 0.85rem;
+    border: 1px solid var(--ml-borde);
+    border-radius: 12px;
+    background: var(--ml-superficie-2);
+}
+
+.tb-sala-votando {
+    border-color: var(--ml-acento-borde);
+}
+
+.tb-sala-estado {
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ml-texto-3);
+}
+
+.tb-sala-votando .tb-sala-estado {
+    color: var(--ml-acento);
+}
+
+.tb-sala-nombre {
+    margin: 0.3rem 0 0.2rem;
+    font-size: 0.98rem;
+}
+
+.tb-sala-lider {
+    margin: 0 0 0.7rem;
+    font-size: 0.78rem;
+}
+
+.tb-sala-lider strong {
+    color: var(--ml-texto);
+}
+
+/* ---------- Cabecera de Noticias / Estrenos (como la de un periódico) ---------- */
+
+.tb-cabecera-diario {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-bottom: 0.85rem;
+    margin-bottom: 1.1rem;
+    border-bottom: 3px double var(--ml-borde-fuerte);
+}
+
+.tb-diario-nombre {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--ml-texto);
+}
+
+.tb-diario-nombre span {
+    color: var(--ml-acento);
+    margin-right: 0.35rem;
+}
+
+.tb-diario-fecha {
+    font-size: 0.8rem;
+    color: var(--ml-texto-3);
+}
+
+.tb-diario-fecha::first-letter {
+    text-transform: uppercase;
+}
+
+/* ---------- Noticias ---------- */
+
+.tb-portada {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.tb-nota-principal,
+.tb-titular,
+.tb-noticia {
+    color: inherit;
+    text-decoration: none;
+}
+
+.tb-noticia-imagen {
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+    background: var(--ml-superficie-2);
+    aspect-ratio: 16 / 9;
+}
+
+.tb-noticia-imagen img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s var(--ml-ease);
+}
+
+.tb-nota-principal:hover img,
+.tb-titular:hover img,
+.tb-noticia:hover img {
+    transform: scale(1.04);
+}
+
+.tb-noticia-sin-imagen {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-heading);
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--ml-acento);
+    opacity: 0.35;
+}
+
+.tb-nota-principal-texto {
+    padding-top: 0.85rem;
+}
+
+.tb-nota-principal h2 {
+    margin: 0.35rem 0 0.5rem;
+    font-size: 1.55rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.tb-nota-principal p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 0.6rem;
+}
+
+.tb-nota-principal:hover h2,
+.tb-titular:hover h3,
+.tb-noticia:hover h3 {
+    color: var(--ml-acento);
+}
+
+.tb-leer {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--ml-acento);
+}
+
+/* Titulares: columna con línea divisoria, como en la portada de un diario */
+.tb-titulares {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding-left: 1.25rem;
+    border-left: 1px solid var(--ml-borde);
+}
+
+.tb-titular {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    gap: 0.8rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px dashed var(--ml-borde);
+}
+
+.tb-titular:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.tb-titular h3,
+.tb-noticia h3 {
+    margin: 0.25rem 0 0;
+    font-size: 0.92rem;
+    line-height: 1.35;
+    transition: color 0.15s ease;
+}
+
+.tb-noticias-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 1.25rem 1rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--ml-borde);
+}
+
+.tb-noticia-texto {
+    padding-top: 0.6rem;
+}
+
+.tb-noticia p {
+    margin: 0.35rem 0 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ---------- Columna lateral: hoy en emisión ---------- */
+
+.tb-kanji-hoy {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: var(--ml-acento);
+    color: #0b0b0f;
+    font-size: 0.85rem;
+}
+
+.tb-hoy {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.tb-hoy li {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 0.6rem;
+    align-items: center;
+}
+
+.tb-hoy img {
+    width: 34px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 5px;
+}
+
+.tb-hoy-titulo {
+    display: block;
+    color: var(--ml-texto);
+    font-size: 0.82rem;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tb-hoy-meta {
+    font-size: 0.72rem;
+    color: var(--ml-texto-3);
+}
+
+.tb-hoy-falta {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--ml-acento);
+    white-space: nowrap;
+}
+
+/* ---------- Diálogo: anime elegido ---------- */
+
+.tb-elegido {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem;
+    border: 1px solid var(--ml-acento-borde);
+    border-radius: 12px;
+    background: var(--ml-acento-suave);
+}
+
+.tb-elegido img {
+    width: 40px;
+    height: 56px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+.tb-root textarea.ml-input {
+    resize: vertical;
+}
+
+/* ---------- Carga ---------- */
+
+.tb-esqueleto {
+    height: 120px;
+    border-radius: 12px;
+    background: var(--ml-superficie-2);
+    animation: admin-pulse 1.8s ease-in-out infinite;
+}
+
+.tb-esqueleto-post {
+    height: 180px;
+    margin-bottom: 0.9rem;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 991.98px) {
+    .tb-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tb-columna {
+        position: static;
+    }
+
+    .tb-portada {
+        grid-template-columns: 1fr;
+    }
+
+    .tb-banner {
+        flex-wrap: wrap;
+    }
+
+    .tb-banner-texto {
+        flex-basis: 100%;
+    }
+
+    .tb-corcho {
+        flex-basis: 100%;
+        padding: 0.5rem 1rem 1.75rem;
+        order: 2;
+    }
+
+    .tb-lomo {
+        display: none;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .tb-banner-texto {
+        padding: 1.5rem 1.25rem 1rem;
+    }
+
+    .tb-clavado {
+        width: 76px;
+        margin: 0 -8px;
+    }
+
+    .tb-clavado figcaption {
+        display: none;
+    }
+
+    .tb-clavado-noticia {
+        width: min(280px, 100%);
+    }
+
+    .tb-rotativo-control {
+        justify-content: center;
+    }
+
+    .tb-reco {
+        grid-template-columns: 68px minmax(0, 1fr);
+    }
+
+    .tb-reco-poster {
+        width: 68px;
+    }
+
+    .tb-ticket {
+        flex-direction: column;
+    }
+
+    .tb-ticket-talon {
+        width: auto;
+        flex-direction: row;
+        justify-content: space-between;
+        border-left: none;
+        border-top: 2px dashed var(--ml-borde-fuerte);
+    }
+
+    .tb-ticket-talon::before,
+    .tb-ticket-talon::after {
+        display: none;
+    }
+
+    .tb-post-tipo {
+        display: none;
+    }
+
+    .tb-titular {
+        grid-template-columns: 96px minmax(0, 1fr);
+    }
+}
