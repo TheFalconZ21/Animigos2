@@ -22,11 +22,11 @@ import type {
 import '../mi-lista/mi-lista.css'
 import './perfil.css'
 
-const STORAGE_PROFILE_KEY = 'animigos_user_custom_profile'
-const STORAGE_PRIVACY_KEY = 'animigos_user_privacy_config'
-const STORAGE_TASTE_KEY = 'animigos_user_taste_test'
-const STORAGE_FLAG_KEY = 'animigos_user_flag_banner'
-const STORAGE_LATERAL_KEY = 'animigos_user_lateral_wallpaper'
+const getStorageProfileKey = (uid?: number | string) => `animigos_user_custom_profile_${uid ?? 'guest'}`
+const getStoragePrivacyKey = (uid?: number | string) => `animigos_user_privacy_config_${uid ?? 'guest'}`
+const getStorageTasteKey = (uid?: number | string) => `animigos_user_taste_test_${uid ?? 'guest'}`
+const getStorageFlagKey = (uid?: number | string) => `animigos_user_flag_banner_${uid ?? 'guest'}`
+const getStorageLateralKey = (uid?: number | string) => `animigos_user_lateral_wallpaper_${uid ?? 'guest'}`
 
 export const PerfilView: React.FC = () => {
     const { acento } = useThemeAccent()
@@ -34,126 +34,107 @@ export const PerfilView: React.FC = () => {
     const { filas, actualizar } = useMyList()
 
     // 1. Datos de perfil reactivos
-    const [displayName, setDisplayName] = useState<string>(() => {
+    const [displayName, setDisplayName] = useState<string>(() => user?.display_name || user?.username || '')
+    const [bio, setBio] = useState<string>(() => user?.bio || '')
+    const [avatarUrl, setAvatarUrl] = useState<string>(() => user?.avatar_url || '')
+    const [socials, setSocials] = useState<SocialLinks>({ mal: '', anilist: '', discord: '', twitter: '' })
+    const [flagUrl, setFlagUrl] = useState<string>(FLAG_PRESETS[0]?.url || '')
+    const [lateralConfig, setLateralConfig] = useState<LateralWallpaperConfig>({
+        imageUrl: '',
+        opacity: 45,
+        enabled: false,
+    })
+    const [privacy, setPrivacy] = useState<PrivacyConfig>({
+        isListPublic: true,
+        showStats: true,
+        allowComments: 'everyone',
+    })
+    const [tasteAnswers, setTasteAnswers] = useState<TasteTestAnswers>({
+        tropes: [],
+        favoriteGenres: [],
+        dislikedGenres: [],
+        pacing: '',
+        contentFilters: [],
+        favoriteMovies: [],
+        likedAnimeIds: [],
+        calibratedPercentage: 0,
+    })
+
+    // Sincronizar estado cuando el usuario cambia o se autentica
+    React.useEffect(() => {
+        const uid = user?.id ?? 'guest'
+        // Cargar perfil custom si existe para este usuario
         try {
-            const saved = localStorage.getItem(STORAGE_PROFILE_KEY)
-            if (saved) {
-                const parsed = JSON.parse(saved)
-                if (parsed.displayName) return parsed.displayName
+            const savedProfile = localStorage.getItem(getStorageProfileKey(uid))
+            if (savedProfile) {
+                const parsed = JSON.parse(savedProfile)
+                setDisplayName(parsed.displayName || user?.display_name || user?.username || '')
+                setBio(typeof parsed.bio === 'string' ? parsed.bio : (user?.bio || ''))
+                setAvatarUrl(parsed.avatarUrl || user?.avatar_url || '')
+                setSocials(parsed.socials || { mal: '', anilist: '', discord: '', twitter: '' })
+            } else {
+                setDisplayName(user?.display_name || user?.username || '')
+                setBio(user?.bio || '')
+                setAvatarUrl(user?.avatar_url || '')
+                setSocials({ mal: '', anilist: '', discord: '', twitter: '' })
             }
-        } catch {}
-        return user?.display_name || user?.username || 'Otaku Legendario'
-    })
-
-    const [bio, setBio] = useState<string>(() => {
-        try {
-            const saved = localStorage.getItem(STORAGE_PROFILE_KEY)
-            if (saved) {
-                const parsed = JSON.parse(saved)
-                if (typeof parsed.bio === 'string') return parsed.bio
-            }
-        } catch {}
-        return user?.bio || 'Coordinando las mejores watch parties de la temporada con mis amigos en Animigos 🍿'
-    })
-
-    const [avatarUrl, setAvatarUrl] = useState<string>(() => {
-        try {
-            const saved = localStorage.getItem(STORAGE_PROFILE_KEY)
-            if (saved) {
-                const parsed = JSON.parse(saved)
-                if (parsed.avatarUrl) return parsed.avatarUrl
-            }
-        } catch {}
-        return (
-            user?.avatar_url ||
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
-        )
-    })
-
-    const [socials, setSocials] = useState<SocialLinks>(() => {
-        try {
-            const saved = localStorage.getItem(STORAGE_PROFILE_KEY)
-            if (saved && JSON.parse(saved).socials) return JSON.parse(saved).socials
-        } catch {}
-        return {
-            mal: 'AnimigoMaster',
-            anilist: 'animigo_fan',
-            discord: '#otaku77',
-            twitter: '@animigos_app',
+        } catch {
+            setDisplayName(user?.display_name || user?.username || '')
+            setBio(user?.bio || '')
+            setAvatarUrl(user?.avatar_url || '')
+            setSocials({ mal: '', anilist: '', discord: '', twitter: '' })
         }
-    })
 
-    // 2. Imagen tipo Flag de la card superior
-    const [flagUrl, setFlagUrl] = useState<string>(() => {
+        // Cargar Flag
         try {
-            const saved = localStorage.getItem(STORAGE_FLAG_KEY)
-            if (saved) return saved
-        } catch {}
-        return FLAG_PRESETS[0].url
-    })
-
-    // 3. Fondo Lateral Personalizado (GIF o Imagen)
-    const [lateralConfig, setLateralConfig] = useState<LateralWallpaperConfig>(() => {
-        try {
-            const saved = localStorage.getItem(STORAGE_LATERAL_KEY)
-            if (saved) return JSON.parse(saved)
-        } catch {}
-        return {
-            imageUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=800&auto=format&fit=crop&q=80',
-            opacity: 45,
-            enabled: true,
+            const savedFlag = localStorage.getItem(getStorageFlagKey(uid))
+            setFlagUrl(savedFlag || FLAG_PRESETS[0]?.url || '')
+        } catch {
+            setFlagUrl(FLAG_PRESETS[0]?.url || '')
         }
-    })
 
-    // 4. Configuración de Privacidad
-    const [privacy, setPrivacy] = useState<PrivacyConfig>(() => {
+        // Cargar Lateral
         try {
-            const saved = localStorage.getItem(STORAGE_PRIVACY_KEY)
-            if (saved) return JSON.parse(saved)
-        } catch {}
-        return {
-            isListPublic: true,
-            showStats: true,
-            allowComments: 'everyone',
+            const savedLat = localStorage.getItem(getStorageLateralKey(uid))
+            setLateralConfig(savedLat ? JSON.parse(savedLat) : { imageUrl: '', opacity: 45, enabled: false })
+        } catch {
+            setLateralConfig({ imageUrl: '', opacity: 45, enabled: false })
         }
-    })
 
-    // 5. Test de Gustos (Recomendador IA con TMDB)
-    const [tasteAnswers, setTasteAnswers] = useState<TasteTestAnswers>(() => {
+        // Cargar Privacidad
         try {
-            const saved = localStorage.getItem(STORAGE_TASTE_KEY)
-            if (saved) return JSON.parse(saved)
-        } catch {}
-        return {
-            tropes: ['mastermind', 'dark_fantasy', 'power_scaling'],
-            favoriteGenres: ['Psychological', 'Action', 'Sci-Fi'],
-            dislikedGenres: ['Horror'],
-            pacing: 'fast_12',
-            contentFilters: ['no_fanservice', 'conclusive_ending'],
-            favoriteMovies: [
-                {
-                    id: 27205,
-                    title: 'El Origen (Inception)',
-                    originalTitle: 'Inception',
-                    releaseYear: '2010',
-                    posterPath: 'https://image.tmdb.org/t/p/w500/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg',
-                    genres: ['Ciencia ficción', 'Misterio', 'Acción'],
-                    overview: 'Un ladrón que roba secretos corporativos mediante tecnología de compartir sueños.',
-                },
-                {
-                    id: 335984,
-                    title: 'Blade Runner 2049',
-                    originalTitle: 'Blade Runner 2049',
-                    releaseYear: '2017',
-                    posterPath: 'https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg',
-                    genres: ['Ciencia ficción', 'Drama', 'Misterio'],
-                    overview: 'Un blade runner descubre un secreto que podría sumergir a la sociedad en el caos.',
-                },
-            ],
-            likedAnimeIds: [1535, 9253],
-            calibratedPercentage: 90,
+            const savedPriv = localStorage.getItem(getStoragePrivacyKey(uid))
+            setPrivacy(savedPriv ? JSON.parse(savedPriv) : { isListPublic: true, showStats: true, allowComments: 'everyone' })
+        } catch {
+            setPrivacy({ isListPublic: true, showStats: true, allowComments: 'everyone' })
         }
-    })
+
+        // Cargar Taste Test
+        try {
+            const savedTaste = localStorage.getItem(getStorageTasteKey(uid))
+            setTasteAnswers(savedTaste ? JSON.parse(savedTaste) : {
+                tropes: [],
+                favoriteGenres: [],
+                dislikedGenres: [],
+                pacing: '',
+                contentFilters: [],
+                favoriteMovies: [],
+                likedAnimeIds: [],
+                calibratedPercentage: 0,
+            })
+        } catch {
+            setTasteAnswers({
+                tropes: [],
+                favoriteGenres: [],
+                dislikedGenres: [],
+                pacing: '',
+                contentFilters: [],
+                favoriteMovies: [],
+                likedAnimeIds: [],
+                calibratedPercentage: 0,
+            })
+        }
+    }, [user])
 
     // Modales
     const [editModalOpen, setEditModalOpen] = useState(false)
@@ -165,13 +146,12 @@ export const PerfilView: React.FC = () => {
     // Seleccionar y guardar Avatar directamente
     const handleSelectAvatar = async (newUrl: string) => {
         setAvatarUrl(newUrl)
+        const uid = user?.id ?? 'guest'
         try {
-            const saved = localStorage.getItem(STORAGE_PROFILE_KEY)
+            const key = getStorageProfileKey(uid)
+            const saved = localStorage.getItem(key)
             const parsed = saved ? JSON.parse(saved) : {}
-            localStorage.setItem(
-                STORAGE_PROFILE_KEY,
-                JSON.stringify({ ...parsed, avatarUrl: newUrl })
-            )
+            localStorage.setItem(key, JSON.stringify({ ...parsed, avatarUrl: newUrl }))
         } catch {}
 
         if (user) {
@@ -196,8 +176,9 @@ export const PerfilView: React.FC = () => {
         setAvatarUrl(data.avatarUrl)
         setSocials(data.socials)
 
+        const uid = user?.id ?? 'guest'
         localStorage.setItem(
-            STORAGE_PROFILE_KEY,
+            getStorageProfileKey(uid),
             JSON.stringify({
                 displayName: data.displayName,
                 bio: data.bio,
@@ -223,19 +204,22 @@ export const PerfilView: React.FC = () => {
     // Guardar Flag
     const handleSaveFlag = (newUrl: string) => {
         setFlagUrl(newUrl)
-        localStorage.setItem(STORAGE_FLAG_KEY, newUrl)
+        const uid = user?.id ?? 'guest'
+        localStorage.setItem(getStorageFlagKey(uid), newUrl)
     }
 
     // Guardar Configuración de Fondo Lateral
     const handleSaveLateralConfig = (newConfig: LateralWallpaperConfig) => {
         setLateralConfig(newConfig)
-        localStorage.setItem(STORAGE_LATERAL_KEY, JSON.stringify(newConfig))
+        const uid = user?.id ?? 'guest'
+        localStorage.setItem(getStorageLateralKey(uid), JSON.stringify(newConfig))
     }
 
     // Guardar Privacidad
     const handleSavePrivacy = async (newConfig: PrivacyConfig) => {
         setPrivacy(newConfig)
-        localStorage.setItem(STORAGE_PRIVACY_KEY, JSON.stringify(newConfig))
+        const uid = user?.id ?? 'guest'
+        localStorage.setItem(getStoragePrivacyKey(uid), JSON.stringify(newConfig))
 
         if (user) {
             try {
@@ -257,7 +241,8 @@ export const PerfilView: React.FC = () => {
     // Completar Test de Gustos IA
     const handleCompleteTasteTest = async (answers: TasteTestAnswers) => {
         setTasteAnswers(answers)
-        localStorage.setItem(STORAGE_TASTE_KEY, JSON.stringify(answers))
+        const uid = user?.id ?? 'guest'
+        localStorage.setItem(getStorageTasteKey(uid), JSON.stringify(answers))
 
         if (user) {
             try {
@@ -294,17 +279,17 @@ export const PerfilView: React.FC = () => {
                 {/* 2. Cabecera de Perfil con Imagen tipo Flag */}
                 <ProfileHeader
                     displayName={displayName}
-                    username={user?.username || 'otaku_master'}
+                    username={user?.username || ''}
                     avatarUrl={avatarUrl}
                     flagUrl={flagUrl}
                     bio={bio}
                     memberSince={
                         user?.created_at
                             ? new Date(user.created_at).toLocaleDateString('es-ES', {
-                                  month: 'short',
+                                  month: 'long',
                                   year: 'numeric',
                               })
-                            : 'Enero 2024'
+                            : 'Reciente'
                     }
                     socials={socials}
                     privacy={privacy}
@@ -336,9 +321,9 @@ export const PerfilView: React.FC = () => {
                 {/* 6. Muro de Comentarios y Actividad Social */}
                 <CommentsWall
                     currentUser={{
-                        id: user?.id || 'current_user',
+                        id: String(user?.id || 'guest'),
                         name: displayName,
-                        username: user?.username || 'otaku_master',
+                        username: user?.username || '',
                         avatar: avatarUrl,
                     }}
                     allowComments={privacy.allowComments}

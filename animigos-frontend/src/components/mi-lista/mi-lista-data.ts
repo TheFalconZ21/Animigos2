@@ -104,21 +104,11 @@ export const ACENTO_POR_GENERO: Record<string, string> = {
 }
 export const ACENTO_POR_DEFECTO = '#e8508f'
 
-export const CARPETAS_INICIALES: Carpeta[] = [
-    { id: 'saga-steins-gate', nombre: 'Saga Steins;Gate' },
-]
+export const CARPETAS_INICIALES: Carpeta[] = []
 
-export const LISTA_INICIAL: EntradaLista[] = [
-    { malId: 52991, estado: 'visto', nota: 10, episodiosVistos: 28, favorito: true, tags: ['obras-maestras'], comentario: 'Excelente desarrollo de personajes y animación brillante.' },
-    { malId: 9253, estado: 'visto', nota: 10, episodiosVistos: 24, favorito: false, tags: ['obras-maestras'], carpetaId: 'saga-steins-gate' },
-    { malId: 35180, estado: 'visto', nota: 9, episodiosVistos: 23, favorito: false, tags: [], carpetaId: 'saga-steins-gate' },
-    { malId: 5114, estado: 'visto', nota: 9, episodiosVistos: 64, favorito: false, tags: ['obras-maestras'] },
-    { malId: 50709, estado: 'viendo', nota: 8, episodiosVistos: 7, favorito: false, tags: ['maratón-viernes'], comentario: 'Ideal para ver con el grupo los viernes.' },
-    { malId: 49387, estado: 'visto', nota: 9, episodiosVistos: 24, favorito: false, tags: [] },
-    { malId: 50265, estado: 'pendiente', nota: null, episodiosVistos: 0, favorito: false, tags: ['maratón-viernes'] },
-]
+export const LISTA_INICIAL: EntradaLista[] = []
 
-export const TAGS_INICIALES = ['obras-maestras', 'maratón-viernes', 'para-llorar']
+export const TAGS_INICIALES: string[] = []
 
 export function buscarAnime(malId: number): ExtendedAnime | undefined {
     return MOCK_TOP_ANIMES.find((a) => a.malId === malId)

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Folder, ListFilter, Send } from 'lucide-react'
-import { MOCK_USER_FRIENDS } from '../../data/anime-data'
 import { alFallarPoster, type Carpeta, type FilaLista } from './mi-lista-data'
 import { Dialogo } from './piezas'
 
@@ -27,10 +26,9 @@ export function RecomendarDialog({
 }
 
 function Contenido({ paquete, carpetas, onCerrar }: { paquete: Paquete; carpetas: Carpeta[]; onCerrar: () => void }) {
-    const [amigoId, setAmigoId] = useState(MOCK_USER_FRIENDS[0].id)
+    const [destinatario, setDestinatario] = useState('')
     const [mensaje, setMensaje] = useState('')
     const [enviado, setEnviado] = useState(false)
-    const amigo = MOCK_USER_FRIENDS.find((f) => f.id === amigoId)!
 
     // Agrupa: primero las carpetas (sagas), luego los animes sueltos
     const grupos = carpetas
@@ -42,9 +40,9 @@ function Contenido({ paquete, carpetas, onCerrar }: { paquete: Paquete; carpetas
         return (
             <div className="ml-enviado">
                 <div className="ml-sello lleno" lang="ja">済</div>
-                <h2 className="h4 mb-1">¡Enviado a {amigo.name.split(' ')[0]}!</h2>
+                <h2 className="h4 mb-1">¡Recomendación enviada!</h2>
                 <p className="mb-4">
-                    {paquete.filas.length === 1 ? 'Le llegará tu recomendación' : `Le llegarán ${paquete.filas.length} animes`} en sus notificaciones.
+                    {paquete.filas.length === 1 ? 'Se envió tu recomendación' : `Se enviaron ${paquete.filas.length} animes`} a <strong>{destinatario || 'tu amigo'}</strong>.
                 </p>
                 <button type="button" className="ml-btn" onClick={onCerrar}>Listo</button>
             </div>
@@ -102,12 +100,14 @@ function Contenido({ paquete, carpetas, onCerrar }: { paquete: Paquete; carpetas
 
                 <div className="row g-3">
                     <div className="col-12 col-sm-5">
-                        <label className="ml-label" htmlFor="ml-amigo">Para</label>
-                        <select id="ml-amigo" className="ml-select w-100" value={amigoId} onChange={(e) => setAmigoId(e.target.value)}>
-                            {MOCK_USER_FRIENDS.map((f) => (
-                                <option key={f.id} value={f.id}>{f.name} ({f.username})</option>
-                            ))}
-                        </select>
+                        <label className="ml-label" htmlFor="ml-destinatario">Para (amigo o grupo)</label>
+                        <input
+                            id="ml-destinatario"
+                            className="ml-input w-100"
+                            placeholder="Usuario o amigo..."
+                            value={destinatario}
+                            onChange={(e) => setDestinatario(e.target.value)}
+                        />
                     </div>
                     <div className="col-12 col-sm-7">
                         <label className="ml-label" htmlFor="ml-mensaje">Nota personal (opcional)</label>
@@ -125,7 +125,7 @@ function Contenido({ paquete, carpetas, onCerrar }: { paquete: Paquete; carpetas
             <footer className="ml-dialog-pie">
                 <button type="button" className="ml-btn ml-btn-fantasma" onClick={onCerrar}>Cancelar</button>
                 <button type="submit" className="ml-btn ml-btn-acento" disabled={paquete.filas.length === 0}>
-                    <Send size={15} /> Enviar a {amigo.name.split(' ')[0]}
+                    <Send size={15} /> Enviar recomendación
                 </button>
             </footer>
         </form>

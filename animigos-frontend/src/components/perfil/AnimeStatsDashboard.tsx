@@ -45,13 +45,13 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         const notas = filas
             .map((f) => f.nota)
             .filter((n): n is number => typeof n === 'number' && n > 0)
-        const notaMedia = notas.length > 0 ? notas.reduce((a, b) => a + b, 0) / notas.length : 8.4
-        const notaEscala = ESCALA_NOTAS[Math.round(notaMedia)] || 'Excelente'
+        const notaMedia = notas.length > 0 ? notas.reduce((a, b) => a + b, 0) / notas.length : 0
+        const notaEscala = notas.length > 0 ? (ESCALA_NOTAS[Math.round(notaMedia)] || 'Sin calificación') : 'Sin calificaciones'
 
         // Porcentajes para barra segmentada
-        const pctVisto = totalEntries > 0 ? (vistos / totalEntries) * 100 : 60
-        const pctViendo = totalEntries > 0 ? (viendo / totalEntries) * 100 : 25
-        const pctPendiente = totalEntries > 0 ? (pendientes / totalEntries) * 100 : 15
+        const pctVisto = totalEntries > 0 ? (vistos / totalEntries) * 100 : 0
+        const pctViendo = totalEntries > 0 ? (viendo / totalEntries) * 100 : 0
+        const pctPendiente = totalEntries > 0 ? (pendientes / totalEntries) * 100 : 0
         const pctDropeado = totalEntries > 0 ? (dropeados / totalEntries) * 100 : 0
 
         // Animes Favoritos (Top 10)
@@ -173,30 +173,36 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                 </div>
 
                 {/* Barra Segmentada */}
-                <div className="perfil-breakdown-bar">
-                    <div
-                        className="perfil-breakdown-seg perfil-seg-visto"
-                        style={{ width: `${stats.pctVisto}%` }}
-                        title={`Vistos: ${stats.vistos} (${stats.pctVisto.toFixed(0)}%)`}
-                    />
-                    <div
-                        className="perfil-breakdown-seg perfil-seg-viendo"
-                        style={{ width: `${stats.pctViendo}%` }}
-                        title={`Viendo: ${stats.viendo} (${stats.pctViendo.toFixed(0)}%)`}
-                    />
-                    <div
-                        className="perfil-breakdown-seg perfil-seg-pendiente"
-                        style={{ width: `${stats.pctPendiente}%` }}
-                        title={`Pendientes: ${stats.pendientes} (${stats.pctPendiente.toFixed(0)}%)`}
-                    />
-                    {stats.pctDropeado > 0 && (
+                {stats.totalEntries > 0 ? (
+                    <div className="perfil-breakdown-bar">
                         <div
-                            className="perfil-breakdown-seg perfil-seg-dropeado"
-                            style={{ width: `${stats.pctDropeado}%` }}
-                            title={`Dropeados: ${stats.dropeados} (${stats.pctDropeado.toFixed(0)}%)`}
+                            className="perfil-breakdown-seg perfil-seg-visto"
+                            style={{ width: `${stats.pctVisto}%` }}
+                            title={`Vistos: ${stats.vistos} (${stats.pctVisto.toFixed(0)}%)`}
                         />
-                    )}
-                </div>
+                        <div
+                            className="perfil-breakdown-seg perfil-seg-viendo"
+                            style={{ width: `${stats.pctViendo}%` }}
+                            title={`Viendo: ${stats.viendo} (${stats.pctViendo.toFixed(0)}%)`}
+                        />
+                        <div
+                            className="perfil-breakdown-seg perfil-seg-pendiente"
+                            style={{ width: `${stats.pctPendiente}%` }}
+                            title={`Pendientes: ${stats.pendientes} (${stats.pctPendiente.toFixed(0)}%)`}
+                        />
+                        {stats.pctDropeado > 0 && (
+                            <div
+                                className="perfil-breakdown-seg perfil-seg-dropeado"
+                                style={{ width: `${stats.pctDropeado}%` }}
+                                title={`Dropeados: ${stats.dropeados} (${stats.pctDropeado.toFixed(0)}%)`}
+                            />
+                        )}
+                    </div>
+                ) : (
+                    <div className="py-2 text-center text-secondary small">
+                        Tu colección está vacía. Agrega animes en "Mi lista" para ver tu distribución aquí.
+                    </div>
+                )}
 
                 {/* Leyenda */}
                 <div className="d-flex flex-wrap align-items-center gap-3 pt-1">

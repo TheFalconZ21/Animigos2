@@ -1,5 +1,4 @@
 import { Award, Heart, Send, Star, Users } from 'lucide-react'
-import { MOCK_USER_FRIENDS } from '../../data/anime-data'
 import { ESTADOS, type EntradaLista, type FilaLista, alFallarPoster } from './mi-lista-data'
 import { Dialogo, ProgresoEpisodios, SelloNota } from './piezas'
 
@@ -32,9 +31,7 @@ function Contenido({
     onRecomendar: () => void
 }) {
     const { anime } = fila
-    const amigos = (anime.watchedByFriends ?? []).map(
-        (nombre) => MOCK_USER_FRIENDS.find((f) => f.name === nombre) ?? { name: nombre, avatarUrl: '' },
-    )
+    const amigos = (anime.watchedByFriends ?? []).map((nombre) => ({ name: nombre, avatarUrl: '' }))
 
     return (
         <>

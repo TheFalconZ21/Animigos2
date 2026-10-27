@@ -155,81 +155,17 @@ def update_preferences(request):
 # SECCIÓN: MI LISTA (PERSONAL ANIME LIST & FOLDERS)
 # -------------------------------------------------------------
 
-def _get_target_user(request):
-    """
-    Obtiene el usuario objetivo para la lista. Si no está autenticado,
-    utiliza un usuario invitado aislado para evitar alterar datos de otros usuarios.
-    """
-    if request.user.is_authenticated:
-        return request.user
-
-    guest_user, _ = User.objects.get_or_create(
-        username='invitado_animigos',
-        defaults={'email': 'invitado@animigos.cl', 'first_name': 'Invitado'}
-    )
-    return guest_user
-
-
-def _ensure_initial_sample_data(user):
-    """
-    Si el usuario no tiene entradas en su lista, siembra un conjunto inicial
-    con animes existentes en la base de datos para una experiencia inmediata.
-    """
-    if UserAnimeEntry.objects.filter(user=user).exists():
-        return
-
-    folder, _ = UserAnimeFolder.objects.get_or_create(user=user, name='Favoritos de la Temporada')
-
-    available_animes = list(Anime.objects.all()[:7])
-    if not available_animes:
-        return
-
-    statuses = ['visto', 'visto', 'visto', 'visto', 'visto', 'viendo', 'pendiente']
-    scores = [10, 10, 9, 9, 9, 8, None]
-    tags_pool = [['#obras-maestras'], ['#obras-maestras'], ['#obras-maestras'], [], [], ['#maratón-viernes'], ['#maratón-viernes']]
-    notes_pool = [
-        'Excelente desarrollo de personajes y animación brillante.',
-        'Mención honorífica por su trama.',
-        '',
-        '',
-        '',
-        'Ideal para ver con el grupo los viernes.',
-        ''
-    ]
-
-    for idx, anime in enumerate(available_animes):
-        st = statuses[idx] if idx < len(statuses) else 'pendiente'
-        sc = scores[idx] if idx < len(scores) else None
-        tg = tags_pool[idx] if idx < len(tags_pool) else []
-        nt = notes_pool[idx] if idx < len(notes_pool) else ''
-        fld = folder if idx in (1, 4) else None
-        eps = anime.episodes or 24
-        episodes_watched = eps if st == 'visto' else (7 if st == 'viendo' else 0)
-
-        UserAnimeEntry.objects.create(
-            user=user,
-            anime=anime,
-            status=st,
-            score=sc,
-            episodes_watched=episodes_watched,
-            is_favorite=(idx == 0),
-            folder=fld,
-            tags=tg,
-            notes=nt
-        )
-
-
 @api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def user_my_list_view(request):
     """
-    GET: Lista completa de animes del usuario con carpetas, tags y estadísticas.
-    POST: Agrega un nuevo anime a la lista personal.
+    GET: Lista completa de animes del usuario autenticado con carpetas, tags y estadísticas.
+    POST: Agrega un nuevo anime a la lista personal del usuario autenticado.
+    Zero Trust: Estrictamente aislado por cuenta de usuario.
     """
-    user = _get_target_user(request)
+    user = request.user
 
     if request.method == 'GET':
-        _ensure_initial_sample_data(user)
         entries_qs = (
             UserAnimeEntry.objects.filter(user=user)
             .select_related('anime', 'folder')
@@ -304,13 +240,13 @@ def user_my_list_view(request):
 
 
 @api_view(['PATCH', 'DELETE'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def user_my_list_entry_detail_view(request, entry_id):
     """
-    PATCH: Actualiza nota, estado, episodios, favorito, carpeta, tags o notas de un anime.
+    PATCH: Actualiza nota, estado, episodios, favorito, carpeta, tags o notas de un anime del usuario.
     DELETE: Elimina el anime de la lista del usuario.
     """
-    user = _get_target_user(request)
+    user = request.user
     entry = get_object_or_404(UserAnimeEntry.objects.select_related('anime', 'folder'), id=entry_id, user=user)
 
     if request.method == 'DELETE':
@@ -340,12 +276,12 @@ def user_my_list_entry_detail_view(request, entry_id):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def user_my_list_folders_view(request):
     """
     POST: Crea una nueva carpeta personal.
     """
-    user = _get_target_user(request)
+    user = request.user
     name = request.data.get('name', '').strip()
     if not name:
         return Response({'error': 'El nombre de la carpeta es requerido'}, status=status.HTTP_400_BAD_REQUEST)
@@ -355,13 +291,13 @@ def user_my_list_folders_view(request):
 
 
 @api_view(['PATCH', 'DELETE'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def user_my_list_folder_detail_view(request, folder_id):
     """
-    PATCH: Renombra una carpeta.
+    PATCH: Renombra una carpeta del usuario autenticado.
     DELETE: Elimina la carpeta (los animes permanecen en la lista).
     """
-    user = _get_target_user(request)
+    user = request.user
     folder = get_object_or_404(UserAnimeFolder, id=folder_id, user=user)
 
     if request.method == 'DELETE':
@@ -377,7 +313,7 @@ def user_my_list_folder_detail_view(request, folder_id):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def import_mal_xml_view(request):
     """
     Importa la lista personal de anime a partir del archivo oficial animelist.xml de MyAnimeList.
@@ -387,7 +323,7 @@ def import_mal_xml_view(request):
       con un tope estricto de máximo 5 títulos y un delay de 1.5s entre peticiones para prevenir
       bloqueos por rate limit.
     """
-    user = _get_target_user(request)
+    user = request.user
 
     file_obj = request.FILES.get('file')
     raw_xml = request.data.get('xml_content')

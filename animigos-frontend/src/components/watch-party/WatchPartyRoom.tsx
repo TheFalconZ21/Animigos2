@@ -21,6 +21,7 @@ import {
     LogOut,
     Loader2,
     Crown,
+    Search,
 } from 'lucide-react'
 import { useWatchParty } from '../../hooks/useWatchParty'
 import {
@@ -28,6 +29,7 @@ import {
     fetchRoomByCode,
     fetchRoomById,
     createRoomApi,
+    joinRoomApi,
     selectWinningAnimeApi,
     type RoomSummary,
 } from '../../services/watchPartyApi'
@@ -51,6 +53,11 @@ export const WatchPartyRoom: React.FC = () => {
     const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
     const [roomsList, setRoomsList] = useState<RoomSummary[]>([])
     const [isLoadingRooms, setIsLoadingRooms] = useState(false)
+
+    // Búsqueda / unirse por código de lista grupal
+    const [searchCodeInput, setSearchCodeInput] = useState('')
+    const [searchCodeError, setSearchCodeError] = useState<string | null>(null)
+    const [isSearchingCode, setIsSearchingCode] = useState(false)
 
     // Pestaña activa dentro de la sala
     const [roomTab, setRoomTab] = useState<'votacion' | 'grafico' | 'tracker'>('votacion')
@@ -81,10 +88,10 @@ export const WatchPartyRoom: React.FC = () => {
     const [chatInput, setChatInput] = useState('')
     const chatScrollRef = useRef<HTMLDivElement>(null)
 
-    // Cargar listas al iniciar
+    // Cargar listas al iniciar o al cambiar el usuario/token
     useEffect(() => {
         loadRooms()
-    }, [])
+    }, [userToken])
 
     // Soporte de navegación por hash: #sala/<codigo>
     useEffect(() => {
@@ -100,7 +107,7 @@ export const WatchPartyRoom: React.FC = () => {
     const loadRooms = async () => {
         setIsLoadingRooms(true)
         try {
-            const data = await fetchAllRooms()
+            const data = await fetchAllRooms(userToken)
             setRoomsList(data)
         } catch (e) {
             console.error('Error cargando listas:', e)
@@ -109,9 +116,39 @@ export const WatchPartyRoom: React.FC = () => {
         }
     }
 
+    const handleSearchOrJoinByCode = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault()
+        const code = searchCodeInput.trim().toUpperCase()
+        if (!code) return
+        setIsSearchingCode(true)
+        setSearchCodeError(null)
+        try {
+            const room = await fetchRoomByCode(code)
+            // Unirse a la sala para asegurar membresía persistente en su lista
+            try {
+                await joinRoomApi(room.id, userName, userToken)
+            } catch (joinErr) {
+                console.warn('Ya es miembro o error no crítico al unirse:', joinErr)
+            }
+            await loadRooms()
+            setSearchCodeInput('')
+            setSelectedRoomId(room.id)
+            window.location.hash = `#sala/${room.invite_code}`
+        } catch (err: any) {
+            setSearchCodeError(err.message || 'No se encontró ninguna lista grupal con el código ingresado')
+        } finally {
+            setIsSearchingCode(false)
+        }
+    }
+
     const handleOpenByCode = async (code: string) => {
         try {
             const room = code.includes('-') ? await fetchRoomById(code) : await fetchRoomByCode(code)
+            try {
+                await joinRoomApi(room.id, userName, userToken)
+            } catch (joinErr) {
+                console.warn('Registro de membresía:', joinErr)
+            }
             setSelectedRoomId(room.id)
             window.location.hash = `#sala/${room.invite_code}`
         } catch (e) {
@@ -283,6 +320,54 @@ export const WatchPartyRoom: React.FC = () => {
                             </div>
                         </div>
                     </header>
+
+                    {/* Barra de Búsqueda / Unirse por Código de Lista Grupal */}
+                    <div
+                        className="p-3 mb-4 rounded-3"
+                        style={{
+                            background: 'var(--wp-surface)',
+                            border: '1px solid var(--wp-border)',
+                        }}
+                    >
+                        <form
+                            onSubmit={handleSearchOrJoinByCode}
+                            className="d-flex flex-column flex-sm-row gap-2 align-items-stretch align-items-sm-center"
+                        >
+                            <div
+                                className="d-flex align-items-center gap-2 flex-grow-1 px-3 py-2 rounded-2"
+                                style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)' }}
+                            >
+                                <Search size={16} style={{ color: 'var(--wp-text-muted)' }} />
+                                <input
+                                    type="text"
+                                    className="bg-transparent text-white border-0 w-100 outline-none"
+                                    style={{ outline: 'none', fontSize: '0.9rem' }}
+                                    placeholder="Buscar o unirte mediante código de lista grupal (ej: 83B80802)..."
+                                    value={searchCodeInput}
+                                    onChange={(e) => setSearchCodeInput(e.target.value.toUpperCase())}
+                                    maxLength={16}
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                className="ml-btn ml-btn-acento text-nowrap"
+                                disabled={!searchCodeInput.trim() || isSearchingCode}
+                            >
+                                {isSearchingCode ? (
+                                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                                ) : (
+                                    <Search size={16} />
+                                )}
+                                <span>Buscar o Unirse</span>
+                            </button>
+                        </form>
+                        {searchCodeError && (
+                            <div className="small text-danger mt-2 mb-0 d-flex align-items-center gap-1">
+                                <AlertTriangle size={14} />
+                                <span>{searchCodeError}</span>
+                            </div>
+                        )}
+                    </div>
 
                     {/* Grilla de Salas Compartidas (2 Columnas, Compactas y Ordenadas) */}
                     {isLoadingRooms ? (

@@ -46,6 +46,7 @@ export function useMyList() {
     } = useQuery<MyListApiResponse, Error>({
         queryKey,
         queryFn: fetchMyList,
+        enabled: Boolean(user),
         staleTime: 1000 * 60 * 3, // 3 minutos de caché activa
     })
 

@@ -109,8 +109,12 @@ export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'di
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 const API_BASE = `${API_BASE_URL}/groups`
 
-export async function fetchAllRooms(): Promise<RoomSummary[]> {
-    const res = await fetch(`${API_BASE}/`)
+export async function fetchAllRooms(token?: string): Promise<RoomSummary[]> {
+    const url = new URL(`${API_BASE}/`)
+    if (token) url.searchParams.set('token', token)
+    const res = await fetch(url.toString(), {
+        credentials: 'include',
+    })
     if (!res.ok) throw new Error('No se pudieron cargar las salas grupales')
     const data = await res.json()
     return Array.isArray(data) ? data : data.results || []
@@ -125,6 +129,7 @@ export async function createRoomApi(data: {
     const res = await fetch(`${API_BASE}/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(data),
     })
     if (!res.ok) throw new Error('No se pudo crear la sala grupal')
@@ -132,14 +137,29 @@ export async function createRoomApi(data: {
 }
 
 export async function fetchRoomByCode(code: string): Promise<RoomSummary> {
-    const res = await fetch(`${API_BASE}/by_code/?code=${encodeURIComponent(code)}`)
+    const res = await fetch(`${API_BASE}/by_code/?code=${encodeURIComponent(code)}`, {
+        credentials: 'include',
+    })
     if (!res.ok) throw new Error('Sala no encontrada con el código ingresado')
     return res.json()
 }
 
 export async function fetchRoomById(id: string): Promise<RoomSummary> {
-    const res = await fetch(`${API_BASE}/${id}/`)
+    const res = await fetch(`${API_BASE}/${id}/`, {
+        credentials: 'include',
+    })
     if (!res.ok) throw new Error('No se pudo cargar la información de la sala')
+    return res.json()
+}
+
+export async function joinRoomApi(roomId: string, guestName: string, guestToken: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/${roomId}/join/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ guest_name: guestName, guest_token: guestToken }),
+    })
+    if (!res.ok) throw new Error('No se pudo unir a la sala grupal')
     return res.json()
 }
 

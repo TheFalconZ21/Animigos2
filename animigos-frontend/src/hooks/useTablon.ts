@@ -48,7 +48,7 @@ export function useTablon() {
 
     const feed = useQuery<Actividad[], Error>({ queryKey: CLAVE_FEED, queryFn: fetchFeed, staleTime: 1000 * 30 })
     const noticias = useQuery<Noticia[], Error>({ queryKey: ['tablon', 'noticias'], queryFn: fetchNews, staleTime: 1000 * 60 * 15 })
-    const salas = useQuery<RoomSummary[], Error>({ queryKey: ['salas'], queryFn: fetchAllRooms, staleTime: 1000 * 60 })
+    const salas = useQuery<RoomSummary[], Error>({ queryKey: ['salas'], queryFn: () => fetchAllRooms(), staleTime: 1000 * 60 })
 
     const autor: AutorActividad = {
         id: String(user?.id ?? 'invitado'),

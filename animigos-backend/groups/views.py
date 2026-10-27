@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -14,15 +15,42 @@ from .serializers import (
 class SharedListViewSet(viewsets.ModelViewSet):
     """
     API endpoint para gestionar salas de votación grupal (Listas Compartidas).
+    Aislado por pertenencia de usuario (Zero Trust).
     """
-    queryset = SharedList.objects.all().prefetch_related('members', 'candidates__votes', 'candidates__anime')
     serializer_class = SharedListSerializer
+
+    def get_queryset(self):
+        qs = SharedList.objects.all().prefetch_related('members', 'candidates__votes', 'candidates__anime')
+        user = self.request.user
+        token = self.request.query_params.get('token')
+
+        if user.is_authenticated:
+            display_name = getattr(getattr(user, 'profile', None), 'display_name', '')
+            user_filter = (
+                Q(members__guest_token=f"user_{user.id}") |
+                Q(members__guest_token=str(user.id)) |
+                Q(members__guest_name=user.username)
+            )
+            if display_name:
+                user_filter |= Q(members__guest_name=display_name)
+            return qs.filter(user_filter).distinct()
+
+        if token:
+            return qs.filter(members__guest_token=token).distinct()
+
+        return qs.none()
 
     def create(self, request, *args, **kwargs):
         name = request.data.get('name', 'Sala de Anime con Amigos')
         description = request.data.get('description', '')
-        creator_name = request.data.get('creator_name', 'Creador')
-        guest_token = request.data.get('guest_token', '')
+        user = request.user
+
+        if user.is_authenticated:
+            creator_name = getattr(getattr(user, 'profile', None), 'display_name', None) or user.username
+            guest_token = f"user_{user.id}"
+        else:
+            creator_name = request.data.get('creator_name', 'Creador')
+            guest_token = request.data.get('guest_token', '')
 
         shared_list = SharedList.objects.create(name=name, description=description)
         
@@ -39,7 +67,7 @@ class SharedListViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def by_code(self, request):
-        """Busca una sala usando su código de invitación."""
+        """Busca una sala usando su código de invitación (abierto para que cualquiera pueda unirse)."""
         code = request.query_params.get('code', '').strip().upper()
         if not code:
             return Response({'error': 'Parámetro code requerido'}, status=status.HTTP_400_BAD_REQUEST)
@@ -54,21 +82,38 @@ class SharedListViewSet(viewsets.ModelViewSet):
     def join(self, request, pk=None):
         """Une a un usuario/invitado a la sala."""
         shared_list = self.get_object()
-        guest_name = request.data.get('guest_name', '').strip()
-        guest_token = request.data.get('guest_token', '').strip()
+        user = request.user
+
+        if user.is_authenticated:
+            guest_name = getattr(getattr(user, 'profile', None), 'display_name', None) or user.username
+            guest_token = f"user_{user.id}"
+        else:
+            guest_name = request.data.get('guest_name', '').strip()
+            guest_token = request.data.get('guest_token', '').strip()
 
         if not guest_name:
             return Response({'error': 'guest_name es requerido'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Si ya existe un miembro con ese token en esta sala, no duplicarlo
-        member, created = SharedListMember.objects.get_or_create(
-            shared_list=shared_list,
-            guest_token=guest_token,
-            defaults={'guest_name': guest_name, 'role': 'guest'}
-        )
-        if not created and member.guest_name != guest_name:
-            member.guest_name = guest_name
-            member.save(update_fields=['guest_name'])
+        # Si ya existe un miembro con ese token o nombre en esta sala, no duplicarlo
+        member = SharedListMember.objects.filter(
+            shared_list=shared_list
+        ).filter(
+            Q(guest_token=guest_token) | Q(guest_name=guest_name)
+        ).first()
+
+        if not member:
+            member = SharedListMember.objects.create(
+                shared_list=shared_list,
+                guest_name=guest_name,
+                guest_token=guest_token,
+                role='member'
+            )
+            created = True
+        else:
+            created = False
+            if guest_token and not member.guest_token:
+                member.guest_token = guest_token
+                member.save(update_fields=['guest_token'])
 
         return Response(SharedListMemberSerializer(member).data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
 

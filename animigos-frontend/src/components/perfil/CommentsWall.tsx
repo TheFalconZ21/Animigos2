@@ -23,58 +23,31 @@ interface CommentsWallProps {
     initialComments?: ProfileComment[]
 }
 
-const DEFAULT_COMMENTS: ProfileComment[] = [
-    {
-        id: 'c1',
-        authorId: 'u2',
-        authorName: 'Camila Reyes',
-        authorUsername: 'camila_otaku',
-        authorAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150',
-        authorBadge: 'Amiga de Watch Party 🍿',
-        content: '¡Gran maratón el viernes pasado! No me esperaba ese final de temporada en [spoiler]el episodio 12 con la revelación del traidor[/spoiler]. ¿Cuándo armamos la próxima sala?',
-        hasSpoiler: true,
-        createdAt: 'Hace 2 horas',
-        likes: 4,
-        isLiked: true,
-        replies: [
-            {
-                id: 'r1',
-                authorName: 'Admin',
-                authorUsername: 'admin',
-                authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-                content: '¡Este viernes a las 21:00 abrimos sala con el Algoritmo de Felicidad! 🍿',
-                createdAt: 'Hace 45 min',
-            },
-        ],
-    },
-    {
-        id: 'c2',
-        authorId: 'u3',
-        authorName: 'Lucas Vega',
-        authorUsername: 'lucas_v',
-        authorAvatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150',
-        authorBadge: 'Top Reviewer 🌟',
-        content: 'Vi que le pusiste un 10 a Frieren. Totalmente de acuerdo, la dirección y la música de Evan Call son una obra de arte.',
-        hasSpoiler: false,
-        createdAt: 'Ayer',
-        likes: 2,
-        isLiked: false,
-    },
-]
+const DEFAULT_COMMENTS: ProfileComment[] = []
 
 export const CommentsWall: React.FC<CommentsWallProps> = ({
     currentUser,
     allowComments = 'everyone',
     initialComments = DEFAULT_COMMENTS,
 }) => {
+    const storageKey = `animigos_perfil_comments_${currentUser.id || 'guest'}`
     const [comments, setComments] = useState<ProfileComment[]>(() => {
         try {
-            const saved = localStorage.getItem('animigos_perfil_comments')
-            return saved ? JSON.parse(saved) : initialComments
+            const saved = localStorage.getItem(storageKey)
+            return saved ? JSON.parse(saved) : (initialComments.length ? initialComments : [])
         } catch {
-            return initialComments
+            return initialComments.length ? initialComments : []
         }
     })
+
+    React.useEffect(() => {
+        try {
+            const saved = localStorage.getItem(storageKey)
+            setComments(saved ? JSON.parse(saved) : (initialComments.length ? initialComments : []))
+        } catch {
+            setComments(initialComments.length ? initialComments : [])
+        }
+    }, [storageKey])
 
     const [activeTab, setActiveTab] = useState<'escribir' | 'preview'>('escribir')
     const [commentText, setCommentText] = useState('')
@@ -88,7 +61,7 @@ export const CommentsWall: React.FC<CommentsWallProps> = ({
     const saveComments = (newComments: ProfileComment[]) => {
         setComments(newComments)
         try {
-            localStorage.setItem('animigos_perfil_comments', JSON.stringify(newComments))
+            localStorage.setItem(storageKey, JSON.stringify(newComments))
         } catch {
             // ignore
         }
