@@ -616,3 +616,76 @@ h6 {
   outline: none !important;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-acento, var(--ml-acento, #e8508f)) 45%, transparent) !important;
 }
+
+/* ============================================================
+   LOGOTIPO CANÓNICO ANIMIGOS (ISOTIPO DE GATO)
+   ============================================================ */
+.animigos-logo {
+  font-family: 'Nunito', 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.animigos-logo-text {
+  color: #ffffff;
+  display: inline-block;
+  line-height: 1;
+}
+
+.animigos-logo--dark .animigos-logo-text {
+  color: #18181b;
+}
+
+.animigos-logo-cat {
+  width: auto;
+  aspect-ratio: 1046 / 872;
+  object-fit: contain;
+  margin: 0 1px;
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+}
+
+/* Tamaños */
+.animigos-logo--sm {
+  font-size: 1.15rem;
+}
+.animigos-logo--sm .animigos-logo-cat {
+  height: 18px;
+}
+
+.animigos-logo--md {
+  font-size: 1.42rem;
+}
+.animigos-logo--md .animigos-logo-cat {
+  height: 23px;
+}
+
+.animigos-logo--lg {
+  font-size: 2.1rem;
+}
+.animigos-logo--lg .animigos-logo-cat {
+  height: 33px;
+}
+
+.animigos-logo--xl {
+  font-size: 3.2rem;
+}
+.animigos-logo--xl .animigos-logo-cat {
+  height: 50px;
+}
+
+/* Efecto hover interactivo sobre el logotipo */
+.navbar-brand:hover .animigos-logo-cat,
+.animigos-logo:hover .animigos-logo-cat {
+  transform: translateY(-1.5px) rotate(-6deg) scale(1.12);
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--theme-acento, var(--ml-acento, #e8508f)) 65%, transparent));
+}

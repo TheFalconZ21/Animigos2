@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { NavOverflow } from 'bootstrap'
 import { LogOut, User as UserIcon, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { AnimigosLogo } from './AnimigosLogo'
 
 interface NavbarProps {
     currentView?: 'landing' | 'catalogo' | 'mi-lista' | 'sala' | 'tablon' | 'calendario' | 'perfil' | 'admin'
@@ -28,19 +29,20 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
 
     return (
         <nav className="navbar navbar-expand border-bottom border-dark py-2 sticky-top glass-nav">
-            <div className="container">
+            <div className="container-fluid px-3 px-md-4">
 
                 {/* Logo / Marca */}
                 <a
-                    className="navbar-brand fw-bold text-white fs-2xl"
+                    className="navbar-brand text-decoration-none me-2 me-md-4"
                     href="#"
                     onClick={(e) => {
                         e.preventDefault()
                         window.location.hash = '#catalogo'
                         onSelectView?.('catalogo')
                     }}
+                    title="Animigos — Ir al Catálogo"
                 >
-                    ANIMIGOS
+                    <AnimigosLogo size="md" />
                 </a>
 
                 {/* 3. Conectamos la referencia con ref={overflowRef} */}
