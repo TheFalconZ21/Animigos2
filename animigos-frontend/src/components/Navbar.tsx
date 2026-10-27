@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { NavOverflow } from 'bootstrap'
-import { LogOut, User as UserIcon } from 'lucide-react'
+import { LogOut, User as UserIcon, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 interface NavbarProps {
-    currentView?: 'landing' | 'catalogo' | 'mi-lista' | 'sala' | 'tablon' | 'calendario' | 'perfil'
-    onSelectView?: (view: 'landing' | 'catalogo' | 'mi-lista' | 'sala' | 'tablon' | 'calendario' | 'perfil') => void
+    currentView?: 'landing' | 'catalogo' | 'mi-lista' | 'sala' | 'tablon' | 'calendario' | 'perfil' | 'admin'
+    onSelectView?: (view: 'landing' | 'catalogo' | 'mi-lista' | 'sala' | 'tablon' | 'calendario' | 'perfil' | 'admin') => void
 }
 
 export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) {
@@ -122,10 +122,35 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                     </ul>
                 </div>
 
-                {/* Botones de acción a la derecha: Perfil (logeado) vs Login / Registro (invitado) */}
+                {/* Botones de acción a la derecha: Perfil y Admin Console (logeado) vs Login / Registro (invitado) */}
                 <div className="d-flex align-items-center gap-2">
                     {isAuthenticated && user ? (
                         <div className="d-flex align-items-center gap-2">
+                            {(user.is_staff || user.is_superuser) && (
+                                <a
+                                    href="#admin"
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        window.location.hash = '#admin'
+                                        onSelectView?.('admin')
+                                    }}
+                                    className={`btn btn-sm d-flex align-items-center gap-1.5 py-1 px-2.5 rounded-pill text-decoration-none transition-all ${
+                                        currentView === 'admin'
+                                            ? 'btn-warning text-dark fw-bold shadow-sm'
+                                            : 'btn-outline-warning text-warning'
+                                    }`}
+                                    style={{
+                                        fontSize: '0.78rem',
+                                        backgroundColor: currentView === 'admin' ? '#f59e0b' : 'rgba(245, 158, 11, 0.1)',
+                                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                                    }}
+                                    title="Ir al Portal de Administración"
+                                >
+                                    <ShieldCheck size={14} />
+                                    <span>Admin Console</span>
+                                </a>
+                            )}
+
                             <a
                                 href="#perfil"
                                 onClick={(e) => {

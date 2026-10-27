@@ -59,12 +59,16 @@ def login_user(request):
     if not username_or_email or not password:
         return Response({'error': 'Usuario o correo y contraseña requeridos'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Resolución dual: si se ingresó un correo, obtener el username canónico
-    target_username = username_or_email
+    # Resolución dual insensible a mayúsculas y espacios: si se ingresó un correo o usuario
+    target_username = username_or_email.strip()
     if '@' in username_or_email:
-        user_by_email = User.objects.filter(email__iexact=username_or_email).first()
+        user_by_email = User.objects.filter(email__iexact=target_username).first()
         if user_by_email:
             target_username = user_by_email.username
+    else:
+        user_by_uname = User.objects.filter(username__iexact=target_username).first()
+        if user_by_uname:
+            target_username = user_by_uname.username
 
     user = authenticate(request, username=target_username, password=password)
     if user is not None:

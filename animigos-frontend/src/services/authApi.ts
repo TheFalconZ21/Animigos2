@@ -23,6 +23,8 @@ export interface UserProfile {
     display_name: string
     avatar_url: string
     bio: string
+    is_staff?: boolean
+    is_superuser?: boolean
     favorite_anime?: number | null
     preferences?: UserPreferences
     created_at: string

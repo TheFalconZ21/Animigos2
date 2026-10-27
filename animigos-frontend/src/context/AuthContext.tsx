@@ -11,7 +11,7 @@ interface AuthContextType {
     user: UserProfile | null
     isAuthenticated: boolean
     loading: boolean
-    login: (usernameOrEmail: string, password: string) => Promise<void>
+    login: (usernameOrEmail: string, password: string) => Promise<UserProfile>
     register: (payload: { username: string; email: string; password: string; display_name?: string }) => Promise<void>
     logout: () => Promise<void>
     refreshUser: () => Promise<void>
@@ -47,10 +47,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshUser()
     }, [])
 
-    const handleLogin = async (usernameOrEmail: string, password: string) => {
+    const handleLogin = async (usernameOrEmail: string, password: string): Promise<UserProfile> => {
         const res = await loginUser(usernameOrEmail, password)
         setUser(res.user)
         setIsAuthenticated(true)
+        return res.user
     }
 
     const handleRegister = async (payload: { username: string; email: string; password: string; display_name?: string }) => {

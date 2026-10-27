@@ -21,6 +21,8 @@ class UserPreferencesSerializer(serializers.ModelSerializer):
 class ProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
+    is_staff = serializers.BooleanField(source='user.is_staff', read_only=True)
+    is_superuser = serializers.BooleanField(source='user.is_superuser', read_only=True)
     favorite_anime_detail = AnimeSerializer(source='favorite_anime', read_only=True)
     preferences = UserPreferencesSerializer(read_only=True)
 
@@ -30,6 +32,8 @@ class ProfileSerializer(serializers.ModelSerializer):
             'id',
             'username',
             'email',
+            'is_staff',
+            'is_superuser',
             'display_name',
             'avatar_url',
             'bio',

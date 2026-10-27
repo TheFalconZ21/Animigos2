@@ -14,16 +14,20 @@ import { useAuth } from './context/AuthContext'
 
 function App() {
   useThemeAccent()
-  const { isAuthenticated } = useAuth()
+  const { user, isAuthenticated } = useAuth()
+  const isAdmin = Boolean(isAuthenticated && (user?.is_staff || user?.is_superuser))
   const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'mi-lista' | 'admin' | 'sala' | 'tablon' | 'calendario' | 'perfil'>('catalogo')
 
-  // Redirigir si un usuario invitado intenta ver secciones privadas (Tablón, Mi Lista, Perfil)
+  // Redirigir si un usuario sin permisos intenta ver secciones privadas (Tablón, Mi Lista, Perfil, Admin)
   useEffect(() => {
     if (!isAuthenticated && (currentView === 'tablon' || currentView === 'mi-lista' || currentView === 'perfil')) {
       setCurrentView('catalogo')
       window.location.hash = '#catalogo'
+    } else if (!isAdmin && currentView === 'admin') {
+      setCurrentView('catalogo')
+      window.location.hash = '#catalogo'
     }
-  }, [isAuthenticated, currentView])
+  }, [isAuthenticated, isAdmin, currentView])
 
   // Soporte de navegación por hash (ej: /#catalogo, /#mi-lista, /#admin, /#sala o /#perfil)
   useEffect(() => {
@@ -50,7 +54,14 @@ function App() {
       } else if (hash === '#calendario' || hash === '#estrenos') {
         setCurrentView('calendario')
       } else if (hash === '#admin') {
-        setCurrentView('admin')
+        if (!isAdmin) {
+          window.location.hash = '#catalogo'
+          setCurrentView('catalogo')
+          const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+          dialog?.showModal()
+        } else {
+          setCurrentView('admin')
+        }
       } else if (hash === '#sala' || hash === '#votacion' || hash === '#listas' || hash.startsWith('#sala/')) {
         setCurrentView('sala')
       } else if (hash === '#perfil' || hash === '#profile') {
@@ -71,10 +82,37 @@ function App() {
     handleHash()
     window.addEventListener('hashchange', handleHash)
     return () => window.removeEventListener('hashchange', handleHash)
-  }, [isAuthenticated])
+  }, [isAuthenticated, isAdmin])
+
+  // Switcher flotante para la consola de administración (exclusivo para administradores)
+  const renderAdminFloatingBtn = () => {
+    if (!isAdmin) return null
+    return (
+      <div className="position-fixed bottom-0 end-0 p-3 z-3">
+        <button
+          type="button"
+          onClick={() => {
+            window.location.hash = '#admin'
+            setCurrentView('admin')
+          }}
+          className="admin-btn d-flex align-items-center gap-2 px-3 py-2 text-white shadow"
+          style={{
+            backgroundColor: '#0A0A0A',
+            border: '1px solid #1F1F1F',
+            borderRadius: '8px',
+            fontSize: '0.78rem',
+            fontFamily: 'var(--font-mono)'
+          }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10B981' }}></span>
+          <span>ADMIN CONSOLE (5 Vistas)</span>
+        </button>
+      </div>
+    )
+  }
 
   // 1. Si estamos en modo administración, mostramos el Admin Portal completo
-  if (currentView === 'admin') {
+  if (currentView === 'admin' && isAdmin) {
     return (
       <AdminPortal
         onBackToLanding={() => {
@@ -94,28 +132,7 @@ function App() {
           <WatchPartyRoom />
         </main>
         <LoginModal />
-
-        {/* Switcher flotante para previsualizar el Admin Portal */}
-        <div className="position-fixed bottom-0 end-0 p-3 z-3">
-          <button
-            type="button"
-            onClick={() => {
-              window.location.hash = '#admin'
-              setCurrentView('admin')
-            }}
-            className="admin-btn d-flex align-items-center gap-2 px-3 py-2 text-white shadow"
-            style={{
-              backgroundColor: '#0A0A0A',
-              border: '1px solid #1F1F1F',
-              borderRadius: '8px',
-              fontSize: '0.78rem',
-              fontFamily: 'var(--font-mono)'
-            }}
-          >
-            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10B981' }}></span>
-            <span>ADMIN CONSOLE (5 Vistas)</span>
-          </button>
-        </div>
+        {renderAdminFloatingBtn()}
       </>
     )
   }
@@ -130,27 +147,7 @@ function App() {
         </main>
         <LoginModal />
 
-        {/* Switcher flotante para previsualizar el Admin Portal */}
-        <div className="position-fixed bottom-0 end-0 p-3 z-3">
-          <button
-            type="button"
-            onClick={() => {
-              window.location.hash = '#admin'
-              setCurrentView('admin')
-            }}
-            className="admin-btn d-flex align-items-center gap-2 px-3 py-2 text-white shadow"
-            style={{
-              backgroundColor: '#0A0A0A',
-              border: '1px solid #1F1F1F',
-              borderRadius: '8px',
-              fontSize: '0.78rem',
-              fontFamily: 'var(--font-mono)'
-            }}
-          >
-            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10B981' }}></span>
-            <span>ADMIN CONSOLE (5 Vistas)</span>
-          </button>
-        </div>
+        {renderAdminFloatingBtn()}
       </>
     )
   }
@@ -191,27 +188,7 @@ function App() {
         </main>
         <LoginModal />
 
-        {/* Switcher flotante para previsualizar el Admin Portal */}
-        <div className="position-fixed bottom-0 end-0 p-3 z-3">
-          <button
-            type="button"
-            onClick={() => {
-              window.location.hash = '#admin'
-              setCurrentView('admin')
-            }}
-            className="admin-btn d-flex align-items-center gap-2 px-3 py-2 text-white shadow"
-            style={{
-              backgroundColor: '#0A0A0A',
-              border: '1px solid #1F1F1F',
-              borderRadius: '8px',
-              fontSize: '0.78rem',
-              fontFamily: 'var(--font-mono)'
-            }}
-          >
-            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10B981' }}></span>
-            <span>ADMIN CONSOLE (5 Vistas)</span>
-          </button>
-        </div>
+        {renderAdminFloatingBtn()}
       </>
     )
   }
@@ -226,27 +203,7 @@ function App() {
         </main>
         <LoginModal />
 
-        {/* Switcher flotante para previsualizar el Admin Portal */}
-        <div className="position-fixed bottom-0 end-0 p-3 z-3">
-          <button
-            type="button"
-            onClick={() => {
-              window.location.hash = '#admin'
-              setCurrentView('admin')
-            }}
-            className="admin-btn d-flex align-items-center gap-2 px-3 py-2 text-white shadow"
-            style={{
-              backgroundColor: '#0A0A0A',
-              border: '1px solid #1F1F1F',
-              borderRadius: '8px',
-              fontSize: '0.78rem',
-              fontFamily: 'var(--font-mono)'
-            }}
-          >
-            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10B981' }}></span>
-            <span>ADMIN CONSOLE (5 Vistas)</span>
-          </button>
-        </div>
+        {renderAdminFloatingBtn()}
       </>
     )
   }
@@ -312,27 +269,7 @@ function App() {
       {/* Modal de Iniciar Sesión / Registro */}
       <LoginModal />
 
-      {/* Switcher flotante para previsualizar el Admin Portal */}
-      <div className="position-fixed bottom-0 end-0 p-3 z-3">
-        <button
-          type="button"
-          onClick={() => {
-            window.location.hash = '#admin'
-            setCurrentView('admin')
-          }}
-          className="admin-btn d-flex align-items-center gap-2 px-3 py-2 text-white shadow"
-          style={{
-            backgroundColor: '#0A0A0A',
-            border: '1px solid #1F1F1F',
-            borderRadius: '8px',
-            fontSize: '0.78rem',
-            fontFamily: 'var(--font-mono)'
-          }}
-        >
-          <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10B981' }}></span>
-          <span>ADMIN CONSOLE (5 Vistas)</span>
-        </button>
-      </div>
+      {renderAdminFloatingBtn()}
     </>
   )
 }

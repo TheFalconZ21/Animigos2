@@ -59,7 +59,16 @@ export function LoginModal() {
                     throw new Error('Ingresa tu contraseña')
                 }
 
-                await login(usernameOrEmail.trim(), password)
+                const loggedUser = await login(usernameOrEmail.trim(), password)
+                if (loggedUser?.is_staff || loggedUser?.is_superuser) {
+                    setSuccessMsg('¡Bienvenido Administrador! Ingresando a Admin Console...')
+                    setTimeout(() => {
+                        handleClose()
+                        setPassword('')
+                        window.location.hash = '#admin'
+                    }, 600)
+                    return
+                }
                 setSuccessMsg('¡Bienvenido de vuelta a Animigos!')
             }
 
