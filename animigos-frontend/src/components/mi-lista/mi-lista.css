@@ -7,7 +7,7 @@
    ============================================================ */
 
 .ml-root {
-    --ml-acento: #e8508f;
+    --ml-acento: var(--theme-acento, #e8508f);
     --ml-acento-suave: color-mix(in srgb, var(--ml-acento) 14%, transparent);
     --ml-acento-borde: color-mix(in srgb, var(--ml-acento) 35%, transparent);
 

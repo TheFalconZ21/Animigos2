@@ -52,7 +52,7 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                     <ul className="nav navbar-nav justify-content-center">
                         <li className="nav-item">
                             <a
-                                className={`nav-link ${currentView === 'catalogo' ? 'active text-white' : 'text-secondary'}`}
+                                className={`nav-link ${currentView === 'catalogo' ? 'active' : ''}`}
                                 href="#catalogo"
                                 onClick={(e) => {
                                     e.preventDefault()
@@ -65,7 +65,7 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                         </li>
                         <li className="nav-item">
                             <a
-                                className={`nav-link ${currentView === 'mi-lista' ? 'active text-white' : 'text-secondary'}`}
+                                className={`nav-link ${currentView === 'mi-lista' ? 'active' : ''}`}
                                 href="#mi-lista"
                                 onClick={(e) => {
                                     e.preventDefault()
@@ -78,7 +78,7 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                         </li>
                         <li className="nav-item">
                             <a
-                                className={`nav-link ${currentView === 'sala' ? 'active text-white' : 'text-secondary'}`}
+                                className={`nav-link ${currentView === 'sala' ? 'active' : ''}`}
                                 href="#listas"
                                 onClick={(e) => {
                                     e.preventDefault()
