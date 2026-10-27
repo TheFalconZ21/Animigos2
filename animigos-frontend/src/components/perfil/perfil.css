@@ -1028,3 +1028,99 @@
     transform: translateX(-50%) scale(1.03);
 }
 
+/* ---------- 9. Tira Compacta de Amigos y Sugerencias (Conforme a Boceto) ---------- */
+.perfil-friends-container {
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    border-radius: 12px;
+    padding: 1.25rem 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.perfil-friends-strip {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+@media (max-width: 1260px) {
+    .perfil-friends-strip {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: thin;
+    }
+    .perfil-friend-compact-card,
+    .perfil-friend-vermas-card {
+        min-width: 175px;
+        max-width: 195px;
+        flex-shrink: 0;
+        scroll-snap-align: start;
+    }
+}
+
+.perfil-friend-compact-card {
+    background: #14141a;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 112px;
+    position: relative;
+    transition: all 0.15s ease;
+}
+
+.perfil-friend-compact-card:hover {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: #181822;
+    transform: translateY(-1px);
+}
+
+.perfil-friend-vermas-card {
+    background: #14141a;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 112px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.perfil-friend-vermas-card:hover {
+    border-color: var(--perfil-acento);
+    background: #181822;
+    transform: translateY(-1px);
+}
+
+.perfil-friend-vermas-btn {
+    background: color-mix(in srgb, var(--perfil-acento) 22%, #181822);
+    border: 1px solid color-mix(in srgb, var(--perfil-acento) 40%, transparent);
+    color: #ffffff;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    padding: 0.45rem 1rem;
+    border-radius: 6px;
+    text-transform: uppercase;
+    transition: all 0.15s ease;
+    width: 100%;
+    text-align: center;
+}
+
+.perfil-friend-vermas-card:hover .perfil-friend-vermas-btn {
+    background: var(--perfil-acento);
+    color: #080808;
+    border-color: var(--perfil-acento);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--perfil-acento) 35%, transparent);
+}
+
+

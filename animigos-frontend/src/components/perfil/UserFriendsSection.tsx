@@ -10,6 +10,7 @@ import {
     Tv,
     Loader2,
 } from 'lucide-react'
+import { Dialogo } from '../mi-lista/piezas'
 import {
     fetchFriends,
     addFriend,
@@ -28,6 +29,8 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({ currentU
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+    const [isAllFriendsModalOpen, setIsAllFriendsModalOpen] = useState(false)
+    const [isAllSuggestionsModalOpen, setIsAllSuggestionsModalOpen] = useState(false)
     const [newFriendInput, setNewFriendInput] = useState('')
     const [addLoading, setAddLoading] = useState(false)
     const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; isError: boolean } | null>(null)
@@ -60,7 +63,6 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({ currentU
             const res = await addFriend(targetQuery.trim())
             setFeedbackMsg({ text: res.message || '¡Amigo agregado con éxito!', isError: false })
             setNewFriendInput('')
-            // Recargar datos
             await loadFriendsData()
             setTimeout(() => {
                 setFeedbackMsg(null)
@@ -97,43 +99,56 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({ currentU
         )
     })
 
+    // Primeros 5 amigos para la fila compacta
+    const topFriends = filteredFriends.slice(0, 5)
+    // Primeras 5 sugerencias para la fila compacta
+    const topSuggested = suggested.slice(0, 5)
+
     return (
-        <div className="perfil-card p-4 rounded-4 mb-4 border" style={{ borderColor: 'var(--perfil-border)', background: 'var(--perfil-card)' }}>
-            {/* Cabecera de la sección */}
-            <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+        <div className="perfil-friends-container">
+            {/* 1. Cabecera conforme al boceto */}
+            <div className="mb-3">
+                {/* Fila 1: Icono + Título + Badge + Subtítulo */}
                 <div className="d-flex align-items-center gap-2.5">
                     <div
-                        className="rounded-3 p-2 d-flex align-items-center justify-content-center"
-                        style={{ background: 'color-mix(in srgb, var(--perfil-acento) 16%, transparent)', color: 'var(--perfil-acento)' }}
+                        className="rounded-3 p-2 d-flex align-items-center justify-content-center flex-shrink-0"
+                        style={{
+                            background: 'color-mix(in srgb, var(--perfil-acento) 18%, transparent)',
+                            color: 'var(--perfil-acento)',
+                            width: '36px',
+                            height: '36px',
+                        }}
                     >
-                        <Users size={22} />
+                        <Users size={18} />
                     </div>
                     <div>
                         <div className="d-flex align-items-center gap-2">
-                            <h2 className="h5 fw-bold text-white mb-0">Mis Amigos</h2>
+                            <h2 className="h6 fw-bold text-white mb-0" style={{ fontSize: '0.98rem' }}>
+                                Mis Amigos
+                            </h2>
                             <span
-                                className="badge rounded-pill px-2.5 py-1 fw-bold"
+                                className="badge rounded-pill px-2 py-0.5"
                                 style={{
-                                    background: 'color-mix(in srgb, var(--perfil-acento) 20%, transparent)',
+                                    background: 'color-mix(in srgb, var(--perfil-acento) 22%, transparent)',
                                     color: 'var(--perfil-acento)',
-                                    border: '1px solid color-mix(in srgb, var(--perfil-acento) 40%, transparent)',
-                                    fontSize: '0.74rem',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
                                 }}
                             >
                                 {friends.length} {friends.length === 1 ? 'amigo' : 'amigos'}
                             </span>
                         </div>
-                        <p className="small mb-0 mt-0.5" style={{ color: 'var(--perfil-text-muted)' }}>
+                        <p className="small mb-0 text-secondary" style={{ fontSize: '0.76rem' }}>
                             Compañeros para ver anime, coordinar maratones y compartir listas.
                         </p>
                     </div>
                 </div>
 
-                <div className="d-flex align-items-center gap-2">
-                    {/* Búsqueda rápida */}
-                    <div className="position-relative" style={{ minWidth: '180px' }}>
+                {/* Fila 2: Buscador + Botón Agregar Amigo */}
+                <div className="d-flex align-items-center gap-2 mt-2.5">
+                    <div className="position-relative" style={{ width: '220px' }}>
                         <Search
-                            size={14}
+                            size={13}
                             className="position-absolute start-0 top-50 translate-middle-y ms-2.5 text-secondary"
                         />
                         <input
@@ -141,28 +156,32 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({ currentU
                             placeholder="Buscar amigos..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="cat-search-control w-100 ps-4 py-1.5"
-                            style={{ fontSize: '0.8rem' }}
+                            className="cat-search-control w-100 ps-4 py-1"
+                            style={{ fontSize: '0.76rem' }}
                         />
                     </div>
 
-                    {/* Botón Agregar Amigo */}
                     <button
                         type="button"
                         onClick={() => setIsAddModalOpen((v) => !v)}
-                        className="ml-btn ml-btn-acento ml-btn-sm d-inline-flex align-items-center gap-1.5"
-                        title="Agregar nuevo amigo"
+                        className="btn btn-sm d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill"
+                        style={{
+                            background: 'var(--perfil-acento)',
+                            color: '#080808',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                        }}
                     >
-                        <UserPlus size={14} />
+                        <UserPlus size={13} />
                         <span>Agregar Amigo</span>
                     </button>
                 </div>
             </div>
 
-            {/* Panel desplegable: Agregar Amigo */}
+            {/* Panel desplegable de Agregar Amigo */}
             {isAddModalOpen && (
                 <div
-                    className="p-3 rounded-3 mb-4 border animate-fade-in"
+                    className="p-3 rounded-3 mb-3 border animate-fade-in"
                     style={{
                         background: 'var(--perfil-card-2)',
                         borderColor: 'var(--perfil-acento)',
@@ -170,16 +189,16 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({ currentU
                     }}
                 >
                     <div className="d-flex align-items-center justify-content-between mb-2">
-                        <span className="small fw-semibold text-white d-flex align-items-center gap-1.5">
-                            <Sparkles size={14} style={{ color: 'var(--perfil-acento)' }} />
-                            Conectar con un amigo en Animigos
+                        <span className="small fw-semibold text-white d-flex align-items-center gap-1.5" style={{ fontSize: '0.78rem' }}>
+                            <Sparkles size={13} style={{ color: 'var(--perfil-acento)' }} />
+                            Conectar con un usuario de Animigos
                         </span>
                         <button
                             type="button"
                             onClick={() => setIsAddModalOpen(false)}
                             className="btn p-0 text-secondary border-0"
                         >
-                            <X size={15} />
+                            <X size={14} />
                         </button>
                     </div>
 
@@ -195,25 +214,27 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({ currentU
                             placeholder="Ingresa el @usuario o correo (ej: @otaku_fan o amigo@animigos.cl)..."
                             value={newFriendInput}
                             onChange={(e) => setNewFriendInput(e.target.value)}
-                            className="cat-search-control flex-grow-1"
-                            style={{ fontSize: '0.82rem' }}
+                            className="cat-search-control flex-grow-1 py-1"
+                            style={{ fontSize: '0.78rem' }}
                             autoFocus
                         />
                         <button
                             type="submit"
                             disabled={addLoading || !newFriendInput.trim()}
-                            className="ml-btn ml-btn-acento ml-btn-sm d-inline-flex align-items-center gap-1.5"
+                            className="ml-btn ml-btn-acento ml-btn-sm d-inline-flex align-items-center gap-1"
+                            style={{ fontSize: '0.76rem' }}
                         >
-                            {addLoading ? <Loader2 size={14} className="spinner-border spinner-border-sm" /> : <UserPlus size={14} />}
+                            {addLoading ? <Loader2 size={13} className="spinner-border spinner-border-sm" /> : <UserPlus size={13} />}
                             <span>{addLoading ? 'Conectando...' : 'Agregar'}</span>
                         </button>
                     </form>
 
                     {feedbackMsg && (
                         <div
-                            className={`small mt-2 p-2 rounded-2 ${
+                            className={`small mt-2 p-1.5 rounded-2 ${
                                 feedbackMsg.isError ? 'text-danger bg-danger-subtle' : 'text-success bg-success-subtle'
                             }`}
+                            style={{ fontSize: '0.74rem' }}
                         >
                             {feedbackMsg.text}
                         </div>
@@ -221,179 +242,344 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({ currentU
                 </div>
             )}
 
-            {/* Grid de Amigos */}
+            {/* 2. Tira Compacta: MIS AMIGOS */}
             {loading ? (
-                <div className="text-center py-5">
-                    <Loader2 size={28} className="spinner-border text-secondary" />
-                    <p className="small text-secondary mt-2">Cargando lista de amigos...</p>
+                <div className="text-center py-3">
+                    <Loader2 size={20} className="spinner-border text-secondary" />
                 </div>
-            ) : filteredFriends.length > 0 ? (
-                <div className="row g-3">
-                    {filteredFriends.map((friend) => (
-                        <div key={friend.id} className="col-12 col-md-6 col-lg-4">
+            ) : topFriends.length > 0 ? (
+                <div className="perfil-friends-strip mb-3">
+                    {topFriends.map((friend) => (
+                        <div key={friend.id} className="perfil-friend-compact-card">
+                            <div className="d-flex align-items-start gap-2 min-w-0">
+                                {/* Avatar con punto verde de estado */}
+                                <div className="position-relative flex-shrink-0">
+                                    <img
+                                        src={
+                                            friend.avatar_url ||
+                                            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+                                        }
+                                        alt={friend.display_name}
+                                        className="rounded-circle"
+                                        style={{ width: '38px', height: '38px', objectFit: 'cover' }}
+                                        onError={(e) => {
+                                            e.currentTarget.src =
+                                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+                                        }}
+                                    />
+                                    <span
+                                        className="position-absolute bottom-0 end-0 rounded-circle border border-dark"
+                                        style={{ width: '8px', height: '8px', backgroundColor: '#10b981' }}
+                                        title="En línea"
+                                    />
+                                </div>
+
+                                {/* Textos: Nombre, @username, Bio */}
+                                <div className="min-w-0 flex-grow-1">
+                                    <div className="d-flex align-items-center justify-content-between">
+                                        <span
+                                            className="fw-bold text-white text-truncate d-block"
+                                            style={{ fontSize: '0.78rem' }}
+                                            title={friend.display_name}
+                                        >
+                                            {friend.display_name}
+                                        </span>
+                                    </div>
+                                    <span
+                                        className="text-secondary font-mono text-truncate d-block"
+                                        style={{ fontSize: '0.68rem', color: '#9ca3af' }}
+                                    >
+                                        @{friend.username}
+                                    </span>
+                                    <span
+                                        className="text-truncate d-block"
+                                        style={{ fontSize: '0.68rem', color: 'var(--perfil-text-dim)', lineHeight: 1.2 }}
+                                        title={friend.bio || '¡Hola! Estoy usando Animigos'}
+                                    >
+                                        {friend.bio || '¡Hola! Estoy usando Animigos'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Footer: Icono de lista */}
                             <div
-                                className="h-100 p-3 rounded-3 d-flex flex-column justify-content-between border position-relative"
-                                style={{
-                                    background: 'var(--perfil-card-2)',
-                                    borderColor: 'var(--perfil-border)',
-                                    transition: 'transform 0.15s ease, border-color 0.15s ease',
-                                }}
+                                className="d-flex align-items-center justify-content-between pt-1 border-top"
+                                style={{ borderColor: 'rgba(255,255,255,0.06)' }}
                             >
-                                <div className="d-flex align-items-start gap-3">
-                                    {/* Avatar con status online */}
+                                <span
+                                    className="d-inline-flex align-items-center gap-1.5"
+                                    style={{ fontSize: '0.68rem', color: '#9ca3af' }}
+                                >
+                                    <Film size={11} style={{ color: 'var(--perfil-acento)' }} />
+                                    <span>{friend.anime_count || 0} en su lista</span>
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Botón Card: VER MÁS */}
+                    <div
+                        className="perfil-friend-vermas-card"
+                        onClick={() => setIsAllFriendsModalOpen(true)}
+                        role="button"
+                        tabIndex={0}
+                        title="Ver todos los amigos y opciones"
+                    >
+                        <div className="position-absolute top-0 end-0 p-2">
+                            <Users size={13} className="text-secondary opacity-40" />
+                        </div>
+                        <div className="perfil-friend-vermas-btn">
+                            VER MAS
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div
+                    className="p-3 rounded-3 text-center mb-3 border"
+                    style={{ background: '#14141a', borderColor: 'rgba(255,255,255,0.06)' }}
+                >
+                    <span className="small text-secondary" style={{ fontSize: '0.76rem' }}>
+                        {searchQuery
+                            ? 'No se encontraron amigos con ese criterio.'
+                            : 'Aún no tienes amigos agregados. ¡Conecta con otros usuarios o revisa las sugerencias abajo!'}
+                    </span>
+                </div>
+            )}
+
+            {/* 3. Tira Compacta: SUGERENCIAS */}
+            {suggested.length > 0 && (
+                <div>
+                    <h3
+                        className="fw-bold text-white text-uppercase tracking-wider mb-2"
+                        style={{ fontSize: '0.8rem', letterSpacing: '0.8px' }}
+                    >
+                        SUGERENCIAS
+                    </h3>
+
+                    <div className="perfil-friends-strip">
+                        {topSuggested.map((sug) => (
+                            <div key={sug.id} className="perfil-friend-compact-card">
+                                <div className="d-flex align-items-start gap-2 min-w-0">
+                                    {/* Avatar con punto verde */}
                                     <div className="position-relative flex-shrink-0">
                                         <img
-                                            src={friend.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-                                            alt={friend.display_name}
+                                            src={
+                                                sug.avatar_url ||
+                                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+                                            }
+                                            alt={sug.display_name}
                                             className="rounded-circle"
-                                            style={{
-                                                width: '46px',
-                                                height: '46px',
-                                                objectFit: 'cover',
-                                                border: '2px solid var(--perfil-border)',
-                                            }}
-                                            onError={(e) => {
-                                                e.currentTarget.src =
-                                                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
-                                            }}
+                                            style={{ width: '38px', height: '38px', objectFit: 'cover' }}
                                         />
                                         <span
                                             className="position-absolute bottom-0 end-0 rounded-circle border border-dark"
-                                            style={{
-                                                width: '10px',
-                                                height: '10px',
-                                                backgroundColor: '#10b981',
-                                            }}
+                                            style={{ width: '8px', height: '8px', backgroundColor: '#10b981' }}
                                             title="En línea"
                                         />
                                     </div>
 
-                                    {/* Datos del amigo */}
-                                    <div className="flex-grow-1 min-w-0">
-                                        <div className="d-flex align-items-center justify-content-between gap-1">
-                                            <h4 className="small fw-bold text-white mb-0 text-truncate">
-                                                {friend.display_name}
-                                            </h4>
+                                    {/* Textos: Nombre, @username, Bio */}
+                                    <div className="min-w-0 flex-grow-1">
+                                        <div className="d-flex align-items-center justify-content-between">
+                                            <span
+                                                className="fw-bold text-white text-truncate d-block"
+                                                style={{ fontSize: '0.78rem' }}
+                                                title={sug.display_name}
+                                            >
+                                                {sug.display_name}
+                                            </span>
+                                            {/* Botón rápido para agregar */}
                                             <button
                                                 type="button"
-                                                onClick={() => handleRemoveFriend(friend.id, friend.display_name)}
-                                                className="btn btn-sm p-1 text-secondary opacity-50 border-0"
-                                                title="Eliminar de amigos"
+                                                onClick={() => handleAddFriend(sug.username)}
+                                                className="btn p-0 text-secondary border-0 ms-1 flex-shrink-0"
+                                                title={`Agregar a ${sug.display_name} como amigo`}
+                                                style={{ opacity: 0.6 }}
                                             >
-                                                {actionLoadingId === friend.id ? (
-                                                    <Loader2 size={13} className="spinner-border spinner-border-sm" />
-                                                ) : (
-                                                    <UserMinus size={13} />
-                                                )}
+                                                <UserPlus size={13} />
                                             </button>
                                         </div>
-                                        <span className="small font-mono text-secondary d-block text-truncate" style={{ fontSize: '0.74rem' }}>
-                                            @{friend.username}
+                                        <span
+                                            className="text-secondary font-mono text-truncate d-block"
+                                            style={{ fontSize: '0.68rem', color: '#9ca3af' }}
+                                        >
+                                            @{sug.username}
                                         </span>
-                                        {friend.bio && (
-                                            <p
-                                                className="small mb-2 mt-1 text-truncate-2"
-                                                style={{ color: 'var(--perfil-text-muted)', fontSize: '0.75rem', lineHeight: 1.3 }}
-                                            >
-                                                {friend.bio}
-                                            </p>
-                                        )}
+                                        <span
+                                            className="text-truncate d-block"
+                                            style={{ fontSize: '0.68rem', color: 'var(--perfil-text-dim)', lineHeight: 1.2 }}
+                                            title={sug.bio || '¡Hola! Estoy usando Animigos'}
+                                        >
+                                            {sug.bio || '¡Hola! Estoy usando Animigos'}
+                                        </span>
                                     </div>
                                 </div>
 
-                                {/* Acciones y Animes en lista */}
-                                <div className="d-flex align-items-center justify-content-between pt-2.5 mt-2 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
-                                    <span className="small d-inline-flex align-items-center gap-1 text-secondary" style={{ fontSize: '0.72rem' }}>
-                                        <Film size={12} style={{ color: 'var(--perfil-acento)' }} />
-                                        <span>{friend.anime_count} en su lista</span>
-                                    </span>
-                                    <a
-                                        href="#sala"
-                                        className="btn btn-sm py-0.5 px-2 rounded-2 d-inline-flex align-items-center gap-1"
-                                        style={{
-                                            background: 'color-mix(in srgb, var(--perfil-acento) 12%, transparent)',
-                                            color: 'var(--perfil-acento)',
-                                            border: '1px solid color-mix(in srgb, var(--perfil-acento) 30%, transparent)',
-                                            fontSize: '0.72rem',
-                                            fontWeight: 600,
-                                        }}
-                                        title="Invitar a una Watch Party"
+                                {/* Footer: Icono de lista */}
+                                <div
+                                    className="d-flex align-items-center justify-content-between pt-1 border-top"
+                                    style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+                                >
+                                    <span
+                                        className="d-inline-flex align-items-center gap-1.5"
+                                        style={{ fontSize: '0.68rem', color: '#9ca3af' }}
                                     >
-                                        <Tv size={12} />
-                                        <span>Invitar a Sala</span>
-                                    </a>
+                                        <Film size={11} style={{ color: 'var(--perfil-acento)' }} />
+                                        <span>{sug.anime_count || 0} en su lista</span>
+                                    </span>
                                 </div>
                             </div>
+                        ))}
+
+                        {/* Botón Card: VER MÁS Sugerencias */}
+                        <div
+                            className="perfil-friend-vermas-card"
+                            onClick={() => setIsAllSuggestionsModalOpen(true)}
+                            role="button"
+                            tabIndex={0}
+                            title="Ver todas las sugerencias de la comunidad"
+                        >
+                            <div className="position-absolute top-0 end-0 p-2">
+                                <UserPlus size={13} className="text-secondary opacity-40" />
+                            </div>
+                            <div className="perfil-friend-vermas-btn">
+                                VER MAS
+                            </div>
                         </div>
-                    ))}
-                </div>
-            ) : (
-                /* Estado sin amigos o sin coincidencias de búsqueda */
-                <div className="text-center py-4 px-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
-                    <Users size={36} className="text-secondary opacity-40 mb-2" />
-                    <h3 className="h6 fw-bold text-white mb-1">
-                        {searchQuery ? 'No se encontraron amigos con esa búsqueda' : 'Aún no tienes amigos agregados'}
-                    </h3>
-                    <p className="small text-secondary mb-3" style={{ maxWidth: '420px', margin: '0 auto' }}>
-                        {searchQuery
-                            ? 'Prueba buscando con otro nombre o borra el filtro para ver toda tu lista.'
-                            : 'Agrega amigos para coordinar Watch Parties, ver recomendaciones personalizadas y compartir listas grupales.'}
-                    </p>
-                    <button
-                        type="button"
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="ml-btn ml-btn-acento ml-btn-sm d-inline-flex align-items-center gap-1.5"
-                    >
-                        <UserPlus size={14} />
-                        <span>Buscar y Agregar Amigos</span>
-                    </button>
+                    </div>
                 </div>
             )}
 
-            {/* Sugerencias de la comunidad para agregar con 1 clic */}
-            {suggested.length > 0 && (
-                <div className="mt-4 pt-3 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
-                    <div className="d-flex align-items-center gap-2 mb-3">
-                        <Sparkles size={15} style={{ color: 'var(--perfil-acento)' }} />
-                        <h3 className="small fw-bold text-white text-uppercase tracking-wider mb-0" style={{ fontSize: '0.78rem' }}>
-                            Miembros Sugeridos de Animigos
-                        </h3>
+            {/* Modal Completo: Todos mis amigos */}
+            <Dialogo
+                abierto={isAllFriendsModalOpen}
+                onCerrar={() => setIsAllFriendsModalOpen(false)}
+                etiqueta="Todos Mis Amigos"
+                ancho={580}
+            >
+                <div className="p-4 d-flex flex-column gap-3">
+                    <div className="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span className="ml-eyebrow">COMUNIDAD & AMISTAD</span>
+                            <h3 className="h5 fw-bold text-white mb-0">Mis Amigos ({friends.length})</h3>
+                        </div>
                     </div>
-                    <div className="row g-2">
-                        {suggested.slice(0, 4).map((sug) => (
-                            <div key={sug.id} className="col-12 col-sm-6 col-lg-3">
+
+                    <div className="row g-2 mt-1" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                        {friends.map((f) => (
+                            <div key={f.id} className="col-12 col-sm-6">
                                 <div
-                                    className="p-2.5 rounded-3 d-flex align-items-center justify-content-between gap-2 border"
+                                    className="p-2.5 rounded-3 border d-flex align-items-center justify-content-between gap-2"
+                                    style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}
+                                >
+                                    <div className="d-flex align-items-center gap-2 min-w-0">
+                                        <img
+                                            src={f.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                                            alt=""
+                                            className="rounded-circle flex-shrink-0"
+                                            style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                        />
+                                        <div className="min-w-0">
+                                            <div className="small fw-bold text-white text-truncate">{f.display_name}</div>
+                                            <div className="small text-secondary font-mono text-truncate" style={{ fontSize: '0.72rem' }}>
+                                                @{f.username}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="d-flex align-items-center gap-1.5 flex-shrink-0">
+                                        <a
+                                            href="#sala"
+                                            className="btn btn-sm p-1 px-2 rounded-2"
+                                            style={{
+                                                background: 'var(--perfil-acento-soft)',
+                                                color: 'var(--perfil-acento)',
+                                                fontSize: '0.72rem',
+                                                fontWeight: 600,
+                                            }}
+                                            title="Invitar a sala"
+                                        >
+                                            <Tv size={12} />
+                                        </a>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveFriend(f.id, f.display_name)}
+                                            className="btn btn-sm p-1 text-secondary opacity-60 border-0"
+                                            title="Eliminar amigo"
+                                        >
+                                            {actionLoadingId === f.id ? (
+                                                <Loader2 size={13} className="spinner-border spinner-border-sm" />
+                                            ) : (
+                                                <UserMinus size={13} />
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="d-flex justify-content-end pt-2 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
+                        <button
+                            type="button"
+                            onClick={() => setIsAllFriendsModalOpen(false)}
+                            className="ml-btn ml-btn-acento ml-btn-sm"
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </Dialogo>
+
+            {/* Modal Completo: Todas las Sugerencias */}
+            <Dialogo
+                abierto={isAllSuggestionsModalOpen}
+                onCerrar={() => setIsAllSuggestionsModalOpen(false)}
+                etiqueta="Sugerencias de la Comunidad"
+                ancho={580}
+            >
+                <div className="p-4 d-flex flex-column gap-3">
+                    <div>
+                        <span className="ml-eyebrow">EXPLORAR COMUNIDAD</span>
+                        <h3 className="h5 fw-bold text-white mb-0">Miembros Sugeridos de Animigos</h3>
+                        <p className="small mb-0 text-secondary" style={{ fontSize: '0.76rem' }}>
+                            Conecta con otros otakus para compartir listas y crear salas juntos.
+                        </p>
+                    </div>
+
+                    <div className="row g-2 mt-1" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                        {suggested.map((sug) => (
+                            <div key={sug.id} className="col-12 col-sm-6">
+                                <div
+                                    className="p-2.5 rounded-3 border d-flex align-items-center justify-content-between gap-2"
                                     style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}
                                 >
                                     <div className="d-flex align-items-center gap-2 min-w-0">
                                         <img
                                             src={sug.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-                                            alt={sug.display_name}
+                                            alt=""
                                             className="rounded-circle flex-shrink-0"
-                                            style={{ width: '32px', height: '32px', objectFit: 'cover' }}
+                                            style={{ width: '36px', height: '36px', objectFit: 'cover' }}
                                         />
                                         <div className="min-w-0">
-                                            <div className="small fw-semibold text-white text-truncate" style={{ fontSize: '0.78rem' }}>
-                                                {sug.display_name}
-                                            </div>
-                                            <div className="small text-secondary text-truncate font-mono" style={{ fontSize: '0.7rem' }}>
+                                            <div className="small fw-bold text-white text-truncate">{sug.display_name}</div>
+                                            <div className="small text-secondary font-mono text-truncate" style={{ fontSize: '0.72rem' }}>
                                                 @{sug.username}
                                             </div>
                                         </div>
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={() => handleAddFriend(sug.username)}
-                                        className="btn btn-sm p-1 px-2 rounded-pill d-inline-flex align-items-center gap-1 flex-shrink-0"
-                                        style={{
-                                            background: 'color-mix(in srgb, var(--perfil-acento) 18%, transparent)',
-                                            color: 'var(--perfil-acento)',
-                                            border: '1px solid color-mix(in srgb, var(--perfil-acento) 35%, transparent)',
-                                            fontSize: '0.72rem',
-                                            fontWeight: 600,
+                                        onClick={() => {
+                                            handleAddFriend(sug.username)
+                                            setIsAllSuggestionsModalOpen(false)
                                         }}
-                                        title="Agregar a mis amigos"
+                                        className="btn btn-sm py-1 px-2.5 rounded-pill d-inline-flex align-items-center gap-1 flex-shrink-0"
+                                        style={{
+                                            background: 'var(--perfil-acento)',
+                                            color: '#080808',
+                                            fontSize: '0.74rem',
+                                            fontWeight: 700,
+                                        }}
                                     >
                                         <UserPlus size={12} />
                                         <span>Agregar</span>
@@ -402,8 +588,18 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({ currentU
                             </div>
                         ))}
                     </div>
+
+                    <div className="d-flex justify-content-end pt-2 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
+                        <button
+                            type="button"
+                            onClick={() => setIsAllSuggestionsModalOpen(false)}
+                            className="ml-btn ml-btn-acento ml-btn-sm"
+                        >
+                            Cerrar
+                        </button>
+                    </div>
                 </div>
-            )}
+            </Dialogo>
         </div>
     )
 }
