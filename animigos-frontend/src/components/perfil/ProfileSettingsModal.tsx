@@ -498,7 +498,54 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                             </button>
                         </div>
 
-                        {/* 3. Permisos de Comentarios en el Muro */}
+                        {/* 3. Recepción de Recomendaciones Directas */}
+                        <div className="perfil-switch-wrap">
+                            <div className="d-flex align-items-center gap-3">
+                                <div
+                                    style={{
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: 8,
+                                        background: 'rgba(255, 255, 255, 0.05)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color:
+                                            privacy.allowRecommendations !== false
+                                                ? 'var(--perfil-acento)'
+                                                : 'var(--perfil-text-dim)',
+                                    }}
+                                >
+                                    <Sparkles size={18} />
+                                </div>
+                                <div>
+                                    <div className="text-white fw-semibold small">Permitir Recomendaciones Directas</div>
+                                    <div
+                                        className="small"
+                                        style={{ color: 'var(--perfil-text-dim)', fontSize: '0.74rem' }}
+                                    >
+                                        {privacy.allowRecommendations !== false
+                                            ? 'Otros usuarios pueden recomendarte animes desde tu perfil'
+                                            : 'Nadie puede enviarte recomendaciones directas'}
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                className={`perfil-pill-toggle ${privacy.allowRecommendations !== false ? 'is-on' : ''}`}
+                                onClick={() =>
+                                    setPrivacy({
+                                        ...privacy,
+                                        allowRecommendations: privacy.allowRecommendations === false,
+                                    })
+                                }
+                                aria-label="Alternar recepción de recomendaciones"
+                            >
+                                <span className="perfil-pill-handle" />
+                            </button>
+                        </div>
+
+                        {/* 4. Permisos de Comentarios en el Muro */}
                         <div>
                             <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-2">
                                 <MessageSquare size={14} style={{ color: 'var(--perfil-acento)' }} />

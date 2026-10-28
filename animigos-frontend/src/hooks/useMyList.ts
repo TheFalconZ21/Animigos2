@@ -50,13 +50,23 @@ export function useMyList() {
         staleTime: 1000 * 60 * 3, // 3 minutos de caché activa
     })
 
-    // Mapeo derivado seguro
-    const filas: FilaLista[] = (data?.entries ?? []).map(apiEntryToFila)
-    const carpetas: Carpeta[] = (data?.folders ?? []).map((f: ApiUserFolder) => ({
-        id: f.id,
-        nombre: f.name,
-    }))
-    const serverTags: string[] = (data?.tags ?? []).map((t: ApiTagCount) => t.tag.replace(/^#/, ''))
+    // Mapeo derivado seguro (memoizado para evitar re-renders infinitos en efectos dependientes)
+    const filas: FilaLista[] = useMemo(
+        () => (data?.entries ?? []).map(apiEntryToFila),
+        [data?.entries]
+    )
+    const carpetas: Carpeta[] = useMemo(
+        () =>
+            (data?.folders ?? []).map((f: ApiUserFolder) => ({
+                id: f.id,
+                nombre: f.name,
+            })),
+        [data?.folders]
+    )
+    const serverTags: string[] = useMemo(
+        () => (data?.tags ?? []).map((t: ApiTagCount) => t.tag.replace(/^#/, '')),
+        [data?.tags]
+    )
 
     const tags: string[] = useMemo(() => {
         const set = new Set([...serverTags, ...tagsLocales])

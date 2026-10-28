@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import {
     Clock,
     CheckCircle,
@@ -6,6 +6,8 @@ import {
     Heart,
     Layers,
     TrendingUp,
+    BookOpen,
+    ArrowUpRight,
 } from 'lucide-react'
 import type { FilaLista } from '../mi-lista/mi-lista-data'
 import { ESCALA_NOTAS } from '../mi-lista/mi-lista-data'
@@ -14,15 +16,48 @@ import { AnimeDetalleDialog } from '../mi-lista/AnimeDetalleDialog'
 interface AnimeStatsDashboardProps {
     filas: FilaLista[]
     showStats?: boolean
+    canViewList?: boolean
+    onViewList?: () => void
+    readOnly?: boolean
     onUpdateFila?: (id: string, updates: any) => void
 }
 
 export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
     filas,
     showStats = true,
+    canViewList = true,
+    onViewList,
+    readOnly = false,
     onUpdateFila,
 }) => {
     const [selectedAnime, setSelectedAnime] = useState<FilaLista | null>(null)
+    const favGridRef = useRef<HTMLDivElement | null>(null)
+    const [totalRowSlots, setTotalRowSlots] = useState<number>(8)
+
+    useEffect(() => {
+        const el = favGridRef.current
+        if (!el) return
+
+        const computeSlots = (width: number) => {
+            if (!width || width <= 0) return
+            const minSlotWidth = 114
+            const gap = 14
+            const count = Math.max(3, Math.min(9, Math.floor((width + gap) / (minSlotWidth + gap))))
+            setTotalRowSlots((prev) => (prev !== count ? count : prev))
+        }
+
+        computeSlots(el.clientWidth)
+
+        if (typeof ResizeObserver !== 'undefined') {
+            const observer = new ResizeObserver((entries) => {
+                for (const entry of entries) {
+                    computeSlots(entry.contentRect.width)
+                }
+            })
+            observer.observe(el)
+            return () => observer.disconnect()
+        }
+    }, [showStats])
 
     // 1. Cálculos de Tiempos y Métricas de Visionado
     const stats = useMemo(() => {
@@ -227,14 +262,14 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                 </div>
             </div>
 
-            {/* Animes Favoritos (Top 10) */}
+            {/* Animes Favoritos (1 sola fila responsiva + recuadro final Ver Lista si está permitido) */}
             <div className="perfil-fav-card">
                 <div className="d-flex align-items-center justify-content-between mb-3">
                     <div>
                         <span className="ml-eyebrow">HALLE DE LA FAMA · PERSONAL</span>
                         <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-1.5">
                             <Heart size={15} style={{ color: 'var(--perfil-pink)' }} />
-                            <span>Animes Favoritos (Top 10)</span>
+                            <span>Animes Favoritos</span>
                         </h4>
                     </div>
                     <span className="small text-secondary" style={{ fontSize: '0.74rem' }}>
@@ -242,30 +277,64 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                     </span>
                 </div>
 
-                <div className="perfil-fav-grid">
-                    {stats.top10.map((f, index) => (
-                        <div
-                            key={f.id}
-                            className="perfil-fav-item"
-                            onClick={() => setSelectedAnime(f)}
-                            title={`${f.anime.title} (Rank #${index + 1})`}
-                        >
-                            <img src={f.anime.imageUrl} alt={f.anime.title} loading="lazy" />
-                            <span className="perfil-fav-rank">#{index + 1}</span>
-                            <span className="perfil-fav-score">
-                                ★ {f.nota ?? f.anime.score}
-                            </span>
-                        </div>
-                    ))}
+                {(() => {
+                    const showViewListBox = Boolean(canViewList && onViewList)
+                    const animeSlotsCount = showViewListBox ? Math.max(2, totalRowSlots - 1) : totalRowSlots
+                    const visibleFavs = stats.top10.slice(0, animeSlotsCount)
+                    const emptySlotsCount = Math.max(0, animeSlotsCount - visibleFavs.length)
 
-                    {/* Espacios vacíos si tiene menos de 10 */}
-                    {Array.from({ length: Math.max(0, 10 - stats.top10.length) }).map((_, i) => (
-                        <div key={`empty-${i}`} className="perfil-fav-empty">
-                            <Bookmark size={16} />
-                            <span>#{stats.top10.length + i + 1}</span>
+                    return (
+                        <div
+                            ref={favGridRef}
+                            className="perfil-fav-grid"
+                            style={{
+                                gridTemplateColumns: `repeat(${totalRowSlots}, minmax(0, 1fr))`,
+                            }}
+                        >
+                            {visibleFavs.map((f, index) => (
+                                <div
+                                    key={f.id}
+                                    className="perfil-fav-item"
+                                    onClick={() => setSelectedAnime(f)}
+                                    title={`${f.anime.title} (Rank #${index + 1})`}
+                                >
+                                    <img src={f.anime.imageUrl} alt={f.anime.title} loading="lazy" />
+                                    <span className="perfil-fav-rank">#{index + 1}</span>
+                                    <span className="perfil-fav-score">
+                                        ★ {f.nota ?? f.anime.score}
+                                    </span>
+                                </div>
+                            ))}
+
+                            {/* Espacios vacíos si tiene menos de animeSlotsCount */}
+                            {Array.from({ length: emptySlotsCount }).map((_, i) => (
+                                <div key={`empty-${i}`} className="perfil-fav-empty">
+                                    <Bookmark size={16} />
+                                    <span>#{visibleFavs.length + i + 1}</span>
+                                </div>
+                            ))}
+
+                            {/* Último recuadro: Botón "Ver Lista" cuando la privacidad lo permite */}
+                            {showViewListBox && (
+                                <button
+                                    type="button"
+                                    className="perfil-fav-viewlist-card"
+                                    onClick={onViewList}
+                                    title={readOnly ? 'Visitar la lista de anime de este usuario (Solo lectura)' : 'Ir a Mi Lista completa'}
+                                >
+                                    <div className="perfil-fav-viewlist-icon">
+                                        <BookOpen size={20} />
+                                    </div>
+                                    <span className="perfil-fav-viewlist-label">VER LISTA</span>
+                                    <span className="perfil-fav-viewlist-sub">
+                                        {stats.totalEntries} {stats.totalEntries === 1 ? 'anime' : 'animes'}
+                                    </span>
+                                    <ArrowUpRight size={14} className="perfil-fav-viewlist-arrow" />
+                                </button>
+                            )}
                         </div>
-                    ))}
-                </div>
+                    )
+                })()}
             </div>
 
             {/* Modal de Detalle al hacer clic en un favorito */}
@@ -274,6 +343,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                     fila={selectedAnime}
                     onCerrar={() => setSelectedAnime(null)}
                     onActualizar={(cambios) => {
+                        if (readOnly) return
                         onUpdateFila?.(selectedAnime.id, cambios)
                         setSelectedAnime((prev) => (prev ? { ...prev, ...cambios } : null))
                     }}

@@ -221,7 +221,7 @@ export const AnimeCatalog: React.FC = () => {
             className="cat-root py-4 px-3 px-md-5"
             style={{ '--cat-acento': acento, '--ml-acento': acento } as React.CSSProperties}
         >
-            <div className="container-fluid" style={{ maxWidth: '1440px' }}>
+            <div className="container" style={{ maxWidth: '1240px' }}>
 
                 {/* ---------- Caja de Filtros de Catálogo ---------- */}
                 <div className="cat-filter-card mb-4">

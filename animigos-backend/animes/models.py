@@ -28,6 +28,17 @@ class Anime(models.Model):
     
     studio = models.CharField(max_length=100, blank=True, default='')
     genres = models.JSONField(default=list, help_text="Lista de géneros como JSON array")
+    tags_data = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Tags ponderados de AniList: [{'name': 'Cyberpunk', 'category': 'Theme', 'rank': 92}]"
+    )
+    tags_cache = models.TextField(
+        blank=True,
+        default='',
+        db_index=True,
+        help_text="Índice textual plano delimitado para filtrado rápido: |cyberpunk|time manipulation|"
+    )
     type = models.CharField(max_length=30, blank=True, default='TV')
     airing_day = models.CharField(max_length=20, blank=True, default='')
     broadcast_time = models.CharField(max_length=50, blank=True, default='')

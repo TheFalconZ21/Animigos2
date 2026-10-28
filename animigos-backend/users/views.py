@@ -142,12 +142,19 @@ def update_profile(request):
 @permission_classes([IsAuthenticated])
 def update_preferences(request):
     """
-    Actualiza preferencias del usuario para el recomendador.
-    Zero Trust: Requiere autenticación estricta.
+    Actualiza preferencias del usuario para el recomendador y privacidad.
+    Zero Trust: Requiere autenticación estricta y preserva claves existentes en privacy_settings.
     """
     profile = get_object_or_404(Profile, user=request.user)
     preferences, _ = UserPreferences.objects.get_or_create(profile=profile)
-    serializer = UserPreferencesSerializer(preferences, data=request.data, partial=True)
+
+    mutable_data = dict(request.data)
+    if 'privacy_settings' in mutable_data and isinstance(mutable_data['privacy_settings'], dict):
+        existing_ps = preferences.privacy_settings if isinstance(preferences.privacy_settings, dict) else {}
+        merged_ps = {**existing_ps, **mutable_data['privacy_settings']}
+        mutable_data['privacy_settings'] = merged_ps
+
+    serializer = UserPreferencesSerializer(preferences, data=mutable_data, partial=True)
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
@@ -628,11 +635,14 @@ def user_friends_view(request, friend_id=None):
             return Response({'error': 'Debes ingresar un nombre de usuario o correo electrónico.'}, status=status.HTTP_400_BAD_REQUEST)
 
         clean_query = str(query).strip()
-        if '@' in clean_query:
+        if '@' in clean_query and not clean_query.startswith('@'):
             target_user = User.objects.filter(email__iexact=clean_query).first()
         else:
             clean_uname = clean_query.lstrip('@')
-            target_user = User.objects.filter(username__iexact=clean_uname).first()
+            target_user = (
+                User.objects.filter(username__iexact=clean_uname).first()
+                or User.objects.filter(profile__display_name__iexact=clean_uname).first()
+            )
 
         if not target_user:
             return Response({'error': f'No se encontró ningún usuario con "{clean_query}".'}, status=status.HTTP_404_NOT_FOUND)
@@ -641,10 +651,39 @@ def user_friends_view(request, friend_id=None):
             return Response({'error': 'No puedes agregarte a ti mismo como amigo.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Crear amistad bidireccional
-        Friendship.objects.get_or_create(user=user, friend=target_user)
+        _, created_self = Friendship.objects.get_or_create(user=user, friend=target_user)
         Friendship.objects.get_or_create(user=target_user, friend=user)
 
         prof = getattr(target_user, 'profile', None)
+        sender_prof = getattr(user, 'profile', None)
+
+        if created_self:
+            try:
+                import uuid
+                from django.utils import timezone
+                target_prof_obj, _ = Profile.objects.get_or_create(
+                    user=target_user,
+                    defaults={'display_name': target_user.first_name or target_user.username}
+                )
+                target_prefs, _ = UserPreferences.objects.get_or_create(profile=target_prof_obj)
+                ps = dict(target_prefs.privacy_settings) if isinstance(target_prefs.privacy_settings, dict) else {}
+                notifs = list(ps.get('notifications', [])) if isinstance(ps.get('notifications'), list) else []
+                notifs.insert(0, {
+                    'id': str(uuid.uuid4()),
+                    'type': 'friend_added',
+                    'from_username': user.username,
+                    'from_display_name': (sender_prof and sender_prof.display_name) or user.first_name or user.username,
+                    'from_avatar': (sender_prof and sender_prof.avatar_url) or '',
+                    'message': 'te agregó a su lista de amigos en Animigos.',
+                    'created_at': timezone.now().isoformat(),
+                    'read': False,
+                })
+                ps['notifications'] = notifs[:40]
+                target_prefs.privacy_settings = ps
+                target_prefs.save(update_fields=['privacy_settings'])
+            except Exception:
+                pass
+
         return Response({
             'message': f'¡Ahora eres amigo de {prof.display_name if prof else target_user.username}!',
             'friend': {
@@ -672,12 +711,24 @@ def user_friends_view(request, friend_id=None):
 def suggested_friends_view(request):
     """
     Retorna usuarios registrados en la comunidad que aún no son amigos del usuario autenticado.
+    Soporta filtro opcional ?q= para el buscador propio del modal de Agregar Amigos.
     """
     user = request.user
+    q = (request.query_params.get('q') or '').strip().lstrip('@')
     existing_friend_ids = set(Friendship.objects.filter(user=user).values_list('friend_id', flat=True))
     existing_friend_ids.add(user.id)
 
-    candidates = User.objects.exclude(id__in=existing_friend_ids).select_related('profile')[:10]
+    qs = User.objects.exclude(id__in=existing_friend_ids).select_related('profile')
+    if q:
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(username__icontains=q)
+            | Q(email__icontains=q)
+            | Q(first_name__icontains=q)
+            | Q(profile__display_name__icontains=q)
+        )
+
+    candidates = qs[:16]
     results = []
     for c in candidates:
         prof = getattr(c, 'profile', None)
@@ -690,6 +741,268 @@ def suggested_friends_view(request):
             'anime_count': UserAnimeEntry.objects.filter(user=c).count(),
         })
     return Response({'suggested': results})
+
+
+# -------------------------------------------------------------
+# SECCIÓN: PERFILES PÚBLICOS, RECOMENDACIONES DIRECTAS Y NOTIFICACIONES
+# -------------------------------------------------------------
+
+def _extract_user_privacy_dict(preferences_obj):
+    ps = preferences_obj.privacy_settings if (preferences_obj and isinstance(preferences_obj.privacy_settings, dict)) else {}
+    nested_priv = ps.get('privacy') if isinstance(ps.get('privacy'), dict) else {}
+    return {
+        'isListPublic': bool(nested_priv.get('isListPublic', ps.get('isListPublic', True))),
+        'showStats': bool(nested_priv.get('showStats', ps.get('showStats', True))),
+        'allowComments': str(nested_priv.get('allowComments', ps.get('allowComments', 'everyone'))),
+        'allowRecommendations': bool(nested_priv.get('allowRecommendations', ps.get('allowRecommendations', True))),
+    }
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_user_profile_view(request, username):
+    """
+    Retorna la vista de perfil público de otro usuario (modo visita / solo lectura),
+    respetando estrictamente sus configuraciones de privacidad (isListPublic, showStats,
+    allowComments, allowRecommendations).
+    """
+    clean_uname = str(username or '').strip().lstrip('@')
+    target_user = User.objects.filter(username__iexact=clean_uname).first()
+    if not target_user:
+        return Response({'error': f'El usuario @{clean_uname} no existe.'}, status=status.HTTP_404_NOT_FOUND)
+
+    profile, _ = Profile.objects.get_or_create(
+        user=target_user,
+        defaults={'display_name': target_user.first_name or target_user.username}
+    )
+    preferences, _ = UserPreferences.objects.get_or_create(profile=profile)
+    ps = preferences.privacy_settings if isinstance(preferences.privacy_settings, dict) else {}
+    privacy = _extract_user_privacy_dict(preferences)
+
+    is_self = bool(request.user and request.user.is_authenticated and request.user.id == target_user.id)
+
+    # Amigos del usuario visitado
+    friendships = Friendship.objects.filter(user=target_user).select_related('friend', 'friend__profile')
+    friends_data = []
+    for f in friendships:
+        fr = f.friend
+        f_prof = getattr(fr, 'profile', None)
+        friends_data.append({
+            'id': fr.id,
+            'username': fr.username,
+            'display_name': (f_prof and f_prof.display_name) or fr.first_name or fr.username,
+            'avatar_url': (f_prof and f_prof.avatar_url) or '',
+            'bio': (f_prof and f_prof.bio) or '',
+            'anime_count': UserAnimeEntry.objects.filter(user=fr).count(),
+            'created_at': f.created_at.isoformat(),
+        })
+
+    entries_data = []
+    folders_data = []
+    tags_list = []
+
+    if is_self or privacy['isListPublic'] or privacy['showStats']:
+        entries_qs = (
+            UserAnimeEntry.objects.filter(user=target_user)
+            .select_related('anime', 'folder')
+            .order_by('-updated_at')
+        )
+        entries_data = UserAnimeEntrySerializer(entries_qs, many=True).data
+        if is_self or privacy['isListPublic']:
+            folders_qs = UserAnimeFolder.objects.filter(user=target_user).prefetch_related('entries__anime')
+            folders_data = UserAnimeFolderSerializer(folders_qs, many=True).data
+            tag_counts = {}
+            for entry in entries_qs:
+                for tag in (entry.tags or []):
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+            tags_list = [{'tag': k, 'count': v} for k, v in sorted(tag_counts.items(), key=lambda x: -x[1])]
+
+    taste_analytics = None
+    if is_self or privacy['showStats']:
+        try:
+            from animes.recommender import build_taste_analytics_matrix
+            liked_ids = list(ps.get('liked_anime_ids', [])) if isinstance(ps.get('liked_anime_ids'), list) else []
+            fav_ids = list(
+                UserAnimeEntry.objects.filter(user=target_user, status__in=['visto', 'viendo'])
+                .values_list('anime__mal_id', flat=True)[:25]
+            )
+            combined_ids = list(dict.fromkeys([int(x) for x in (liked_ids + fav_ids) if x]))
+            taste_payload = {
+                'tmdb_movies': ps.get('tmdb_movies', []) if isinstance(ps.get('tmdb_movies'), list) else [],
+                'liked_anime_ids': combined_ids,
+                'tropes': ps.get('tropes', []) if isinstance(ps.get('tropes'), list) else [],
+            }
+            taste_analytics = build_taste_analytics_matrix(taste_payload)
+        except Exception:
+            taste_analytics = None
+
+    return Response({
+        'user': ProfileSerializer(profile).data,
+        'privacy': privacy,
+        'socials': ps.get('socials', {}) if isinstance(ps.get('socials'), dict) else {},
+        'flag_url': ps.get('flag_url', None),
+        'lateral_config': ps.get('lateral_config', None),
+        'friends': friends_data,
+        'entries': entries_data if (is_self or privacy['isListPublic'] or privacy['showStats']) else [],
+        'folders': folders_data if (is_self or privacy['isListPublic']) else [],
+        'tags': tags_list if (is_self or privacy['isListPublic']) else [],
+        'taste_analytics': taste_analytics,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def recommend_anime_to_user_view(request, username):
+    """
+    Envía una recomendación directa de anime a otro usuario si su privacidad
+    (allowRecommendations) lo permite, generando una notificación accionable.
+    """
+    import uuid
+    from django.utils import timezone
+
+    clean_uname = str(username or '').strip().lstrip('@')
+    target_user = User.objects.filter(username__iexact=clean_uname).first()
+    if not target_user:
+        return Response({'error': f'El usuario @{clean_uname} no existe.'}, status=status.HTTP_404_NOT_FOUND)
+
+    target_profile, _ = Profile.objects.get_or_create(
+        user=target_user,
+        defaults={'display_name': target_user.first_name or target_user.username}
+    )
+    target_prefs, _ = UserPreferences.objects.get_or_create(profile=target_profile)
+    privacy = _extract_user_privacy_dict(target_prefs)
+
+    if not privacy.get('allowRecommendations', True) and target_user.id != request.user.id:
+        return Response(
+            {'error': 'Este usuario ha desactivado la recepción de recomendaciones directas en su privacidad.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    anime_id = request.data.get('anime_id') or request.data.get('mal_id')
+    if not anime_id:
+        return Response({'error': 'Debes seleccionar un anime para recomendar.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    anime = Anime.objects.filter(mal_id=anime_id).first() or Anime.objects.filter(id=anime_id).first()
+    if not anime:
+        return Response({'error': 'No se encontró el anime seleccionado.'}, status=status.HTTP_404_NOT_FOUND)
+
+    message = str(request.data.get('message') or '').strip()[:280]
+    sender_prof = getattr(request.user, 'profile', None)
+    sender_display = (sender_prof and sender_prof.display_name) or request.user.first_name or request.user.username
+    sender_avatar = (sender_prof and sender_prof.avatar_url) or ''
+
+    ps = dict(target_prefs.privacy_settings) if isinstance(target_prefs.privacy_settings, dict) else {}
+    notifs = list(ps.get('notifications', [])) if isinstance(ps.get('notifications'), list) else []
+
+    notif_item = {
+        'id': str(uuid.uuid4()),
+        'type': 'anime_recommendation',
+        'from_username': request.user.username,
+        'from_display_name': sender_display,
+        'from_avatar': sender_avatar,
+        'anime_id': anime.mal_id,
+        'anime_title': anime.title,
+        'anime_poster': anime.image_url or '',
+        'message': message or f'¡Te recomiendo ver {anime.title}! Seguro encaja con tus gustos.',
+        'created_at': timezone.now().isoformat(),
+        'read': False,
+    }
+    notifs.insert(0, notif_item)
+    ps['notifications'] = notifs[:40]
+    target_prefs.privacy_settings = ps
+    target_prefs.save(update_fields=['privacy_settings'])
+
+    return Response({
+        'success': True,
+        'message': f'¡Recomendación de "{anime.title}" enviada a {target_profile.display_name or target_user.username}!',
+        'notification': notif_item,
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def user_notifications_view(request):
+    """
+    GET: Retorna la bandeja de notificaciones accionables del usuario autenticado.
+    PATCH: Marca una notificación como leída, la descarta, o marca todas como leídas.
+    """
+    import uuid
+    from django.utils import timezone
+
+    profile, _ = Profile.objects.get_or_create(
+        user=request.user,
+        defaults={'display_name': request.user.first_name or request.user.username}
+    )
+    prefs, _ = UserPreferences.objects.get_or_create(profile=profile)
+    ps = dict(prefs.privacy_settings) if isinstance(prefs.privacy_settings, dict) else {}
+
+    if 'notifications' not in ps or not isinstance(ps.get('notifications'), list):
+        # Inicializamos con una notificación de ejemplo accionable si es la primera vez
+        sample_anime = Anime.objects.order_by('-score').first()
+        sample_friend = (
+            User.objects.exclude(id=request.user.id).select_related('profile').first()
+        )
+        initial_notifs = []
+        if sample_anime:
+            from_uname = sample_friend.username if sample_friend else 'profesor_doki'
+            from_dname = (
+                (sample_friend.profile.display_name if (sample_friend and hasattr(sample_friend, 'profile') and sample_friend.profile.display_name) else None)
+                or (sample_friend.username if sample_friend else 'Profesor Doki Doki')
+            )
+            from_av = (
+                sample_friend.profile.avatar_url
+                if (sample_friend and hasattr(sample_friend, 'profile') and sample_friend.profile.avatar_url)
+                else ''
+            )
+            initial_notifs.append({
+                'id': str(uuid.uuid4()),
+                'type': 'anime_recommendation',
+                'from_username': from_uname,
+                'from_display_name': from_dname,
+                'from_avatar': from_av,
+                'anime_id': sample_anime.mal_id,
+                'anime_title': sample_anime.title,
+                'anime_poster': sample_anime.image_url or '',
+                'message': f'¡Te recomendó ver "{sample_anime.title}"! Agrégalo a tu lista si te llama la atención.',
+                'created_at': timezone.now().isoformat(),
+                'read': False,
+            })
+        ps['notifications'] = initial_notifs
+        prefs.privacy_settings = ps
+        prefs.save(update_fields=['privacy_settings'])
+
+    notifs = list(ps.get('notifications', []))
+
+    if request.method == 'GET':
+        unread_count = sum(1 for n in notifs if not n.get('read'))
+        return Response({
+            'notifications': notifs,
+            'unread_count': unread_count,
+        })
+
+    elif request.method == 'PATCH':
+        action = request.data.get('action', 'mark_read')
+        notif_id = request.data.get('notification_id')
+
+        if action == 'mark_all_read':
+            for n in notifs:
+                n['read'] = True
+        elif action == 'dismiss' and notif_id:
+            notifs = [n for n in notifs if n.get('id') != notif_id]
+        elif action == 'mark_read' and notif_id:
+            for n in notifs:
+                if n.get('id') == notif_id:
+                    n['read'] = True
+
+        ps['notifications'] = notifs
+        prefs.privacy_settings = ps
+        prefs.save(update_fields=['privacy_settings'])
+        unread_count = sum(1 for n in notifs if not n.get('read'))
+        return Response({
+            'notifications': notifs,
+            'unread_count': unread_count,
+        })
+
 
 
 

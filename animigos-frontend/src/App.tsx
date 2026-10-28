@@ -9,14 +9,25 @@ import { AnimeCatalog } from './components/catalogo/AnimeCatalog'
 import { Tablon } from './components/tablon/Tablon'
 import { Calendario } from './components/calendario/Calendario'
 import { PerfilView } from './components/perfil/PerfilView'
+import { RecomendadorView } from './components/recomendador/RecomendadorView'
 import { useThemeAccent } from './hooks/useThemeAccent'
 import { useAuth } from './context/AuthContext'
+import { useCatExpression } from './hooks/useCatExpression'
 
 function App() {
   useThemeAccent()
   const { user, isAuthenticated, loading } = useAuth()
+  const { isHappy: isCatHappy, setExpression: setCatExpression } = useCatExpression()
+  const [isHeroCatBouncing, setIsHeroCatBouncing] = useState(false)
+
+  const handleHeroCatClick = () => {
+    setIsHeroCatBouncing(true)
+    setTimeout(() => setIsHeroCatBouncing(false), 450)
+  }
+
   const isAdmin = Boolean(isAuthenticated && (user?.is_staff || user?.is_superuser))
-  const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'mi-lista' | 'admin' | 'sala' | 'tablon' | 'calendario' | 'perfil'>('catalogo')
+  const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'recomendador' | 'mi-lista' | 'admin' | 'sala' | 'tablon' | 'calendario' | 'perfil'>('catalogo')
+  const [visitedUsername, setVisitedUsername] = useState<string | undefined>(undefined)
 
   // Redirigir si un usuario sin permisos intenta ver secciones privadas (Tablón, Mi Lista, Perfil, Admin)
   useEffect(() => {
@@ -30,21 +41,24 @@ function App() {
     }
   }, [isAuthenticated, isAdmin, currentView, loading])
 
-  // Soporte de navegación por hash (ej: /#catalogo, /#mi-lista, /#admin, /#sala o /#perfil)
+  // Soporte de navegación por hash (ej: /#catalogo, /#mi-lista, /#mi-lista/<username>, /#perfil, /#perfil/<username>)
   useEffect(() => {
     if (loading) return
     const handleHash = () => {
       const hash = window.location.hash
-      if (hash === '#mi-lista') {
+      if (hash === '#mi-lista' || hash.startsWith('#mi-lista/')) {
         if (!isAuthenticated) {
           window.location.hash = '#catalogo'
           setCurrentView('catalogo')
           const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
           dialog?.showModal()
         } else {
+          const uname = hash.startsWith('#mi-lista/') ? decodeURIComponent(hash.slice('#mi-lista/'.length).trim()) : undefined
+          setVisitedUsername(uname || undefined)
           setCurrentView('mi-lista')
         }
       } else if (hash === '#tablon' || hash === '#dashboard') {
+        setVisitedUsername(undefined)
         if (!isAuthenticated) {
           window.location.hash = '#catalogo'
           setCurrentView('catalogo')
@@ -53,9 +67,14 @@ function App() {
         } else {
           setCurrentView('tablon')
         }
+      } else if (hash === '#recomendador' || hash === '#recomendar') {
+        setVisitedUsername(undefined)
+        setCurrentView('recomendador')
       } else if (hash === '#calendario' || hash === '#estrenos') {
+        setVisitedUsername(undefined)
         setCurrentView('calendario')
       } else if (hash === '#admin') {
+        setVisitedUsername(undefined)
         if (!isAdmin) {
           window.location.hash = '#catalogo'
           setCurrentView('catalogo')
@@ -65,19 +84,24 @@ function App() {
           setCurrentView('admin')
         }
       } else if (hash === '#sala' || hash === '#votacion' || hash === '#listas' || hash.startsWith('#sala/')) {
+        setVisitedUsername(undefined)
         setCurrentView('sala')
-      } else if (hash === '#perfil' || hash === '#profile') {
+      } else if (hash === '#perfil' || hash === '#profile' || hash.startsWith('#perfil/')) {
         if (!isAuthenticated) {
           window.location.hash = '#catalogo'
           setCurrentView('catalogo')
           const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
           dialog?.showModal()
         } else {
+          const uname = hash.startsWith('#perfil/') ? decodeURIComponent(hash.slice('#perfil/'.length).trim()) : undefined
+          setVisitedUsername(uname || undefined)
           setCurrentView('perfil')
         }
       } else if (hash === '#landing') {
+        setVisitedUsername(undefined)
         setCurrentView('landing')
       } else if (hash === '#catalogo' || hash === '#animes' || hash === '#top' || hash === '') {
+        setVisitedUsername(undefined)
         setCurrentView('catalogo')
       }
     }
@@ -126,6 +150,19 @@ function App() {
     )
   }
 
+  // 3b. Si estamos en la vista del Recomendador Híbrido
+  if (currentView === 'recomendador') {
+    return (
+      <>
+        <Navbar currentView="recomendador" onSelectView={setCurrentView} />
+        <main className="py-2">
+          <RecomendadorView />
+        </main>
+        <LoginModal />
+      </>
+    )
+  }
+
   // El Tablón: dashboard social (feed de amigos, noticias y salas activas)
   if (currentView === 'tablon') {
     return (
@@ -158,7 +195,7 @@ function App() {
       <>
         <Navbar currentView="mi-lista" onSelectView={setCurrentView} />
         <main className="py-4">
-          <MiLista />
+          <MiLista visitedUsername={visitedUsername} />
         </main>
         <LoginModal />
 
@@ -172,7 +209,7 @@ function App() {
       <>
         <Navbar currentView="perfil" onSelectView={setCurrentView} />
         <main className="py-2">
-          <PerfilView />
+          <PerfilView visitedUsername={visitedUsername} />
         </main>
         <LoginModal />
 
@@ -194,11 +231,34 @@ function App() {
           <header className="row justify-content-center">
             <div className="col-12 col-lg-10 text-center">
               <h1 className="hero-title fw-bold mb-2">
-                {"ANIMIGOS".split("").map((letra, index) => (
+                {"Animig".split("").map((letra, index) => (
                   <span key={index} className="hover-letter">
                     {letra}
                   </span>
                 ))}
+                <span
+                  className={`hero-cat-wrapper ${isHeroCatBouncing ? 'hero-cat-wrapper--bouncing' : ''}`}
+                  onMouseEnter={() => setCatExpression('happy')}
+                  onMouseLeave={() => setCatExpression('normal')}
+                  onClick={handleHeroCatClick}
+                  title="¡Haz clic en mí para cambiar mi expresión! 🐱"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleHeroCatClick()
+                    }
+                  }}
+                >
+                  <img
+                    src={isCatHappy ? '/logo2-cat-white.png' : '/logo-cat-white.png'}
+                    alt={isCatHappy ? 'o feliz (> ▽ <)' : 'o (u w u)'}
+                    className="hero-cat-img"
+                    draggable={false}
+                  />
+                </span>
+                <span className="hover-letter">s</span>
               </h1>
               <p className="fs-lg text-secondary mb-4">
                 Descubre y vota anime en grupo con felicidad garantizada

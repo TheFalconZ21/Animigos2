@@ -332,8 +332,10 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['post'], url_path='calibrate-recommendations')
     def calibrate_recommendations(self, request):
         """
-        Calibrador Multidimensional del Profesor Doki Doki.
-        Cruza animes vistos y gustados, películas TMDB, estudio, época, tropos y calidad.
+        Calibrador y Recomendador Híbrido del Profesor Doki Doki.
+        Cruza animes vistos y gustados, tags ponderados de AniList, películas TMDB,
+        preferencias dinámicas ('sorprendeme', formato, género) y excluye secuelas y vistos.
+        Retorna por defecto exactamente 5 alternativas explicadas.
         """
         from .recommender import calibrate_and_recommend
         data = request.data or {}
@@ -343,9 +345,17 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         disliked_genres = data.get('disliked_genres', [])
         tropes = data.get('tropes', [])
         pacing = data.get('pacing', '')
+        preferred_format = data.get('preferred_format', '') or data.get('format', '')
+        preferred_genre = data.get('preferred_genre', '') or data.get('genre', '')
+        exclude_ids = data.get('exclude_ids', [])
+        try:
+            limit = max(1, min(15, int(data.get('limit', 5))))
+        except (ValueError, TypeError):
+            limit = 5
 
-        # Si el usuario está autenticado, actualizar sus preferencias de onboarding
-        if request.user and request.user.is_authenticated:
+        if request.user and request.user.is_authenticated and (
+            favorite_genres or liked_anime_ids or tmdb_movies or tropes
+        ):
             try:
                 from users.models import UserPreferences, UserAnimeEntry
                 pref, _ = UserPreferences.objects.get_or_create(profile=request.user.profile)
@@ -353,7 +363,6 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
                 pref.favorite_genres = favorite_genres
                 pref.disliked_genres = disliked_genres
                 pref.preferred_duration = pacing
-                # Guardar data de calibración en privacy_settings / metadata
                 p_settings = pref.privacy_settings or {}
                 p_settings['tmdb_movies'] = tmdb_movies
                 p_settings['liked_anime_ids'] = liked_anime_ids
@@ -361,7 +370,6 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
                 pref.privacy_settings = p_settings
                 pref.save()
 
-                # Registrar los animes indicados como vistos si no están en su lista
                 for mal_id in liked_anime_ids:
                     try:
                         anime_obj = Anime.objects.filter(mal_id=mal_id).first()
@@ -377,6 +385,9 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
                 import logging
                 logging.getLogger(__name__).warning(f"Error sincronizando preferencias de calibración: {e}")
 
+        reference_work = data.get('reference_work')
+        netflix_mode = bool(data.get('netflix_mode', False))
+
         recommendations = calibrate_and_recommend(
             user=request.user if request.user.is_authenticated else None,
             tmdb_movies=tmdb_movies,
@@ -385,9 +396,33 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             disliked_genres=disliked_genres,
             tropes=tropes,
             pacing=pacing,
-            limit=12
+            preferred_format=preferred_format,
+            preferred_genre=preferred_genre,
+            reference_work=reference_work,
+            netflix_mode=netflix_mode,
+            exclude_ids=exclude_ids,
+            limit=limit,
         )
         return Response(recommendations)
+
+    @action(detail=False, methods=['get', 'post'], url_path='taste-analytics')
+    def taste_analytics(self, request):
+        """
+        Retorna el Perfil Analítico de Gustos del Usuario:
+        - Grafo de co-ocurrencia de etiquetas (nodes, links)
+        - Combinaciones recurrentes (top_combinations)
+        - Arquetipo Otaku (archetype)
+        """
+        from .recommender import build_user_taste_analytics
+        data = request.data if request.method == 'POST' and request.data else {}
+        analytics = build_user_taste_analytics(
+            user=request.user if request.user.is_authenticated else None,
+            liked_anime_ids=data.get('liked_anime_ids', []),
+            favorite_genres=data.get('favorite_genres', []),
+            tropes=data.get('tropes', []),
+            tmdb_movies=data.get('tmdb_movies', []),
+        )
+        return Response(analytics)
 
     @action(detail=False, methods=['get'], url_path='test-search')
     def test_search(self, request):

@@ -55,11 +55,19 @@ h6 {
    ============================================================ */
 
 
-/* El contenedor del título */
+/* El contenedor del título Hero */
 .hero-title {
-  font-size: clamp(2.5rem, 7vw, 6rem);
-  text-shadow: 0 0 30px rgba(139, 92, 246, 0.4);
+  font-family: 'Nunito', 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+  font-size: clamp(3rem, 7.8vw, 6.2rem);
+  line-height: 1.1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
   cursor: default;
+  text-shadow: 0 0 35px color-mix(in srgb, var(--theme-acento, #e8508f) 30%, transparent);
 }
 
 /* 1. Cada letra individual (¡display: inline-block es obligatorio para que se mueva!) */
@@ -69,13 +77,65 @@ h6 {
   cursor: pointer;
 }
 
-/* 2. El efecto exclusivo al pasar el mouse por encima */
+/* 2. El efecto exclusivo al pasar el mouse por encima de cada letra */
 .hover-letter:hover {
   transform: translateY(-12px) scale(1.2);
-  /* Salta hacia arriba y se agranda */
   color: #ffffff;
-  /* Se ilumina */
-  text-shadow: 0 0 30px #000000, 0 0 60px rgba(255, 255, 255, 0.8);
+  text-shadow: 0 0 25px rgba(255, 255, 255, 0.8), 0 0 45px var(--theme-acento, #e8508f);
+}
+
+/* 3. Contenedor del isotipo de gato en el Hero */
+.hero-cat-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  margin: 0 0.04em;
+  vertical-align: middle;
+  transform-origin: center bottom;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+  outline: none;
+}
+
+.hero-cat-img {
+  height: clamp(46px, 7.2vw, 82px);
+  width: auto;
+  aspect-ratio: 1046 / 872;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 16px rgba(232, 80, 143, 0.25));
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+}
+
+/* Efecto hover sobre el gato del Hero */
+.hero-cat-wrapper:hover {
+  transform: translateY(-12px) rotate(-7deg) scale(1.18);
+}
+
+.hero-cat-wrapper:hover .hero-cat-img {
+  filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 28px var(--theme-acento, #e8508f));
+}
+
+/* Animación pop/rebote al hacer clic sobre el gato */
+.hero-cat-wrapper--bouncing,
+.animigos-logo-cat--bouncing {
+  animation: catCheerPop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes catCheerPop {
+  0% {
+    transform: scale(0.92) rotate(0deg);
+  }
+  35% {
+    transform: translateY(-16px) scale(1.26) rotate(10deg);
+  }
+  65% {
+    transform: translateY(-6px) scale(1.12) rotate(-6deg);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
 }
 
 /* Tarjeta de Modal estilo Cristal Anime */
@@ -687,6 +747,18 @@ h6 {
 }
 .animigos-logo--xl .animigos-logo-cat {
   height: 50px;
+}
+
+.animigos-logo--hero {
+  font-size: clamp(3rem, 7.8vw, 6.2rem);
+  font-weight: 900;
+}
+.animigos-logo--hero .animigos-logo-cat {
+  height: clamp(46px, 7.2vw, 82px);
+}
+
+.animigos-logo-cat--interactive {
+  cursor: pointer;
 }
 
 /* Efecto hover interactivo sobre el logotipo */

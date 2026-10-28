@@ -28,6 +28,7 @@ class AnimeSerializer(serializers.ModelSerializer):
             'season_display',
             'studio',
             'genres',
+            'tags_data',
             'type',
             'airing_day',
             'broadcast_time',

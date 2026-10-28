@@ -1,15 +1,19 @@
-import { useMemo, useState, type CSSProperties } from 'react'
-import { Folder, Hash, LayoutGrid, LayoutList, Loader2, Plus, Search, Send, SlidersHorizontal, Upload, X } from 'lucide-react'
+import { useMemo, useState, useEffect, type CSSProperties } from 'react'
+import { ArrowLeft, Eye, Folder, Hash, LayoutGrid, LayoutList, Loader2, Lock, Plus, Search, Send, SlidersHorizontal, Upload, X } from 'lucide-react'
 import {
+    apiEntryToFila,
     ESCALA_NOTAS,
     ESTADOS,
     medioDe,
     promedio,
+    type Carpeta,
     type EntradaLista,
     type EstadoLista,
     type FilaLista,
 } from './mi-lista-data'
 import type { ApiAnimeData } from '../../services/userListApi'
+import { fetchPublicProfile, type PublicUserProfileData } from '../../services/friendsApi'
+import { useAuth } from '../../context/AuthContext'
 import { useMyList } from '../../hooks/useMyList'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
 import { AnimeFila } from './AnimeFila'
@@ -60,24 +64,87 @@ const CHIPS_ESTADO: { id: FiltroEstado; label: string }[] = [
     { id: 'favoritos', label: 'Favoritos' },
 ]
 
-export function MiLista() {
+export function MiLista({ visitedUsername }: { visitedUsername?: string } = {}) {
+    const { user } = useAuth()
     // --- Capa de Lógica / Hooks Reactivos (Pilar 1.2 y 4.3 de la Directiva de Arquitectura) ---
     const {
-        filas,
-        carpetas,
-        tags,
-        cargando,
-        errorCarga,
-        actualizar,
-        quitar,
+        filas: ownFilas,
+        carpetas: ownCarpetas,
+        tags: ownTags,
+        cargando: ownCargando,
+        errorCarga: ownErrorCarga,
+        actualizar: ownActualizar,
+        quitar: ownQuitar,
         agregarAnime,
-        crearCarpeta,
-        renombrarCarpeta,
-        eliminarCarpeta,
-        crearTag,
-        eliminarTag,
+        crearCarpeta: ownCrearCarpeta,
+        renombrarCarpeta: ownRenombrarCarpeta,
+        eliminarCarpeta: ownEliminarCarpeta,
+        crearTag: ownCrearTag,
+        eliminarTag: ownEliminarTag,
         refetch,
     } = useMyList()
+
+    const isReadOnlyVisit = Boolean(
+        visitedUsername &&
+            visitedUsername.trim() !== '' &&
+            visitedUsername.trim().toLowerCase() !== (user?.username || '').toLowerCase()
+    )
+
+    const [visitedProfile, setVisitedProfile] = useState<PublicUserProfileData | null>(null)
+    const [visitedLoading, setVisitedLoading] = useState(false)
+    const [visitedError, setVisitedError] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (!isReadOnlyVisit || !visitedUsername) {
+            setVisitedProfile(null)
+            setVisitedError(null)
+            return
+        }
+        let cancelled = false
+        setVisitedLoading(true)
+        setVisitedError(null)
+        fetchPublicProfile(visitedUsername)
+            .then((res) => {
+                if (!cancelled) setVisitedProfile(res)
+            })
+            .catch((err: any) => {
+                if (!cancelled) setVisitedError(err?.message || 'No se pudo cargar la lista de este usuario.')
+            })
+            .finally(() => {
+                if (!cancelled) setVisitedLoading(false)
+            })
+        return () => {
+            cancelled = true
+        }
+    }, [isReadOnlyVisit, visitedUsername])
+
+    const filas: FilaLista[] = useMemo(() => {
+        if (!isReadOnlyVisit) return ownFilas
+        if (!visitedProfile || !visitedProfile.privacy?.isListPublic) return []
+        return (visitedProfile.entries || []).map(apiEntryToFila)
+    }, [isReadOnlyVisit, ownFilas, visitedProfile])
+
+    const carpetas: Carpeta[] = useMemo(() => {
+        if (!isReadOnlyVisit) return ownCarpetas
+        if (!visitedProfile || !visitedProfile.privacy?.isListPublic) return []
+        return (visitedProfile.folders || []).map((f) => ({ id: f.id, nombre: f.name }))
+    }, [isReadOnlyVisit, ownCarpetas, visitedProfile])
+
+    const tags: string[] = useMemo(() => {
+        if (!isReadOnlyVisit) return ownTags
+        if (!visitedProfile || !visitedProfile.privacy?.isListPublic) return []
+        return (visitedProfile.tags || []).map((t) => t.tag)
+    }, [isReadOnlyVisit, ownTags, visitedProfile])
+
+    const cargando = isReadOnlyVisit ? visitedLoading : ownCargando
+    const errorCarga = isReadOnlyVisit ? visitedError : ownErrorCarga
+    const actualizar = isReadOnlyVisit ? () => {} : ownActualizar
+    const quitar = isReadOnlyVisit ? () => {} : ownQuitar
+    const crearCarpeta = isReadOnlyVisit ? async () => {} : ownCrearCarpeta
+    const renombrarCarpeta = isReadOnlyVisit ? async () => {} : ownRenombrarCarpeta
+    const eliminarCarpeta = isReadOnlyVisit ? async () => {} : ownEliminarCarpeta
+    const crearTag = isReadOnlyVisit ? () => {} : ownCrearTag
+    const eliminarTag = isReadOnlyVisit ? () => {} : ownEliminarTag
 
     // --- Interfaz Local ---
     const [pestana, setPestana] = useState<Pestana>('animes')
@@ -96,6 +163,7 @@ export function MiLista() {
     const [verTodos, setVerTodos] = useState<string | null>(null)
 
     const handleAgregarAnime = async (nuevaEntrada: EntradaLista, _animeData?: ApiAnimeData) => {
+        if (isReadOnlyVisit) return
         try {
             await agregarAnime(nuevaEntrada, _animeData)
         } catch (err) {
@@ -107,6 +175,7 @@ export function MiLista() {
     }
 
     const handleCrearCarpeta = async (nombre: string) => {
+        if (isReadOnlyVisit) return
         try {
             await crearCarpeta(nombre)
         } catch (err) {
@@ -115,6 +184,7 @@ export function MiLista() {
     }
 
     const handleRenombrarCarpeta = async (id: string, nombre: string) => {
+        if (isReadOnlyVisit) return
         try {
             await renombrarCarpeta(id, nombre)
         } catch (err) {
@@ -123,6 +193,7 @@ export function MiLista() {
     }
 
     const handleEliminarCarpeta = async (id: string) => {
+        if (isReadOnlyVisit) return
         try {
             await eliminarCarpeta(id)
         } catch (err) {
@@ -229,28 +300,65 @@ export function MiLista() {
                 {/* ---------- Cabecera ---------- */}
                 <header className="ml-header">
                     <div className="ml-header-info">
-                        <span className="ml-eyebrow">Tu colección</span>
-                        <h1 className="ml-titulo">Mi Lista</h1>
+                        <span className="ml-eyebrow">
+                            {isReadOnlyVisit
+                                ? `COLECCIÓN PÚBLICA DE @${(visitedProfile?.user?.username || visitedUsername || '').toUpperCase()} · SOLO LECTURA`
+                                : 'Tu colección'}
+                        </span>
+                        <h1 className="ml-titulo">
+                            {isReadOnlyVisit
+                                ? `Lista de ${visitedProfile?.user?.display_name || visitedProfile?.user?.username || visitedUsername}`
+                                : 'Mi Lista'}
+                        </h1>
                         <p className="ml-sub">
                             <strong>{filas.length}</strong> animes guardados · <strong>~{horas} horas</strong> frente a la pantalla
                         </p>
                         <div className="ml-header-acciones">
-                            <button type="button" className="ml-btn ml-btn-acento" onClick={() => setAgregarAbierto(true)}>
-                                <Plus size={16} /> Agregar anime
-                            </button>
-                            <button
-                                type="button"
-                                className="ml-btn"
-                                style={{
-                                    background: 'var(--cat-surface-2, #18181f)',
-                                    border: '1px solid var(--cat-border, rgba(255, 255, 255, 0.1))',
-                                    color: '#f4f4f5',
-                                }}
-                                onClick={() => setImportarAbierto(true)}
-                                title="Importa tu lista oficial desde animelist.xml de MyAnimeList"
-                            >
-                                <Upload size={15} /> Importar MyAnimeList (.xml)
-                            </button>
+                            {isReadOnlyVisit ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="ml-btn ml-btn-acento"
+                                        onClick={() => {
+                                            window.location.hash = `#perfil/${encodeURIComponent(
+                                                visitedProfile?.user?.username || visitedUsername || ''
+                                            )}`
+                                        }}
+                                    >
+                                        <ArrowLeft size={16} /> Volver al perfil de @{visitedProfile?.user?.username || visitedUsername}
+                                    </button>
+                                    <span
+                                        className="ml-btn"
+                                        style={{
+                                            background: 'rgba(167, 139, 250, 0.12)',
+                                            border: '1px solid rgba(167, 139, 250, 0.35)',
+                                            color: '#e9d5ff',
+                                            cursor: 'default',
+                                        }}
+                                    >
+                                        <Eye size={15} /> Modo Solo Lectura
+                                    </span>
+                                </>
+                            ) : (
+                                <>
+                                    <button type="button" className="ml-btn ml-btn-acento" onClick={() => setAgregarAbierto(true)}>
+                                        <Plus size={16} /> Agregar anime
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="ml-btn"
+                                        style={{
+                                            background: 'var(--cat-surface-2, #18181f)',
+                                            border: '1px solid var(--cat-border, rgba(255, 255, 255, 0.1))',
+                                            color: '#f4f4f5',
+                                        }}
+                                        onClick={() => setImportarAbierto(true)}
+                                        title="Importa tu lista oficial desde animelist.xml de MyAnimeList"
+                                    >
+                                        <Upload size={15} /> Importar MyAnimeList (.xml)
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -259,7 +367,7 @@ export function MiLista() {
                         <div className="ml-ficha-lista-cuerpo">
                             <div className="ml-ficha-encabezado">
                                 <div>
-                                    <div className="mb-1">Cómo va tu lista</div>
+                                    <div className="mb-1">Cómo va {isReadOnlyVisit ? 'su lista' : 'tu lista'}</div>
                                     <div className="ml-ficha-porcentaje">
                                         {filas.length ? Math.round((vistos / filas.length) * 100) : 0}<small>%</small>
                                     </div>
@@ -424,21 +532,43 @@ export function MiLista() {
                             </div>
                         )}
 
-                        {cargando ? (
+                        {isReadOnlyVisit && visitedProfile && !visitedProfile.privacy?.isListPublic ? (
+                            <div className="ml-vacio py-5 text-center">
+                                <Lock size={32} className="text-secondary mx-auto mb-2" />
+                                <p className="mb-3">
+                                    La lista de animes de <strong>@{visitedProfile.user.username}</strong> es privada.
+                                </p>
+                                <button
+                                    type="button"
+                                    className="ml-btn ml-btn-acento"
+                                    onClick={() => {
+                                        window.location.hash = `#perfil/${encodeURIComponent(visitedProfile.user.username)}`
+                                    }}
+                                >
+                                    <ArrowLeft size={16} /> Volver al perfil
+                                </button>
+                            </div>
+                        ) : cargando ? (
                             <div className="ml-vacio py-5 text-center">
                                 <Loader2 size={32} className="text-secondary mx-auto mb-3" style={{ animation: 'spin 1s linear infinite' }} />
-                                <p className="text-secondary mb-0">Cargando tu colección de animes desde la base de datos...</p>
+                                <p className="text-secondary mb-0">Cargando colección de animes desde la base de datos...</p>
                             </div>
                         ) : visibles.length > 0 ? (
-                            <div className="ml-lista">
+                            <div className="ml-lista" style={isReadOnlyVisit ? { pointerEvents: 'auto' } : undefined}>
                                 {visibles.map((fila, i) => (
                                     <AnimeFila
                                         key={fila.id || fila.malId}
                                         fila={fila}
                                         posicion={i + 1}
                                         carpetas={carpetas}
-                                        onActualizar={(cambios) => actualizar(fila.malId, cambios)}
-                                        onQuitar={() => quitar(fila.malId)}
+                                        onActualizar={(cambios) => {
+                                            if (isReadOnlyVisit) return
+                                            actualizar(fila.malId, cambios)
+                                        }}
+                                        onQuitar={() => {
+                                            if (isReadOnlyVisit) return
+                                            quitar(fila.malId)
+                                        }}
                                         onVerDetalle={() => setDetalleId(fila.malId)}
                                         onRecomendar={() => recomendarUno(fila)}
                                     />
@@ -448,12 +578,16 @@ export function MiLista() {
                             <div className="ml-vacio">
                                 <div className="ml-kaomoji">(・・;)ゞ</div>
                                 {filas.length === 0 ? (
-                                    <>
-                                        <p>Tu lista está vacía. ¡Hora de empezar una nueva aventura!</p>
-                                        <button type="button" className="ml-btn ml-btn-acento" onClick={() => setAgregarAbierto(true)}>
-                                            <Plus size={16} /> Agregar mi primer anime
-                                        </button>
-                                    </>
+                                    isReadOnlyVisit ? (
+                                        <p>Este usuario aún no ha agregado animes a su lista.</p>
+                                    ) : (
+                                        <>
+                                            <p>Tu lista está vacía. ¡Hora de empezar una nueva aventura!</p>
+                                            <button type="button" className="ml-btn ml-btn-acento" onClick={() => setAgregarAbierto(true)}>
+                                                <Plus size={16} /> Agregar mi primer anime
+                                            </button>
+                                        </>
+                                    )
                                 ) : (
                                     <>
                                         <p>Ningún anime coincide con esto.</p>
@@ -479,7 +613,10 @@ export function MiLista() {
                             onCrear={handleCrearCarpeta}
                             onRenombrar={handleRenombrarCarpeta}
                             onEliminar={handleEliminarCarpeta}
-                            onMover={(malId, carpetaId) => actualizar(malId, { carpetaId })}
+                            onMover={(malId, carpetaId) => {
+                                if (isReadOnlyVisit) return
+                                actualizar(malId, { carpetaId })
+                            }}
                             onRecomendar={(c) =>
                                 setPaquete({
                                     titulo: c.nombre,
@@ -515,7 +652,10 @@ export function MiLista() {
             <AnimeDetalleDialog
                 fila={filaDetalle}
                 onCerrar={() => setDetalleId(null)}
-                onActualizar={(cambios) => detalleId !== null && actualizar(detalleId, cambios)}
+                onActualizar={(cambios) => {
+                    if (isReadOnlyVisit) return
+                    if (detalleId !== null) actualizar(detalleId, cambios)
+                }}
                 onRecomendar={() => {
                     if (!filaDetalle) return
                     setDetalleId(null)
@@ -531,18 +671,22 @@ export function MiLista() {
                 onVerDetalle={setDetalleId}
             />
             <RecomendarDialog paquete={paquete} carpetas={carpetas} onCerrar={() => setPaquete(null)} />
-            <AgregarDialog
-                abierto={agregarAbierto}
-                idsEnLista={filas.map((f) => f.malId)}
-                carpetas={carpetas}
-                onCerrar={() => setAgregarAbierto(false)}
-                onAgregar={handleAgregarAnime}
-            />
-            <ImportarMalXmlDialog
-                abierto={importarAbierto}
-                onCerrar={() => setImportarAbierto(false)}
-                onExito={() => refetch()}
-            />
+            {!isReadOnlyVisit && (
+                <>
+                    <AgregarDialog
+                        abierto={agregarAbierto}
+                        idsEnLista={filas.map((f) => f.malId)}
+                        carpetas={carpetas}
+                        onCerrar={() => setAgregarAbierto(false)}
+                        onAgregar={handleAgregarAnime}
+                    />
+                    <ImportarMalXmlDialog
+                        abierto={importarAbierto}
+                        onCerrar={() => setImportarAbierto(false)}
+                        onExito={() => refetch()}
+                    />
+                </>
+            )}
         </section>
 
     )

@@ -9,6 +9,7 @@ export interface PrivacyConfig {
     isListPublic: boolean
     showStats: boolean
     allowComments: 'everyone' | 'friends' | 'none'
+    allowRecommendations?: boolean
 }
 
 export interface TmdbMovie {

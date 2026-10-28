@@ -6,6 +6,9 @@ import {
     Calendar,
     Sparkles,
     Check,
+    BookOpen,
+    Send,
+    ArrowLeft,
 } from 'lucide-react'
 import type { SocialLinks, PrivacyConfig } from './perfil-types'
 
@@ -24,6 +27,9 @@ interface ProfileHeaderProps {
     isVisualEditOpen: boolean
     onToggleVisualEdit: () => void
     isCurrentUser?: boolean
+    onViewList?: () => void
+    onRecommendAnime?: () => void
+    onBackToOwnProfile?: () => void
 }
 
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -41,6 +47,9 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     isVisualEditOpen,
     onToggleVisualEdit,
     isCurrentUser = true,
+    onViewList,
+    onRecommendAnime,
+    onBackToOwnProfile,
 }) => {
     return (
         <div className="perfil-header-card">
@@ -205,45 +214,85 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Botones de Acción en Cabecera: Únicamente Editar (lápiz) y Configuración */}
-                    {isCurrentUser && (
-                        <div className="d-flex flex-wrap align-items-center gap-2 pt-2 pt-md-0">
-                            {/* Icono con un lápiz: Habilita/Deshabilita la modificación visual (refuerzo de área precortada) */}
+                {/* Fila inferior de acciones en la cabecera (Izquierda: Editar/Config o Volver | Derecha: VER LISTA / RECOMENDAR ANIME) */}
+                <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 pt-1">
+                    <div className="d-flex flex-wrap align-items-center gap-2">
+                        {isCurrentUser ? (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={onToggleVisualEdit}
+                                    className={`ml-btn ml-btn-sm d-inline-flex align-items-center gap-1.5 ${
+                                        isVisualEditOpen ? 'ml-btn-acento shadow' : 'ml-btn-fantasma border'
+                                    }`}
+                                    style={
+                                        !isVisualEditOpen
+                                            ? { borderColor: 'var(--perfil-border)', background: 'var(--perfil-card-2)' }
+                                            : undefined
+                                    }
+                                    title={
+                                        isVisualEditOpen
+                                            ? 'Finalizar personalización visual'
+                                            : 'Habilitar modificación de foto de perfil, imagen flag e imagen de los laterales'
+                                    }
+                                >
+                                    {isVisualEditOpen ? <Check size={14} /> : <Pencil size={14} />}
+                                    <span>{isVisualEditOpen ? 'Finalizar Edición' : 'Editar'}</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={onOpenConfigModal}
+                                    className="ml-btn ml-btn-fantasma ml-btn-sm d-inline-flex align-items-center gap-1.5 border"
+                                    style={{ borderColor: 'var(--perfil-border)', background: 'var(--perfil-card-2)' }}
+                                    title="Configuración de Cuenta, Paleta y Privacidad"
+                                >
+                                    <Settings size={14} />
+                                    <span>Configuración</span>
+                                </button>
+                            </>
+                        ) : (
+                            onBackToOwnProfile && (
+                                <button
+                                    type="button"
+                                    onClick={onBackToOwnProfile}
+                                    className="ml-btn ml-btn-fantasma ml-btn-sm d-inline-flex align-items-center gap-1.5 border"
+                                    style={{ borderColor: 'var(--perfil-border)', background: 'var(--perfil-card-2)' }}
+                                >
+                                    <ArrowLeft size={14} />
+                                    <span>Volver a mi perfil</span>
+                                </button>
+                            )
+                        )}
+                    </div>
+
+                    <div className="d-flex flex-wrap align-items-center gap-2 ms-auto">
+                        {(isCurrentUser || privacy.isListPublic) && onViewList && (
                             <button
                                 type="button"
-                                onClick={onToggleVisualEdit}
-                                className={`ml-btn ml-btn-sm d-inline-flex align-items-center gap-1.5 ${
-                                    isVisualEditOpen ? 'ml-btn-acento shadow' : 'ml-btn-fantasma border'
-                                }`}
-                                style={
-                                    !isVisualEditOpen
-                                        ? { borderColor: 'var(--perfil-border)', background: 'var(--perfil-card-2)' }
-                                        : undefined
-                                }
-                                title={
-                                    isVisualEditOpen
-                                        ? 'Finalizar personalización visual'
-                                        : 'Habilitar modificación de foto de perfil, imagen flag e imagen de los laterales'
-                                }
+                                onClick={onViewList}
+                                className="perfil-header-action-btn"
+                                title={isCurrentUser ? 'Ir a Mi Lista personal' : `Ver la lista de anime de @${username}`}
                             >
-                                {isVisualEditOpen ? <Check size={14} /> : <Pencil size={14} />}
-                                <span>{isVisualEditOpen ? 'Finalizar Edición' : 'Editar'}</span>
+                                <BookOpen size={14} />
+                                <span>VER LISTA</span>
                             </button>
+                        )}
 
-                            {/* Botón Configuración: Abre el modal con Paleta de Colores, Perfil y Privacidad */}
+                        {privacy.allowRecommendations !== false && onRecommendAnime && (
                             <button
                                 type="button"
-                                onClick={onOpenConfigModal}
-                                className="ml-btn ml-btn-fantasma ml-btn-sm d-inline-flex align-items-center gap-1.5 border"
-                                style={{ borderColor: 'var(--perfil-border)', background: 'var(--perfil-card-2)' }}
-                                title="Configuración de Cuenta, Paleta y Privacidad"
+                                onClick={onRecommendAnime}
+                                className="perfil-header-action-btn perfil-header-action-btn--accent"
+                                title={`Recomendar un anime directamente a @${username}`}
                             >
-                                <Settings size={14} />
-                                <span>Configuración</span>
+                                <Send size={14} />
+                                <span>RECOMENDAR ANIME</span>
                             </button>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

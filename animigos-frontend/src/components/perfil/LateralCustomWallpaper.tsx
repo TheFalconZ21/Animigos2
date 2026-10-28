@@ -1,9 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Image as ImageIcon, Sparkles, Upload, Eye, EyeOff, Sliders } from 'lucide-react'
 import { Dialogo } from '../mi-lista/piezas'
 import type { LateralWallpaperConfig } from './perfil-types'
 
-const LATERAL_PRESETS = [
+export const LATERAL_PRESETS = [
     {
         label: 'Cyberpunk City Neon (GIF)',
         url: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=800&auto=format&fit=crop&q=80',
@@ -46,9 +46,15 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
     onCloseExternalModal,
 }) => {
     const [modalOpen, setModalOpen] = useState(false)
-    const [customUrl, setCustomUrl] = useState(config.imageUrl)
-    const [opacity, setOpacity] = useState(config.opacity)
+    const [customUrl, setCustomUrl] = useState(config.imageUrl || LATERAL_PRESETS[0].url)
+    const [opacity, setOpacity] = useState(config.opacity || 55)
     const [enabled, setEnabled] = useState(config.enabled)
+
+    useEffect(() => {
+        setCustomUrl(config.imageUrl || LATERAL_PRESETS[0].url)
+        setOpacity(config.opacity || 55)
+        setEnabled(config.enabled)
+    }, [config.imageUrl, config.opacity, config.enabled])
 
     const isDialogOpen = modalOpen || externalModalOpen
 
@@ -65,6 +71,7 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
         reader.onload = () => {
             if (typeof reader.result === 'string') {
                 setCustomUrl(reader.result)
+                setEnabled(true)
             }
         }
         reader.readAsDataURL(file)
@@ -72,24 +79,26 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
 
     const handleSave = () => {
         onChangeConfig({
-            imageUrl: customUrl,
+            imageUrl: customUrl || LATERAL_PRESETS[0].url,
             opacity,
             enabled,
         })
         handleClose()
     }
 
+    const activeImageUrl = config.imageUrl || LATERAL_PRESETS[0].url
+
     return (
         <>
             {/* Laterales renderizados a izquierda y derecha con gradiente difuminado hacia el centro */}
-            {config.enabled && config.imageUrl && (
+            {config.enabled && activeImageUrl && (
                 <>
                     <div className="perfil-lateral-art perfil-lateral-left" aria-hidden="true">
                         <img
-                            src={config.imageUrl}
+                            src={activeImageUrl}
                             alt=""
                             className="perfil-lateral-img"
-                            style={{ opacity: config.opacity / 100 }}
+                            style={{ opacity: (config.opacity || 55) / 100 }}
                             onError={(e) => {
                                 e.currentTarget.style.display = 'none'
                             }}
@@ -97,10 +106,10 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
                     </div>
                     <div className="perfil-lateral-art perfil-lateral-right" aria-hidden="true">
                         <img
-                            src={config.imageUrl}
+                            src={activeImageUrl}
                             alt=""
                             className="perfil-lateral-img"
-                            style={{ opacity: config.opacity / 100 }}
+                            style={{ opacity: (config.opacity || 55) / 100 }}
                             onError={(e) => {
                                 e.currentTarget.style.display = 'none'
                             }}
@@ -114,7 +123,7 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
                 <>
                     {/* Lateral Izquierdo: Área precortada interactiva */}
                     <div
-                        className="perfil-crop-target-lateral perfil-crop-target-lateral-left d-none d-xxl-flex animate-fade-in"
+                        className="perfil-crop-target-lateral perfil-crop-target-lateral-left d-none d-xl-flex animate-fade-in"
                         onClick={() => setModalOpen(true)}
                         role="button"
                         tabIndex={0}
@@ -141,7 +150,7 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
 
                     {/* Lateral Derecho: Área precortada interactiva */}
                     <div
-                        className="perfil-crop-target-lateral perfil-crop-target-lateral-right d-none d-xxl-flex animate-fade-in"
+                        className="perfil-crop-target-lateral perfil-crop-target-lateral-right d-none d-xl-flex animate-fade-in"
                         onClick={() => setModalOpen(true)}
                         role="button"
                         tabIndex={0}
@@ -170,7 +179,7 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
                     <button
                         type="button"
                         onClick={() => setModalOpen(true)}
-                        className="perfil-crop-lateral-mobile-btn d-xxl-none animate-fade-in"
+                        className="perfil-crop-lateral-mobile-btn d-xl-none animate-fade-in"
                         title="Personalizar Imagen o GIF de fondo lateral"
                     >
                         <Sliders size={16} style={{ color: 'var(--perfil-acento)' }} />
@@ -223,7 +232,10 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
                                     <div key={p.label} className="col-6">
                                         <div
                                             className={`p-2 rounded-3 border d-flex align-items-center gap-2`}
-                                            onClick={() => setCustomUrl(p.url)}
+                                            onClick={() => {
+                                                setCustomUrl(p.url)
+                                                setEnabled(true)
+                                            }}
                                             style={{
                                                 cursor: 'pointer',
                                                 background: isSelected ? 'var(--perfil-acento-soft)' : 'var(--perfil-card-2)',
@@ -269,7 +281,10 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
                             className="cat-search-control w-100"
                             placeholder="O pega una URL directa de imagen o GIF (https://...)"
                             value={customUrl.startsWith('data:') ? 'Imagen local cargada' : customUrl}
-                            onChange={(e) => setCustomUrl(e.target.value)}
+                            onChange={(e) => {
+                                setCustomUrl(e.target.value)
+                                if (e.target.value.trim()) setEnabled(true)
+                            }}
                             style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem' }}
                         />
                     </div>

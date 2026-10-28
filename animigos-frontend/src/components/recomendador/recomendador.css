@@ -1,0 +1,653 @@
+/* ============================================================
+   SECCIÓN RECOMENDADOR (ESTILO CANÓNICO ANIMIGOS)
+   ============================================================ */
+
+.recomendador-page {
+    width: 100%;
+    max-width: 1240px;
+    margin: 0 auto;
+    color: #f4f4f5;
+}
+
+/* --- Pantalla Pre-Test (Foto a la izquierda, Burbuja a la derecha) --- */
+.rec-onboarding-stage {
+    width: 100%;
+}
+
+.rec-onboarding-doki .doki-dialogue-bubble {
+    padding: 1.5rem 1.75rem;
+}
+
+.rec-onboarding-doki .doki-dialogue-title {
+    font-size: 1rem;
+}
+
+.rec-onboarding-doki .doki-dialogue-content {
+    font-size: 1.02rem;
+    line-height: 1.65;
+}
+
+.rec-primary-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 1.4rem;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: #ffffff;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.rec-primary-cta-btn:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+}
+
+/* --- Cabecera Calibrada --- */
+.rec-calibrated-header {
+    width: 100%;
+}
+
+.rec-main-heading {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.rec-recalibrate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    background: #111116;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #f4f4f5;
+    transition: all 0.16s ease;
+}
+
+.rec-recalibrate-btn:hover {
+    background: #18181f;
+    border-color: var(--rec-accent, #e8508f);
+    color: #ffffff;
+}
+
+/* --- Barra de Preferencias --- */
+.rec-preferences-bar {
+    background: #111116;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 1.15rem 1.35rem;
+}
+
+.rec-pref-section-label {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: #ffffff;
+}
+
+.rec-surprise-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.95rem;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    background: #18181f;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #e4e4e7;
+    transition: all 0.18s ease;
+}
+
+.rec-rotate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.95rem;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: #18181f;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #d4d4d8;
+    transition: all 0.18s ease;
+}
+
+.rec-rotate-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.rec-spin {
+    animation: recSpinAnim 0.8s linear infinite;
+}
+
+@keyframes recSpinAnim {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.rec-filter-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+}
+
+.rec-filter-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #a1a1aa;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    min-width: 110px;
+    padding-top: 0.36rem;
+}
+
+.rec-chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.42rem;
+}
+
+.rec-pref-chip {
+    padding: 0.32rem 0.78rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: #18181f;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: #a1a1aa;
+    transition: all 0.15s ease;
+}
+
+.rec-pref-chip:hover {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.24);
+}
+
+/* --- Grilla de las 5 Alternativas --- */
+.rec-section-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.rec-active-filter-pill {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 8px;
+    background: #18181f;
+    color: #e4e4e7;
+}
+
+.rec-five-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+@media (max-width: 1120px) {
+    .rec-five-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 820px) {
+    .rec-five-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .rec-filter-group {
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+}
+
+@media (max-width: 540px) {
+    .rec-five-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.rec-anime-card {
+    display: flex;
+    flex-direction: column;
+    background: #111116;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.rec-anime-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.rec-anime-poster-wrap {
+    position: relative;
+    aspect-ratio: 3 / 4.2;
+    background: #08080a;
+    overflow: hidden;
+}
+
+.rec-anime-poster {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.rec-anime-card:hover .rec-anime-poster {
+    transform: scale(1.03);
+}
+
+.rec-rank-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 0.2rem 0.55rem;
+    border-radius: 7px;
+    background: rgba(8, 8, 10, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    font-weight: 800;
+    font-size: 0.76rem;
+    color: #ffffff;
+}
+
+.rec-affinity-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 0.22rem 0.58rem;
+    border-radius: 7px;
+    font-weight: 800;
+    font-size: 0.74rem;
+    color: #ffffff;
+}
+
+.rec-format-badge {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    padding: 0.18rem 0.52rem;
+    border-radius: 6px;
+    background: rgba(8, 8, 10, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #e4e4e7;
+}
+
+.rec-anime-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding: 0.95rem;
+}
+
+.rec-anime-studio {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.72rem;
+    color: #a1a1aa;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rec-anime-score {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #facc15;
+}
+
+.rec-anime-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.3;
+    margin-bottom: 0.2rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.rec-anime-meta {
+    font-size: 0.74rem;
+    color: #71717a;
+    font-weight: 600;
+}
+
+.rec-match-reason-box {
+    padding: 0.5rem 0.65rem;
+    border-radius: 8px;
+    background: #18181f;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: #d4d4d8;
+}
+
+.rec-tags-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.32rem;
+}
+
+.rec-genre-pill {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.15rem 0.48rem;
+    border-radius: 6px;
+    background: #18181f;
+    color: #e4e4e7;
+}
+
+.rec-weighted-tag-pill {
+    font-size: 0.67rem;
+    font-weight: 600;
+    padding: 0.15rem 0.48rem;
+    border-radius: 6px;
+    background: rgba(167, 139, 250, 0.12);
+    border: 1px solid rgba(167, 139, 250, 0.28);
+    color: #c4b5fd;
+}
+
+.rec-weighted-tag-pill small {
+    opacity: 0.75;
+    font-weight: 700;
+}
+
+.rec-add-list-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.48rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    background: #18181f;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    transition: all 0.16s ease;
+}
+
+.rec-add-list-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--rec-accent, #e8508f) 20%, #18181f);
+}
+
+.rec-add-list-btn.added {
+    background: rgba(16, 185, 129, 0.14);
+    border-color: rgba(16, 185, 129, 0.38);
+    color: #34d399;
+}
+
+/* ============================================================
+   COMPONENTE DE CORRELACIÓN Y GRAFO DE GUSTOS
+   ============================================================ */
+.rec-analytics-card {
+    background: #111116;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 1.35rem 1.5rem;
+}
+
+.rec-analytics-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.rec-analytics-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.22rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    border: 1px solid;
+    background: #18181f;
+}
+
+.rec-analytics-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.rec-analytics-desc {
+    font-size: 0.86rem;
+    color: #a1a1aa;
+}
+
+.rec-analytics-tabs {
+    display: inline-flex;
+    background: #18181f;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 0.2rem;
+    gap: 0.2rem;
+}
+
+.rec-analytics-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+    padding: 0.34rem 0.8rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #a1a1aa;
+    background: transparent;
+    border: none;
+    transition: all 0.16s ease;
+}
+
+.rec-analytics-tab.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.rec-graph-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 1.25rem;
+    align-items: stretch;
+}
+
+@media (max-width: 992px) {
+    .rec-graph-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.rec-graph-canvas-wrap {
+    background: #08080a;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.rec-graph-svg {
+    width: 100%;
+    height: auto;
+    max-height: 390px;
+    display: block;
+}
+
+.rec-graph-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rec-graph-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.73rem;
+    color: #a1a1aa;
+    font-weight: 600;
+}
+
+.rec-graph-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.rec-graph-inspector {
+    background: #18181f;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.rec-inspector-cat {
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.rec-inspector-weight {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #e4e4e7;
+    background: rgba(255, 255, 255, 0.07);
+    padding: 0.16rem 0.55rem;
+    border-radius: 999px;
+}
+
+.rec-inspector-node-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: 0.45rem;
+}
+
+.rec-inspector-hint {
+    font-size: 0.82rem;
+    color: #a1a1aa;
+    margin-bottom: 1rem;
+}
+
+.rec-inspector-sub {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #71717a;
+    text-transform: uppercase;
+}
+
+.rec-inspector-chip {
+    font-size: 0.74rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #d4d4d8;
+}
+
+.rec-inspector-filter-btn {
+    margin-top: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.55rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid;
+    transition: all 0.16s ease;
+}
+
+.rec-inspector-filter-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* --- Matriz / Tarjetas de Co-ocurrencia --- */
+.rec-combos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 0.9rem;
+}
+
+.rec-combo-card {
+    background: #18181f;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1rem 1.15rem;
+    cursor: pointer;
+    transition: border-color 0.16s ease, transform 0.16s ease;
+}
+
+.rec-combo-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+.rec-combo-pair {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #ffffff;
+}
+
+.rec-combo-pct {
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.rec-combo-bar-bg {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.rec-combo-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+}
+
+.rec-combo-examples {
+    font-size: 0.74rem;
+    color: #a1a1aa;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

@@ -20,4 +20,8 @@ urlpatterns = [
     path('me/friends/', views.user_friends_view, name='user-friends'),
     path('me/friends/<int:friend_id>/', views.user_friends_view, name='user-friend-detail'),
     path('suggested-friends/', views.suggested_friends_view, name='user-suggested-friends'),
+    # Perfiles Públicos, Recomendaciones Directas y Notificaciones
+    path('public-profile/<str:username>/', views.public_user_profile_view, name='user-public-profile'),
+    path('public-profile/<str:username>/recommend/', views.recommend_anime_to_user_view, name='user-recommend-anime'),
+    path('me/notifications/', views.user_notifications_view, name='user-notifications'),
 ]

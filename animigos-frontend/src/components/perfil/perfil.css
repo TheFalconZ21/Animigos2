@@ -44,16 +44,16 @@
 /* ---------- Fondos Laterales Personalizables (GIF / Imagen) ---------- */
 .perfil-lateral-art {
     position: fixed;
-    top: 0;
+    top: 60px;
     bottom: 0;
-    width: clamp(80px, calc((100vw - 1240px) / 2), 360px);
+    width: clamp(60px, calc((100vw - 1240px) / 2), 380px);
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
     display: none;
 }
 
-@media (min-width: 1380px) {
+@media (min-width: 1120px) {
     .perfil-lateral-art {
         display: block;
     }
@@ -76,13 +76,13 @@
 }
 
 .perfil-lateral-left .perfil-lateral-img {
-    mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.85) 30%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.85) 30%, transparent 100%);
+    mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.92) 35%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.92) 35%, transparent 100%);
 }
 
 .perfil-lateral-right .perfil-lateral-img {
-    mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.85) 30%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.85) 30%, transparent 100%);
+    mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.92) 35%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.92) 35%, transparent 100%);
 }
 
 .perfil-lateral-control-btn {
@@ -672,6 +672,110 @@
     font-size: 0.7rem;
 }
 
+.perfil-fav-viewlist-card {
+    position: relative;
+    border-radius: 10px;
+    aspect-ratio: 2/3;
+    width: 100%;
+    background: linear-gradient(
+        155deg,
+        color-mix(in srgb, var(--perfil-acento) 18%, var(--perfil-card-2)) 0%,
+        var(--perfil-card-2) 100%
+    );
+    border: 1.5px solid var(--perfil-acento-border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.65rem;
+    color: #ffffff;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    text-align: center;
+}
+
+.perfil-fav-viewlist-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    border-color: var(--perfil-acento);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 18px var(--perfil-acento-glow);
+    background: linear-gradient(
+        155deg,
+        color-mix(in srgb, var(--perfil-acento) 30%, var(--perfil-card-2)) 0%,
+        var(--perfil-card-hover) 100%
+    );
+}
+
+.perfil-fav-viewlist-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(167, 139, 250, 0.16);
+    border: 1px solid var(--perfil-acento-border);
+    color: var(--perfil-acento);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.perfil-fav-viewlist-label {
+    font-family: var(--font-heading);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: #ffffff;
+}
+
+.perfil-fav-viewlist-sub {
+    font-size: 0.68rem;
+    color: var(--perfil-text-muted);
+    font-weight: 600;
+}
+
+.perfil-fav-viewlist-arrow {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    color: var(--perfil-acento);
+    opacity: 0.85;
+}
+
+.perfil-header-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.42rem 0.95rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1.5px solid rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.perfil-header-action-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.perfil-header-action-btn--accent {
+    background: color-mix(in srgb, var(--perfil-acento) 16%, rgba(20, 20, 28, 0.9));
+    border-color: var(--perfil-acento-border);
+    color: #ffffff;
+}
+
+.perfil-header-action-btn--accent:hover {
+    background: var(--perfil-acento);
+    border-color: var(--perfil-acento);
+    color: #0b0816;
+    box-shadow: 0 0 16px var(--perfil-acento-glow);
+}
+
 /* ---------- 5. Muro de Comentarios & Editor ---------- */
 .perfil-comments-card {
     background: var(--perfil-card);
@@ -1028,48 +1132,179 @@
     transform: translateX(-50%) scale(1.03);
 }
 
-/* ---------- 9. Tira Compacta de Amigos y Sugerencias (Conforme a Boceto) ---------- */
+/* ---------- 9. Tira Compacta de Amigos y Sugerencias (Layout 4 + 2 Responsivo) ---------- */
 .perfil-friends-container {
     background: var(--perfil-card);
     border: 1px solid var(--perfil-border);
-    border-radius: 12px;
-    padding: 1.25rem 1.25rem 1.5rem;
+    border-radius: 14px;
+    padding: 1.25rem 1.35rem 1.45rem;
     margin-bottom: 1.5rem;
 }
 
-.perfil-friends-strip {
+.perfil-friends-split-layout {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 4fr) minmax(0, 2fr);
+    gap: 1.1rem;
+    align-items: stretch;
+}
+
+.perfil-friends-left-zone,
+.perfil-friends-right-zone {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.perfil-friends-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    min-height: 36px;
+    margin-bottom: 0.65rem;
+    flex-wrap: nowrap;
+}
+
+.perfil-friends-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* Input izquierdo para filtrar amigos rápidamente */
+.perfil-friends-filter-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 160px;
+    max-width: 270px;
+    min-width: 120px;
+    background: #0b0b0f;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    padding: 0.34rem 0.85rem;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.perfil-friends-filter-input-wrap:focus-within {
+    border-color: var(--perfil-acento);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--perfil-acento) 18%, transparent);
+}
+
+.perfil-friends-filter-icon {
+    color: #9ca3af;
+    flex-shrink: 0;
+    margin-right: 0.5rem;
+}
+
+.perfil-friends-filter-input {
+    width: 100%;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #f4f4f5;
+    font-size: 0.78rem;
+}
+
+.perfil-friends-filter-input::placeholder {
+    color: #71717a;
+}
+
+.perfil-friends-filter-clear {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    padding: 0;
+    margin-left: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.perfil-friends-filter-clear:hover {
+    color: #ffffff;
+}
+
+/* Botón "+ Agregar Amigo" */
+.perfil-friends-add-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.38rem 0.9rem;
+    border-radius: 999px;
+    background: var(--perfil-acento);
+    border: 1px solid var(--perfil-acento);
+    color: #080808;
+    font-size: 0.76rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.perfil-friends-add-pill-btn:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+
+/* Botón "VER MAS" en cabecera superior */
+.perfil-friends-vermas-header-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.38rem 1.15rem;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--perfil-acento) 20%, #161622);
+    border: 1px solid color-mix(in srgb, var(--perfil-acento) 42%, transparent);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.perfil-friends-vermas-header-btn:hover {
+    background: var(--perfil-acento);
+    color: #080808;
+    border-color: var(--perfil-acento);
+}
+
+/* Grillas de tarjetas: 4 para Amigos, 2 para Sugerencias */
+.perfil-friends-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.65rem;
+    flex-grow: 1;
 }
 
-@media (max-width: 1260px) {
-    .perfil-friends-strip {
-        display: flex;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        padding-bottom: 0.5rem;
-        scroll-snap-type: x mandatory;
-        scrollbar-width: thin;
-    }
-    .perfil-friend-compact-card,
-    .perfil-friend-vermas-card {
-        min-width: 175px;
-        max-width: 195px;
-        flex-shrink: 0;
-        scroll-snap-align: start;
-    }
+.perfil-friends-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    flex-grow: 1;
 }
 
+/* Tarjeta Compacta y su Contenido Interno Responsivo */
 .perfil-friend-compact-card {
     background: #14141a;
     border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 8px;
-    padding: 0.65rem 0.75rem;
+    border-radius: 9px;
+    padding: 0.68rem 0.75rem;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    height: 112px;
+    gap: 0.55rem;
+    min-height: 112px;
+    height: 100%;
+    min-width: 0;
+    overflow: hidden;
     position: relative;
     transition: all 0.15s ease;
 }
@@ -1080,47 +1315,149 @@
     transform: translateY(-1px);
 }
 
-.perfil-friend-vermas-card {
-    background: #14141a;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 8px;
-    padding: 0.65rem 0.75rem;
+.perfil-friend-card-top {
     display: flex;
-    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.55rem;
+    min-width: 0;
+}
+
+.perfil-friend-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+.perfil-friend-online-dot {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #10b981;
+    border: 1.5px solid #14141a;
+}
+
+.perfil-friend-card-info {
+    min-width: 0;
+    flex: 1 1 0%;
+}
+
+.perfil-friend-name {
+    font-weight: 700;
+    color: #ffffff;
+    font-size: 0.78rem;
+    line-height: 1.25;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.perfil-friend-handle {
+    color: #9ca3af;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.68rem;
+    line-height: 1.25;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.perfil-friend-bio {
+    color: var(--perfil-text-dim);
+    font-size: 0.68rem;
+    line-height: 1.25;
+    margin-top: 1px;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.perfil-friend-quick-add-btn {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    padding: 2px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 112px;
-    position: relative;
+    flex-shrink: 0;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: color 0.15s ease, transform 0.15s ease;
 }
 
-.perfil-friend-vermas-card:hover {
-    border-color: var(--perfil-acento);
-    background: #181822;
-    transform: translateY(-1px);
+.perfil-friend-quick-add-btn:hover {
+    color: var(--perfil-acento);
+    transform: scale(1.1);
 }
 
-.perfil-friend-vermas-btn {
-    background: color-mix(in srgb, var(--perfil-acento) 22%, #181822);
-    border: 1px solid color-mix(in srgb, var(--perfil-acento) 40%, transparent);
-    color: #ffffff;
-    font-size: 0.74rem;
-    font-weight: 800;
-    letter-spacing: 0.8px;
-    padding: 0.45rem 1rem;
-    border-radius: 6px;
-    text-transform: uppercase;
-    transition: all 0.15s ease;
-    width: 100%;
-    text-align: center;
+.perfil-friend-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.38rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    min-width: 0;
 }
 
-.perfil-friend-vermas-card:hover .perfil-friend-vermas-btn {
-    background: var(--perfil-acento);
-    color: #080808;
-    border-color: var(--perfil-acento);
-    box-shadow: 0 0 14px color-mix(in srgb, var(--perfil-acento) 35%, transparent);
+.perfil-friend-list-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.68rem;
+    color: #9ca3af;
+    min-width: 0;
+}
+
+/* Breakpoints Responsivos */
+@media (max-width: 1180px) {
+    .perfil-friends-split-layout {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+    .perfil-friends-filter-input-wrap {
+        max-width: 320px;
+    }
+}
+
+@media (max-width: 900px) {
+    .perfil-friends-grid-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .perfil-friends-container {
+        padding: 1rem;
+    }
+    .perfil-friends-toolbar {
+        flex-wrap: wrap;
+    }
+    .perfil-friends-filter-input-wrap {
+        flex: 1 1 100%;
+        max-width: 100%;
+    }
+    .perfil-friends-toolbar-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .perfil-friends-add-pill-btn,
+    .perfil-friends-vermas-header-btn {
+        flex: 1 1 auto;
+    }
+}
+
+@media (max-width: 460px) {
+    .perfil-friends-grid-4,
+    .perfil-friends-grid-2 {
+        grid-template-columns: 1fr;
+    }
 }
 
 
