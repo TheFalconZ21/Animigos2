@@ -2,11 +2,12 @@ import os
 import csv
 import time
 from pathlib import Path
+from decimal import Decimal
 from django.core.management.base import BaseCommand
 from animes.models import Anime
 
 class Command(BaseCommand):
-    help = 'Carga masiva de alta velocidad de animes en la base de datos (PostgreSQL/SQLite) usando bulk_create'
+    help = 'Carga masiva de alta velocidad de animes en la base de datos usando bulk_create'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -18,8 +19,8 @@ class Command(BaseCommand):
         parser.add_argument(
             '--batch-size',
             type=int,
-            default=1000,
-            help='Tamaño del lote para inserción masiva (default: 1000)'
+            default=2000,
+            help='Tamaño del lote para inserción masiva (default: 2000)'
         )
 
     def handle(self, *args, **options):
@@ -27,6 +28,8 @@ class Command(BaseCommand):
         batch_size = options['batch_size']
 
         possible_paths = [
+            Path(__file__).resolve().parent.parent / 'data' / 'full_catalog_30k.csv',
+            Path(os.getcwd()) / 'animes' / 'data' / 'full_catalog_30k.csv',
             Path(__file__).resolve().parent.parent / 'data' / 'anime_master_catalogo.csv',
             Path(__file__).resolve().parent.parent.parent.parent.parent / 'anime_dataset_2018_2026' / 'csv' / 'anime_master_catalogo.csv',
             Path(__file__).resolve().parent.parent.parent.parent / 'anime_dataset_2018_2026' / 'csv' / 'anime_master_catalogo.csv',
@@ -39,10 +42,11 @@ class Command(BaseCommand):
                 break
 
         if not csv_path or not csv_path.exists():
-            self.stderr.write(self.style.ERROR(f"No se encontró el dataset en ninguna de las rutas posibles."))
+            self.stderr.write(self.style.ERROR("No se encontró el dataset en ninguna de las rutas posibles."))
             return
 
-        self.stdout.write(f"Iniciando carga masiva desde {csv_path.name}...")
+        is_30k_format = 'full_catalog_30k' in csv_path.name
+        self.stdout.write(f"Iniciando carga masiva desde {csv_path.name} (formato 30k: {is_30k_format})...")
         start_time = time.time()
 
         objects_batch = []
@@ -50,8 +54,8 @@ class Command(BaseCommand):
         total_inserted = 0
 
         update_fields = [
-            'title', 'title_english', 'title_japanese', 'synopsis',
-            'image_url', 'banner_url', 'score', 'scored_by',
+            'title', 'title_english', 'title_japanese', 'synopsis', 'synopsis_es',
+            'image_url', 'banner_url', 'score', 'scored_by', 'popularity', 'rank',
             'episodes', 'duration', 'season_year', 'season',
             'studio', 'status', 'type', 'genres'
         ]
@@ -75,66 +79,135 @@ class Command(BaseCommand):
                     continue
                 seen_ids.add(mal_id)
 
-                title = (row.get('title_userPreferred') or row.get('title_romaji') or '').strip() or f"Anime #{mal_id}"
-                title_english = (row.get('title_english') or '').strip()
-                title_japanese = (row.get('title_native') or '').strip()
-                synopsis = (row.get('description_text') or '').strip()
-                image_url = (row.get('coverImage_large') or row.get('coverImage_extraLarge') or '').strip()
-                banner_url = (row.get('bannerImage') or '').strip()
-
-                score = None
-                for score_field in ['mean_score_mal_2026', 'score_2026', 'score_2024']:
-                    val = row.get(score_field, '').strip()
-                    if val:
+                if is_30k_format:
+                    title = row.get('title') or f"Anime #{mal_id}"
+                    title_english = (row.get('title_english') or '').strip()
+                    title_japanese = (row.get('title_japanese') or '').strip()
+                    synopsis = (row.get('synopsis') or '').strip()
+                    synopsis_es = (row.get('synopsis_es') or '').strip()
+                    image_url = (row.get('image_url') or '').strip()
+                    banner_url = (row.get('banner_url') or '').strip()
+                    
+                    score = None
+                    if row.get('score'):
                         try:
-                            score = round(float(val), 2)
-                            break
+                            score = round(float(row['score']), 2)
+                        except ValueError:
+                            pass
+                            
+                    scored_by = 0
+                    if row.get('scored_by'):
+                        try:
+                            scored_by = int(float(row['scored_by']))
                         except ValueError:
                             pass
 
-                scored_by = 0
-                members_str = row.get('members_2026', '').strip()
-                if members_str:
-                    try:
-                        scored_by = int(float(members_str))
-                    except ValueError:
-                        pass
+                    popularity = None
+                    if row.get('popularity'):
+                        try:
+                            popularity = int(float(row['popularity']))
+                        except ValueError:
+                            pass
 
-                # Animes sin nota oficial en MyAnimeList (artefactos de scraping con quórum insuficiente)
-                if mal_id in (63209, 63208, 63207, 62251, 60234) or (score is not None and score >= 9.0 and scored_by < 200):
+                    rank = None
+                    if row.get('rank'):
+                        try:
+                            rank = int(float(row['rank']))
+                        except ValueError:
+                            pass
+
+                    episodes = None
+                    if row.get('episodes'):
+                        try:
+                            episodes = int(float(row['episodes']))
+                        except ValueError:
+                            pass
+
+                    duration = None
+                    if row.get('duration'):
+                        try:
+                            duration = round(float(row['duration']), 2)
+                        except ValueError:
+                            pass
+
+                    season_year = None
+                    if row.get('season_year'):
+                        try:
+                            season_year = int(float(row['season_year']))
+                        except ValueError:
+                            pass
+
+                    season = (row.get('season') or '').strip().capitalize()
+                    studio = (row.get('studio') or '').strip()
+                    status = (row.get('status') or 'FINISHED').strip()
+                    type_val = (row.get('type') or 'TV').strip()
+                    genres_str = (row.get('genres') or '').strip()
+                    genres = [g.strip() for g in genres_str.split(',') if g.strip()] if genres_str else []
+
+                else:
+                    title = (row.get('title_userPreferred') or row.get('title_romaji') or '').strip() or f"Anime #{mal_id}"
+                    title_english = (row.get('title_english') or '').strip()
+                    title_japanese = (row.get('title_native') or '').strip()
+                    synopsis = (row.get('description_text') or '').strip()
+                    synopsis_es = ''
+                    image_url = (row.get('coverImage_large') or row.get('coverImage_extraLarge') or '').strip()
+                    banner_url = (row.get('bannerImage') or '').strip()
+
                     score = None
+                    for score_field in ['mean_score_mal_2026', 'score_2026', 'score_2024']:
+                        val = row.get(score_field, '').strip()
+                        if val:
+                            try:
+                                score = round(float(val), 2)
+                                break
+                            except ValueError:
+                                pass
 
-                episodes = None
-                ep_str = row.get('episodes', '').strip()
-                if ep_str:
-                    try:
-                        episodes = int(float(ep_str))
-                    except ValueError:
-                        pass
+                    scored_by = 0
+                    members_str = row.get('members_2026', '').strip()
+                    if members_str:
+                        try:
+                            scored_by = int(float(members_str))
+                        except ValueError:
+                            pass
 
-                duration = None
-                dur_str = row.get('duration', '').strip()
-                if dur_str:
-                    try:
-                        duration = round(float(dur_str), 2)
-                    except ValueError:
-                        pass
+                    if mal_id in (63209, 63208, 63207, 62251, 60234) or (score is not None and score >= 9.0 and scored_by < 200):
+                        score = None
 
-                season_year = None
-                year_str = row.get('seasonYear') or row.get('startDate_year') or ''
-                if year_str.strip():
-                    try:
-                        season_year = int(float(year_str.strip()))
-                    except ValueError:
-                        pass
+                    popularity = None
+                    rank = None
 
-                season = (row.get('season') or '').strip().capitalize()
-                studio = (row.get('estudio_principal') or '').strip()
-                status = (row.get('status') or 'FINISHED').strip()
-                type_val = (row.get('format') or row.get('type') or 'TV').strip()
+                    episodes = None
+                    ep_str = row.get('episodes', '').strip()
+                    if ep_str:
+                        try:
+                            episodes = int(float(ep_str))
+                        except ValueError:
+                            pass
 
-                genres_raw = row.get('generos_2026', '').strip()
-                genres = [g.strip() for g in genres_raw.split(',') if g.strip()] if genres_raw else []
+                    duration = None
+                    dur_str = row.get('duration', '').strip()
+                    if dur_str:
+                        try:
+                            duration = round(float(dur_str), 2)
+                        except ValueError:
+                            pass
+
+                    season_year = None
+                    year_str = row.get('seasonYear') or row.get('startDate_year') or ''
+                    if year_str.strip():
+                        try:
+                            season_year = int(float(year_str.strip()))
+                        except ValueError:
+                            pass
+
+                    season = (row.get('season') or '').strip().capitalize()
+                    studio = (row.get('estudio_principal') or '').strip()
+                    status = (row.get('status') or 'FINISHED').strip()
+                    type_val = (row.get('format') or row.get('type') or 'TV').strip()
+
+                    genres_raw = row.get('generos_2026', '').strip()
+                    genres = [g.strip() for g in genres_raw.split(',') if g.strip()] if genres_raw else []
 
                 anime_obj = Anime(
                     mal_id=mal_id,
@@ -142,10 +215,13 @@ class Command(BaseCommand):
                     title_english=title_english,
                     title_japanese=title_japanese,
                     synopsis=synopsis,
+                    synopsis_es=synopsis_es,
                     image_url=image_url,
                     banner_url=banner_url,
                     score=score,
                     scored_by=scored_by,
+                    popularity=popularity,
+                    rank=rank,
                     episodes=episodes,
                     duration=duration,
                     season_year=season_year,
@@ -167,7 +243,7 @@ class Command(BaseCommand):
                     )
                     total_inserted += len(objects_batch)
                     objects_batch.clear()
-                    self.stdout.write(f"  -> Progreso: {total_inserted} animes insertados/actualizados...")
+                    self.stdout.write(f"  -> Progreso: {total_inserted} animes cargados...")
 
             if objects_batch:
                 Anime.objects.bulk_create(
@@ -183,6 +259,6 @@ class Command(BaseCommand):
         elapsed = round(time.time() - start_time, 2)
         self.stdout.write(
             self.style.SUCCESS(
-                f"FINALIZADO: {total_inserted} animes cargados en PostgreSQL en {elapsed} segundos!"
+                f"FINALIZADO: {total_inserted} animes cargados en la base de datos en {elapsed} segundos!"
             )
         )
