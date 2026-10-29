@@ -21,6 +21,10 @@ export interface TmdbMovie {
     genres: string[]
     overview: string
     voteAverage?: number
+    mediaType?: 'movie' | 'tv'
+    numberOfSeasons?: number
+    numberOfEpisodes?: number
+    voteCount?: number
 }
 
 export interface TmdbAnimeRecommendation {

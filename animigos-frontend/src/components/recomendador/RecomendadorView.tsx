@@ -12,6 +12,7 @@ import {
     Wand2,
     Building2,
     Tag,
+    Calendar,
     Search,
     X,
 } from 'lucide-react'
@@ -59,6 +60,21 @@ const GENRE_PREF_OPTIONS = [
     { id: 'Dark Fantasy', label: 'Tag: Fantasía Oscura' },
 ]
 
+interface YearRangePreset {
+    label: string
+    min: number | null
+    max: number | null
+}
+
+const YEAR_RANGE_PRESETS: YearRangePreset[] = [
+    { label: '✨ Cualquier época', min: null, max: null },
+    { label: '2020 - Actualidad', min: 2020, max: null },
+    { label: '2010 - 2019', min: 2010, max: 2019 },
+    { label: '2000 - 2009', min: 2000, max: 2009 },
+    { label: '90s (1990 - 1999)', min: 1990, max: 1999 },
+    { label: 'Clásicos (< 1990)', min: null, max: 1989 },
+]
+
 const ONBOARDING_DIALOGUES: { expression: DokiExpression; text: React.ReactNode }[] = [
     {
         expression: 'emocionado_feliz',
@@ -102,6 +118,8 @@ export const RecomendadorView: React.FC = () => {
         isCalibrated,
         preferredFormat,
         preferredGenre,
+        preferredYearMin,
+        preferredYearMax,
         referenceWork,
         recommendations,
         netflixRecommendations,
@@ -110,6 +128,9 @@ export const RecomendadorView: React.FC = () => {
         isLoadingNetflix,
         handleSelectFormat,
         handleSelectGenre,
+        handleSelectYearMin,
+        handleSelectYearMax,
+        handleSelectYearRange,
         handleSelectReferenceWork,
         setSelectedNetflixMovieIndex,
         handleSurpriseMeReset,
@@ -128,11 +149,45 @@ export const RecomendadorView: React.FC = () => {
     const [refAnimeResults, setRefAnimeResults] = useState<CalibrateAnimeCandidate[]>([])
     const [isSearchingRef, setIsSearchingRef] = useState(false)
 
+    // Entradas configurables de rango de años (Desde / Hasta)
+    const [inputYearMin, setInputYearMin] = useState<string>(
+        preferredYearMin !== null ? String(preferredYearMin) : ''
+    )
+    const [inputYearMax, setInputYearMax] = useState<string>(
+        preferredYearMax !== null ? String(preferredYearMax) : ''
+    )
+
+    useEffect(() => {
+        setInputYearMin(preferredYearMin !== null ? String(preferredYearMin) : '')
+    }, [preferredYearMin])
+
+    useEffect(() => {
+        setInputYearMax(preferredYearMax !== null ? String(preferredYearMax) : '')
+    }, [preferredYearMax])
+
+    const handleApplyCustomYears = (e?: React.FormEvent) => {
+        if (e) e.preventDefault()
+        const minVal = inputYearMin.trim() ? parseInt(inputYearMin.trim(), 10) : null
+        const maxVal = inputYearMax.trim() ? parseInt(inputYearMax.trim(), 10) : null
+        const validMin = minVal && !isNaN(minVal) && minVal >= 1950 && minVal <= 2030 ? minVal : null
+        const validMax = maxVal && !isNaN(maxVal) && maxVal >= 1950 && maxVal <= 2030 ? maxVal : null
+
+        if (validMin && validMax && validMin > validMax) {
+            handleSelectYearRange(validMax, validMin)
+            setInputYearMin(String(validMax))
+            setInputYearMax(String(validMin))
+        } else {
+            handleSelectYearRange(validMin, validMax)
+        }
+    }
+
     const myListIds = useMemo(() => new Set(filas.map((f) => f.malId)), [filas])
 
     const isSurpriseMode =
         preferredFormat === 'sorprendeme' &&
         preferredGenre === 'sorprendeme' &&
+        !preferredYearMin &&
+        !preferredYearMax &&
         !referenceWork
 
     // Debounce para el buscador unificado de referencia (Película/Serie TMDb + Anime)
@@ -163,8 +218,10 @@ export const RecomendadorView: React.FC = () => {
     }, [refSearchQuery])
 
     const selectMovieAsReference = (m: TmdbMovie) => {
+        const isTv = m.mediaType === 'tv'
         const ref: ReferenceWorkQuery = {
-            kind: 'movie',
+            kind: isTv ? 'tv' : 'movie',
+            mediaType: isTv ? 'tv' : 'movie',
             title: m.title,
             genres: m.genres || [],
             overview: m.overview || '',
@@ -551,42 +608,60 @@ export const RecomendadorView: React.FC = () => {
                                                         PELÍCULAS Y SERIES (CINE / TV)
                                                     </div>
                                                 )}
-                                                {refMovieResults.map((m) => (
-                                                    <button
-                                                        key={`movie-${m.id}`}
-                                                        type="button"
-                                                        onClick={() => selectMovieAsReference(m)}
-                                                        className="doki-wiz-dropdown-item"
-                                                    >
-                                                        {m.posterPath ? (
-                                                            <img
-                                                                src={m.posterPath}
-                                                                alt={m.title}
-                                                                style={{
-                                                                    width: '32px',
-                                                                    height: '46px',
-                                                                    objectFit: 'cover',
-                                                                    borderRadius: '6px',
-                                                                }}
-                                                            />
-                                                        ) : (
-                                                            <Film size={16} className="text-secondary" />
-                                                        )}
-                                                        <div className="flex-grow-1 min-w-0">
-                                                            <div className="fw-bold text-white small text-truncate">
-                                                                {m.title}{' '}
-                                                                {m.releaseYear && (
-                                                                    <span className="text-secondary fw-normal">
-                                                                        ({m.releaseYear})
+                                                {refMovieResults.map((m) => {
+                                                    const isTv = m.mediaType === 'tv'
+                                                    return (
+                                                        <button
+                                                            key={`media-${m.mediaType || 'm'}-${m.id}`}
+                                                            type="button"
+                                                            onClick={() => selectMovieAsReference(m)}
+                                                            className="doki-wiz-dropdown-item"
+                                                        >
+                                                            {m.posterPath ? (
+                                                                <img
+                                                                    src={m.posterPath}
+                                                                    alt={m.title}
+                                                                    style={{
+                                                                        width: '32px',
+                                                                        height: '46px',
+                                                                        objectFit: 'cover',
+                                                                        borderRadius: '6px',
+                                                                    }}
+                                                                />
+                                                            ) : isTv ? (
+                                                                <Tv size={16} className="text-secondary" />
+                                                            ) : (
+                                                                <Film size={16} className="text-secondary" />
+                                                            )}
+                                                            <div className="flex-grow-1 min-w-0">
+                                                                <div className="fw-bold text-white small text-truncate d-flex align-items-center gap-1.5">
+                                                                    <span
+                                                                        className="badge"
+                                                                        style={{
+                                                                            fontSize: '0.62rem',
+                                                                            backgroundColor: isTv ? 'rgba(56, 189, 248, 0.18)' : 'rgba(168, 85, 247, 0.18)',
+                                                                            color: isTv ? '#38bdf8' : '#c084fc',
+                                                                            border: `1px solid ${isTv ? 'rgba(56, 189, 248, 0.35)' : 'rgba(168, 85, 247, 0.35)'}`,
+                                                                            padding: '2px 5px',
+                                                                        }}
+                                                                    >
+                                                                        {isTv ? '📺 Serie' : '🎬 Película'}
                                                                     </span>
-                                                                )}
+                                                                    <span className="text-truncate">{m.title}</span>
+                                                                    {m.releaseYear && (
+                                                                        <span className="text-secondary fw-normal">
+                                                                            ({m.releaseYear})
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-secondary text-truncate" style={{ fontSize: '0.72rem' }}>
+                                                                    {isTv && m.numberOfSeasons ? `${m.numberOfSeasons} ${m.numberOfSeasons === 1 ? 'temporada' : 'temporadas'} · ` : ''}
+                                                                    {m.genres.join(' · ')}
+                                                                </div>
                                                             </div>
-                                                            <div className="text-secondary text-truncate" style={{ fontSize: '0.72rem' }}>
-                                                                Cine/TV · {m.genres.join(' · ')}
-                                                            </div>
-                                                        </div>
-                                                    </button>
-                                                ))}
+                                                        </button>
+                                                    )
+                                                })}
 
                                                 {refAnimeResults.length > 0 && (
                                                     <div className="px-2 py-1 mt-1 text-secondary fw-bold" style={{ fontSize: '0.7rem' }}>
@@ -647,8 +722,32 @@ export const RecomendadorView: React.FC = () => {
                                             <Tv size={16} />
                                         )}
                                         <div className="min-w-0">
-                                            <div className="small fw-bold text-white text-truncate">
-                                                Referencia activa: {referenceWork.title}
+                                            <div className="small fw-bold text-white text-truncate d-flex align-items-center gap-1.5">
+                                                <span
+                                                    className="badge"
+                                                    style={{
+                                                        fontSize: '0.62rem',
+                                                        backgroundColor: referenceWork.kind === 'tv'
+                                                            ? 'rgba(56, 189, 248, 0.18)'
+                                                            : referenceWork.kind === 'movie'
+                                                              ? 'rgba(168, 85, 247, 0.18)'
+                                                              : 'rgba(34, 197, 94, 0.18)',
+                                                        color: referenceWork.kind === 'tv'
+                                                            ? '#38bdf8'
+                                                            : referenceWork.kind === 'movie'
+                                                              ? '#c084fc'
+                                                              : '#4ade80',
+                                                        border: `1px solid ${referenceWork.kind === 'tv'
+                                                            ? 'rgba(56, 189, 248, 0.35)'
+                                                            : referenceWork.kind === 'movie'
+                                                              ? 'rgba(168, 85, 247, 0.35)'
+                                                              : 'rgba(34, 197, 94, 0.35)'}`,
+                                                        padding: '1px 5px',
+                                                    }}
+                                                >
+                                                    {referenceWork.kind === 'tv' ? '📺 Serie' : referenceWork.kind === 'movie' ? '🎬 Película' : '🎌 Anime'}
+                                                </span>
+                                                <span className="text-truncate">Referencia activa: {referenceWork.title}</span>
                                             </div>
                                             <div className="text-secondary text-truncate" style={{ fontSize: '0.72rem' }}>
                                                 Combinando similitud con "{referenceWork.title}" + tu perfil calibrado
@@ -767,6 +866,90 @@ export const RecomendadorView: React.FC = () => {
                                 })}
                             </div>
                         </div>
+
+                        <div className="rec-filter-group mt-3">
+                            <span className="rec-filter-label">
+                                <Calendar size={13} /> Época / Años:
+                            </span>
+                            <div className="d-flex flex-column gap-2 flex-grow-1">
+                                <div className="rec-chips-row">
+                                    {YEAR_RANGE_PRESETS.map((p) => {
+                                        const active =
+                                            preferredYearMin === p.min && preferredYearMax === p.max
+                                        return (
+                                            <button
+                                                key={p.label}
+                                                type="button"
+                                                className={`rec-pref-chip ${active ? 'active' : ''}`}
+                                                style={
+                                                    active
+                                                        ? {
+                                                              borderColor: acento,
+                                                              backgroundColor: `color-mix(in srgb, ${acento} 20%, transparent)`,
+                                                              color: '#ffffff',
+                                                          }
+                                                        : undefined
+                                                }
+                                                onClick={() => handleSelectYearRange(p.min, p.max)}
+                                            >
+                                                {p.label}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+
+                                <div className="rec-custom-year-row d-flex align-items-center flex-wrap gap-2">
+                                    <div className="rec-year-field d-flex align-items-center gap-1">
+                                        <label className="rec-year-field-label">Desde:</label>
+                                        <input
+                                            type="number"
+                                            min="1950"
+                                            max="2030"
+                                            placeholder="Ej. 2010"
+                                            value={inputYearMin}
+                                            onChange={(e) => setInputYearMin(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleApplyCustomYears()}
+                                            className="rec-year-input"
+                                        />
+                                    </div>
+                                    <div className="rec-year-field d-flex align-items-center gap-1">
+                                        <label className="rec-year-field-label">Hasta:</label>
+                                        <input
+                                            type="number"
+                                            min="1950"
+                                            max="2030"
+                                            placeholder="Ej. 2024"
+                                            value={inputYearMax}
+                                            onChange={(e) => setInputYearMax(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleApplyCustomYears()}
+                                            className="rec-year-input"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="rec-year-apply-btn"
+                                        style={{ borderColor: acento }}
+                                        onClick={() => handleApplyCustomYears()}
+                                    >
+                                        Aplicar Rango
+                                    </button>
+                                    {(preferredYearMin !== null || preferredYearMax !== null) && (
+                                        <button
+                                            type="button"
+                                            className="rec-year-clear-btn"
+                                            onClick={() => {
+                                                setInputYearMin('')
+                                                setInputYearMax('')
+                                                handleSelectYearRange(null, null)
+                                            }}
+                                            title="Limpiar rango de años"
+                                        >
+                                            <X size={13} /> Limpiar
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </section>
 
                     {/* Resultados de la búsqueda / preferencias (5 alternativas) */}
@@ -782,6 +965,13 @@ export const RecomendadorView: React.FC = () => {
                                         {preferredGenre !== 'sorprendeme'
                                             ? `· ${preferredGenre}`
                                             : ''}
+                                        {preferredYearMin && preferredYearMax
+                                            ? ` · ${preferredYearMin} - ${preferredYearMax}`
+                                            : preferredYearMin
+                                              ? ` · Desde ${preferredYearMin}`
+                                              : preferredYearMax
+                                                ? ` · Hasta ${preferredYearMax}`
+                                                : ''}
                                     </span>
                                 )}
                             </h2>
@@ -863,7 +1053,7 @@ export const RecomendadorView: React.FC = () => {
                                         const active = selectedNetflixMovieIndex === idx
                                         return (
                                             <button
-                                                key={m.id}
+                                                key={`${m.mediaType || 'm'}-${m.id}`}
                                                 type="button"
                                                 className={`rec-pref-chip ${active ? 'active' : ''}`}
                                                 style={
@@ -877,7 +1067,11 @@ export const RecomendadorView: React.FC = () => {
                                                 }
                                                 onClick={() => setSelectedNetflixMovieIndex(idx)}
                                             >
-                                                <Film size={12} className="me-1" />
+                                                {m.mediaType === 'tv' ? (
+                                                    <Tv size={12} className="me-1 text-info" />
+                                                ) : (
+                                                    <Film size={12} className="me-1" />
+                                                )}
                                                 {m.title}
                                             </button>
                                         )

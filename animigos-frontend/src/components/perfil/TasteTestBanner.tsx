@@ -156,6 +156,26 @@ export const TasteTestBanner: React.FC<TasteTestBannerProps> = ({
                         <h3 className="h5 fw-bold text-white mb-0">
                             Recomendaciones de Anime para ti
                         </h3>
+                        {answers.favoriteMovies && answers.favoriteMovies.length > 0 && (
+                            <div className="d-flex flex-wrap align-items-center gap-1.5 mt-2">
+                                <span className="text-secondary small me-1" style={{ fontSize: '0.72rem' }}>Obras de referencia:</span>
+                                {answers.favoriteMovies.map((m) => (
+                                    <span
+                                        key={`${m.mediaType || 'm'}-${m.id}`}
+                                        className="badge rounded-pill border px-2 py-0.5"
+                                        style={{
+                                            fontSize: '0.68rem',
+                                            backgroundColor: m.mediaType === 'tv' ? 'rgba(56, 189, 248, 0.12)' : 'rgba(168, 85, 247, 0.12)',
+                                            color: m.mediaType === 'tv' ? '#38bdf8' : '#c084fc',
+                                            borderColor: m.mediaType === 'tv' ? 'rgba(56, 189, 248, 0.28)' : 'rgba(168, 85, 247, 0.28)',
+                                        }}
+                                    >
+                                        {m.mediaType === 'tv' ? '📺 ' : '🎬 '}
+                                        {m.title}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Botón de Recalibrar ARRIBA A LA DERECHA */}
@@ -351,7 +371,7 @@ export const TasteTestBanner: React.FC<TasteTestBannerProps> = ({
                     expression="explicando"
                     dialogue={
                         <span>
-                            ¡Konnichiwa! Tu recomendador está calibrado al <strong>{answers.calibratedPercentage}%</strong>. Necesito que me cuentes qué <strong>películas de cine en TMDB</strong> y qué <strong>animes ya viste y te gustaron</strong> para calcular tus afinidades supremas.
+                            ¡Konnichiwa! Tu recomendador está calibrado al <strong>{answers.calibratedPercentage}%</strong>. Necesito que me cuentes qué <strong>películas o series de TV favoritas (TMDb)</strong> y qué <strong>animes ya viste y te gustaron</strong> para calcular tus afinidades supremas.
                         </span>
                     }
                     badgeText="Pendiente"

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Lightbulb, Plus, Search, Send, Vote, X } from 'lucide-react'
-import { MOCK_USER_FRIENDS } from '../../data/anime-data'
+import { fetchFriends, type FriendUser } from '../../services/friendsApi'
 import type { AnimeResumen, NuevaRecomendacion } from '../../services/feedApi'
 import { useBuscarAnimes } from '../../hooks/useTablon'
 import { Dialogo } from '../mi-lista/piezas'
@@ -39,6 +39,7 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
     const [modo, setModo] = useState<ModoPublicar>(borrador.modo)
     const [enviando, setEnviando] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [amigos, setAmigos] = useState<FriendUser[]>([])
 
     // Recomendar
     const [busqueda, setBusqueda] = useState('')
@@ -52,6 +53,20 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
     // Encuesta
     const [pregunta, setPregunta] = useState('')
     const [opciones, setOpciones] = useState(['', ''])
+
+    useEffect(() => {
+        let montado = true
+        fetchFriends()
+            .then((list) => {
+                if (montado) setAmigos(list)
+            })
+            .catch(() => {
+                if (montado) setAmigos([])
+            })
+        return () => {
+            montado = false
+        }
+    }, [])
 
     // Espera a que el usuario deje de escribir antes de buscar
     useEffect(() => {
@@ -135,7 +150,11 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
                             <label className="ml-label" htmlFor="tb-para">Para</label>
                             <select id="tb-para" className="ml-select w-100" value={destinatario} onChange={(e) => setDestinatario(e.target.value)}>
                                 <option value="">Todos mis amigos (recomendación general)</option>
-                                {MOCK_USER_FRIENDS.map((f) => <option key={f.id} value={f.id}>{f.name} ({f.username})</option>)}
+                                {amigos.map((f) => (
+                                    <option key={f.id} value={f.username}>
+                                        {f.display_name} (@{f.username})
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <div>

@@ -1460,4 +1460,525 @@
     }
 }
 
+/* =========================================================================
+   8. HUB ANALÍTICO DEL PERFIL: DISTRIBUCIÓN DE NOTAS, GÉNEROS Y CONTRASTES
+   ========================================================================= */
+
+.perfil-analytics-hub {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.perfil-analytics-hub .perfil-fav-card,
+.perfil-analytics-hub .perfil-metric-grid,
+.perfil-analytics-hub .perfil-breakdown-card {
+    margin-bottom: 0;
+}
+
+.perfil-section-header-line {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-bottom: 0.85rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Grid de 2 columnas simétricas en escritorio: Notas (izq) + Géneros (der) */
+.perfil-analytics-two-col {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 1.5rem;
+    align-items: stretch;
+}
+
+@media (max-width: 1040px) {
+    .perfil-analytics-two-col {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ---------- 8.1 Distribución de Notas Dadas (Imagen 1) ---------- */
+.perfil-score-dist-card {
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    border-radius: var(--perfil-radius-sm);
+    padding: 1.35rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.perfil-score-rows-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.25rem 0;
+}
+
+.perfil-score-row {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr) 74px;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.22rem 0.35rem;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+    position: relative;
+}
+
+.perfil-score-row:hover,
+.perfil-score-row.is-hovered {
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.perfil-score-num {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #a1a1aa;
+    text-align: right;
+}
+
+.perfil-score-bar-track {
+    position: relative;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.035);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.perfil-score-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    transition: width 0.35s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.perfil-score-seg {
+    height: 100%;
+    display: block;
+}
+
+.perfil-score-seg.is-visto {
+    background: #3b5998;
+    background: linear-gradient(90deg, #4361ee 0%, var(--perfil-acento) 100%);
+}
+
+.perfil-score-seg.is-viendo {
+    background: #22c55e;
+}
+
+.perfil-score-seg.is-pendiente {
+    background: #eab308;
+}
+
+.perfil-score-seg.is-dropeado {
+    background: #ef4444;
+}
+
+.perfil-score-right-stats {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.76rem;
+}
+
+.perfil-score-count {
+    color: #e4e4e7;
+    font-weight: 700;
+}
+
+.perfil-score-pct {
+    color: #71717a;
+    min-width: 38px;
+    text-align: right;
+}
+
+/* Tooltip flotante al hacer hover sobre una fila de nota */
+.perfil-score-tooltip {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #1c1c24;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    padding: 0.55rem 0.75rem;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.75);
+    z-index: 30;
+    min-width: 155px;
+    pointer-events: none;
+}
+
+.perfil-score-tooltip-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 0.3rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.perfil-score-tooltip-item {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.71rem;
+    color: #d4d4d8;
+    line-height: 1.45;
+}
+
+.perfil-score-tooltip-item .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.perfil-score-tooltip-item .dot.is-visto {
+    background: var(--perfil-acento);
+}
+
+.perfil-score-tooltip-item .dot.is-viendo {
+    background: #22c55e;
+}
+
+.perfil-score-tooltip-item .dot.is-pendiente {
+    background: #eab308;
+}
+
+.perfil-score-tooltip-item .dot.is-dropeado {
+    background: #ef4444;
+}
+
+.perfil-score-dist-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    font-size: 0.78rem;
+}
+
+/* ---------- 8.2 Tabla de Estadísticas por Género (Imagen 5) ---------- */
+.perfil-genre-table-card {
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    border-radius: var(--perfil-radius-sm);
+    padding: 1.35rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.perfil-genre-table-wrap {
+    overflow-x: auto;
+}
+
+.perfil-genre-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.79rem;
+}
+
+.perfil-genre-table thead th {
+    padding: 0.55rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #a1a1aa;
+    background: rgba(255, 255, 255, 0.025);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+}
+
+.perfil-genre-table thead th.is-sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s ease;
+}
+
+.perfil-genre-table thead th.is-sortable:hover {
+    color: #ffffff;
+}
+
+.perfil-genre-table tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+    transition: background 0.15s ease;
+}
+
+.perfil-genre-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.perfil-genre-table tbody td {
+    padding: 0.55rem 0.6rem;
+    vertical-align: middle;
+}
+
+.perfil-genre-name {
+    font-weight: 700;
+    color: #93c5fd;
+    color: color-mix(in srgb, var(--perfil-acento) 75%, #93c5fd);
+}
+
+.perfil-genre-count {
+    font-family: var(--font-mono, monospace);
+    font-weight: 700;
+    color: #93c5fd;
+}
+
+.perfil-genre-pct-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.perfil-genre-pct-bar {
+    flex: 1;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    overflow: hidden;
+    min-width: 68px;
+}
+
+.perfil-genre-pct-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #4f46e5 0%, var(--perfil-acento) 100%);
+}
+
+.perfil-genre-pct-num {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.73rem;
+    color: #a1a1aa;
+    min-width: 30px;
+    text-align: right;
+}
+
+.perfil-genre-time {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.76rem;
+    color: #d4d4d8;
+}
+
+.perfil-genre-expand-btn {
+    margin-top: 0.75rem;
+    width: 100%;
+    padding: 0.45rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #a1a1aa;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.perfil-genre-expand-btn:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #ffffff;
+}
+
+/* ---------- 8.3 Vitrina de Contrastes & Joyas Ocultas (Imágenes 2, 3 y 4) ---------- */
+.perfil-contrasts-card {
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    border-radius: var(--perfil-radius-sm);
+    padding: 1.35rem 1.5rem;
+}
+
+.perfil-contrast-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.perfil-contrast-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.73rem;
+    font-weight: 600;
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    color: #a1a1aa;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.perfil-contrast-tab:hover {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.perfil-contrast-tab.is-active {
+    background: color-mix(in srgb, var(--perfil-acento) 18%, var(--perfil-card-2));
+    border-color: var(--perfil-acento);
+    color: #ffffff;
+    box-shadow: 0 0 12px var(--perfil-acento-glow);
+}
+
+.perfil-contrast-tab .count {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.67rem;
+    padding: 0.05rem 0.38rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #e4e4e7;
+}
+
+.perfil-contrast-block + .perfil-contrast-block {
+    margin-top: 1.35rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.perfil-contrast-subhead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+}
+
+.perfil-contrast-subhead .title {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #f4f4f5;
+}
+
+.perfil-contrast-subhead .legend {
+    font-size: 0.72rem;
+    color: #71717a;
+    font-family: var(--font-mono, monospace);
+}
+
+.perfil-contrast-poster-grid {
+    display: grid;
+    gap: 0.9rem;
+}
+
+.perfil-contrast-item {
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    group: true;
+}
+
+.perfil-contrast-poster-wrap {
+    position: relative;
+    aspect-ratio: 2/3;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.perfil-contrast-item:hover .perfil-contrast-poster-wrap {
+    transform: translateY(-3px);
+    border-color: var(--perfil-acento-border);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+}
+
+.perfil-contrast-poster-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.perfil-contrast-poster-title-overlay {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 1.4rem 0.5rem 0.45rem;
+    background: linear-gradient(to top, rgba(8, 8, 12, 0.92) 0%, transparent 100%);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.25;
+}
+
+.perfil-contrast-poster-title-overlay span {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.perfil-contrast-diff-pill {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.66rem;
+    font-weight: 800;
+    padding: 0.12rem 0.4rem;
+    border-radius: 6px;
+    backdrop-filter: blur(4px);
+}
+
+.perfil-contrast-diff-pill.is-pos {
+    background: rgba(22, 163, 74, 0.88);
+    color: #ffffff;
+}
+
+.perfil-contrast-diff-pill.is-neg {
+    background: rgba(220, 38, 38, 0.88);
+    color: #ffffff;
+}
+
+.perfil-contrast-meta-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0.2rem 0.1rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.8rem;
+}
+
+.perfil-contrast-meta-left {
+    color: #a1a1aa;
+    font-weight: 600;
+}
+
+.perfil-contrast-meta-right {
+    color: #ffffff;
+    font-weight: 800;
+}
+
+.perfil-contrast-empty {
+    padding: 1.4rem;
+    border-radius: 10px;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    text-align: center;
+    color: #71717a;
+    font-size: 0.78rem;
+}
+
+
 

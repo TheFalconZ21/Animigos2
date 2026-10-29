@@ -269,6 +269,7 @@ export interface AnimeItem {
   title: string;
   title_english?: string;
   title_japanese?: string;
+  synopsis?: string;
   score?: string | number | null;
   scored_by: number;
   popularity?: number | null;
@@ -280,6 +281,7 @@ export interface AnimeItem {
   season_year?: number | null;
   studio?: string;
   genres: string[];
+  tags_data?: Array<{ name: string; category?: string; rank?: number; spoiler?: boolean }>;
   type: string;
   image_url?: string;
   banner_url?: string;
@@ -464,6 +466,20 @@ export async function getAnimes(params: {
     credentials: 'include',
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al obtener catálogo de animes`);
+  return res.json();
+}
+
+export async function updateAdminAnime(
+  malId: number,
+  payload: Partial<AnimeItem>
+): Promise<{ status: string; message: string; anime: AnimeItem }> {
+  const res = await fetch(`${API_BASE_URL}/admin/animes/${malId}/`, {
+    method: 'PATCH',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: Error al actualizar anime #${malId}`);
   return res.json();
 }
 

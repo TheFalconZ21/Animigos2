@@ -8,7 +8,7 @@ import { getAuthHeaders } from './authApi'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
-export type EstadoLista = 'visto' | 'viendo' | 'pendiente'
+export type EstadoLista = 'visto' | 'viendo' | 'pendiente' | 'dropeado'
 
 export interface ApiAnimeData {
     mal_id: number
@@ -19,6 +19,9 @@ export interface ApiAnimeData {
     image_url: string
     banner_url?: string
     score?: number | string | null
+    scored_by?: number | null
+    popularity?: number | null
+    rank?: number | null
     episodes?: number | null
     duration?: number | null
     status?: string
@@ -29,6 +32,7 @@ export interface ApiAnimeData {
     recommended_by?: string[] | { user_id: number; username: string }[]
     studio?: string
     genres: string[]
+    tags_data?: Array<{ name: string; category?: string; rank?: number; spoiler?: boolean }>
     type?: string
 }
 
@@ -68,6 +72,7 @@ export interface ApiListStats {
     visto: number
     viendo: number
     pendiente: number
+    dropeado?: number
     average_score: number | null
     percent_completed: number
 }

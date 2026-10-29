@@ -1,3 +1,4 @@
+from collections import Counter
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -32,9 +33,9 @@ class AnimeCatalogPagination(PageNumberPagination):
 class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint para consultar el catálogo de animes.
-    Soporta búsqueda por texto, filtrado por género, estudio, año, temporada,
-    formato, nota mínima, no secuelas, no en mi lista, recomendadas por amigos,
-    ordenación por defecto por nota descendiente y caché intermedia.
+    Soporta búsqueda por texto, filtrado multi-género y multi-taxonomía de AniList (intersección AND),
+    estudio, año, temporada, formato, nota mínima, no secuelas, no en mi lista,
+    recomendadas por amigos, ordenación por defecto por nota descendiente y caché intermedia.
     Pilar 4.1 y 4.3 de la Directiva de Arquitectura.
     """
     queryset = Anime.objects.all()
@@ -50,7 +51,8 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         params = self.request.query_params
 
         q = params.get('q')
-        genre = params.get('genre')
+        genre = params.get('genre') or params.get('genres')
+        tags_param = params.get('tags') or params.get('taxonomies') or params.get('tag')
         studio = params.get('studio')
         year = params.get('year')
         season_param = params.get('season') or params.get('temporada')
@@ -62,17 +64,37 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         recommended_by_friends = params.get('recommended_by_friends') or params.get('recommendedByFriends')
         exclude_ids_param = params.get('exclude_ids')
 
-        # 1. Búsqueda por texto (título, título inglés, estudio)
+        # 1. Búsqueda por texto (título, título inglés, título japonés, estudio)
         if q:
             qs = qs.filter(
                 Q(title__icontains=q) |
                 Q(title_english__icontains=q) |
+                Q(title_japanese__icontains=q) |
                 Q(studio__icontains=q)
             )
 
-        # 2. Filtro por Género
-        if genre and genre.lower() not in ('todos', 'todos los géneros', 'todos los generos', 'all'):
-            qs = qs.filter(genres__icontains=genre)
+        # 2. Filtro Multi-Género y Multi-Taxonomía de AniList (Intersección AND: debe cumplir TODOS los seleccionados)
+        combined_terms = []
+        if genre:
+            for g in str(genre).split(','):
+                g_clean = g.strip()
+                if g_clean and g_clean.lower() not in ('todos', 'todos los géneros', 'todos los generos', 'all'):
+                    if g_clean not in combined_terms:
+                        combined_terms.append(g_clean)
+
+        if tags_param:
+            for t in str(tags_param).split(','):
+                t_clean = t.strip()
+                if t_clean and t_clean.lower() not in ('todos', 'todas', 'all'):
+                    if t_clean not in combined_terms:
+                        combined_terms.append(t_clean)
+
+        for term in combined_terms:
+            term_lower = term.lower()
+            qs = qs.filter(
+                Q(tags_cache__icontains=f"|{term_lower}|") |
+                Q(genres__icontains=term)
+            )
 
         # 3. Filtro por Estudio
         if studio and studio.lower() not in ('todos', 'todos los estudios', 'all'):
@@ -129,9 +151,10 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         if status_param and status_param.lower() not in ('todos', 'all'):
             qs = qs.filter(status__iexact=status_param)
 
-        # 9. Filtro No Secuelas (excluye temporadas 2+, partes 2+, etc.)
+        # 9. Filtro No Secuelas (excluye temporadas 2+, partes 2+, y marca _is_sequel_)
         if no_sequels and str(no_sequels).lower() in ('true', '1', 'yes'):
             qs = qs.exclude(
+                Q(tags_cache__icontains='|_is_sequel_|') |
                 Q(title__icontains=' 2nd') |
                 Q(title__icontains=' 3rd') |
                 Q(title__icontains=' 4th') |
@@ -162,13 +185,6 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
                 except Exception:
                     pass
 
-        # 11. Filtro Recomendadas por Amigos (solo usuarios autenticados)
-        if recommended_by_friends and str(recommended_by_friends).lower() in ('true', '1', 'yes'):
-            if self.request.user and self.request.user.is_authenticated:
-                qs = qs.filter(
-                    Q(user_list_entries__score__gte=8) |
-                    Q(score__gte=8.0)
-                ).distinct()
 
         # 12. Ordenación (por defecto Nota MAL descendiente con desempate por miembros)
         ordering_param = params.get('ordering', '-score')
@@ -225,7 +241,6 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     def schedule(self, request):
         """
         Episodios que se emiten en los próximos 7 días (proxy de AniList con caché de 30 min).
-        Cada emisión trae `airing_at` en Unix UTC; el frontend la agrupa por día local.
         """
         try:
             return Response(obtener_horario_semanal())
@@ -239,8 +254,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     @cached_api_response(timeout=CACHE_TTL_LONG, prefix=CACHE_PREFIX_UPCOMING)
     def upcoming(self, request):
         """
-        Series nuevas, temporadas y películas que se estrenan en los próximos 90 días
-        (proxy de AniList con caché de 24 h: las fechas de estreno cambian poco).
+        Series nuevas, temporadas y películas que se estrenan en los próximos 90 días.
         """
         try:
             return Response(obtener_proximos_lanzamientos())
@@ -259,6 +273,61 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             if anime.genres and isinstance(anime.genres, list):
                 genres_set.update(anime.genres)
         return Response(sorted(list(genres_set)))
+
+    @action(detail=False, methods=['get'])
+    @cached_api_response(timeout=CACHE_TTL_LONG, prefix='taxonomies_v1')
+    def taxonomies(self, request):
+        """
+        Devuelve el catálogo completo de Géneros y Media Tags de AniList (con su categoría y conteo)
+        para el selector multi-filtro del Catálogo.
+        """
+        genre_counter = Counter()
+        tag_counter = Counter()
+        tag_categories = {}
+
+        for anime in Anime.objects.only('genres', 'tags_data').iterator(chunk_size=2500):
+            if isinstance(anime.genres, list):
+                for g in anime.genres:
+                    if g:
+                        genre_counter[str(g).strip()] += 1
+            if isinstance(anime.tags_data, list):
+                for t in anime.tags_data:
+                    if isinstance(t, dict) and not t.get('spoiler'):
+                        t_name = str(t.get('name', '')).strip()
+                        if t_name:
+                            tag_counter[t_name] += 1
+                            if t_name not in tag_categories:
+                                raw_cat = str(t.get('category', 'Theme'))
+                                if raw_cat.lower().startswith('cast'):
+                                    norm_cat = 'Cast'
+                                elif raw_cat.lower().startswith('setting'):
+                                    norm_cat = 'Setting'
+                                elif raw_cat.lower().startswith('demographic') or raw_cat.lower().startswith('technical'):
+                                    norm_cat = 'Demographic'
+                                else:
+                                    norm_cat = 'Theme'
+                                tag_categories[t_name] = norm_cat
+
+        genres_list = [
+            {'name': name, 'category': 'Genre', 'count': count}
+            for name, count in sorted(genre_counter.items(), key=lambda x: (-x[1], x[0]))
+            if count >= 2
+        ]
+
+        tags_list = [
+            {
+                'name': name,
+                'category': tag_categories.get(name, 'Theme'),
+                'count': count,
+            }
+            for name, count in tag_counter.most_common(220)
+            if count >= 3
+        ]
+
+        return Response({
+            'genres': genres_list,
+            'tags': tags_list,
+        })
 
     @action(detail=False, methods=['get'])
     @cached_api_response(timeout=CACHE_TTL_LONG, prefix='years')
@@ -310,12 +379,17 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get'], url_path='tmdb-search')
     def tmdb_search(self, request):
         """
-        Busca películas en TMDB extrayendo sus géneros y sinopsis.
-        Pilar 4.1 de AGENTS.md: Proxy backend seguro.
+        Busca películas y series en el catálogo indexado de TMDB (ExternalReferenceMedia).
+        Pilar 4.1 de AGENTS.md: Proxy backend seguro y de alto rendimiento.
         """
         from .tmdb_service import search_tmdb_movies
         q = request.query_params.get('q', '')
-        results = search_tmdb_movies(q)
+        media_type = request.query_params.get('type') or request.query_params.get('media_type', 'all')
+        try:
+            limit = int(request.query_params.get('limit', 15))
+        except (ValueError, TypeError):
+            limit = 15
+        results = search_tmdb_movies(q, media_type=media_type, limit=limit)
         return Response(results)
 
     @action(detail=False, methods=['post'], url_path='tmdb-recommendations')
@@ -333,9 +407,6 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     def calibrate_recommendations(self, request):
         """
         Calibrador y Recomendador Híbrido del Profesor Doki Doki.
-        Cruza animes vistos y gustados, tags ponderados de AniList, películas TMDB,
-        preferencias dinámicas ('sorprendeme', formato, género) y excluye secuelas y vistos.
-        Retorna por defecto exactamente 5 alternativas explicadas.
         """
         from .recommender import calibrate_and_recommend
         data = request.data or {}
@@ -347,6 +418,15 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         pacing = data.get('pacing', '')
         preferred_format = data.get('preferred_format', '') or data.get('format', '')
         preferred_genre = data.get('preferred_genre', '') or data.get('genre', '')
+        preferred_year_min_raw = data.get('preferred_year_min') or data.get('year_min') or data.get('min_year')
+        preferred_year_min = None
+        if preferred_year_min_raw is not None and str(preferred_year_min_raw).isdigit():
+            preferred_year_min = int(preferred_year_min_raw)
+
+        preferred_year_max_raw = data.get('preferred_year_max') or data.get('year_max') or data.get('max_year')
+        preferred_year_max = None
+        if preferred_year_max_raw is not None and str(preferred_year_max_raw).isdigit():
+            preferred_year_max = int(preferred_year_max_raw)
         exclude_ids = data.get('exclude_ids', [])
         try:
             limit = max(1, min(15, int(data.get('limit', 5))))
@@ -398,6 +478,8 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             pacing=pacing,
             preferred_format=preferred_format,
             preferred_genre=preferred_genre,
+            preferred_year_min=preferred_year_min,
+            preferred_year_max=preferred_year_max,
             reference_work=reference_work,
             netflix_mode=netflix_mode,
             exclude_ids=exclude_ids,
@@ -408,10 +490,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get', 'post'], url_path='taste-analytics')
     def taste_analytics(self, request):
         """
-        Retorna el Perfil Analítico de Gustos del Usuario:
-        - Grafo de co-ocurrencia de etiquetas (nodes, links)
-        - Combinaciones recurrentes (top_combinations)
-        - Arquetipo Otaku (archetype)
+        Retorna el Perfil Analítico de Gustos del Usuario.
         """
         from .recommender import build_user_taste_analytics
         data = request.data if request.method == 'POST' and request.data else {}
@@ -431,7 +510,6 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         """
         q = request.query_params.get('q', '').strip()
         if not q or len(q) < 2:
-            # Retornar animes icónicos populares como sugerencias iniciales
             top_animes = Anime.objects.filter(
                 score__gte=8.2, scored_by__gte=50000
             ).order_by('-score')[:12]
@@ -454,6 +532,3 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             for a in top_animes
         ]
         return Response(results)
-
-
-

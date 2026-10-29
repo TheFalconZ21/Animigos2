@@ -11,6 +11,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 export interface CatalogFilterParams {
     q?: string
     genre?: string
+    tags?: string
     studio?: string
     year?: number | string
     season?: string
@@ -25,6 +26,17 @@ export interface CatalogFilterParams {
     page?: number
     page_size?: number
     ordering?: string
+}
+
+export interface TaxonomyCatalogItem {
+    name: string
+    category: 'Genre' | 'Theme' | 'Cast' | 'Setting' | 'Demographic' | string
+    count: number
+}
+
+export interface TaxonomiesCatalogResponse {
+    genres: TaxonomyCatalogItem[]
+    tags: TaxonomyCatalogItem[]
 }
 
 export interface CatalogPaginatedResponse {
@@ -43,7 +55,7 @@ export interface AnimeRecommendationItem {
     id: number
     target: ApiAnimeData
     strength: number
-    reason: string
+    reason?: string
 }
 
 /**
@@ -53,6 +65,7 @@ export async function fetchCatalogAnimes(params: CatalogFilterParams = {}): Prom
     const searchParams = new URLSearchParams()
     if (params.q) searchParams.set('q', params.q)
     if (params.genre) searchParams.set('genre', params.genre)
+    if (params.tags) searchParams.set('tags', params.tags)
     if (params.studio) searchParams.set('studio', params.studio)
     if (params.year) searchParams.set('year', String(params.year))
     if (params.season) searchParams.set('season', params.season)
@@ -77,6 +90,40 @@ export async function fetchCatalogAnimes(params: CatalogFilterParams = {}): Prom
 
     if (!response.ok) {
         throw new Error(`Error ${response.status} al obtener catálogo de animes.`)
+    }
+
+    return response.json()
+}
+
+/**
+ * Obtiene un anime individual por su mal_id
+ */
+export async function fetchAnimeById(malId: number): Promise<ApiAnimeData> {
+    const response = await fetch(`${API_BASE_URL}/animes/${malId}/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+    })
+
+    if (!response.ok) {
+        throw new Error(`Error ${response.status} al obtener el perfil del anime #${malId}.`)
+    }
+
+    return response.json()
+}
+
+/**
+ * Obtiene el catálogo completo de Géneros y Media Tags de AniList con conteos
+ */
+export async function fetchTaxonomies(): Promise<TaxonomiesCatalogResponse> {
+    const response = await fetch(`${API_BASE_URL}/animes/taxonomies/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+    })
+
+    if (!response.ok) {
+        return { genres: [], tags: [] }
     }
 
     return response.json()
@@ -112,7 +159,7 @@ export async function fetchGenres(): Promise<string[]> {
     if (!response.ok) {
         return [
             'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror',
-            'Mystery', 'Psychological', 'Romance', 'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural'
+            'Isekai', 'Mystery', 'Psychological', 'Romance', 'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural'
         ]
     }
 
@@ -200,4 +247,3 @@ export async function fetchAnimeScoreHistory(malId: number): Promise<AnimeScoreH
 
     return response.json()
 }
-

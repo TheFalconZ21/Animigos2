@@ -25,6 +25,7 @@
     --ml-visto: #f472b6;
     --ml-viendo: #a78bfa;
     --ml-pendiente: #f4f4f5;
+    --ml-dropeado: #ef4444;
 
     --ml-radio: 14px;
     --ml-ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -502,6 +503,7 @@
 .ml-punto-visto { background: var(--ml-visto); }
 .ml-punto-viendo { background: var(--ml-viendo); }
 .ml-punto-pendiente { background: var(--ml-pendiente); }
+.ml-punto-dropeado { background: var(--ml-dropeado); }
 
 .ml-badge-contador {
     display: inline-grid;
@@ -706,6 +708,32 @@
     padding-left: 0.6rem;
 }
 
+.ml-comentario-edicion {
+    margin-top: 0.5rem;
+    max-width: 580px;
+}
+
+.ml-comentario-textarea {
+    width: 100%;
+    min-height: 62px;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    resize: vertical;
+    border-radius: 8px;
+    border: 1px solid var(--ml-acento-borde);
+    background: var(--ml-superficie-2);
+    color: var(--ml-texto);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ml-comentario-textarea:focus {
+    outline: none;
+    border-color: var(--ml-acento);
+    box-shadow: 0 0 0 2px var(--ml-acento-borde);
+}
+
+
 .ml-tag {
     display: inline-flex;
     align-items: center;
@@ -758,6 +786,7 @@
 .ml-estado-visto { color: var(--ml-visto); }
 .ml-estado-viendo { color: var(--ml-viendo); }
 .ml-estado-pendiente { color: var(--ml-pendiente); }
+.ml-estado-dropeado { color: var(--ml-dropeado); }
 
 /* ---------- Progreso de episodios (marcas tipo tira de película) ---------- */
 

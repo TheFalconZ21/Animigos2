@@ -285,38 +285,14 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                                     <button
                                         type="button"
                                         onClick={() => setIsNotifOpen((prev) => !prev)}
-                                        className="btn btn-sm rounded-circle d-flex align-items-center justify-content-center position-relative transition-all"
-                                        style={{
-                                            width: '34px',
-                                            height: '34px',
-                                            backgroundColor: isNotifOpen
-                                                ? 'rgba(167, 139, 250, 0.2)'
-                                                : 'rgba(255, 255, 255, 0.06)',
-                                            border: isNotifOpen
-                                                ? '1.5px solid var(--theme-acento, #a78bfa)'
-                                                : '1.5px solid rgba(255, 255, 255, 0.25)',
-                                            color: '#ffffff',
-                                        }}
+                                        className={`nav-notif-trigger ${isNotifOpen ? 'is-open' : ''}`}
                                         title="Notificaciones y eventos pendientes"
                                         aria-label="Notificaciones"
                                         aria-expanded={isNotifOpen}
                                     >
                                         <Bell size={15} />
                                         {unreadCount > 0 && (
-                                            <span
-                                                className="position-absolute d-flex align-items-center justify-content-center rounded-pill fw-bold"
-                                                style={{
-                                                    top: '-4px',
-                                                    right: '-4px',
-                                                    minWidth: '17px',
-                                                    height: '17px',
-                                                    padding: '0 4px',
-                                                    fontSize: '0.65rem',
-                                                    backgroundColor: 'var(--theme-acento, #e8508f)',
-                                                    color: '#09090b',
-                                                    border: '2px solid #09090b',
-                                                }}
-                                            >
+                                            <span className="nav-notif-badge">
                                                 {unreadCount > 9 ? '9+' : unreadCount}
                                             </span>
                                         )}
@@ -324,28 +300,13 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
 
                                     {/* Popover de Notificaciones Accionables */}
                                     {isNotifOpen && (
-                                        <div
-                                            className="position-absolute end-0 mt-2 rounded-4 shadow-lg p-3"
-                                            style={{
-                                                width: '360px',
-                                                maxWidth: '92vw',
-                                                backgroundColor: '#121218',
-                                                border: '1px solid rgba(255, 255, 255, 0.12)',
-                                                zIndex: 1080,
-                                            }}
-                                        >
-                                            <div className="d-flex align-items-center justify-content-between pb-2 mb-2 border-bottom border-secondary border-opacity-25">
-                                                <div className="d-flex align-items-center gap-2">
-                                                    <span className="fw-bold text-white small">Notificaciones</span>
+                                        <div className="nav-notif-popover">
+                                            <div className="nav-notif-header">
+                                                <div className="nav-notif-header-title">
+                                                    <Bell size={14} style={{ color: 'var(--theme-acento, #a78bfa)' }} />
+                                                    <span>Notificaciones</span>
                                                     {unreadCount > 0 && (
-                                                        <span
-                                                            className="badge rounded-pill"
-                                                            style={{
-                                                                background: 'rgba(167, 139, 250, 0.2)',
-                                                                color: '#c4b5fd',
-                                                                fontSize: '0.68rem',
-                                                            }}
-                                                        >
+                                                        <span className="nav-notif-count-pill">
                                                             {unreadCount} {unreadCount === 1 ? 'nueva' : 'nuevas'}
                                                         </span>
                                                     )}
@@ -354,8 +315,7 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                                                     <button
                                                         type="button"
                                                         onClick={handleMarkAllRead}
-                                                        className="btn btn-link btn-sm p-0 text-decoration-none"
-                                                        style={{ color: '#a78bfa', fontSize: '0.72rem' }}
+                                                        className="nav-notif-markread-btn"
                                                     >
                                                         Marcar leídas
                                                     </button>
@@ -363,147 +323,115 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                                             </div>
 
                                             {notifications.length === 0 ? (
-                                                <div className="text-center py-4 text-secondary small">
+                                                <div className="text-center py-4 px-3 text-secondary small">
                                                     No tienes notificaciones pendientes por ahora.
                                                 </div>
                                             ) : (
-                                                <div
-                                                    className="d-flex flex-column gap-2"
-                                                    style={{ maxHeight: '360px', overflowY: 'auto' }}
-                                                >
+                                                <div className="nav-notif-list">
                                                     {notifications.map((n) => {
                                                         const isAdded = Boolean(addedNotifIds[n.id])
                                                         return (
                                                             <div
                                                                 key={n.id}
-                                                                className="p-2.5 rounded-3 position-relative"
-                                                                style={{
-                                                                    background: n.read
-                                                                        ? 'rgba(255, 255, 255, 0.03)'
-                                                                        : 'rgba(167, 139, 250, 0.09)',
-                                                                    border: n.read
-                                                                        ? '1px solid rgba(255, 255, 255, 0.06)'
-                                                                        : '1px solid rgba(167, 139, 250, 0.3)',
-                                                                }}
+                                                                className={`nav-notif-card ${!n.read ? 'is-unread' : ''}`}
                                                             >
-                                                                <div className="d-flex align-items-start gap-2.5">
+                                                                <div className="nav-notif-thumb-wrap">
                                                                     {n.type === 'anime_recommendation' && n.anime_poster ? (
                                                                         <img
                                                                             src={n.anime_poster}
-                                                                            alt=""
-                                                                            style={{
-                                                                                width: 38,
-                                                                                height: 54,
-                                                                                objectFit: 'cover',
-                                                                                borderRadius: 6,
-                                                                                flexShrink: 0,
-                                                                            }}
+                                                                            alt={n.anime_title || ''}
+                                                                            className="nav-notif-poster"
                                                                         />
                                                                     ) : (
-                                                                        <div
-                                                                            className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                                                            style={{
-                                                                                width: 34,
-                                                                                height: 34,
-                                                                                background: 'rgba(167, 139, 250, 0.18)',
-                                                                                color: '#c4b5fd',
-                                                                                fontWeight: 700,
-                                                                                fontSize: '0.78rem',
-                                                                            }}
+                                                                        <div className="nav-notif-avatar-fallback">
+                                                                            <Sparkles size={18} />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="nav-notif-body">
+                                                                    <div className="nav-notif-top-row">
+                                                                        <span className="nav-notif-eyebrow">
+                                                                            {!n.read && <span className="nav-notif-unread-dot" />}
+                                                                            <span>
+                                                                                {n.type === 'anime_recommendation'
+                                                                                    ? 'Recomendación de Anime'
+                                                                                    : 'Comunidad Animigos'}
+                                                                            </span>
+                                                                        </span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleDismissNotification(n.id)}
+                                                                            className="nav-notif-dismiss-btn"
+                                                                            title="Descartar notificación"
+                                                                            aria-label="Descartar notificación"
                                                                         >
-                                                                            !
+                                                                            <X size={13} />
+                                                                        </button>
+                                                                    </div>
+
+                                                                    <div className="nav-notif-headline">
+                                                                        <span className="nav-notif-user">
+                                                                            {n.from_display_name || `@${n.from_username}`}
+                                                                        </span>{' '}
+                                                                        {n.type === 'anime_recommendation' ? (
+                                                                            <>
+                                                                                te recomendó{' '}
+                                                                                <span className="nav-notif-anime-title">
+                                                                                    {n.anime_title}
+                                                                                </span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <span>{n.message}</span>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {n.type === 'anime_recommendation' && n.message && (
+                                                                        <div className="nav-notif-quote">
+                                                                            “{n.message}”
                                                                         </div>
                                                                     )}
 
-                                                                    <div className="flex-grow-1 min-w-0">
-                                                                        <div className="d-flex align-items-start justify-content-between gap-1">
-                                                                            <div
-                                                                                className="small text-white"
-                                                                                style={{ fontSize: '0.76rem', lineHeight: 1.35 }}
-                                                                            >
-                                                                                <strong>{n.from_display_name || `@${n.from_username}`}</strong>{' '}
-                                                                                {n.type === 'anime_recommendation' ? (
-                                                                                    <>
-                                                                                        te recomendó{' '}
-                                                                                        <strong style={{ color: '#c4b5fd' }}>
-                                                                                            {n.anime_title}
-                                                                                        </strong>
-                                                                                    </>
-                                                                                ) : (
-                                                                                    <span>{n.message}</span>
-                                                                                )}
-                                                                            </div>
+                                                                    {/* Botones de acción directa para el evento */}
+                                                                    <div className="nav-notif-actions">
+                                                                        {n.type === 'anime_recommendation' && n.anime_id && (
                                                                             <button
                                                                                 type="button"
-                                                                                onClick={() => handleDismissNotification(n.id)}
-                                                                                className="btn btn-sm p-0 text-secondary border-0"
-                                                                                title="Descartar notificación"
+                                                                                disabled={isAdded}
+                                                                                onClick={() => handleAcceptAnimeRecommendation(n)}
+                                                                                className={`nav-notif-btn-primary ${
+                                                                                    isAdded ? 'is-added' : ''
+                                                                                }`}
                                                                             >
-                                                                                <X size={13} />
+                                                                                {isAdded ? (
+                                                                                    <>
+                                                                                        <Check size={12} />
+                                                                                        <span>¡En Mi Lista!</span>
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <Plus size={12} />
+                                                                                        <span>Agregar a Mi Lista</span>
+                                                                                    </>
+                                                                                )}
                                                                             </button>
-                                                                        </div>
-
-                                                                        {n.type === 'anime_recommendation' && n.message && (
-                                                                            <div
-                                                                                className="text-secondary mt-1"
-                                                                                style={{ fontSize: '0.72rem', lineHeight: 1.35 }}
-                                                                            >
-                                                                                “{n.message}”
-                                                                            </div>
                                                                         )}
 
-                                                                        {/* Botones de acción directa para el evento */}
-                                                                        <div className="d-flex flex-wrap align-items-center gap-1.5 mt-2">
-                                                                            {n.type === 'anime_recommendation' && n.anime_id && (
-                                                                                <button
-                                                                                    type="button"
-                                                                                    disabled={isAdded}
-                                                                                    onClick={() => handleAcceptAnimeRecommendation(n)}
-                                                                                    className="btn btn-sm py-0.5 px-2 rounded-2 d-inline-flex align-items-center gap-1"
-                                                                                    style={{
-                                                                                        background: isAdded
-                                                                                            ? 'rgba(34, 197, 94, 0.2)'
-                                                                                            : 'var(--theme-acento, #a78bfa)',
-                                                                                        color: isAdded ? '#86efac' : '#09090b',
-                                                                                        fontSize: '0.7rem',
-                                                                                        fontWeight: 700,
-                                                                                        border: 'none',
-                                                                                    }}
-                                                                                >
-                                                                                    {isAdded ? (
-                                                                                        <>
-                                                                                            <Check size={11} /> ¡En Mi Lista!
-                                                                                        </>
-                                                                                    ) : (
-                                                                                        <>
-                                                                                            <Plus size={11} /> Agregar a Mi Lista
-                                                                                        </>
-                                                                                    )}
-                                                                                </button>
-                                                                            )}
-
-                                                                            {n.from_username && (
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        setIsNotifOpen(false)
-                                                                                        window.location.hash = `#perfil/${encodeURIComponent(
-                                                                                            n.from_username
-                                                                                        )}`
-                                                                                    }}
-                                                                                    className="btn btn-sm py-0.5 px-2 rounded-2 d-inline-flex align-items-center gap-1"
-                                                                                    style={{
-                                                                                        background: 'rgba(255, 255, 255, 0.07)',
-                                                                                        color: '#e4e4e7',
-                                                                                        fontSize: '0.7rem',
-                                                                                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                                                                                    }}
-                                                                                >
-                                                                                    <ExternalLink size={10} />
-                                                                                    <span>Ver perfil</span>
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
+                                                                        {n.from_username && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    setIsNotifOpen(false)
+                                                                                    window.location.hash = `#perfil/${encodeURIComponent(
+                                                                                        n.from_username
+                                                                                    )}`
+                                                                                }}
+                                                                                className="nav-notif-btn-secondary"
+                                                                            >
+                                                                                <ExternalLink size={11} />
+                                                                                <span>Ver perfil</span>
+                                                                            </button>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </div>

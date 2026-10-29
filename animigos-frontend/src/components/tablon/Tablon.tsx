@@ -6,7 +6,6 @@ import { useAhora } from '../../hooks/useAhora'
 import { useMyList } from '../../hooks/useMyList'
 import { useAuth } from '../../context/AuthContext'
 import { filtrarActividades, type Actividad, type FiltroTablon } from '../../services/feedApi'
-import { SHOWCASE_ROW_1 } from '../../data/showcase-animes'
 import { TablonBanner, type PosterBanner } from './TablonBanner'
 import { NoticiaFijada } from './NoticiaFijada'
 import { Publicacion } from './Publicacion'
@@ -51,13 +50,16 @@ export function Tablon() {
     const visibles = filtrarActividades(tablon.actividades, filtro)
     const salasEsperando = tablon.salas.filter((s) => s.status === 'voting' || s.status === 'candidates').length
 
-    // Portadas del corcho: lo recomendado en el tablón, completado con portadas destacadas
+    // Portadas del corcho: animes recomendados reales en el tablón (sin datos falsos)
     const posters = useMemo<PosterBanner[]>(() => {
         const recomendados = tablon.actividades
             .filter((a) => a.recomendacion)
-            .map((a) => ({ clave: `r${a.recomendacion!.anime.malId}`, titulo: a.recomendacion!.anime.titulo, imagenUrl: a.recomendacion!.anime.imagenUrl }))
-        const relleno = SHOWCASE_ROW_1.map((s) => ({ clave: s.title, titulo: s.title, imagenUrl: s.cover }))
-        const unicos = new Map([...recomendados, ...relleno].map((p) => [p.titulo, p]))
+            .map((a) => ({
+                clave: `r${a.recomendacion!.anime.malId}-${a.id}`,
+                titulo: a.recomendacion!.anime.titulo,
+                imagenUrl: a.recomendacion!.anime.imagenUrl,
+            }))
+        const unicos = new Map(recomendados.map((p) => [p.titulo, p]))
         return [...unicos.values()].slice(0, 5)
     }, [tablon.actividades])
 
@@ -72,7 +74,7 @@ export function Tablon() {
 
     // Responder a un "busco anime": recomendación directa al autor, con la nota ya iniciada
     const sugerir = (a: Actividad) =>
-        publicar({ modo: 'recomendar', destinatarioId: a.autor.id, nota: `Por lo que pediste (“${a.busqueda!.pedido.slice(0, 60)}…”), te sugiero este:` })
+        publicar({ modo: 'recomendar', destinatarioId: a.autor.usuario, nota: `Por lo que pediste (“${a.busqueda!.pedido.slice(0, 60)}…”), te sugiero este:` })
 
     const entrarSala = (codigo?: string) => {
         window.location.hash = codigo ? `#sala/${codigo}` : '#listas'
@@ -125,49 +127,49 @@ export function Tablon() {
                         )}
 
                         {seccion === 'actividad' && (
-                        <div className="ml-panel">
-                        <div className="ml-chips mb-3" role="group" aria-label="Filtrar la actividad">
-                            {FILTROS.map(({ id, label }) => (
-                                <button key={id} type="button" className="ml-chip" aria-pressed={filtro === id} onClick={() => setFiltro(id)}>
-                                    {label} <span className="ml-chip-num">{filtrarActividades(tablon.actividades, id).length}</span>
-                                </button>
-                            ))}
-                        </div>
+                            <div className="ml-panel">
+                                <div className="ml-chips mb-3" role="group" aria-label="Filtrar la actividad">
+                                    {FILTROS.map(({ id, label }) => (
+                                        <button key={id} type="button" className="ml-chip" aria-pressed={filtro === id} onClick={() => setFiltro(id)}>
+                                            {label} <span className="ml-chip-num">{filtrarActividades(tablon.actividades, id).length}</span>
+                                        </button>
+                                    ))}
+                                </div>
 
-                        {filtro === 'todo' && tablon.noticias.length > 0 && (
-                            <NoticiaFijada
-                                noticias={tablon.noticias}
-                                actualizando={tablon.actualizandoNoticias}
-                                onActualizar={tablon.refrescarNoticias}
-                                onVerTodas={() => setSeccion('noticias')}
-                            />
-                        )}
+                                {filtro === 'todo' && tablon.noticias.length > 0 && (
+                                    <NoticiaFijada
+                                        noticias={tablon.noticias}
+                                        actualizando={tablon.actualizandoNoticias}
+                                        onActualizar={tablon.refrescarNoticias}
+                                        onVerTodas={() => setSeccion('noticias')}
+                                    />
+                                )}
 
-                        {tablon.cargandoFeed && <div className="tb-esqueleto tb-esqueleto-post" aria-label="Cargando publicaciones" />}
-                        {tablon.errorFeed && <p className="ml-vacio">No pudimos cargar el tablón: {tablon.errorFeed}</p>}
+                                {tablon.cargandoFeed && <div className="tb-esqueleto tb-esqueleto-post" aria-label="Cargando publicaciones" />}
+                                {tablon.errorFeed && <p className="ml-vacio">No pudimos cargar el tablón: {tablon.errorFeed}</p>}
 
-                        <div className="tb-feed">
-                            {visibles.map((a) => (
-                                <Publicacion
-                                    key={a.id}
-                                    actividad={a}
-                                    enMiLista={(malId) => idsEnLista.has(malId)}
-                                    onGuardar={guardar}
-                                    onAgradecer={tablon.agradecer}
-                                    onVotar={tablon.votarEncuesta}
-                                    onSugerir={sugerir}
-                                    onEntrarSala={entrarSala}
-                                />
-                            ))}
-                        </div>
+                                <div className="tb-feed">
+                                    {visibles.map((a) => (
+                                        <Publicacion
+                                            key={a.id}
+                                            actividad={a}
+                                            enMiLista={(malId) => idsEnLista.has(malId)}
+                                            onGuardar={guardar}
+                                            onAgradecer={tablon.agradecer}
+                                            onVotar={tablon.votarEncuesta}
+                                            onSugerir={sugerir}
+                                            onEntrarSala={entrarSala}
+                                        />
+                                    ))}
+                                </div>
 
-                        {!tablon.cargandoFeed && visibles.length === 0 && (
-                            <div className="ml-vacio">
-                                <div className="ml-kaomoji">(・・;)</div>
-                                Nada por aquí todavía. ¡Sé el primero en publicar!
+                                {!tablon.cargandoFeed && visibles.length === 0 && (
+                                    <div className="ml-vacio">
+                                        <div className="ml-kaomoji">(・・;)</div>
+                                        Nada por aquí todavía. ¡Sé el primero en publicar!
+                                    </div>
+                                )}
                             </div>
-                        )}
-                        </div>
                         )}
                     </div>
 

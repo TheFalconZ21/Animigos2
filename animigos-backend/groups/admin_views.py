@@ -933,3 +933,129 @@ def admin_moderate_user(request, user_id):
         'user_id': user_id,
         'moderation': current
     })
+
+
+@api_view(['GET', 'PATCH', 'PUT'])
+@permission_classes([AllowAny])
+def admin_update_anime(request, mal_id):
+    """
+    Permite desde la consola de administración consultar y modificar la ficha
+    de cualquier anime del catálogo (foto de portada image_url, banner_url, títulos,
+    sinopsis, estudio, géneros, taxonomía tags_data, episodios, nota, etc.).
+    """
+    from django.core.cache import cache
+    from animes.serializers import AnimeSerializer
+
+    anime = get_object_or_404(Anime, mal_id=mal_id)
+
+    if request.method == 'GET':
+        return Response(AnimeSerializer(anime, context={'request': request}).data)
+
+    data = request.data or {}
+
+    str_fields = [
+        'title',
+        'title_english',
+        'title_japanese',
+        'synopsis',
+        'image_url',
+        'banner_url',
+        'studio',
+        'status',
+        'season',
+        'type',
+        'airing_day',
+        'broadcast_time',
+    ]
+    for field in str_fields:
+        if field in data and data[field] is not None:
+            setattr(anime, field, str(data[field]).strip())
+
+    if 'episodes' in data:
+        val = data['episodes']
+        try:
+            anime.episodes = int(val) if val not in (None, '') else None
+        except (ValueError, TypeError):
+            pass
+
+    if 'season_year' in data:
+        val = data['season_year']
+        try:
+            anime.season_year = int(val) if val not in (None, '') else None
+        except (ValueError, TypeError):
+            pass
+
+    if 'score' in data:
+        val = data['score']
+        try:
+            anime.score = round(float(val), 2) if val not in (None, '') else None
+        except (ValueError, TypeError):
+            pass
+
+    if 'duration' in data:
+        val = data['duration']
+        try:
+            anime.duration = round(float(val), 2) if val not in (None, '') else None
+        except (ValueError, TypeError):
+            pass
+
+    if 'genres' in data and isinstance(data['genres'], list):
+        clean_genres = []
+        for g in data['genres']:
+            gs = str(g).strip()
+            if gs and gs not in clean_genres:
+                clean_genres.append(gs)
+        anime.genres = clean_genres
+
+    if 'tags_data' in data and isinstance(data['tags_data'], list):
+        clean_tags = []
+        seen_names = set()
+        for t in data['tags_data']:
+            if isinstance(t, dict):
+                t_name = str(t.get('name', '')).strip()
+                if t_name and t_name.lower() not in seen_names:
+                    seen_names.add(t_name.lower())
+                    clean_tags.append({
+                        'name': t_name,
+                        'category': str(t.get('category', 'Theme')).strip() or 'Theme',
+                        'rank': int(t.get('rank') or 80),
+                        'spoiler': bool(t.get('spoiler', False)),
+                    })
+            elif isinstance(t, str):
+                t_name = t.strip()
+                if t_name and t_name.lower() not in seen_names:
+                    seen_names.add(t_name.lower())
+                    clean_tags.append({
+                        'name': t_name,
+                        'category': 'Theme',
+                        'rank': 80,
+                        'spoiler': False,
+                    })
+        anime.tags_data = clean_tags
+
+    # Reconstruir tags_cache indexable preservando marca de secuela si existía
+    was_sequel = '|_is_sequel_|' in (anime.tags_cache or '')
+    cache_tokens = []
+    if isinstance(anime.genres, list):
+        for g in anime.genres:
+            gl = str(g).lower().strip()
+            if gl and gl not in cache_tokens:
+                cache_tokens.append(gl)
+    if isinstance(anime.tags_data, list):
+        for t in anime.tags_data:
+            if isinstance(t, dict) and not t.get('spoiler'):
+                tl = str(t.get('name', '')).lower().strip()
+                if tl and tl not in cache_tokens:
+                    cache_tokens.append(tl)
+    if was_sequel:
+        cache_tokens.append('_is_sequel_')
+
+    anime.tags_cache = '|' + '|'.join(cache_tokens) + '|' if cache_tokens else ''
+    anime.save()
+    cache.clear()
+
+    return Response({
+        'status': 'success',
+        'message': f"Anime '{anime.title}' actualizado correctamente.",
+        'anime': AnimeSerializer(anime, context={'request': request}).data,
+    })

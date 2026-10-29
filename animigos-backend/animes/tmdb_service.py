@@ -10,7 +10,7 @@ import urllib.request
 import urllib.parse
 from django.conf import settings
 from django.db.models import Q
-from .models import Anime
+from .models import Anime, ExternalReferenceMedia
 
 TMDB_API_KEY = getattr(settings, 'TMDB_API_KEY', '') or os.getenv('TMDB_API_KEY', '')
 
@@ -18,12 +18,14 @@ TMDB_API_KEY = getattr(settings, 'TMDB_API_KEY', '') or os.getenv('TMDB_API_KEY'
 TMDB_TO_ANIME_GENRES = {
     'Ciencia ficción': ['Sci-Fi', 'Psychological'],
     'Science Fiction': ['Sci-Fi', 'Psychological'],
+    'Sci-Fi & Fantasy': ['Sci-Fi', 'Fantasy', 'Supernatural'],
     'Misterio': ['Mystery', 'Psychological', 'Suspense'],
     'Mystery': ['Mystery', 'Psychological', 'Suspense'],
     'Suspense': ['Thriller', 'Psychological', 'Mystery'],
     'Thriller': ['Thriller', 'Psychological', 'Suspense'],
     'Acción': ['Action', 'Adventure'],
     'Action': ['Action', 'Adventure'],
+    'Action & Adventure': ['Action', 'Adventure', 'Fantasy'],
     'Aventura': ['Adventure', 'Fantasy'],
     'Adventure': ['Adventure', 'Fantasy'],
     'Drama': ['Drama', 'Slice of Life'],
@@ -36,35 +38,164 @@ TMDB_TO_ANIME_GENRES = {
     'Comedia': ['Comedy', 'Slice of Life'],
     'Comedy': ['Comedy', 'Slice of Life'],
     'Crimen': ['Mystery', 'Suspense'],
-    'Crime': ['Mystery', 'Suspense'],
+    'Crime': ['Mystery', 'Suspense', 'Psychological'],
     'Romance': ['Romance', 'Drama'],
     'Bélica': ['Military', 'Action'],
     'War': ['Military', 'Action'],
+    'War & Politics': ['Military', 'Historical', 'Drama'],
     'Historia': ['Historical', 'Drama'],
     'History': ['Historical', 'Drama'],
     'Música': ['Music', 'Drama'],
     'Music': ['Music', 'Drama'],
+    'Western': ['Action', 'Adventure', 'Historical'],
+    'Soap': ['Drama', 'Romance', 'Slice of Life'],
+    'Family': ['Kids', 'Slice of Life', 'Fantasy'],
+    'Kids': ['Kids', 'Slice of Life', 'Fantasy'],
+    'Documentary': ['Historical', 'Drama'],
+    'Documental': ['Historical', 'Drama'],
+    'Reality': ['Comedy', 'Slice of Life'],
+    'Talk': ['Slice of Life'],
 }
 
-# Palabras clave y arquetipos para afinar el cruce de sinopsis
+# Palabras clave y arquetipos de Películas y Series de TV para afinar el cruce temático
 KEYWORD_ASSOCIATIONS = {
+    # Ciencia ficción, Espacio y Cyberpunk
     'sueño': ['Psychological', 'Mystery', 'Supernatural'],
     'dream': ['Psychological', 'Mystery', 'Supernatural'],
     'espacio': ['Sci-Fi', 'Space', 'Adventure'],
     'space': ['Sci-Fi', 'Space', 'Adventure'],
     'robot': ['Mecha', 'Sci-Fi'],
     'androide': ['Sci-Fi', 'Psychological'],
+    'android': ['Sci-Fi', 'Psychological'],
     'cyberpunk': ['Sci-Fi', 'Action', 'Psychological'],
     'tiempo': ['Sci-Fi', 'Psychological', 'Mystery'],
     'time': ['Sci-Fi', 'Psychological', 'Mystery'],
+    'time travel': ['Sci-Fi', 'Psychological', 'Mystery'],
+    'viaje en el tiempo': ['Sci-Fi', 'Psychological', 'Mystery'],
+    'dystopia': ['Sci-Fi', 'Psychological', 'Drama'],
+    'distopía': ['Sci-Fi', 'Psychological', 'Drama'],
+    'distopia': ['Sci-Fi', 'Psychological', 'Drama'],
+    'artificial intelligence': ['Sci-Fi', 'Psychological'],
+    'inteligencia artificial': ['Sci-Fi', 'Psychological'],
+    'alien': ['Sci-Fi', 'Action', 'Horror'],
+    'extraterrestre': ['Sci-Fi', 'Action', 'Horror'],
+    'multiverso': ['Sci-Fi', 'Supernatural', 'Action'],
+    'multiverse': ['Sci-Fi', 'Supernatural', 'Action'],
+    'dimension': ['Sci-Fi', 'Mystery'],
+    'dimensión': ['Sci-Fi', 'Mystery'],
+
+    # Crimen, Mafia, Drogas y Thriller Policial (ej: Breaking Bad, Peaky Blinders, The Wire, Narcos)
+    'mafia': ['Action', 'Mystery', 'Suspense'],
+    'cartel': ['Action', 'Mystery', 'Drama', 'Suspense'],
+    'cártel': ['Action', 'Mystery', 'Drama', 'Suspense'],
+    'droga': ['Drama', 'Mystery', 'Suspense'],
+    'drug': ['Drama', 'Mystery', 'Suspense'],
+    'meth': ['Drama', 'Mystery', 'Suspense'],
+    'metanfetamina': ['Drama', 'Mystery', 'Suspense'],
+    'gang': ['Action', 'Drama', 'Suspense'],
+    'gangster': ['Action', 'Drama', 'Suspense'],
+    'pandilla': ['Action', 'Drama', 'Suspense'],
+    'corrupcion': ['Mystery', 'Suspense', 'Drama'],
+    'corruption': ['Mystery', 'Suspense', 'Drama'],
+    'police': ['Mystery', 'Suspense', 'Action'],
+    'policia': ['Mystery', 'Suspense', 'Action'],
+    'detective': ['Mystery', 'Suspense', 'Psychological'],
+    'investigacion': ['Mystery', 'Suspense', 'Psychological'],
+    'investigation': ['Mystery', 'Suspense', 'Psychological'],
+    'asesino': ['Mystery', 'Suspense', 'Psychological'],
+    'serial killer': ['Mystery', 'Suspense', 'Psychological'],
+    'asesinato': ['Mystery', 'Suspense'],
+    'murder': ['Mystery', 'Suspense'],
     'venganza': ['Action', 'Drama', 'Suspense'],
     'revenge': ['Action', 'Drama', 'Suspense'],
-    'mafia': ['Action', 'Mystery'],
     'conspiracion': ['Mystery', 'Thriller', 'Psychological'],
     'conspiracy': ['Mystery', 'Thriller', 'Psychological'],
+    'espionaje': ['Mystery', 'Action', 'Suspense'],
+    'espionage': ['Mystery', 'Action', 'Suspense'],
+    'spy': ['Action', 'Mystery', 'Suspense'],
+    'espía': ['Action', 'Mystery', 'Suspense'],
+
+    # Fantasía Épica, Reinos, Dinastías y Política (ej: Game of Thrones, House of the Dragon, Vikings, The Witcher)
+    'kingdom': ['Fantasy', 'Adventure', 'Action', 'Historical'],
+    'reino': ['Fantasy', 'Adventure', 'Action', 'Historical'],
+    'throne': ['Fantasy', 'Drama', 'Historical', 'Action'],
+    'trono': ['Fantasy', 'Drama', 'Historical', 'Action'],
+    'medieval': ['Fantasy', 'Historical', 'Action'],
+    'dragon': ['Fantasy', 'Adventure', 'Action'],
+    'dragón': ['Fantasy', 'Adventure', 'Action'],
+    'sword': ['Action', 'Adventure', 'Fantasy'],
+    'espada': ['Action', 'Adventure', 'Fantasy'],
+    'viking': ['Action', 'Historical', 'Adventure'],
+    'vikingo': ['Action', 'Historical', 'Adventure'],
+    'empire': ['Historical', 'Action', 'Drama', 'Military'],
+    'imperio': ['Historical', 'Action', 'Drama', 'Military'],
+    'emperor': ['Historical', 'Drama', 'Fantasy'],
+    'emperador': ['Historical', 'Drama', 'Fantasy'],
+    'dynasty': ['Historical', 'Drama', 'Action'],
+    'dinastia': ['Historical', 'Drama', 'Action'],
     'guerra': ['Military', 'Action', 'Drama'],
-    'psicologico': ['Psychological', 'Suspense'],
-    'detective': ['Mystery', 'Suspense'],
+    'war': ['Military', 'Action', 'Drama'],
+    'knight': ['Action', 'Fantasy', 'Historical'],
+    'caballero': ['Action', 'Fantasy', 'Historical'],
+
+    # Misterio, Sobrenatural, Portales y Desapariciones (ej: Dark, Stranger Things, Lost)
+    'missing': ['Mystery', 'Suspense', 'Drama'],
+    'desaparecido': ['Mystery', 'Suspense', 'Drama'],
+    'supernatural': ['Supernatural', 'Mystery', 'Fantasy'],
+    'sobrenatural': ['Supernatural', 'Mystery', 'Fantasy'],
+    'paranormal': ['Supernatural', 'Horror', 'Mystery'],
+    'monster': ['Supernatural', 'Horror', 'Action'],
+    'monstruo': ['Supernatural', 'Horror', 'Action'],
+    'curse': ['Supernatural', 'Horror', 'Fantasy'],
+    'maldicion': ['Supernatural', 'Horror', 'Fantasy'],
+    'demon': ['Supernatural', 'Fantasy', 'Action'],
+    'demonio': ['Supernatural', 'Fantasy', 'Action'],
+    'magic': ['Fantasy', 'Supernatural'],
+    'magia': ['Fantasy', 'Supernatural'],
+    'witch': ['Fantasy', 'Supernatural', 'Mystery'],
+    'bruja': ['Fantasy', 'Supernatural', 'Mystery'],
+
+    # Supervivencia, Apocalipsis y Zombis (ej: The Walking Dead, The Last of Us)
+    'zombie': ['Horror', 'Supernatural', 'Action'],
+    'zombi': ['Horror', 'Supernatural', 'Action'],
+    'apocalypse': ['Sci-Fi', 'Horror', 'Drama', 'Action'],
+    'apocalipsis': ['Sci-Fi', 'Horror', 'Drama', 'Action'],
+    'post-apocalyptic': ['Sci-Fi', 'Drama', 'Action'],
+    'postapocalíptico': ['Sci-Fi', 'Drama', 'Action'],
+    'survival': ['Action', 'Drama', 'Suspense'],
+    'supervivencia': ['Action', 'Drama', 'Suspense'],
+    'virus': ['Sci-Fi', 'Mystery', 'Drama'],
+    'infection': ['Horror', 'Sci-Fi', 'Drama'],
+    'infeccion': ['Horror', 'Sci-Fi', 'Drama'],
+
+    # Superhéroes y Vigilantes (ej: Spider-Man, The Boys, Daredevil, Invincible)
+    'superhero': ['Action', 'Sci-Fi', 'Supernatural'],
+    'superheroe': ['Action', 'Sci-Fi', 'Supernatural'],
+    'superheroes': ['Action', 'Sci-Fi', 'Supernatural'],
+    'superhéroes': ['Action', 'Sci-Fi', 'Supernatural'],
+    'spiderman': ['Action', 'Sci-Fi', 'Supernatural', 'Comedy'],
+    'spider-man': ['Action', 'Sci-Fi', 'Supernatural', 'Comedy'],
+    'spider': ['Action', 'Sci-Fi', 'Supernatural'],
+    'marvel': ['Action', 'Sci-Fi', 'Supernatural'],
+    'avengers': ['Action', 'Sci-Fi', 'Supernatural'],
+    'vigilante': ['Action', 'Suspense', 'Drama'],
+    'superpower': ['Action', 'Supernatural'],
+    'superpoder': ['Action', 'Supernatural'],
+    'mutant': ['Action', 'Sci-Fi', 'Supernatural'],
+    'mutante': ['Action', 'Sci-Fi', 'Supernatural'],
+
+    # Psicológico, Juegos Mentales y Filosofía (ej: Mindhunter, Hannibal, Dexter)
+    'psicologico': ['Psychological', 'Suspense', 'Drama'],
+    'psychological': ['Psychological', 'Suspense', 'Drama'],
+    'mind game': ['Psychological', 'Suspense', 'Mystery'],
+    'juegos mentales': ['Psychological', 'Suspense', 'Mystery'],
+    'strategy': ['Psychological', 'Action', 'Military'],
+    'estrategia': ['Psychological', 'Action', 'Military'],
+    'chess': ['Psychological', 'Drama'],
+    'ajedrez': ['Psychological', 'Drama'],
+    'paranoia': ['Psychological', 'Suspense'],
+    'identidad': ['Psychological', 'Drama'],
+    'identity': ['Psychological', 'Drama'],
 }
 
 # Índice curado de películas icónicas de TMDB para respuesta instantánea y fallback offline
@@ -217,48 +348,121 @@ def _normalize_text(text: str) -> str:
     return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn').lower()
 
 
-def search_tmdb_movies(query: str):
+def search_tmdb_movies(query: str, media_type: str = 'all', limit: int = 15):
     """
-    Busca películas en TMDB vía API pública oficial o mediante índice local normalizado.
+    Busca películas y series en la base de datos local ExternalReferenceMedia (72k+ títulos indexados),
+    con soporte de filtro por media_type ('all', 'movie', 'tv') y ordenamiento por relevancia y votos.
+    Pilar 2.1 (Zero Trust) y Pilar 4.1 (Proxy y Caché Intermedia en Backend).
     """
     q_raw = query.strip()
+    limit = max(1, min(limit or 15, 30))
+
+    # 1. Búsqueda principal en base de datos PostgreSQL local (ExternalReferenceMedia)
+    try:
+        qs = ExternalReferenceMedia.objects.all()
+        if media_type in ('movie', 'tv'):
+            qs = qs.filter(media_type=media_type)
+
+        if not q_raw:
+            # Sugerencias principales por defecto (obras más votadas y populares)
+            top_records = qs.order_by('-vote_count', '-popularity')[:limit]
+            if top_records.exists():
+                return [
+                    {
+                        'id': m.tmdb_id,
+                        'media_type': m.media_type,
+                        'title': m.title,
+                        'original_title': m.original_title,
+                        'release_year': m.release_year,
+                        'poster_path': m.poster_path,
+                        'backdrop_path': m.backdrop_path,
+                        'genres': m.genres if isinstance(m.genres, list) else [],
+                        'overview': m.overview,
+                        'vote_average': float(m.vote_average) if m.vote_average is not None else None,
+                        'vote_count': m.vote_count,
+                        'number_of_seasons': m.number_of_seasons,
+                        'number_of_episodes': m.number_of_episodes,
+                    }
+                    for m in top_records
+                ]
+        else:
+            # Búsqueda por texto en título u original_title
+            words = [w for w in q_raw.split() if len(w) >= 2]
+            name_q = Q(title__icontains=q_raw) | Q(original_title__icontains=q_raw)
+            if words:
+                word_sub_q = Q()
+                for w in words:
+                    word_sub_q &= (Q(title__icontains=w) | Q(original_title__icontains=w))
+                name_q |= word_sub_q
+
+            db_matches = qs.filter(name_q).order_by('-vote_count', '-popularity')[:limit]
+            if db_matches.exists():
+                return [
+                    {
+                        'id': m.tmdb_id,
+                        'media_type': m.media_type,
+                        'title': m.title,
+                        'original_title': m.original_title,
+                        'release_year': m.release_year,
+                        'poster_path': m.poster_path,
+                        'backdrop_path': m.backdrop_path,
+                        'genres': m.genres if isinstance(m.genres, list) else [],
+                        'overview': m.overview,
+                        'vote_average': float(m.vote_average) if m.vote_average is not None else None,
+                        'vote_count': m.vote_count,
+                        'number_of_seasons': m.number_of_seasons,
+                        'number_of_episodes': m.number_of_episodes,
+                    }
+                    for m in db_matches
+                ]
+    except Exception as e:
+        # Si la tabla aún no estuviese disponible, fallback controlado
+        pass
+
     q_norm = _normalize_text(q_raw)
     
-    # Si la consulta está vacía, retornar las películas más populares como sugerencias iniciales
+    # Si la consulta está vacía y DB no devolvió nada, fallback a catálogo curado
     if not q_norm:
         return CURATED_TMDB_MOVIES[:8]
 
-    # 1. Intentar consulta a TMDB API si hay clave configurada
+    # 2. Fallback a TMDB API externa si hay clave configurada
     if TMDB_API_KEY:
         try:
             encoded_query = urllib.parse.quote(q_raw)
-            url = f"https://api.themoviedb.org/3/search/movie?api_key={TMDB_API_KEY}&query={encoded_query}&language=es-ES&page=1&include_adult=false"
+            endpoint = 'search/tv' if media_type == 'tv' else ('search/movie' if media_type == 'movie' else 'search/multi')
+            url = f"https://api.themoviedb.org/3/{endpoint}?api_key={TMDB_API_KEY}&query={encoded_query}&language=es-ES&page=1&include_adult=false"
             req = urllib.request.Request(url, headers={'User-Agent': 'Animigos/2.0'})
             with urllib.request.urlopen(req, timeout=4.0) as resp:
                 data = json.loads(resp.read().decode('utf-8'))
                 results = data.get('results', [])
                 if results:
                     mapped = []
-                    for m in results[:10]:
+                    for m in results[:limit]:
+                        m_type = m.get('media_type') or ('tv' if 'first_air_date' in m else 'movie')
+                        if media_type in ('movie', 'tv') and m_type != media_type:
+                            continue
                         genre_ids = m.get('genre_ids', [])
                         genres = [TMDB_GENRE_IDS[gid] for gid in genre_ids if gid in TMDB_GENRE_IDS]
                         if not genres:
-                            genres = ['Cine']
+                            genres = ['Cine'] if m_type == 'movie' else ['Serie']
+                        date_str = m.get('release_date') or m.get('first_air_date') or ''
                         mapped.append({
                             'id': m.get('id'),
-                            'title': m.get('title') or m.get('original_title'),
-                            'original_title': m.get('original_title', ''),
-                            'release_year': (m.get('release_date') or '')[:4],
+                            'media_type': m_type,
+                            'title': m.get('title') or m.get('name') or m.get('original_title') or m.get('original_name'),
+                            'original_title': m.get('original_title') or m.get('original_name', ''),
+                            'release_year': date_str[:4],
                             'poster_path': f"https://image.tmdb.org/t/p/w500{m.get('poster_path')}" if m.get('poster_path') else 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500',
                             'genres': genres,
                             'overview': m.get('overview') or 'Sinopsis en proceso de sincronización con TMDB.',
                             'vote_average': m.get('vote_average', 7.5),
                         })
-                    return mapped
+                    if mapped:
+                        return mapped
         except Exception:
             pass
 
-    # 2. Búsqueda en catálogo curado local con coincidencia normalizada y por palabras
+    # 3. Búsqueda en catálogo curado estático de emergencia
     query_tokens = [t for t in q_norm.split() if len(t) >= 2]
     matches = []
 
@@ -271,7 +475,6 @@ def search_tmdb_movies(query: str):
 
         full_search_text = f"{title_norm} {orig_norm} {overview_norm} {genres_norm} {keywords_norm}"
 
-        # Coincidencia exacta de frase
         if q_norm in title_norm or q_norm in orig_norm:
             matches.append((100, m))
         elif q_norm in full_search_text:
@@ -283,16 +486,16 @@ def search_tmdb_movies(query: str):
 
     if matches:
         matches.sort(key=lambda x: x[0], reverse=True)
-        return [m for _, m in matches[:10]]
+        return [m for _, m in matches[:limit]]
 
-    # Si no hubo coincidencia, retornar lista vacía (para que la UI muestre el estado de no encontrado)
     return []
 
 
 def cross_reference_tmdb_movies_with_anime(selected_movies: list):
     """
-    Cruza los géneros, temas y sinopsis de las películas TMDB ingresadas
+    Cruza los géneros, temas y sinopsis de las películas y series de TMDB ingresadas
     con la base de datos de animes de Animigos para generar recomendaciones de alta afinidad.
+    Pilar 4.1 de AGENTS.md: Proxy y enriquecimiento con base indexada local.
     """
     if not selected_movies:
         return []
@@ -302,28 +505,49 @@ def cross_reference_tmdb_movies_with_anime(selected_movies: list):
     keywords_found = set()
 
     for m in selected_movies:
-        title = m.get('title') or m.get('original_title', 'Película')
+        title = m.get('title') or m.get('original_title') or 'Obra'
         movie_titles.append(title)
 
+        genres = list(m.get('genres') or [])
+        overview = str(m.get('overview') or '')
+
+        # Si faltan metadatos, autohidratar desde ExternalReferenceMedia
+        if not genres or len(overview) < 20:
+            m_id = m.get('id')
+            ext_item = None
+            if m_id:
+                ext_item = ExternalReferenceMedia.objects.filter(tmdb_id=m_id).first()
+            if not ext_item and title:
+                ext_item = ExternalReferenceMedia.objects.filter(
+                    Q(title__iexact=title) | Q(original_title__iexact=title)
+                ).first()
+            if ext_item:
+                if not genres and ext_item.genres:
+                    genres = ext_item.genres
+                if not overview and ext_item.overview:
+                    overview = ext_item.overview
+
         # Mapear géneros de TMDB a Anime
-        for g in m.get('genres', []):
+        for g in genres:
             if g in TMDB_TO_ANIME_GENRES:
                 target_genres.update(TMDB_TO_ANIME_GENRES[g])
 
-        # Extraer palabras clave de la sinopsis
-        overview = (m.get('overview') or '').lower()
+        # Extraer palabras clave de la sinopsis y título
+        search_blob = f"{overview} {title}".lower()
         for kw, assoc_genres in KEYWORD_ASSOCIATIONS.items():
-            if kw in overview:
+            if kw in search_blob:
                 keywords_found.add(kw)
                 target_genres.update(assoc_genres)
 
     if not target_genres:
         target_genres = {'Psychological', 'Sci-Fi', 'Action', 'Mystery', 'Drama'}
 
-    # Consultar animes con alta puntuación en la base de datos de Animigos
+    # Consultar animes de alta puntuación en la base de datos de Animigos
+    # Excluyendo secuelas automáticas para que las recomendaciones sean obras maestras introductorias
     animes_qs = (
-        Anime.objects.filter(score__gte=7.4)
-        .order_by('-score')[:80]
+        Anime.objects.filter(score__gte=7.4, scored_by__gte=500)
+        .exclude(tags_cache__contains='|_is_sequel_|')
+        .order_by('-score')[:100]
     )
 
     recommendations = []
@@ -341,7 +565,6 @@ def cross_reference_tmdb_movies_with_anime(selected_movies: list):
             score_val = float(anime.score) if anime.score is not None else 8.0
             affinity_base = min(98, 75 + len(overlap) * 6 + int(score_val * 1.5))
 
-            # Explicación contextual de la recomendación
             matched_genres_str = ', '.join(list(overlap)[:2])
             reason = f"Afinidad con {matched_movie}: comparte elementos de {matched_genres_str} y una trama con profundidad temática similar."
 
@@ -361,6 +584,5 @@ def cross_reference_tmdb_movies_with_anime(selected_movies: list):
         if len(recommendations) >= 8:
             break
 
-    # Ordenar por afinidad
     recommendations.sort(key=lambda r: r['affinity_score'], reverse=True)
     return recommendations

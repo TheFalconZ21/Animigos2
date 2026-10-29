@@ -187,6 +187,7 @@ def user_my_list_view(request):
         visto_count = entries_qs.filter(status='visto').count()
         viendo_count = entries_qs.filter(status='viendo').count()
         pendiente_count = entries_qs.filter(status='pendiente').count()
+        dropeado_count = entries_qs.filter(status='dropeado').count()
 
         scores = [e.score for e in entries_qs if e.score is not None]
         avg_score = round(sum(scores) / len(scores), 1) if scores else None
@@ -206,6 +207,7 @@ def user_my_list_view(request):
                 'visto': visto_count,
                 'viendo': viendo_count,
                 'pendiente': pendiente_count,
+                'dropeado': dropeado_count,
                 'average_score': avg_score,
                 'percent_completed': round((visto_count / total_count * 100)) if total_count > 0 else 0
             }
@@ -361,7 +363,7 @@ def import_mal_xml_view(request):
         'completed': 'visto',
         'watching': 'viendo',
         'on-hold': 'pendiente',
-        'dropped': 'pendiente',
+        'dropped': 'dropeado',
         'plan to watch': 'pendiente',
         'plantowatch': 'pendiente',
     }
@@ -823,10 +825,15 @@ def public_user_profile_view(request, username):
             from animes.recommender import build_taste_analytics_matrix
             liked_ids = list(ps.get('liked_anime_ids', [])) if isinstance(ps.get('liked_anime_ids'), list) else []
             fav_ids = list(
-                UserAnimeEntry.objects.filter(user=target_user, status__in=['visto', 'viendo'])
+                UserAnimeEntry.objects.filter(user=target_user, status='visto')
                 .values_list('anime__mal_id', flat=True)[:25]
             )
-            combined_ids = list(dict.fromkeys([int(x) for x in (liked_ids + fav_ids) if x]))
+            raw_combined = list(dict.fromkeys([int(x) for x in (liked_ids + fav_ids) if x]))
+            pending_or_dropped = set(
+                UserAnimeEntry.objects.filter(user=target_user, status__in=['pendiente', 'dropeado'])
+                .values_list('anime__mal_id', flat=True)
+            )
+            combined_ids = [aid for aid in raw_combined if aid not in pending_or_dropped]
             taste_payload = {
                 'tmdb_movies': ps.get('tmdb_movies', []) if isinstance(ps.get('tmdb_movies'), list) else [],
                 'liked_anime_ids': combined_ids,

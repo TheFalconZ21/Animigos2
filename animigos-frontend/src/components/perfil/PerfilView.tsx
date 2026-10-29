@@ -258,10 +258,9 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
         return filas
             .filter(
                 (f) =>
-                    (f.nota !== null && f.nota >= 7) ||
-                    f.favorito ||
-                    f.estado === 'visto' ||
-                    f.estado === 'viendo'
+                    f.estado !== 'pendiente' &&
+                    f.estado !== 'dropeado' &&
+                    (f.estado === 'visto' || (f.estado === 'viendo' && f.episodiosVistos > 0))
             )
             .map((f) => f.malId)
             .sort((a, b) => a - b)
@@ -273,7 +272,13 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
             ? listLikedIdsKey.split(',').map((n) => Number(n)).filter(Boolean)
             : []
 
+        const pendingOrDroppedIds = new Set(
+            filas
+                .filter((f) => f.estado === 'pendiente' || f.estado === 'dropeado')
+                .map((f) => f.malId)
+        )
         const allLikedIds = Array.from(new Set([...(tasteAnswers.likedAnimeIds || []), ...listLikedIds]))
+            .filter((aid) => !pendingOrDroppedIds.has(aid))
         const hasCalibrationData =
             Boolean(user) ||
             (tasteAnswers.calibratedPercentage || 0) > 0 ||
@@ -583,25 +588,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
                             initialFriends={isVisitingOther ? publicData?.friends || [] : undefined}
                         />
 
-                        {/* 4. ADN & Correlación de Gustos del Usuario (Red de Nodos y Matriz de Co-ocurrencia) */}
-                        {(!isVisitingOther || activePrivacy.showStats) ? (
-                            <div className="my-4">
-                                <TasteCorrelationGraph
-                                    analytics={activeTasteAnalytics}
-                                    loading={isVisitingOther ? publicLoading : isLoadingAnalytics}
-                                    accentColor={acento}
-                                />
-                            </div>
-                        ) : (
-                            <div className="perfil-breakdown-card text-center py-4 my-4">
-                                <Lock size={18} className="text-secondary mb-1" />
-                                <div className="small text-secondary">
-                                    La matriz de correlación de gustos de @{activeUsername} es privada.
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 5. Dashboard de Estadísticas de Anime */}
+                        {/* 4. Centro Analítico de Colección: Favoritos, KPIs, Distribución de Notas, Géneros y Contrastes */}
                         <AnimeStatsDashboard
                             filas={activeFilas}
                             showStats={!isVisitingOther || activePrivacy.showStats}
@@ -616,6 +603,25 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
                                 }
                             }}
                         />
+
+                        {/* 5. ADN & Correlación de Gustos del Usuario (Diagrama de Cuerdas y Matriz de Sinergia) */}
+                        {(!isVisitingOther || activePrivacy.showStats) ? (
+                            <div className="my-4">
+                                <TasteCorrelationGraph
+                                    analytics={activeTasteAnalytics}
+                                    filas={activeFilas.filter((f) => f.estado !== 'pendiente' && f.estado !== 'dropeado' && (f.estado === 'visto' || (f.estado === 'viendo' && f.episodiosVistos > 0)))}
+                                    loading={isVisitingOther ? publicLoading : isLoadingAnalytics}
+                                    accentColor={acento}
+                                />
+                            </div>
+                        ) : (
+                            <div className="perfil-breakdown-card text-center py-4 my-4">
+                                <Lock size={18} className="text-secondary mb-1" />
+                                <div className="small text-secondary">
+                                    La matriz de correlación de gustos de @{activeUsername} es privada.
+                                </div>
+                            </div>
+                        )}
 
                         {/* 6. Muro de Comentarios y Actividad Social */}
                         <CommentsWall

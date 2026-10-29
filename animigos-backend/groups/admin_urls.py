@@ -14,4 +14,5 @@ urlpatterns = [
     path('growth/', admin_views.growth_analytics, name='admin-growth'),
     path('users/', admin_views.admin_users_list, name='admin-users-list'),
     path('users/<str:user_id>/moderate/', admin_views.admin_moderate_user, name='admin-user-moderate'),
+    path('animes/<int:mal_id>/', admin_views.admin_update_anime, name='admin-anime-update'),
 ]

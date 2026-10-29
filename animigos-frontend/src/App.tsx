@@ -28,6 +28,7 @@ function App() {
   const isAdmin = Boolean(isAuthenticated && (user?.is_staff || user?.is_superuser))
   const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'recomendador' | 'mi-lista' | 'admin' | 'sala' | 'tablon' | 'calendario' | 'perfil'>('catalogo')
   const [visitedUsername, setVisitedUsername] = useState<string | undefined>(undefined)
+  const [selectedAnimeId, setSelectedAnimeId] = useState<number | null>(null)
 
   // Redirigir si un usuario sin permisos intenta ver secciones privadas (Tablón, Mi Lista, Perfil, Admin)
   useEffect(() => {
@@ -41,12 +42,20 @@ function App() {
     }
   }, [isAuthenticated, isAdmin, currentView, loading])
 
-  // Soporte de navegación por hash (ej: /#catalogo, /#mi-lista, /#mi-lista/<username>, /#perfil, /#perfil/<username>)
+  // Soporte de navegación por hash (ej: /#catalogo, /#anime/<id>, /#mi-lista, /#mi-lista/<username>, /#perfil, /#perfil/<username>)
   useEffect(() => {
     if (loading) return
     const handleHash = () => {
       const hash = window.location.hash
-      if (hash === '#mi-lista' || hash.startsWith('#mi-lista/')) {
+      if (hash.startsWith('#anime/')) {
+        const rawId = Number(hash.slice('#anime/'.length).trim())
+        if (Number.isFinite(rawId) && rawId > 0) {
+          setSelectedAnimeId(rawId)
+          setVisitedUsername(undefined)
+          setCurrentView('catalogo')
+        }
+      } else if (hash === '#mi-lista' || hash.startsWith('#mi-lista/')) {
+        setSelectedAnimeId(null)
         if (!isAuthenticated) {
           window.location.hash = '#catalogo'
           setCurrentView('catalogo')
@@ -58,6 +67,7 @@ function App() {
           setCurrentView('mi-lista')
         }
       } else if (hash === '#tablon' || hash === '#dashboard') {
+        setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         if (!isAuthenticated) {
           window.location.hash = '#catalogo'
@@ -68,12 +78,15 @@ function App() {
           setCurrentView('tablon')
         }
       } else if (hash === '#recomendador' || hash === '#recomendar') {
+        setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('recomendador')
       } else if (hash === '#calendario' || hash === '#estrenos') {
+        setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('calendario')
       } else if (hash === '#admin') {
+        setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         if (!isAdmin) {
           window.location.hash = '#catalogo'
@@ -84,9 +97,11 @@ function App() {
           setCurrentView('admin')
         }
       } else if (hash === '#sala' || hash === '#votacion' || hash === '#listas' || hash.startsWith('#sala/')) {
+        setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('sala')
       } else if (hash === '#perfil' || hash === '#profile' || hash.startsWith('#perfil/')) {
+        setSelectedAnimeId(null)
         if (!isAuthenticated) {
           window.location.hash = '#catalogo'
           setCurrentView('catalogo')
@@ -98,9 +113,11 @@ function App() {
           setCurrentView('perfil')
         }
       } else if (hash === '#landing') {
+        setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('landing')
       } else if (hash === '#catalogo' || hash === '#animes' || hash === '#top' || hash === '') {
+        setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('catalogo')
       }
@@ -142,7 +159,7 @@ function App() {
       <>
         <Navbar currentView="catalogo" onSelectView={setCurrentView} />
         <main className="py-2">
-          <AnimeCatalog />
+          <AnimeCatalog initialAnimeId={selectedAnimeId} />
         </main>
         <LoginModal />
 

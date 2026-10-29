@@ -1,14 +1,11 @@
 /**
- * Capa de Datos del Tablón Social (Pilar 1.2 de AGENTS.md).
- *
- * TODO backend: todavía no existe un endpoint de feed en Django.
- * Estas funciones trabajan sobre un almacén en memoria con la misma
- * forma que tendrá la API (GET /api/feed/, POST /api/feed/posts/, etc.).
- * Al crear el endpoint, solo hay que reemplazar el cuerpo de cada función
- * por su fetch(); el hook useTablon y los componentes no cambian.
+ * Capa de Datos del Tablón Social (Pilar 1.2 y 2.1 de AGENTS.md).
+ * Maneja publicaciones, recomendaciones y encuestas comunitarias reales.
+ * Se integra con el sistema de notificaciones y persistencia de usuario.
  */
 
-import { MOCK_TOP_ANIMES, MOCK_USER_FRIENDS } from '../data/anime-data'
+import { fetchUserNotifications, sendAnimeRecommendationToUser } from './friendsApi'
+import { haceCuanto } from '../shared/tiempo'
 
 export type TipoActividad =
     | 'recomendacion_directa'
@@ -58,74 +55,31 @@ export interface Actividad {
 export interface NuevaRecomendacion {
     anime: AnimeResumen
     nota: string
-    destinatarioId: string | null // null = recomendación general para todos
+    destinatarioId: string | null // null = recomendación general para todos; o username de un amigo
 }
 
-// ---------- Almacén en memoria (datos de ejemplo) ----------
+const STORAGE_KEY = 'animigos_tablon_feed_v1'
 
-const amigo = (id: string): AutorActividad => {
-    const f = MOCK_USER_FRIENDS.find((x) => x.id === id) ?? MOCK_USER_FRIENDS[0]
-    return { id: f.id, nombre: f.name, usuario: f.username.replace(/^@/, ''), avatarUrl: f.avatarUrl }
+function getLocalFeed(): Actividad[] {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (raw) {
+            const parsed = JSON.parse(raw)
+            if (Array.isArray(parsed)) return parsed
+        }
+    } catch {
+        // Fallback silencioso
+    }
+    return []
 }
 
-const anime = (malId: number): AnimeResumen => {
-    const a = MOCK_TOP_ANIMES.find((x) => x.malId === malId)!
-    return { malId: a.malId, titulo: a.title, imagenUrl: a.imageUrl, nota: a.score, generos: a.genres }
+function saveLocalFeed(acts: Actividad[]) {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(acts))
+    } catch {
+        // Fallback silencioso
+    }
 }
-
-let almacen: Actividad[] = [
-    {
-        id: 'act-1', tipo: 'recomendacion_directa', autor: amigo('friend-1'), creadoHace: 'Hace 15 min',
-        agradecimientos: 0, agradecidoPorMi: false,
-        recomendacion: {
-            anime: anime(9253), paraMi: true,
-            nota: '¡Sé que te encantan los viajes en el tiempo y los dilemas éticos! Tienes que ver este clásico sí o sí ⏱️',
-        },
-    },
-    {
-        id: 'act-2', tipo: 'invitacion_sala', autor: amigo('friend-1'), creadoHace: 'Hace 45 min',
-        agradecimientos: 0, agradecidoPorMi: false,
-        invitacion: { codigoSala: 'VIERNES', nombreSala: 'Anime de los Viernes 🍿', integrantes: 4, candidatoTop: "Frieren: Beyond Journey's End" },
-    },
-    {
-        id: 'act-3', tipo: 'busco_anime', autor: amigo('friend-3'), creadoHace: 'Hace 1 h',
-        agradecimientos: 2, agradecidoPorMi: false,
-        busqueda: {
-            pedido: '¡Amigos! Busco animes de misterio y suspenso psicológico oscuro parecidos a Monster o Death Note. ¿Qué me recomiendan?',
-            referencia: 'Monster / Death Note',
-        },
-    },
-    {
-        id: 'act-4', tipo: 'encuesta', autor: amigo('friend-2'), creadoHace: 'Hace 2 h',
-        agradecimientos: 1, agradecidoPorMi: false,
-        encuesta: {
-            pregunta: '¿Qué género deberíamos ver en la próxima maratón del grupo este fin de semana?',
-            opciones: [
-                { id: 'o1', texto: 'Sci-Fi & Cyberpunk', votos: 5 },
-                { id: 'o2', texto: 'Fantasía oscura', votos: 3 },
-                { id: 'o3', texto: 'Comedia & Slice of Life', votos: 2 },
-            ],
-        },
-    },
-    {
-        id: 'act-5', tipo: 'hito', autor: amigo('friend-4'), creadoHace: 'Hace 3 h',
-        agradecimientos: 6, agradecidoPorMi: false,
-        hito: { titulo: '100 animes completados', descripcion: 'Camila completó su anime número 100 y subió a Nivel Otaku 15.', icono: 'trofeo' },
-    },
-    {
-        id: 'act-6', tipo: 'recomendacion_general', autor: amigo('friend-3'), creadoHace: 'Hace 5 h',
-        agradecimientos: 4, agradecidoPorMi: false,
-        recomendacion: {
-            anime: anime(52991), paraMi: false,
-            nota: '¡Recomendación para todos! La animación y la música de esta obra son una verdadera joya 🍃',
-        },
-    },
-    {
-        id: 'act-7', tipo: 'hito', autor: amigo('friend-1'), creadoHace: 'Ayer',
-        agradecimientos: 1, agradecidoPorMi: false,
-        hito: { titulo: '1 año de amigos', descripcion: 'Sofía y tú celebran su primer aniversario como amigos en Animigos.', icono: 'amistad' },
-    },
-]
 
 const TIPOS_POR_FILTRO: Record<FiltroTablon, TipoActividad[] | null> = {
     todo: null,
@@ -139,48 +93,131 @@ export function filtrarActividades(actividades: Actividad[], filtro: FiltroTablo
     return tipos ? actividades.filter((a) => tipos.includes(a.tipo)) : actividades
 }
 
-const nuevoId = () => `act-${Date.now()}`
-const copia = () => almacen.map((a) => ({ ...a }))
+const nuevoId = () => `act-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
 // ---------- API ----------
 
 export async function fetchFeed(): Promise<Actividad[]> {
-    return copia()
+    const local = getLocalFeed()
+
+    // Sincronizar recomendaciones directas reales recibidas por el usuario
+    try {
+        const { notifications } = await fetchUserNotifications()
+        const recoNotifs = notifications.filter((n) => n.type === 'anime_recommendation' && n.anime_id)
+
+        const recoActs: Actividad[] = recoNotifs.map((n) => {
+            const timestampSegundos = n.created_at ? Math.floor(new Date(n.created_at).getTime() / 1000) : null
+            return {
+                id: `notif-${n.id}`,
+                tipo: 'recomendacion_directa',
+                autor: {
+                    id: n.from_username,
+                    nombre: n.from_display_name || n.from_username,
+                    usuario: n.from_username,
+                    avatarUrl: n.from_avatar || '',
+                },
+                creadoHace: timestampSegundos ? haceCuanto(timestampSegundos) : 'Reciente',
+                agradecimientos: 0,
+                agradecidoPorMi: false,
+                recomendacion: {
+                    anime: {
+                        malId: n.anime_id!,
+                        titulo: n.anime_title || 'Anime',
+                        imagenUrl: n.anime_poster || '',
+                        nota: null,
+                        generos: [],
+                    },
+                    nota: n.message,
+                    paraMi: true,
+                },
+            }
+        })
+
+        const ids = new Set(local.map((a) => a.id))
+        const combinado = [...local]
+        for (const r of recoActs) {
+            if (!ids.has(r.id)) {
+                combinado.push(r)
+                ids.add(r.id)
+            }
+        }
+        return combinado
+    } catch {
+        return local
+    }
 }
 
 export async function publicarRecomendacion(autor: AutorActividad, datos: NuevaRecomendacion): Promise<Actividad> {
     const act: Actividad = {
         id: nuevoId(),
         tipo: datos.destinatarioId ? 'recomendacion_directa' : 'recomendacion_general',
-        autor, creadoHace: 'Ahora mismo', agradecimientos: 0, agradecidoPorMi: false,
-        recomendacion: { anime: datos.anime, nota: datos.nota, paraMi: false },
+        autor,
+        creadoHace: 'Ahora mismo',
+        agradecimientos: 0,
+        agradecidoPorMi: false,
+        recomendacion: {
+            anime: datos.anime,
+            nota: datos.nota,
+            paraMi: false,
+        },
     }
-    almacen = [act, ...almacen]
+
+    // Si se especificó un amigo concreto, enviar la recomendación real al backend
+    if (datos.destinatarioId) {
+        try {
+            await sendAnimeRecommendationToUser(datos.destinatarioId, {
+                anime_id: datos.anime.malId,
+                message: datos.nota,
+            })
+        } catch (err) {
+            console.warn('No se pudo despachar la notificación al backend:', err)
+        }
+    }
+
+    const feedActual = getLocalFeed()
+    const actualizado = [act, ...feedActual]
+    saveLocalFeed(actualizado)
     return act
 }
 
 export async function publicarBusqueda(autor: AutorActividad, pedido: string, referencia?: string): Promise<Actividad> {
     const act: Actividad = {
-        id: nuevoId(), tipo: 'busco_anime', autor, creadoHace: 'Ahora mismo',
-        agradecimientos: 0, agradecidoPorMi: false,
+        id: nuevoId(),
+        tipo: 'busco_anime',
+        autor,
+        creadoHace: 'Ahora mismo',
+        agradecimientos: 0,
+        agradecidoPorMi: false,
         busqueda: { pedido, referencia: referencia || undefined },
     }
-    almacen = [act, ...almacen]
+    const feedActual = getLocalFeed()
+    const actualizado = [act, ...feedActual]
+    saveLocalFeed(actualizado)
     return act
 }
 
 export async function publicarEncuesta(autor: AutorActividad, pregunta: string, opciones: string[]): Promise<Actividad> {
     const act: Actividad = {
-        id: nuevoId(), tipo: 'encuesta', autor, creadoHace: 'Ahora mismo',
-        agradecimientos: 0, agradecidoPorMi: false,
-        encuesta: { pregunta, opciones: opciones.map((texto, i) => ({ id: `o${i + 1}`, texto, votos: 0 })) },
+        id: nuevoId(),
+        tipo: 'encuesta',
+        autor,
+        creadoHace: 'Ahora mismo',
+        agradecimientos: 0,
+        agradecidoPorMi: false,
+        encuesta: {
+            pregunta,
+            opciones: opciones.map((texto, i) => ({ id: `o${i + 1}`, texto, votos: 0 })),
+        },
     }
-    almacen = [act, ...almacen]
+    const feedActual = getLocalFeed()
+    const actualizado = [act, ...feedActual]
+    saveLocalFeed(actualizado)
     return act
 }
 
 export async function votarEncuesta(actividadId: string, opcionId: string): Promise<void> {
-    almacen = almacen.map((a) => {
+    const feedActual = getLocalFeed()
+    const actualizado = feedActual.map((a) => {
         if (a.id !== actividadId || !a.encuesta || a.encuesta.miVoto) return a
         return {
             ...a,
@@ -191,12 +228,19 @@ export async function votarEncuesta(actividadId: string, opcionId: string): Prom
             },
         }
     })
+    saveLocalFeed(actualizado)
 }
 
 export async function alternarAgradecimiento(actividadId: string): Promise<void> {
-    almacen = almacen.map((a) =>
+    const feedActual = getLocalFeed()
+    const actualizado = feedActual.map((a) =>
         a.id === actividadId
-            ? { ...a, agradecidoPorMi: !a.agradecidoPorMi, agradecimientos: a.agradecimientos + (a.agradecidoPorMi ? -1 : 1) }
-            : a,
+            ? {
+                  ...a,
+                  agradecidoPorMi: !a.agradecidoPorMi,
+                  agradecimientos: a.agradecimientos + (a.agradecidoPorMi ? -1 : 1),
+              }
+            : a
     )
+    saveLocalFeed(actualizado)
 }

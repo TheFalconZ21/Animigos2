@@ -45,13 +45,14 @@ export interface CalibratedRecommendation {
 }
 
 export interface ReferenceWorkQuery {
-    kind: 'movie' | 'anime'
+    kind: 'movie' | 'anime' | 'tv'
     title: string
     genres: string[]
     overview?: string
     mal_id?: number
     poster?: string
     year?: string | number
+    mediaType?: 'movie' | 'tv'
 }
 
 export interface CalibrationPayload {
@@ -63,6 +64,8 @@ export interface CalibrationPayload {
     pacing: string
     preferred_format?: string
     preferred_genre?: string
+    preferred_year_min?: number | null
+    preferred_year_max?: number | null
     reference_work?: ReferenceWorkQuery | null
     netflix_mode?: boolean
     exclude_ids?: number[]
@@ -76,6 +79,9 @@ export interface TasteGraphNode {
     weight: number
     normalized_weight: number
     count: number
+    mean_score?: number
+    avg_rank?: number
+    is_main_tag?: boolean
     sample_animes: string[]
 }
 
@@ -83,6 +89,7 @@ export interface TasteGraphLink {
     source: string
     target: string
     strength: number
+    mean_score?: number
     shared_animes: string[]
 }
 
@@ -91,6 +98,7 @@ export interface TasteCombinationItem {
     source: string
     target: string
     count: number
+    mean_score?: number
     affinity_pct: number
     examples: string[]
 }

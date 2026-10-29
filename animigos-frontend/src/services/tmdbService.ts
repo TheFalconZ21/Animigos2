@@ -83,9 +83,13 @@ const FALLBACK_MOVIES: TmdbMovie[] = [
     },
 ]
 
-export async function searchTmdbMovies(query: string): Promise<TmdbMovie[]> {
+export async function searchTmdbMovies(
+    query: string,
+    mediaType: 'all' | 'movie' | 'tv' = 'all'
+): Promise<TmdbMovie[]> {
     try {
-        const res = await fetch(`${API_BASE_URL}/animes/tmdb-search/?q=${encodeURIComponent(query)}`)
+        const typeParam = mediaType !== 'all' ? `&type=${mediaType}` : ''
+        const res = await fetch(`${API_BASE_URL}/animes/tmdb-search/?q=${encodeURIComponent(query)}${typeParam}`)
         if (res.ok) {
             const data = await res.json()
             if (Array.isArray(data) && data.length > 0) {
@@ -98,6 +102,10 @@ export async function searchTmdbMovies(query: string): Promise<TmdbMovie[]> {
                     genres: m.genres || [],
                     overview: m.overview || '',
                     voteAverage: m.vote_average,
+                    mediaType: m.media_type || (m.number_of_seasons ? 'tv' : 'movie'),
+                    numberOfSeasons: m.number_of_seasons,
+                    numberOfEpisodes: m.number_of_episodes,
+                    voteCount: m.vote_count,
                 }))
             }
         }
@@ -107,8 +115,9 @@ export async function searchTmdbMovies(query: string): Promise<TmdbMovie[]> {
 
     // Fallback local
     const q = query.trim().toLowerCase()
-    if (!q) return FALLBACK_MOVIES.slice(0, 5)
-    return FALLBACK_MOVIES.filter(
+    const pool = mediaType === 'tv' ? [] : FALLBACK_MOVIES
+    if (!q) return pool.slice(0, 5)
+    return pool.filter(
         (m) =>
             m.title.toLowerCase().includes(q) ||
             m.originalTitle?.toLowerCase().includes(q) ||

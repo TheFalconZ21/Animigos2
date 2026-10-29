@@ -174,6 +174,77 @@
     border-color: rgba(255, 255, 255, 0.24);
 }
 
+.rec-custom-year-row {
+    margin-top: 0.55rem;
+    padding-top: 0.45rem;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.rec-year-field {
+    background: #15151c;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 0.22rem 0.6rem;
+}
+
+.rec-year-field-label {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #a1a1aa;
+    text-transform: uppercase;
+    margin-bottom: 0;
+}
+
+.rec-year-input {
+    width: 78px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.1rem 0.2rem;
+}
+
+.rec-year-input::placeholder {
+    color: #52525b;
+}
+
+.rec-year-apply-btn {
+    padding: 0.32rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #20202a;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+    transition: all 0.16s ease;
+}
+
+.rec-year-apply-btn:hover {
+    background: #272734;
+    transform: translateY(-1px);
+}
+
+.rec-year-clear-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.32rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #71717a;
+    transition: all 0.16s ease;
+}
+
+.rec-year-clear-btn:hover {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
 /* --- Grilla de las 5 Alternativas --- */
 .rec-section-title {
     font-size: 1.2rem;
@@ -471,24 +542,27 @@
     color: #ffffff;
 }
 
-.rec-graph-layout {
+.rec-graph-layout,
+.rec-chord-layout {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr 335px;
     gap: 1.25rem;
     align-items: stretch;
 }
 
 @media (max-width: 992px) {
-    .rec-graph-layout {
+    .rec-graph-layout,
+    .rec-chord-layout {
         grid-template-columns: 1fr;
     }
 }
 
-.rec-graph-canvas-wrap {
+.rec-graph-canvas-wrap,
+.rec-chord-canvas-wrap {
     background: #08080a;
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 12px;
-    padding: 0.75rem;
+    padding: 0.75rem 1rem;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -499,6 +573,319 @@
     height: auto;
     max-height: 390px;
     display: block;
+}
+
+.rec-chord-svg {
+    width: 100%;
+    max-width: 590px;
+    height: auto;
+    max-height: 495px;
+    display: block;
+}
+
+.rec-chord-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.rec-chord-panel {
+    background: #14141b;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+    padding: 0.95rem 1.05rem;
+}
+
+.rec-chord-section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.38rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #a1a1aa;
+}
+
+.rec-chord-pills-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.42rem;
+}
+
+.rec-chord-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.32rem 0.68rem;
+    border-radius: 7px;
+    font-size: 0.73rem;
+    font-weight: 600;
+    color: #a1a1aa;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.rec-chord-pill:hover {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.rec-chord-pill.active {
+    color: #e4e4e7;
+    background: rgba(74, 143, 231, 0.16);
+    border-color: rgba(74, 143, 231, 0.55);
+}
+
+.rec-chord-pill-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #4a8fe7;
+    color: #09090d;
+    font-size: 0.62rem;
+    font-weight: 900;
+}
+
+.rec-chord-select {
+    background: #0d0d13;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 7px;
+    color: #e4e4e7;
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 0.28rem 0.55rem;
+    outline: none;
+    cursor: pointer;
+}
+
+.rec-chord-select:focus {
+    border-color: #4a8fe7;
+}
+
+.rec-chord-how-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: #e4e4e7;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.rec-chord-how-body {
+    font-size: 0.75rem;
+    line-height: 1.48;
+    color: #a1a1aa;
+}
+
+/* --- Barra superior del lienzo de Cuerdas e Icono "i" informativo --- */
+.rec-chord-canvas-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    min-height: 32px;
+}
+
+.rec-chord-canvas-hint {
+    font-size: 0.72rem;
+    color: #71717a;
+}
+
+.rec-chord-unpin-btn {
+    background: none;
+    border: none;
+    padding: 0 0.25rem;
+    font-size: 0.71rem;
+    font-weight: 700;
+    color: #4a8fe7;
+    cursor: pointer;
+}
+
+.rec-chord-unpin-btn:hover {
+    text-decoration: underline;
+}
+
+.rec-tag-info-anchor {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.rec-tag-info-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    padding: 0.24rem 0.32rem 0.24rem 0.65rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #e4e4e7;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.rec-tag-info-btn:hover,
+.rec-tag-info-btn.pinned {
+    background: rgba(74, 143, 231, 0.16);
+    border-color: rgba(74, 143, 231, 0.55);
+    color: #ffffff;
+}
+
+.rec-tag-info-icon-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(74, 143, 231, 0.25);
+    color: #60a5fa;
+}
+
+.rec-inspector-info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(74, 143, 231, 0.18);
+    border: 1px solid rgba(74, 143, 231, 0.55);
+    color: #93c5fd;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 0.78rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.rec-inspector-info-icon:hover {
+    background: #4a8fe7;
+    border-color: #4a8fe7;
+    color: #09090d;
+    transform: scale(1.06);
+}
+
+.rec-inspector-pinned-badge {
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.14rem 0.48rem;
+    border-radius: 999px;
+    background: rgba(74, 143, 231, 0.18);
+    border: 1px solid rgba(74, 143, 231, 0.45);
+    color: #93c5fd;
+}
+
+.rec-chord-pill-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    margin-left: 0.15rem;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #d4d4d8;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 0.65rem;
+    font-weight: 800;
+    line-height: 1;
+    transition: all 0.15s ease;
+}
+
+.rec-chord-pill-info:hover {
+    background: #4a8fe7;
+    color: #09090d;
+}
+
+.rec-tag-info-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 295px;
+    background: rgba(16, 17, 25, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 11px;
+    padding: 0.85rem 0.95rem;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.72);
+    z-index: 40;
+    pointer-events: none;
+    animation: recPopoverFadeIn 0.14s ease-out;
+}
+
+.rec-tag-info-popover-right {
+    right: 0;
+}
+
+.rec-tag-info-popover-tax {
+    left: 0;
+    right: auto;
+    width: 265px;
+}
+
+@keyframes recPopoverFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.rec-tag-info-popover-header {
+    margin-bottom: 0.22rem;
+}
+
+.rec-tag-info-popover-cat {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.rec-tag-info-popover-title {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: 0.35rem;
+}
+
+.rec-tag-info-popover-desc {
+    font-size: 0.76rem;
+    line-height: 1.48;
+    color: #d4d4d8;
+}
+
+.rec-tag-info-popover-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.7rem;
+    color: #a1a1aa;
 }
 
 .rec-graph-legend {

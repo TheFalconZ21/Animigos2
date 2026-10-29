@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Ellipsis, Folder, FolderInput, Heart, Send, Tag, Trash2, X } from 'lucide-react'
+import { Ellipsis, Folder, FolderInput, Heart, MessageSquare, Send, Tag, Trash2, X } from 'lucide-react'
 import { ESTADOS, medioDe, type Carpeta, type EntradaLista, type EstadoLista, type FilaLista, alFallarPoster } from './mi-lista-data'
 import { Menu, SelloNota } from './piezas'
 
@@ -17,6 +17,8 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
     const { anime } = fila
     const [agregandoTag, setAgregandoTag] = useState(false)
     const [nuevoTag, setNuevoTag] = useState('')
+    const [editandoComentario, setEditandoComentario] = useState(false)
+    const [textoComentario, setTextoComentario] = useState(fila.comentario || '')
     const carpeta = carpetas.find((c) => c.id === fila.carpetaId)
 
     const cambiarEstado = (estado: EstadoLista) => {
@@ -31,6 +33,23 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
             episodiosVistos,
             estado: termino ? 'visto' : fila.estado === 'pendiente' ? 'viendo' : fila.estado,
         })
+    }
+
+    const guardarComentario = () => {
+        const comentarioLimpio = textoComentario.trim()
+        onActualizar({ comentario: comentarioLimpio })
+        setEditandoComentario(false)
+    }
+
+    const cancelarEdicionComentario = () => {
+        setTextoComentario(fila.comentario || '')
+        setEditandoComentario(false)
+    }
+
+    const eliminarComentario = () => {
+        onActualizar({ comentario: '' })
+        setTextoComentario('')
+        setEditandoComentario(false)
     }
 
     const guardarTag = () => {
@@ -129,7 +148,53 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
                     </div>
                 )}
 
-                {fila.comentario && <p className="ml-comentario">“{fila.comentario}”</p>}
+                {editandoComentario ? (
+                    <div className="ml-comentario-edicion">
+                        <textarea
+                            autoFocus
+                            className="ml-comentario-textarea"
+                            placeholder="Escribe tu comentario o nota sobre este anime..."
+                            value={textoComentario}
+                            onChange={(e) => setTextoComentario(e.target.value)}
+                            maxLength={500}
+                            rows={2}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                    guardarComentario()
+                                } else if (e.key === 'Escape') {
+                                    cancelarEdicionComentario()
+                                }
+                            }}
+                        />
+                        <div className="d-flex align-items-center gap-2 mt-1">
+                            <button
+                                type="button"
+                                className="ml-btn ml-btn-acento ml-btn-sm"
+                                onClick={guardarComentario}
+                            >
+                                Guardar comentario
+                            </button>
+                            <button
+                                type="button"
+                                className="ml-btn ml-btn-sm"
+                                onClick={cancelarEdicionComentario}
+                            >
+                                Cancelar
+                            </button>
+                            {fila.comentario && (
+                                <button
+                                    type="button"
+                                    className="ml-btn ml-btn-sm text-danger ms-auto"
+                                    onClick={eliminarComentario}
+                                >
+                                    Eliminar comentario
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    fila.comentario && <p className="ml-comentario">“{fila.comentario}”</p>
+                )}
             </div>
 
             <SelloNota nota={fila.nota} onCambiar={(nota) => onActualizar({ nota })} />
@@ -137,6 +202,17 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
             <Menu etiqueta={`Acciones para ${anime.title}`} boton={<Ellipsis size={18} />}>
                 {(cerrar) => (
                     <>
+                        <button
+                            type="button"
+                            className="ml-menu-item"
+                            onClick={() => {
+                                setTextoComentario(fila.comentario || '')
+                                setEditandoComentario(true)
+                                cerrar()
+                            }}
+                        >
+                            <MessageSquare size={15} /> {fila.comentario ? 'Editar comentario' : 'Dejar comentario'}
+                        </button>
                         <button type="button" className="ml-menu-item" onClick={() => { setAgregandoTag(true); cerrar() }}>
                             <Tag size={15} /> Agregar tag
                         </button>

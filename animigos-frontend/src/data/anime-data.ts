@@ -8,12 +8,16 @@ export interface ExtendedAnime {
   imageUrl: string;
   score: number;
   rank: number;
+  popularity?: number;
+  scoredBy?: number;
+  durationMinutes?: number;
   episodes: number;
   status: string;
   season?: string;
   year?: number;
   studio: string;
   genres: string[];
+  tagsData?: Array<{ name: string; category?: string; rank?: number; spoiler?: boolean }>;
   synopsis: string;
   watchedByFriends?: string[];
   airingDay?: AiringDay;

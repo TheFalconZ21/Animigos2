@@ -298,6 +298,7 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
 
     // Paso 1: Películas / Series (TMDB)
     const [movieQuery, setMovieQuery] = useState('')
+    const [movieFilterType, setMovieFilterType] = useState<'all' | 'movie' | 'tv'>('all')
     const [movieResults, setMovieResults] = useState<TmdbMovie[]>([])
     const [isSearchingMovies, setIsSearchingMovies] = useState(false)
     const [selectedMovies, setSelectedMovies] = useState<TmdbMovie[]>(
@@ -372,7 +373,7 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
         const timer = setTimeout(async () => {
             setIsSearchingMovies(true)
             try {
-                const res = await searchTmdbMovies(q)
+                const res = await searchTmdbMovies(q, movieFilterType)
                 setMovieResults(res)
             } catch {
                 setMovieResults([])
@@ -381,7 +382,7 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
             }
         }, 240)
         return () => clearTimeout(timer)
-    }, [movieQuery, open, step])
+    }, [movieQuery, movieFilterType, open, step])
 
     // Debounce búsqueda Animes
     useEffect(() => {
@@ -670,12 +671,39 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                     <div className="doki-wiz-panel">
                         <div className="doki-wiz-section-title">
                             <Film size={17} />
-                            <span>1. Películas o Series de Cine/TV Favoritas</span>
+                            <span>1. Películas y Series Favoritas (no anime)</span>
                         </div>
                         <p className="doki-wiz-section-sub">
-                            Busca obras que te hayan gustado (ej: Matrix, Dune, El Padrino,
-                            Interstellar, Batman...):
+                            Busca películas o series de TV que te hayan fascinado (ej: Breaking Bad, Game of Thrones, Dark, Stranger Things, Inception, Matrix, Interstellar...):
                         </p>
+
+                        {/* Selector de tipo de obra */}
+                        <div className="d-flex align-items-center gap-2 mb-2">
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${movieFilterType === 'all' ? 'btn-primary' : 'btn-outline-secondary text-secondary'}`}
+                                style={{ fontSize: '0.74rem', borderRadius: '16px', padding: '2px 12px' }}
+                                onClick={() => setMovieFilterType('all')}
+                            >
+                                ✨ Todas
+                            </button>
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${movieFilterType === 'movie' ? 'btn-primary' : 'btn-outline-secondary text-secondary'}`}
+                                style={{ fontSize: '0.74rem', borderRadius: '16px', padding: '2px 12px' }}
+                                onClick={() => setMovieFilterType('movie')}
+                            >
+                                <Film size={13} className="me-1" /> Películas
+                            </button>
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${movieFilterType === 'tv' ? 'btn-primary' : 'btn-outline-secondary text-secondary'}`}
+                                style={{ fontSize: '0.74rem', borderRadius: '16px', padding: '2px 12px' }}
+                                onClick={() => setMovieFilterType('tv')}
+                            >
+                                <Tv size={13} className="me-1" /> Series TV
+                            </button>
+                        </div>
 
                         <div className="doki-wiz-search-wrap">
                             <div className="doki-wiz-search-box">
@@ -683,7 +711,13 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                                 <input
                                     type="text"
                                     className="doki-wiz-search-input"
-                                    placeholder="Escribe el nombre de una película o serie..."
+                                    placeholder={
+                                        movieFilterType === 'tv'
+                                            ? 'Escribe el nombre de una serie (ej: Breaking Bad, Dark...)'
+                                            : movieFilterType === 'movie'
+                                              ? 'Escribe el nombre de una película (ej: Inception, Matrix...)'
+                                              : 'Escribe el nombre de una película o serie...'
+                                    }
                                     value={movieQuery}
                                     onChange={(e) => setMovieQuery(e.target.value)}
                                 />
@@ -702,7 +736,7 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                                 <div className="doki-wiz-dropdown">
                                     {isSearchingMovies ? (
                                         <div className="p-3 text-center text-secondary small">
-                                            Buscando...
+                                            Buscando en catálogo TMDB (72k+ títulos)...
                                         </div>
                                     ) : movieResults.length === 0 ? (
                                         <div className="p-3 text-center text-secondary small">
@@ -713,15 +747,16 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                                             const already = selectedMovies.some(
                                                 (s) => s.id === m.id
                                             )
+                                            const isTv = m.mediaType === 'tv'
                                             return (
                                                 <button
-                                                    key={m.id}
+                                                    key={`${m.mediaType || 'm'}-${m.id}`}
                                                     type="button"
                                                     disabled={already || selectedMovies.length >= 5}
                                                     onClick={() => addMovie(m)}
                                                     className="doki-wiz-dropdown-item"
                                                 >
-                                                    {m.posterPath && (
+                                                    {m.posterPath ? (
                                                         <img
                                                             src={m.posterPath}
                                                             alt={m.title}
@@ -732,10 +767,36 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                                                                 borderRadius: '6px',
                                                             }}
                                                         />
+                                                    ) : (
+                                                        <div
+                                                            style={{
+                                                                width: '32px',
+                                                                height: '46px',
+                                                                borderRadius: '6px',
+                                                                backgroundColor: 'rgba(255,255,255,0.06)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                            }}
+                                                        >
+                                                            {isTv ? <Tv size={16} className="text-secondary" /> : <Film size={16} className="text-secondary" />}
+                                                        </div>
                                                     )}
                                                     <div className="flex-grow-1 min-w-0">
-                                                        <div className="fw-bold text-white text-truncate">
-                                                            {m.title}{' '}
+                                                        <div className="fw-bold text-white text-truncate d-flex align-items-center gap-1.5">
+                                                            <span
+                                                                className="badge"
+                                                                style={{
+                                                                    fontSize: '0.62rem',
+                                                                    backgroundColor: isTv ? 'rgba(56, 189, 248, 0.18)' : 'rgba(168, 85, 247, 0.18)',
+                                                                    color: isTv ? '#38bdf8' : '#c084fc',
+                                                                    border: `1px solid ${isTv ? 'rgba(56, 189, 248, 0.35)' : 'rgba(168, 85, 247, 0.35)'}`,
+                                                                    padding: '2px 5px',
+                                                                }}
+                                                            >
+                                                                {isTv ? '📺 Serie' : '🎬 Película'}
+                                                            </span>
+                                                            <span className="text-truncate">{m.title}</span>
                                                             {m.releaseYear && (
                                                                 <span className="text-secondary fw-normal">
                                                                     ({m.releaseYear})
@@ -743,6 +804,7 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                                                             )}
                                                         </div>
                                                         <div className="text-secondary small text-truncate">
+                                                            {isTv && m.numberOfSeasons ? `${m.numberOfSeasons} ${m.numberOfSeasons === 1 ? 'temporada' : 'temporadas'} · ` : ''}
                                                             {m.genres.join(' · ')}
                                                         </div>
                                                     </div>
@@ -773,49 +835,69 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                                 </div>
                             ) : (
                                 <div className="row g-2">
-                                    {selectedMovies.map((m) => (
-                                        <div key={m.id} className="col-12 col-md-6">
-                                            <div className="doki-wiz-selected-card">
-                                                {m.posterPath ? (
-                                                    <img
-                                                        src={m.posterPath}
-                                                        alt={m.title}
-                                                        style={{
-                                                            width: '36px',
-                                                            height: '50px',
-                                                            objectFit: 'cover',
-                                                            borderRadius: '6px',
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <Film
-                                                        size={18}
-                                                        className="text-secondary flex-shrink-0"
-                                                    />
-                                                )}
-                                                <div className="flex-grow-1 min-w-0">
-                                                    <div className="fw-bold text-white small text-truncate">
-                                                        {m.title}{' '}
-                                                        {m.releaseYear ? `(${m.releaseYear})` : ''}
+                                    {selectedMovies.map((m) => {
+                                        const isTv = m.mediaType === 'tv'
+                                        return (
+                                            <div key={`${m.mediaType || 'm'}-${m.id}`} className="col-12 col-md-6">
+                                                <div className="doki-wiz-selected-card">
+                                                    {m.posterPath ? (
+                                                        <img
+                                                            src={m.posterPath}
+                                                            alt={m.title}
+                                                            style={{
+                                                                width: '36px',
+                                                                height: '50px',
+                                                                objectFit: 'cover',
+                                                                borderRadius: '6px',
+                                                            }}
+                                                        />
+                                                    ) : isTv ? (
+                                                        <Tv
+                                                            size={18}
+                                                            className="text-secondary flex-shrink-0"
+                                                        />
+                                                    ) : (
+                                                        <Film
+                                                            size={18}
+                                                            className="text-secondary flex-shrink-0"
+                                                        />
+                                                    )}
+                                                    <div className="flex-grow-1 min-w-0">
+                                                        <div className="fw-bold text-white small text-truncate d-flex align-items-center gap-1">
+                                                            <span
+                                                                className="badge"
+                                                                style={{
+                                                                    fontSize: '0.6rem',
+                                                                    backgroundColor: isTv ? 'rgba(56, 189, 248, 0.18)' : 'rgba(168, 85, 247, 0.18)',
+                                                                    color: isTv ? '#38bdf8' : '#c084fc',
+                                                                    border: `1px solid ${isTv ? 'rgba(56, 189, 248, 0.35)' : 'rgba(168, 85, 247, 0.35)'}`,
+                                                                    padding: '1px 4px',
+                                                                }}
+                                                            >
+                                                                {isTv ? 'Serie' : 'Película'}
+                                                            </span>
+                                                            <span className="text-truncate">{m.title}</span>
+                                                            {m.releaseYear ? `(${m.releaseYear})` : ''}
+                                                        </div>
+                                                        <div
+                                                            className="text-secondary text-truncate"
+                                                            style={{ fontSize: '0.72rem' }}
+                                                        >
+                                                            {m.genres.join(', ') || (isTv ? 'Serie' : 'Película')}
+                                                        </div>
                                                     </div>
-                                                    <div
-                                                        className="text-secondary text-truncate"
-                                                        style={{ fontSize: '0.72rem' }}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeMovie(m.id)}
+                                                        className="btn btn-sm p-0 text-secondary border-0"
+                                                        title="Quitar"
                                                     >
-                                                        {m.genres.join(', ') || 'Cine / TV'}
-                                                    </div>
+                                                        <X size={15} />
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeMovie(m.id)}
-                                                    className="btn btn-sm p-0 text-secondary border-0"
-                                                    title="Quitar"
-                                                >
-                                                    <X size={15} />
-                                                </button>
                                             </div>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             )}
                         </div>

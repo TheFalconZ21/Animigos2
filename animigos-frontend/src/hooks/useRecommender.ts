@@ -45,6 +45,8 @@ export function useRecommender() {
 
     const [preferredFormat, setPreferredFormat] = useState<string>('sorprendeme')
     const [preferredGenre, setPreferredGenre] = useState<string>('sorprendeme')
+    const [preferredYearMin, setPreferredYearMin] = useState<number | null>(null)
+    const [preferredYearMax, setPreferredYearMax] = useState<number | null>(null)
     const [referenceWork, setReferenceWork] = useState<ReferenceWorkQuery | null>(null)
     const [excludedBatchIds, setExcludedBatchIds] = useState<number[]>([])
 
@@ -107,12 +109,16 @@ export function useRecommender() {
             answersOverride?: TasteTestAnswers,
             formatOverride?: string,
             genreOverride?: string,
+            yearMinOverride?: number | null,
+            yearMaxOverride?: number | null,
             refOverride?: ReferenceWorkQuery | null,
             excludeOverride?: number[]
         ) => {
             const activeAnswers = answersOverride ?? tasteAnswers
             const activeFmt = formatOverride ?? preferredFormat
             const activeGenre = genreOverride ?? preferredGenre
+            const activeYearMin = yearMinOverride !== undefined ? yearMinOverride : preferredYearMin
+            const activeYearMax = yearMaxOverride !== undefined ? yearMaxOverride : preferredYearMax
             const activeRef = refOverride !== undefined ? refOverride : referenceWork
             const activeExclude = excludeOverride ?? excludedBatchIds
 
@@ -127,6 +133,8 @@ export function useRecommender() {
                     pacing: activeAnswers.pacing || '',
                     preferred_format: activeFmt,
                     preferred_genre: activeGenre,
+                    preferred_year_min: activeYearMin,
+                    preferred_year_max: activeYearMax,
                     reference_work: activeRef,
                     exclude_ids: activeExclude,
                     limit: 5,
@@ -136,7 +144,15 @@ export function useRecommender() {
                 setIsLoadingRecs(false)
             }
         },
-        [tasteAnswers, preferredFormat, preferredGenre, referenceWork, excludedBatchIds]
+        [
+            tasteAnswers,
+            preferredFormat,
+            preferredGenre,
+            preferredYearMin,
+            preferredYearMax,
+            referenceWork,
+            excludedBatchIds,
+        ]
     )
 
     const loadNetflixRecommendations = useCallback(
@@ -205,8 +221,16 @@ export function useRecommender() {
             setRecommendations([])
             return
         }
-        loadRecommendations(tasteAnswers, preferredFormat, preferredGenre, referenceWork, [])
-    }, [isCalibrated, preferredFormat, preferredGenre, referenceWork])
+        loadRecommendations(
+            tasteAnswers,
+            preferredFormat,
+            preferredGenre,
+            preferredYearMin,
+            preferredYearMax,
+            referenceWork,
+            []
+        )
+    }, [isCalibrated, preferredFormat, preferredGenre, preferredYearMin, preferredYearMax, referenceWork])
 
     useEffect(() => {
         if (!isCalibrated) {
@@ -234,6 +258,22 @@ export function useRecommender() {
         setPreferredGenre(genre)
     }, [])
 
+    const handleSelectYearMin = useCallback((year: number | null) => {
+        setExcludedBatchIds([])
+        setPreferredYearMin(year)
+    }, [])
+
+    const handleSelectYearMax = useCallback((year: number | null) => {
+        setExcludedBatchIds([])
+        setPreferredYearMax(year)
+    }, [])
+
+    const handleSelectYearRange = useCallback((minYear: number | null, maxYear: number | null) => {
+        setExcludedBatchIds([])
+        setPreferredYearMin(minYear)
+        setPreferredYearMax(maxYear)
+    }, [])
+
     const handleSelectReferenceWork = useCallback((refWork: ReferenceWorkQuery | null) => {
         setExcludedBatchIds([])
         setReferenceWork(refWork)
@@ -244,6 +284,8 @@ export function useRecommender() {
         setReferenceWork(null)
         setPreferredFormat('sorprendeme')
         setPreferredGenre('sorprendeme')
+        setPreferredYearMin(null)
+        setPreferredYearMax(null)
     }, [])
 
     const rotateNextFive = useCallback(async () => {
@@ -255,6 +297,8 @@ export function useRecommender() {
             tasteAnswers,
             preferredFormat,
             preferredGenre,
+            preferredYearMin,
+            preferredYearMax,
             referenceWork,
             boundedExcludes
         )
@@ -265,6 +309,8 @@ export function useRecommender() {
         tasteAnswers,
         preferredFormat,
         preferredGenre,
+        preferredYearMin,
+        preferredYearMax,
         referenceWork,
     ])
 
@@ -300,7 +346,15 @@ export function useRecommender() {
             }
 
             await Promise.all([
-                loadRecommendations(newAnswers, preferredFormat, preferredGenre, referenceWork, []),
+                loadRecommendations(
+                    newAnswers,
+                    preferredFormat,
+                    preferredGenre,
+                    preferredYearMin,
+                    preferredYearMax,
+                    referenceWork,
+                    []
+                ),
                 loadNetflixRecommendations(newAnswers, -1),
                 loadAnalytics(newAnswers),
             ])
@@ -310,6 +364,8 @@ export function useRecommender() {
             user,
             preferredFormat,
             preferredGenre,
+            preferredYearMin,
+            preferredYearMax,
             referenceWork,
             loadRecommendations,
             loadNetflixRecommendations,
@@ -322,6 +378,8 @@ export function useRecommender() {
         isCalibrated,
         preferredFormat,
         preferredGenre,
+        preferredYearMin,
+        preferredYearMax,
         referenceWork,
         recommendations,
         netflixRecommendations,
@@ -332,6 +390,9 @@ export function useRecommender() {
         isLoadingAnalytics,
         handleSelectFormat,
         handleSelectGenre,
+        handleSelectYearMin,
+        handleSelectYearMax,
+        handleSelectYearRange,
         handleSelectReferenceWork,
         setSelectedNetflixMovieIndex,
         handleSurpriseMeReset,

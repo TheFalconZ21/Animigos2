@@ -25,8 +25,12 @@ export function TablonBanner({ posters, publicacionesHoy, salasEsperando, onPubl
                 <h1 className="ml-titulo">El Tablón</h1>
                 <p className="tb-banner-sub">
                     Lo que tus amigos están viendo, recomendando y votando.
-                    <br />
-                    <strong>{publicacionesHoy}</strong> publicaciones nuevas
+                    {publicacionesHoy > 0 ? (
+                        <>
+                            <br />
+                            <strong>{publicacionesHoy}</strong> {publicacionesHoy === 1 ? 'publicación' : 'publicaciones'}
+                        </>
+                    ) : null}
                     {salasEsperando > 0 && <> · <strong>{salasEsperando}</strong> {salasEsperando === 1 ? 'sala espera' : 'salas esperan'} tu voto</>}
                 </p>
                 <div className="tb-banner-acciones">
@@ -42,15 +46,17 @@ export function TablonBanner({ posters, publicacionesHoy, salasEsperando, onPubl
                 </div>
             </div>
 
-            <div className="tb-corcho" aria-hidden="true">
-                {posters.slice(0, 5).map((p, i) => (
-                    <figure key={p.clave} className="tb-clavado" style={{ transform: `rotate(${GIROS[i]}deg)` }}>
-                        <span className="tb-washi" />
-                        <img src={p.imagenUrl} alt="" onError={alFallarPoster} />
-                        <figcaption>{p.titulo}</figcaption>
-                    </figure>
-                ))}
-            </div>
+            {posters.length > 0 && (
+                <div className="tb-corcho" aria-hidden="true">
+                    {posters.slice(0, 5).map((p, i) => (
+                        <figure key={p.clave} className="tb-clavado" style={{ transform: `rotate(${GIROS[i % GIROS.length]}deg)` }}>
+                            <span className="tb-washi" />
+                            <img src={p.imagenUrl} alt="" onError={alFallarPoster} />
+                            <figcaption>{p.titulo}</figcaption>
+                        </figure>
+                    ))}
+                </div>
+            )}
 
             <span className="ml-lomo tb-lomo" lang="ja" aria-hidden="true">回覧板</span>
         </header>

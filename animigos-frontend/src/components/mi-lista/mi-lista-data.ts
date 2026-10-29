@@ -7,7 +7,7 @@ import type { ApiUserListEntry } from '../../services/userListApi'
 // MI LISTA — Tipos, escala de notas y adaptadores de API
 // ============================================================
 
-export type EstadoLista = 'visto' | 'viendo' | 'pendiente'
+export type EstadoLista = 'visto' | 'viendo' | 'pendiente' | 'dropeado'
 
 export interface EntradaLista {
     id?: string
@@ -41,6 +41,13 @@ export function apiEntryToFila(entry: ApiUserListEntry): FilaLista {
                 ? parseFloat(String(rawAnime.score))
                 : 8.0
 
+    const durationNum =
+        typeof rawAnime.duration === 'number'
+            ? rawAnime.duration
+            : rawAnime.duration
+                ? parseFloat(String(rawAnime.duration))
+                : 24
+
     const anime: ExtendedAnime = {
         malId: entry.mal_id,
         title: rawAnime.title,
@@ -48,13 +55,17 @@ export function apiEntryToFila(entry: ApiUserListEntry): FilaLista {
         titleJapanese: rawAnime.title_japanese,
         imageUrl: rawAnime.image_url,
         score: isNaN(scoreNum) ? 8.0 : scoreNum,
-        rank: 1,
+        rank: rawAnime.rank || rawAnime.popularity || 1,
+        popularity: rawAnime.popularity || rawAnime.rank || undefined,
+        scoredBy: rawAnime.scored_by || undefined,
+        durationMinutes: !isNaN(durationNum) && durationNum > 0 ? durationNum : 24,
         episodes: rawAnime.episodes || 24,
         status: rawAnime.status || 'Finished Airing',
         season: rawAnime.season,
         year: rawAnime.season_year || undefined,
         studio: rawAnime.studio || 'Desconocido',
         genres: rawAnime.genres || [],
+        tagsData: rawAnime.tags_data || [],
         synopsis: rawAnime.synopsis || '',
     }
 
@@ -90,6 +101,7 @@ export const ESTADOS: { id: EstadoLista; label: string }[] = [
     { id: 'visto', label: 'Visto' },
     { id: 'viendo', label: 'Viendo' },
     { id: 'pendiente', label: 'Pendiente' },
+    { id: 'dropeado', label: 'Dropeado' },
 ]
 
 // Color de acento según el género dominante de la lista ("Tema dinámico").

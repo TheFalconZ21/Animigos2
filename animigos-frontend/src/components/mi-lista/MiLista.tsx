@@ -61,6 +61,7 @@ const CHIPS_ESTADO: { id: FiltroEstado; label: string }[] = [
     { id: 'visto', label: 'Vistos' },
     { id: 'viendo', label: 'Viendo' },
     { id: 'pendiente', label: 'Pendientes' },
+    { id: 'dropeado', label: 'Dropeados' },
     { id: 'favoritos', label: 'Favoritos' },
 ]
 

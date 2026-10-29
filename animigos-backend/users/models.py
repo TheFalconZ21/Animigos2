@@ -107,6 +107,7 @@ class UserAnimeEntry(models.Model):
         ('visto', 'Visto'),
         ('viendo', 'Viendo'),
         ('pendiente', 'Pendiente'),
+        ('dropeado', 'Dropeado'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

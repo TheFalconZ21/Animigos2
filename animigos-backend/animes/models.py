@@ -106,3 +106,48 @@ class AnimeScoreHistory(models.Model):
         period = f"{self.year}-{self.month:02d}" if self.month else str(self.year)
         return f"{self.anime_id} [{period}]: ★ {self.score or 'N/A'}"
 
+
+class ExternalReferenceMedia(models.Model):
+    """
+    Catálogo de Películas y Series de TV (no anime) extraído de TMDB para dar
+    referencias enriquecidas de gustos al recomendador y calibrador.
+    """
+    MEDIA_TYPE_CHOICES = [
+        ('movie', 'Película'),
+        ('tv', 'Serie de TV'),
+    ]
+
+    tmdb_id = models.IntegerField(db_index=True)
+    media_type = models.CharField(max_length=10, choices=MEDIA_TYPE_CHOICES, default='movie', db_index=True)
+    title = models.CharField(max_length=400, db_index=True)
+    original_title = models.CharField(max_length=400, blank=True, default='', db_index=True)
+    release_year = models.CharField(max_length=10, blank=True, default='', db_index=True)
+    poster_path = models.TextField(blank=True, default='')
+    backdrop_path = models.TextField(blank=True, default='')
+
+    vote_average = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    vote_count = models.IntegerField(default=0, db_index=True)
+    popularity = models.DecimalField(max_digits=10, decimal_places=3, default=0.0, db_index=True)
+
+    overview = models.TextField(blank=True, default='')
+    genres = models.JSONField(default=list, help_text="Lista de géneros TMDB como JSON array")
+    keywords = models.JSONField(default=list, blank=True, help_text="Palabras clave de la obra")
+
+    number_of_seasons = models.IntegerField(null=True, blank=True, help_text="Para series de TV")
+    number_of_episodes = models.IntegerField(null=True, blank=True, help_text="Para series de TV")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Referencia Externa (TMDB)"
+        verbose_name_plural = "Referencias Externas (TMDB)"
+        ordering = ['-vote_count', '-popularity']
+        constraints = [
+            models.UniqueConstraint(fields=['tmdb_id', 'media_type'], name='unique_tmdb_media')
+        ]
+
+    def __str__(self):
+        icon = '🎬' if self.media_type == 'movie' else '📺'
+        return f"{icon} {self.title} ({self.release_year})"
+
+

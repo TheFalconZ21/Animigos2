@@ -105,6 +105,12 @@ function Contenido({
                                 </button>
                             </div>
                             {anime.episodes > 1 && <ProgresoEpisodios vistos={fila.episodiosVistos} total={anime.episodes} />}
+                            {fila.comentario && (
+                                <div className="mt-2">
+                                    <h4 className="ml-label mb-1" style={{ fontSize: '0.78rem' }}>Comentario:</h4>
+                                    <p className="ml-comentario m-0">“{fila.comentario}”</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </section>

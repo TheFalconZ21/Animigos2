@@ -11,10 +11,13 @@ import {
     fetchStudios,
     fetchGenres,
     fetchYears,
+    fetchAnimeById,
+    fetchTaxonomies,
     type CatalogFilterParams,
     type CatalogPaginatedResponse,
     type StudioItem,
     type AnimeRecommendationItem,
+    type TaxonomiesCatalogResponse,
 } from '../services/catalogApi'
 import type { ApiAnimeData } from '../services/userListApi'
 
@@ -105,5 +108,31 @@ export function useStudios() {
         queryKey: ['animes', 'studios'],
         queryFn: fetchStudios,
         staleTime: 1000 * 60 * 60, // 1 hora
+    })
+}
+
+/**
+ * Hook para obtener el catálogo completo de Géneros y Taxonomías de AniList
+ */
+export function useTaxonomiesQuery() {
+    return useQuery<TaxonomiesCatalogResponse, Error>({
+        queryKey: ['animes', 'taxonomies'],
+        queryFn: fetchTaxonomies,
+        staleTime: 1000 * 60 * 60,
+    })
+}
+
+/**
+ * Hook para obtener el perfil completo de un anime por su mal_id
+ */
+export function useAnimeDetailQuery(malId: number | null) {
+    return useQuery<ApiAnimeData | null, Error>({
+        queryKey: ['animes', 'detail', malId],
+        queryFn: () => {
+            if (!malId || malId <= 0) return Promise.resolve(null)
+            return fetchAnimeById(malId)
+        },
+        enabled: malId !== null && malId > 0,
+        staleTime: 1000 * 60 * 5,
     })
 }
