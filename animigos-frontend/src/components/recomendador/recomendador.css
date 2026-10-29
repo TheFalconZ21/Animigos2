@@ -1038,3 +1038,52 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+
+.rec-card-clickable {
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.rec-poster-hover-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 10, 14, 0.72);
+    backdrop-filter: blur(2px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.rec-card-clickable:hover .rec-poster-hover-overlay {
+    opacity: 1;
+}
+
+.rec-card-clickable:hover .rec-anime-poster {
+    transform: scale(1.05);
+}
+
+.rec-anime-poster {
+    transition: transform 0.25s ease;
+}
+
+.rec-clickable-title {
+    cursor: pointer;
+    transition: color 0.16s ease;
+}
+
+.rec-clickable-title:hover {
+    color: var(--rec-accent, #e8508f);
+    text-decoration: underline;
+}

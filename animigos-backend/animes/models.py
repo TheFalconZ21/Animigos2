@@ -6,6 +6,7 @@ class Anime(models.Model):
     title_english = models.CharField(max_length=300, blank=True, default='')
     title_japanese = models.CharField(max_length=300, blank=True, default='')
     synopsis = models.TextField(blank=True, default='')
+    synopsis_es = models.TextField(blank=True, default='', help_text="Sinopsis traducida al español")
     
     image_url = models.TextField(blank=True, default='')
     banner_url = models.TextField(blank=True, default='')

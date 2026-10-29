@@ -264,8 +264,8 @@ const STEP_GUIDED_TIPS: Record<number, DokiTipItem[]> = {
             expression: 'pensando',
             text: (
                 <>
-                    ¡Último paso para conocer tu perfil! Elige qué{' '}
-                    <strong>extensión o formato</strong> prefieres y pulsa{' '}
+                    ¡Último paso para conocer tu perfil! Elige tus{' '}
+                    <strong>exigencias de calidad</strong> y pulsa{' '}
                     <strong>"Guardar y Abrir Recomendador"</strong> para empezar a buscar.
                 </>
             ),
@@ -1127,56 +1127,18 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                 )}
 
                 {/* =========================================================
-                    PASO 4: RITMO, EXTENSIÓN Y EXIGENCIAS
+                    PASO 4: EXIGENCIAS DE CALIDAD
                    ========================================================= */}
                 {step === 4 && (
                     <div className="doki-wiz-panel">
                         <div className="doki-wiz-section-title">
-                            <Clock size={17} />
-                            <span>4A. Formato y Extensión Ideal</span>
+                            <Sparkles size={17} />
+                            <span>Exigencias de Calidad</span>
                         </div>
                         <p className="doki-wiz-section-sub">
-                            ¿Cuánto tiempo quieres dedicarle a tu próxima serie o película?
+                            Filtros opcionales para adaptar las recomendaciones a tus estándares de producción y narrativa.
                         </p>
 
-                        <div className="row g-2 mb-4">
-                            {PACING_OPTIONS.map((opt) => {
-                                const active = pacing === opt.id
-                                return (
-                                    <div key={opt.id} className="col-12 col-md-6">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setPacing(opt.id)
-                                                setCustomReaction({
-                                                    expression: opt.expression,
-                                                    text: opt.reaction,
-                                                })
-                                            }}
-                                            className={`doki-wiz-choice-card ${active ? 'active' : ''}`}
-                                        >
-                                            <div className="d-flex align-items-center justify-content-between mb-1">
-                                                <span className="fw-bold small text-white">
-                                                    {opt.label}
-                                                </span>
-                                                {active && <Check size={15} />}
-                                            </div>
-                                            <p
-                                                className="mb-0 text-secondary"
-                                                style={{ fontSize: '0.75rem' }}
-                                            >
-                                                {opt.desc}
-                                            </p>
-                                        </button>
-                                    </div>
-                                )
-                            })}
-                        </div>
-
-                        <div className="doki-wiz-section-title">
-                            <Sparkles size={17} />
-                            <span>4B. Exigencias de Calidad</span>
-                        </div>
                         <div className="row g-2">
                             {EXTRA_FILTERS.map((f) => {
                                 const active = extraFilters.includes(f.id)

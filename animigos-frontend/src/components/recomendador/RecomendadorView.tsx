@@ -13,6 +13,7 @@ import {
     Building2,
     Tag,
     Calendar,
+    Info,
     Search,
     X,
 } from 'lucide-react'
@@ -28,6 +29,7 @@ import {
 } from '../../services/recommenderApi'
 import type { TmdbMovie } from '../perfil/perfil-types'
 import { ProfesorDoki, type DokiExpression } from '../doki/ProfesorDoki'
+import { AnimeProfileView } from '../catalogo/AnimeProfileView'
 import { TasteTestModal } from '../perfil/TasteTestModal'
 import './recomendador.css'
 
@@ -138,6 +140,7 @@ export const RecomendadorView: React.FC = () => {
         completeCalibrationTest,
     } = useRecommender()
 
+    const [selectedProfileMalId, setSelectedProfileMalId] = useState<number | null>(null)
     const [isTestModalOpen, setIsTestModalOpen] = useState(false)
     const [justAddedIds, setJustAddedIds] = useState<number[]>([])
     const [onboardingIdx, setOnboardingIdx] = useState(0)
@@ -378,9 +381,22 @@ export const RecomendadorView: React.FC = () => {
 
     const renderAnimeCard = (rec: CalibratedRecommendation, index: number) => {
         const inList = myListIds.has(rec.anime_id) || justAddedIds.includes(rec.anime_id)
+        const openDetail = () => {
+            setSelectedProfileMalId(rec.anime_id)
+            window.location.hash = `#anime/${rec.anime_id}`
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+
         return (
             <article key={rec.anime_id} className="rec-anime-card">
-                <div className="rec-anime-poster-wrap">
+                <div
+                    className="rec-anime-poster-wrap rec-card-clickable"
+                    onClick={openDetail}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && openDetail()}
+                    title={`Ver información detallada de ${rec.anime_title}`}
+                >
                     <img
                         src={rec.anime_poster}
                         alt={rec.anime_title}
@@ -402,6 +418,10 @@ export const RecomendadorView: React.FC = () => {
                             </>
                         )}
                     </span>
+                    <div className="rec-poster-hover-overlay">
+                        <Info size={18} />
+                        <span>Ver detalles</span>
+                    </div>
                 </div>
 
                 <div className="rec-anime-body">
@@ -415,7 +435,14 @@ export const RecomendadorView: React.FC = () => {
                         </span>
                     </div>
 
-                    <h3 className="rec-anime-title" title={rec.anime_title}>
+                    <h3
+                        className="rec-anime-title rec-clickable-title"
+                        title={`Ver detalles de ${rec.anime_title}`}
+                        onClick={openDetail}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => e.key === 'Enter' && openDetail()}
+                    >
                         {rec.anime_title}
                     </h3>
 
@@ -428,7 +455,12 @@ export const RecomendadorView: React.FC = () => {
                         )}
                     </div>
 
-                    <div className="rec-match-reason-box mb-2">
+                    <div
+                        className="rec-match-reason-box mb-2"
+                        onClick={openDetail}
+                        style={{ cursor: 'pointer' }}
+                        title="Ver detalles"
+                    >
                         <span>{rec.match_reason}</span>
                     </div>
 
@@ -461,7 +493,10 @@ export const RecomendadorView: React.FC = () => {
                                       }
                                     : undefined
                             }
-                            onClick={() => handleAddToMyList(rec.anime_id)}
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                handleAddToMyList(rec.anime_id)
+                            }}
                             disabled={inList}
                         >
                             {inList ? (
@@ -488,6 +523,25 @@ export const RecomendadorView: React.FC = () => {
             : userFavMovies.length > 0
               ? userFavMovies.map((m) => m.title).slice(0, 2).join(' y ')
               : 'tus películas y series favoritas'
+
+    if (selectedProfileMalId) {
+        return (
+            <AnimeProfileView
+                malId={selectedProfileMalId}
+                backLabel="Volver al Recomendador"
+                onBack={() => {
+                    setSelectedProfileMalId(null)
+                    window.location.hash = '#recomendador'
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
+                onSelectAnime={(nextId) => {
+                    setSelectedProfileMalId(nextId)
+                    window.location.hash = `#anime/${nextId}`
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
+            />
+        )
+    }
 
     return (
         <section

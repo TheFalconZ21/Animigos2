@@ -54,6 +54,12 @@ class AnimeSerializer(serializers.ModelSerializer):
     def get_recommended_by(self, obj):
         return []
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if getattr(instance, 'synopsis_es', None):
+            data['synopsis'] = instance.synopsis_es
+        return data
+
 class AnimeRecommendationSerializer(serializers.ModelSerializer):
     target = AnimeSerializer(read_only=True)
 

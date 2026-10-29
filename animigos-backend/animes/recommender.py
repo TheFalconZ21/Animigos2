@@ -683,7 +683,7 @@ def calibrate_and_recommend(
             'anime_id': anime.mal_id,
             'anime_title': anime.title,
             'anime_title_english': anime.title_english,
-            'synopsis': anime.synopsis,
+            'synopsis': getattr(anime, 'synopsis_es', None) or anime.synopsis,
             'anime_poster': anime.image_url,
             'anime_banner': anime.banner_url,
             'anime_score': round(score_val, 2),

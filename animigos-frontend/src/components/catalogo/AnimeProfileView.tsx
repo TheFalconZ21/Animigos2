@@ -36,6 +36,7 @@ interface AnimeProfileViewProps {
     onSelectAnime?: (malId: number, anime?: ApiAnimeData) => void
     onFilterByGenreOrTag?: (term: string, isTag?: boolean) => void
     onFilterByStudio?: (studio: string) => void
+    backLabel?: string
 }
 
 export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
@@ -45,6 +46,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
     onSelectAnime,
     onFilterByGenreOrTag,
     onFilterByStudio,
+    backLabel,
 }) => {
     const { isAuthenticated } = useAuth()
     const { acento } = useThemeAccent()
@@ -169,7 +171,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                         className="cat-btn-search py-2 px-4 mt-2"
                         onClick={() => (onBack ? onBack() : (window.location.hash = '#catalogo'))}
                     >
-                        Volver al Catálogo
+                        {backLabel || 'Volver al Catálogo'}
                     </button>
                 </div>
             </section>
@@ -192,7 +194,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                         className="anime-profile-back-btn"
                     >
                         <ArrowLeft size={15} />
-                        <span>Volver al Catálogo</span>
+                        <span>{backLabel || 'Volver al Catálogo'}</span>
                     </button>
 
                     <div className="small text-secondary font-mono" style={{ fontSize: '0.75rem' }}>

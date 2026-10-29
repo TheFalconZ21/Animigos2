@@ -5,3 +5,5 @@ python-dotenv>=1.0.1
 psycopg[binary]>=3.2.1
 channels>=4.0.0
 daphne>=4.0.0
+gunicorn>=22.0.0
+google-generativeai>=0.8.0
