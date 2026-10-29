@@ -108,7 +108,7 @@ export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'di
 
 import { getAuthHeaders } from './authApi'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, ''); const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
 const API_BASE = `${API_BASE_URL}/groups`
 
 export async function fetchAllRooms(token?: string): Promise<RoomSummary[]> {

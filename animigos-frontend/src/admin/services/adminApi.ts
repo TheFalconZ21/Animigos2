@@ -4,7 +4,7 @@
 
 import { getAuthHeaders } from '../../services/authApi';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, ''); const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`;
 
 export interface OverviewTelemetryDay {
   day: string;

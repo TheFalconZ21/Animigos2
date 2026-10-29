@@ -31,11 +31,17 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('', api_root_view, name='api-root'),
     path('admin/', admin.site.urls),
+    # Prefijo estándar /api/
     path('api/animes/', include('animes.urls')),
     path('api/groups/', include('groups.urls')),
     path('api/admin/', include('groups.admin_urls')),
     path('api/users/', include('users.urls')),
     path('api/news/', NewsView.as_view(), name='news'),
+    # Respaldo directo sin /api/
+    path('animes/', include('animes.urls')),
+    path('groups/', include('groups.urls')),
+    path('users/', include('users.urls')),
+    path('news/', NewsView.as_view(), name='news-fallback'),
 ]
 
 if settings.DEBUG:

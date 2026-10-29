@@ -26,11 +26,20 @@ class Command(BaseCommand):
         limit = options['limit']
         batch_size = options['batch_size']
 
-        base_dir = Path(__file__).resolve().parent.parent.parent.parent.parent
-        csv_path = base_dir / 'anime_dataset_2018_2026' / 'csv' / 'anime_master_catalogo.csv'
+        possible_paths = [
+            Path(__file__).resolve().parent.parent / 'data' / 'anime_master_catalogo.csv',
+            Path(__file__).resolve().parent.parent.parent.parent.parent / 'anime_dataset_2018_2026' / 'csv' / 'anime_master_catalogo.csv',
+            Path(__file__).resolve().parent.parent.parent.parent / 'anime_dataset_2018_2026' / 'csv' / 'anime_master_catalogo.csv',
+            Path(os.getcwd()) / 'animes' / 'data' / 'anime_master_catalogo.csv',
+        ]
+        csv_path = None
+        for p in possible_paths:
+            if p.exists():
+                csv_path = p
+                break
 
-        if not csv_path.exists():
-            self.stderr.write(self.style.ERROR(f"No se encontró el dataset en: {csv_path}"))
+        if not csv_path or not csv_path.exists():
+            self.stderr.write(self.style.ERROR(f"No se encontró el dataset en ninguna de las rutas posibles."))
             return
 
         self.stdout.write(f"Iniciando carga masiva desde {csv_path.name}...")

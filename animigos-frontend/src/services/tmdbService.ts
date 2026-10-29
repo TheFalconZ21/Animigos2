@@ -5,7 +5,7 @@
 
 import type { TmdbMovie, TmdbAnimeRecommendation } from '../components/perfil/perfil-types'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, ''); const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
 
 // Catálogo curado fallback por resiliencia de red
 const FALLBACK_MOVIES: TmdbMovie[] = [

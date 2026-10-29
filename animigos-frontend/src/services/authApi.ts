@@ -3,7 +3,7 @@
  * Pilar 2.1: Zero Trust BFF - Las credenciales y sesiones se gestionan mediante cookies HttpOnly seguras.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, ''); const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
 
 export function getAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
     const sessionId = typeof localStorage !== 'undefined'

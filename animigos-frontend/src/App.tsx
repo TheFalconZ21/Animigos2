@@ -26,7 +26,7 @@ function App() {
   }
 
   const isAdmin = Boolean(isAuthenticated && (user?.is_staff || user?.is_superuser))
-  const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'recomendador' | 'mi-lista' | 'admin' | 'sala' | 'tablon' | 'calendario' | 'perfil'>('catalogo')
+  const [currentView, setCurrentView] = useState<'landing' | 'catalogo' | 'recomendador' | 'mi-lista' | 'admin' | 'sala' | 'tablon' | 'calendario' | 'perfil'>('landing')
   const [visitedUsername, setVisitedUsername] = useState<string | undefined>(undefined)
   const [selectedAnimeId, setSelectedAnimeId] = useState<number | null>(null)
 
@@ -112,14 +112,14 @@ function App() {
           setVisitedUsername(uname || undefined)
           setCurrentView('perfil')
         }
-      } else if (hash === '#landing') {
-        setSelectedAnimeId(null)
-        setVisitedUsername(undefined)
-        setCurrentView('landing')
-      } else if (hash === '#catalogo' || hash === '#animes' || hash === '#top' || hash === '') {
+      } else if (hash === '#catalogo' || hash === '#animes' || hash === '#top') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('catalogo')
+      } else if (hash === '#landing' || hash === '' || hash === '#') {
+        setSelectedAnimeId(null)
+        setVisitedUsername(undefined)
+        setCurrentView('landing')
       }
     }
     handleHash()

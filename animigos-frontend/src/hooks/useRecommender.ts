@@ -328,7 +328,7 @@ export function useRecommender() {
 
             if (user) {
                 try {
-                    const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+                    const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, ''); const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
                     await fetch(`${API_BASE_URL}/users/me/preferences/`, {
                         method: 'PATCH',
                         headers: getAuthHeaders(),

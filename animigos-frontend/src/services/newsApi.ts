@@ -4,7 +4,7 @@
  * de 30 minutos: el navegador nunca consulta los sitios externos (AGENTS.md, pilar 4.1).
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, ''); const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
 
 export type FuenteNoticia = 'anmo' | 'ramen'
 

@@ -7,7 +7,7 @@ import type { TasteAnalyticsResponse } from './recommenderApi'
 import type { ApiUserListEntry, ApiUserFolder, ApiTagCount } from './userListApi'
 import type { PrivacyConfig, SocialLinks, LateralWallpaperConfig } from '../components/perfil/perfil-types'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, ''); const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
 
 export interface FriendUser {
     id: number
