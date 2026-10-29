@@ -27,6 +27,7 @@ import {
     type UserNotificationItem,
 } from '../services/friendsApi'
 import { addAnimeToMyList } from '../services/userListApi'
+import { resolveMediaUrl } from '../utils/mediaUrl'
 
 interface NavbarProps {
     currentView?: 'landing' | 'catalogo' | 'recomendador' | 'mi-lista' | 'sala' | 'tablon' | 'calendario' | 'perfil' | 'admin'
@@ -462,7 +463,7 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                                 >
                                     {user.avatar_url && !user.avatar_url.includes('placeholder') ? (
                                         <img
-                                            src={user.avatar_url}
+                                            src={resolveMediaUrl(user.avatar_url)}
                                             alt={user.display_name || user.username}
                                             className="rounded-circle"
                                             style={{
@@ -515,7 +516,7 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
                                 >
                                     {user.avatar_url && !user.avatar_url.includes('placeholder') ? (
                                         <img
-                                            src={user.avatar_url}
+                                            src={resolveMediaUrl(user.avatar_url)}
                                             alt={user.display_name || user.username}
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         />

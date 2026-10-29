@@ -102,3 +102,4 @@ class Command(BaseCommand):
                 pass
 
         self.stdout.write(self.style.SUCCESS("Base de datos de usuarios poblada exitosamente."))
+

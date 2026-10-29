@@ -44,6 +44,19 @@ class ProfileSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
 
+    def to_representation(self, instance):
+        from django.conf import settings
+        data = super().to_representation(instance)
+        avatar = data.get('avatar_url')
+        if avatar and avatar.startswith('/media/'):
+            request = self.context.get('request')
+            if request:
+                data['avatar_url'] = request.build_absolute_uri(avatar)
+            else:
+                backend_base = getattr(settings, 'BACKEND_URL', 'https://animigos-backend-oee1.onrender.com')
+                data['avatar_url'] = f"{backend_base.rstrip('/')}{avatar}"
+        return data
+
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)

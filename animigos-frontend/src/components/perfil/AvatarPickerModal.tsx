@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Check, Search, Sparkles, X, Link as LinkIcon, Image as ImageIcon } from 'lucide-react'
 import { Dialogo } from '../mi-lista/piezas'
 import { fetchPresetAvatars, type PresetAvatarCategory, type PresetAvatarItem } from '../../services/authApi'
+import { resolveMediaUrl } from '../../utils/mediaUrl'
 
 interface AvatarPickerModalProps {
     open: boolean
@@ -287,7 +288,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                                                     style={{ width: '64px', height: '64px', background: '#111' }}
                                                 >
                                                     <img
-                                                        src={av.url}
+                                                        src={resolveMediaUrl(av.url)}
                                                         alt={av.name}
                                                         loading="lazy"
                                                         className="w-100 h-100 object-fit-cover"
@@ -346,11 +347,11 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                                 }}
                             >
                                 <img
-                                    src={customUrlInput || currentAvatarUrl}
+                                    src={resolveMediaUrl(customUrlInput || currentAvatarUrl)}
                                     alt="Vista previa personalizada"
                                     className="w-100 h-100 object-fit-cover"
                                     onError={(e) => {
-                                        e.currentTarget.src = currentAvatarUrl
+                                        e.currentTarget.src = resolveMediaUrl(currentAvatarUrl)
                                     }}
                                 />
                             </div>
@@ -375,7 +376,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                 <div className="p-3 border-top border-dark d-flex align-items-center justify-content-between bg-dark bg-opacity-40">
                     <div className="d-flex align-items-center gap-2.5">
                         <img
-                            src={activeTab === 'catalog' ? selectedUrl : customUrlInput || currentAvatarUrl}
+                            src={resolveMediaUrl(activeTab === 'catalog' ? selectedUrl : customUrlInput || currentAvatarUrl)}
                             alt="Seleccionado"
                             className="rounded-circle border"
                             style={{
@@ -385,7 +386,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                                 borderColor: 'var(--perfil-acento)',
                             }}
                             onError={(e) => {
-                                e.currentTarget.src = currentAvatarUrl
+                                e.currentTarget.src = resolveMediaUrl(currentAvatarUrl)
                             }}
                         />
                         <div className="min-w-0">

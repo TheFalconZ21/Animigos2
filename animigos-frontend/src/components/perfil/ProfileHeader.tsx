@@ -11,6 +11,7 @@ import {
     ArrowLeft,
 } from 'lucide-react'
 import type { SocialLinks, PrivacyConfig } from './perfil-types'
+import { resolveMediaUrl } from '../../utils/mediaUrl'
 
 interface ProfileHeaderProps {
     displayName: string
@@ -109,7 +110,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                     <div className="d-flex flex-column flex-sm-row align-items-sm-end gap-3.5">
                         <div className="perfil-avatar-wrapper position-relative">
                             <img
-                                src={avatarUrl}
+                                src={resolveMediaUrl(avatarUrl)}
                                 alt={displayName}
                                 className="perfil-avatar-img"
                                 onError={(e) => {

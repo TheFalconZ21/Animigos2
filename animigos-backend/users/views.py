@@ -42,7 +42,7 @@ def register_user(request):
             'message': 'Usuario registrado exitosamente',
             'authenticated': True,
             'session_id': request.session.session_key,
-            'user': ProfileSerializer(profile).data
+            'user': ProfileSerializer(profile, context={'request': request}).data
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -83,7 +83,7 @@ def login_user(request):
             'message': 'Sesión iniciada correctamente',
             'authenticated': True,
             'session_id': request.session.session_key,
-            'user': ProfileSerializer(profile).data
+            'user': ProfileSerializer(profile, context={'request': request}).data
         }, status=status.HTTP_200_OK)
 
     return Response({'error': 'Credenciales inválidas. Verifica tu usuario y contraseña.'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -114,7 +114,7 @@ def get_current_user(request):
         return Response({
             'authenticated': True,
             'session_id': getattr(request.session, 'session_key', None),
-            'user': ProfileSerializer(profile).data
+            'user': ProfileSerializer(profile, context={'request': request}).data
         })
 
     return Response({
@@ -844,7 +844,7 @@ def public_user_profile_view(request, username):
             taste_analytics = None
 
     return Response({
-        'user': ProfileSerializer(profile).data,
+        'user': ProfileSerializer(profile, context={'request': request}).data,
         'privacy': privacy,
         'socials': ps.get('socials', {}) if isinstance(ps.get('socials'), dict) else {},
         'flag_url': ps.get('flag_url', None),

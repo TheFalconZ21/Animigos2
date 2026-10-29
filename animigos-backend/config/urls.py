@@ -1,9 +1,8 @@
-"""
-URL configuration for Animigos backend.
-"""
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.http import JsonResponse
+from django.conf import settings
+from django.views.static import serve
 from core.views import NewsView
 
 def api_root_view(request):
@@ -25,9 +24,6 @@ def api_root_view(request):
         }
     })
 
-from django.conf import settings
-from django.conf.urls.static import static
-
 urlpatterns = [
     path('', api_root_view, name='api-root'),
     path('admin/', admin.site.urls),
@@ -42,8 +38,6 @@ urlpatterns = [
     path('groups/', include('groups.urls')),
     path('users/', include('users.urls')),
     path('news/', NewsView.as_view(), name='news-fallback'),
+    # Servir archivos multimedia (avatares, uploads) tanto en desarrollo como en producción
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-

@@ -18,6 +18,7 @@ import {
     fetchSuggestedFriends,
     type FriendUser,
 } from '../../services/friendsApi'
+import { resolveMediaUrl } from '../../utils/mediaUrl'
 
 interface UserFriendsSectionProps {
     currentUserUsername?: string
@@ -275,7 +276,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                     <div className="perfil-friend-card-top">
                                         <div className="position-relative flex-shrink-0">
                                             <img
-                                                src={friend.avatar_url || DEFAULT_AVATAR}
+                                                src={resolveMediaUrl(friend.avatar_url) || DEFAULT_AVATAR}
                                                 alt={friend.display_name}
                                                 className="perfil-friend-avatar"
                                                 onError={(e) => {
@@ -367,7 +368,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                     <div className="perfil-friend-card-top">
                                         <div className="position-relative flex-shrink-0">
                                             <img
-                                                src={sug.avatar_url || DEFAULT_AVATAR}
+                                                src={resolveMediaUrl(sug.avatar_url) || DEFAULT_AVATAR}
                                                 alt={sug.display_name}
                                                 className="perfil-friend-avatar"
                                                 onError={(e) => {
@@ -543,7 +544,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                         >
                                             <div className="d-flex align-items-center gap-2 min-w-0">
                                                 <img
-                                                    src={u.avatar_url || DEFAULT_AVATAR}
+                                                    src={resolveMediaUrl(u.avatar_url) || DEFAULT_AVATAR}
                                                     alt=""
                                                     className="rounded-circle flex-shrink-0"
                                                     style={{ width: '36px', height: '36px', objectFit: 'cover' }}
@@ -636,7 +637,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                         title={`Visitar perfil de @${f.username}`}
                                     >
                                         <img
-                                            src={f.avatar_url || DEFAULT_AVATAR}
+                                            src={resolveMediaUrl(f.avatar_url) || DEFAULT_AVATAR}
                                             alt=""
                                             className="rounded-circle flex-shrink-0"
                                             style={{ width: '36px', height: '36px', objectFit: 'cover' }}
@@ -738,7 +739,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                         title={`Visitar perfil de @${sug.username}`}
                                     >
                                         <img
-                                            src={sug.avatar_url || DEFAULT_AVATAR}
+                                            src={resolveMediaUrl(sug.avatar_url) || DEFAULT_AVATAR}
                                             alt=""
                                             className="rounded-circle flex-shrink-0"
                                             style={{ width: '36px', height: '36px', objectFit: 'cover' }}
