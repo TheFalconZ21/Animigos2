@@ -36,3 +36,4 @@ class Command(BaseCommand):
         )
 
         self.stdout.write(self.style.SUCCESS(f'Salas iniciales listas: {room1.invite_code}, {room2.invite_code}'))
+

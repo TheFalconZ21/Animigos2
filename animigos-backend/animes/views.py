@@ -47,6 +47,14 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ['-score']
 
     def get_queryset(self):
+        if not Anime.objects.exists():
+            try:
+                from django.core.management import call_command
+                call_command('load_anime_bulk', limit=4000)
+                call_command('seed_initial_data')
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Error auto-seeding initial animes: {e}")
         qs = super().get_queryset()
         params = self.request.query_params
 
@@ -245,10 +253,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             return Response(obtener_horario_semanal())
         except Exception:
-            return Response(
-                {'detail': 'No se pudo obtener el horario de emisión. Inténtalo más tarde.'},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+            return Response([])
 
     @action(detail=False, methods=['get'])
     @cached_api_response(timeout=CACHE_TTL_LONG, prefix=CACHE_PREFIX_UPCOMING)
@@ -259,10 +264,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             return Response(obtener_proximos_lanzamientos())
         except Exception:
-            return Response(
-                {'detail': 'No se pudieron obtener los próximos lanzamientos. Inténtalo más tarde.'},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+            return Response([])
 
     @action(detail=False, methods=['get'])
     @cached_api_response(timeout=CACHE_TTL_LONG, prefix='genres')

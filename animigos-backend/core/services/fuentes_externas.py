@@ -24,8 +24,8 @@ from email.utils import parsedate_to_datetime
 from typing import TypedDict
 from xml.etree import ElementTree
 
-TIMEOUT_SEGUNDOS = 12
-USER_AGENT = 'Animigos/1.0 (+https://animigos.app)'
+TIMEOUT_SEGUNDOS = 5
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
 # ---------------------------------------------------------------------------
 # Horario de emisión (AniList)
@@ -34,7 +34,7 @@ USER_AGENT = 'Animigos/1.0 (+https://animigos.app)'
 ANILIST_URL = 'https://graphql.anilist.co'
 POPULARIDAD_MINIMA = 4000  # Evita llenar el calendario de títulos muy minoritarios
 FORMATOS_VALIDOS = {'TV', 'TV_SHORT', 'ONA'}
-MAX_PAGINAS = 10
+MAX_PAGINAS = 3
 
 CONSULTA_HORARIO = """
 query ($desde: Int, $hasta: Int, $pagina: Int) {
@@ -136,7 +136,7 @@ def obtener_horario_semanal(dias: int = 7) -> list[Emision]:
 
 POPULARIDAD_MINIMA_LANZAMIENTO = 2000
 FORMATOS_LANZAMIENTO = {'TV', 'TV_SHORT', 'ONA', 'MOVIE', 'OVA', 'SPECIAL'}
-MAX_PAGINAS_LANZAMIENTOS = 4
+MAX_PAGINAS_LANZAMIENTOS = 2
 
 CONSULTA_LANZAMIENTOS = """
 query ($desde: FuzzyDateInt, $hasta: FuzzyDateInt, $pagina: Int) {
