@@ -206,10 +206,20 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
 
 # Session & Security Cookies (Pilar 2.3 de la Directiva de Arquitectura)
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_AGE = 1209600  # 14 días de persistencia de sesión
 SESSION_SAVE_EVERY_REQUEST = True
-CSRF_COOKIE_SAMESITE = 'Lax'
+
+# En producción (Render HTTPS cross-domain con animigos.app/vercel), SameSite=None y Secure=True son obligatorios
+if os.environ.get('RENDER') or not DEBUG:
+    SESSION_COOKIE_SAMESITE = 'None'
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = 'None'
+    CSRF_COOKIE_SECURE = True
+else:
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SAMESITE = 'Lax'
+    CSRF_COOKIE_SECURE = False
 
 # Caching Layer (Pilar 4.1 y 4.3 de la Directiva de Arquitectura: Proxy & Caché Intermedia)
 REDIS_URL = os.environ.get('REDIS_URL')

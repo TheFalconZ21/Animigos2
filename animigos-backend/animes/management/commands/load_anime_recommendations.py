@@ -67,3 +67,4 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f"Recomendaciones cargadas: {total_created:,} registros en {elapsed}s."
         ))
+

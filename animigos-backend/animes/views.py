@@ -253,6 +253,10 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             call_command('seed_initial_data')
         except Exception as e:
             logging.error(f"Error seeding initial data: {e}")
+        try:
+            call_command('seed_users')
+        except Exception as e:
+            logging.error(f"Error seeding users: {e}")
         from animes.models import AnimeScoreHistory, AnimeRecommendation
         return Response({
             'status': 'success',
