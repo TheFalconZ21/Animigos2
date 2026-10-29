@@ -198,6 +198,12 @@ CSRF_TRUSTED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'x-session-id',
+    'x-guest-token',
+]
+
 # Session & Security Cookies (Pilar 2.3 de la Directiva de Arquitectura)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
