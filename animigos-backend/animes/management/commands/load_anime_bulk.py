@@ -1,5 +1,6 @@
 import os
 import csv
+import json
 import time
 from pathlib import Path
 from decimal import Decimal
@@ -57,7 +58,8 @@ class Command(BaseCommand):
             'title', 'title_english', 'title_japanese', 'synopsis', 'synopsis_es',
             'image_url', 'banner_url', 'score', 'scored_by', 'popularity', 'rank',
             'episodes', 'duration', 'season_year', 'season',
-            'studio', 'status', 'type', 'genres'
+            'studio', 'status', 'type', 'genres',
+            'tags_data', 'tags_cache'
         ]
 
         with open(csv_path, mode='r', encoding='utf-8-sig', errors='replace') as f:
@@ -143,6 +145,15 @@ class Command(BaseCommand):
                     type_val = (row.get('type') or 'TV').strip()
                     genres_str = (row.get('genres') or '').strip()
                     genres = [g.strip() for g in genres_str.split(',') if g.strip()] if genres_str else []
+                    
+                    tags_data_raw = (row.get('tags_data') or '').strip()
+                    tags_data = []
+                    if tags_data_raw:
+                        try:
+                            tags_data = json.loads(tags_data_raw)
+                        except Exception:
+                            tags_data = []
+                    tags_cache = (row.get('tags_cache') or '').strip()
 
                 else:
                     title = (row.get('title_userPreferred') or row.get('title_romaji') or '').strip() or f"Anime #{mal_id}"
@@ -208,6 +219,8 @@ class Command(BaseCommand):
 
                     genres_raw = row.get('generos_2026', '').strip()
                     genres = [g.strip() for g in genres_raw.split(',') if g.strip()] if genres_raw else []
+                    tags_data = []
+                    tags_cache = ''
 
                 anime_obj = Anime(
                     mal_id=mal_id,
@@ -229,7 +242,9 @@ class Command(BaseCommand):
                     studio=studio,
                     status=status,
                     type=type_val,
-                    genres=genres
+                    genres=genres,
+                    tags_data=tags_data,
+                    tags_cache=tags_cache
                 )
                 objects_batch.append(anime_obj)
 

@@ -235,17 +235,36 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             response['X-Cache-Key'] = cache_key
         return response
 
-    @action(detail=False, methods=['get', 'post'])
+    @action(detail=False, methods=['get', 'post'], url_path='sync_catalog')
     def sync_catalog(self, request):
-        """Carga masivamente todos los 19,000+ animes (incluyendo Frieren) en la BD."""
+        """Carga masivamente los 30,000+ animes, tags, historial temporal y recomendaciones."""
+        import logging
         from django.core.management import call_command
         call_command('load_anime_bulk')
-        call_command('seed_initial_data')
+        try:
+            call_command('load_anime_history')
+        except Exception as e:
+            logging.error(f"Error cargando anime history: {e}")
+        try:
+            call_command('load_anime_recommendations')
+        except Exception as e:
+            logging.error(f"Error cargando anime recommendations: {e}")
+        try:
+            call_command('seed_initial_data')
+        except Exception as e:
+            logging.error(f"Error seeding initial data: {e}")
+        from animes.models import AnimeScoreHistory, AnimeRecommendation
         return Response({
             'status': 'success',
             'total_animes': Anime.objects.count(),
-            'message': 'Catálogo maestro sincronizado completamente con 19,000+ animes.',
+            'total_history': AnimeScoreHistory.objects.count(),
+            'total_recommendations': AnimeRecommendation.objects.count(),
+            'message': 'Catálogo maestro, tags, historial y recomendaciones sincronizados completamente.',
         })
+
+    @action(detail=False, methods=['get', 'post'], url_path='sync-catalog')
+    def sync_catalog_hyphen(self, request):
+        return self.sync_catalog(request)
 
     @action(detail=False, methods=['get'])
     @cached_api_response(timeout=CACHE_TTL_MEDIUM, prefix=CACHE_PREFIX_TOP_ANIMES)
