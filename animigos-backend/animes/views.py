@@ -47,10 +47,10 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ['-score']
 
     def get_queryset(self):
-        if not Anime.objects.exists():
+        if Anime.objects.count() < 10000:
             try:
                 from django.core.management import call_command
-                call_command('load_anime_bulk', limit=4000)
+                call_command('load_anime_bulk')
                 call_command('seed_initial_data')
             except Exception as e:
                 import logging
@@ -234,6 +234,18 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             response['X-Cache-Status'] = 'MISS'
             response['X-Cache-Key'] = cache_key
         return response
+
+    @action(detail=False, methods=['get', 'post'])
+    def sync_catalog(self, request):
+        """Carga masivamente todos los 19,000+ animes (incluyendo Frieren) en la BD."""
+        from django.core.management import call_command
+        call_command('load_anime_bulk')
+        call_command('seed_initial_data')
+        return Response({
+            'status': 'success',
+            'total_animes': Anime.objects.count(),
+            'message': 'Catálogo maestro sincronizado completamente con 19,000+ animes.',
+        })
 
     @action(detail=False, methods=['get'])
     @cached_api_response(timeout=CACHE_TTL_MEDIUM, prefix=CACHE_PREFIX_TOP_ANIMES)
