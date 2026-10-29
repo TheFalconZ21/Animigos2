@@ -130,8 +130,6 @@ export const RecomendadorView: React.FC = () => {
         isLoadingNetflix,
         handleSelectFormat,
         handleSelectGenre,
-        handleSelectYearMin,
-        handleSelectYearMax,
         handleSelectYearRange,
         handleSelectReferenceWork,
         setSelectedNetflixMovieIndex,
@@ -370,7 +368,7 @@ export const RecomendadorView: React.FC = () => {
                 nota: null,
                 episodiosVistos: 0,
                 favorito: false,
-                carpetaId: null,
+                carpetaId: undefined,
                 tags: ['#recomendado-doki'],
                 comentario: 'Descubierto en el Recomendador de Animigos',
             })

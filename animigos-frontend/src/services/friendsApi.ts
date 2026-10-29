@@ -2,8 +2,7 @@
  * Servicio de Amigos y Conexiones Sociales (Animigos)
  * Cumple con Directiva AGENTS.md (Regla 1.2: Capa de Servicios y Regla 2.1: Zero Trust)
  */
-import { getAuthHeaders } from './authApi'
-import type { UserProfile } from '../types/profile.types'
+import { getAuthHeaders, type UserProfile } from './authApi'
 import type { TasteAnalyticsResponse } from './recommenderApi'
 import type { ApiUserListEntry, ApiUserFolder, ApiTagCount } from './userListApi'
 import type { PrivacyConfig, SocialLinks, LateralWallpaperConfig } from '../components/perfil/perfil-types'

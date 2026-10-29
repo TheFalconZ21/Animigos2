@@ -1,22 +1,15 @@
 import React, { useState, useMemo } from 'react'
 import {
     ArrowLeft,
-    Star,
-    Award,
-    Users,
     Building2,
     Calendar,
-    Tv,
-    Clock,
     Heart,
     Plus,
-    Check,
     Sparkles,
     Tag,
     TrendingUp,
     Eye,
     EyeOff,
-    Info,
     Loader2,
 } from 'lucide-react'
 import { useAnimeDetailQuery, useAnimeRecommendations } from '../../hooks/useCatalog'

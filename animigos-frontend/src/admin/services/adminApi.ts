@@ -287,6 +287,8 @@ export interface AnimeItem {
   banner_url?: string;
 }
 
+export type AdminAnimeUpdatePayload = Partial<AnimeItem>;
+
 export interface AnimesResponse {
   count: number;
   next?: string | null;

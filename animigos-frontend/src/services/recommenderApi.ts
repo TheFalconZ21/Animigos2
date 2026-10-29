@@ -10,14 +10,18 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 export interface CalibrateAnimeCandidate {
     mal_id: number
+    id?: number
     title: string
     title_english: string
     image_url: string
+    poster?: string
     score: number
     season_year?: number
     studio?: string
     genres: string[]
 }
+
+export type TestAnimeItem = CalibrateAnimeCandidate
 
 export interface AnimeWeightedTag {
     name: string
@@ -126,7 +130,12 @@ export async function searchTestAnimes(query = ''): Promise<CalibrateAnimeCandid
             credentials: 'include',
         })
         if (!res.ok) throw new Error('Error buscando animes para test')
-        return await res.json()
+        const data = await res.json()
+        return (data || []).map((item: any) => ({
+            ...item,
+            id: item.id ?? item.mal_id,
+            poster: item.poster ?? item.image_url,
+        }))
     } catch (err) {
         console.error('searchTestAnimes error:', err)
         return []

@@ -60,6 +60,7 @@ interface ProfesorDokiProps {
     expression?: DokiExpression
     dialogue?: React.ReactNode
     title?: string
+    badgeText?: string
     size?: 'sm' | 'md' | 'lg' | 'xl'
     className?: string
     align?: 'left' | 'center' | 'compact'
@@ -72,6 +73,7 @@ export const ProfesorDoki: React.FC<ProfesorDokiProps> = ({
     expression = 'explicando',
     dialogue,
     title = 'Profesor Doki Doki',
+    badgeText,
     size = 'md',
     className = '',
     align = 'left',
@@ -105,7 +107,14 @@ export const ProfesorDoki: React.FC<ProfesorDokiProps> = ({
             {dialogue && (
                 <div className="doki-dialogue-bubble">
                     <div className="doki-dialogue-header">
-                        <span className="doki-dialogue-title">{title}</span>
+                        <div className="d-flex align-items-center">
+                            <span className="doki-dialogue-title">{title}</span>
+                            {badgeText && (
+                                <span className="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ms-2" style={{ fontSize: '0.72rem' }}>
+                                    {badgeText}
+                                </span>
+                            )}
+                        </div>
 
                         {(onPrevTip || onNextTip) && (
                             <div className="doki-arrow-controls">

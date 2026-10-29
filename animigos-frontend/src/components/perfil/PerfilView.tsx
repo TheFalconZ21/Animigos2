@@ -481,7 +481,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
         setRecFeedback(null)
         try {
             const res = await sendAnimeRecommendationToUser(activeUsername, {
-                anime_id: selectedRecAnime.id,
+                anime_id: (selectedRecAnime.id ?? selectedRecAnime.mal_id)!,
                 message: recMessage.trim(),
             })
             setRecFeedback({ text: res.message || '¡Recomendación enviada!', isError: false })
@@ -721,9 +721,9 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
                             ) : (
                                 <div className="row g-2" style={{ maxHeight: 220, overflowY: 'auto' }}>
                                     {recSearchResults.map((item) => {
-                                        const isSel = selectedRecAnime?.id === item.id
+                                        const isSel = (selectedRecAnime?.id ?? selectedRecAnime?.mal_id) === (item.id ?? item.mal_id)
                                         return (
-                                            <div key={item.id} className="col-12 col-sm-6">
+                                            <div key={item.id ?? item.mal_id} className="col-12 col-sm-6">
                                                 <button
                                                     type="button"
                                                     onClick={() => setSelectedRecAnime(item)}

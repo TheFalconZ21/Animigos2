@@ -6,7 +6,6 @@ import {
     ChevronLeft,
     Flame,
     Compass,
-    Clock,
     Film,
     Search,
     Plus,
@@ -119,47 +118,6 @@ const GENRE_LIST = [
     'Sports',
     'Supernatural',
     'Thriller',
-]
-
-const PACING_OPTIONS: {
-    id: string
-    label: string
-    desc: string
-    expression: DokiExpression
-    reaction: string
-}[] = [
-    {
-        id: 'fast_12',
-        label: 'Ritmo Dinámico (12 episodios)',
-        desc: 'Cero relleno, tramas condensadas que van directo al grano.',
-        expression: 'emocionado_serio',
-        reaction:
-            '¡Ritmo vertiginoso! Priorizaré temporadas compactas de 12 episodios sin relleno.',
-    },
-    {
-        id: 'deep_24',
-        label: 'Desarrollo Profundo (24+ episodios)',
-        desc: 'Construcción de mundo paciente y evolución de personajes.',
-        expression: 'explicando',
-        reaction:
-            '¡Equilibrio perfecto! Con 24 o más episodios los arcos de personaje brillan al máximo.',
-    },
-    {
-        id: 'movies',
-        label: 'Películas de Gran Impacto',
-        desc: 'Producción cinematográfica épica en 2 horas.',
-        expression: 'comiendo',
-        reaction:
-            '¡Preparando las palomitas! Las películas de anime tienen una factura visual de otro planeta.',
-    },
-    {
-        id: 'episodic',
-        label: 'Autoconclusivo (Caso por Episodio)',
-        desc: 'Fácil de pausar y retomar en cualquier momento.',
-        expression: 'tranquilo',
-        reaction:
-            '¡Ideal para disfrutar a tu propio ritmo! Historias redondas en cada capítulo.',
-    },
 ]
 
 const EXTRA_FILTERS: {

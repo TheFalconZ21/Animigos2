@@ -354,7 +354,7 @@ export const TasteCorrelationGraph: React.FC<TasteCorrelationGraphProps> = ({
         // Aplicar filtros de taxonomía (Main Tags, Secondary Tags, Categorías de AniList)
         const allowMain = selectedTaxonomies.includes('main_tags')
         const allowSecondary = selectedTaxonomies.includes('secondary_tags')
-        const activeCategories = new Set(
+        const activeCategories = new Set<string>(
             selectedTaxonomies.filter((t) => t !== 'main_tags' && t !== 'secondary_tags')
         )
 
@@ -366,7 +366,7 @@ export const TasteCorrelationGraph: React.FC<TasteCorrelationGraphProps> = ({
 
                 if (activeCategories.size > 0) {
                     const cat = node.category === 'Technical' ? 'Theme' : node.category
-                    if (!activeCategories.has(cat as TaxonomyFilterId)) return false
+                    if (!activeCategories.has(cat)) return false
                 }
 
                 if (!shouldComputeFromFilas && scoreFilter !== 'all') {
