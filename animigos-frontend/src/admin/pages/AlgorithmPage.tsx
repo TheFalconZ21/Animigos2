@@ -1,15 +1,22 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
     SlidersHorizontal,
-        Scale,
-        TrendingUp,
-    ThumbsUp,
-        Save,
-    CheckCircle2
+    Scale,
+    TrendingUp,
+    Save,
+    CheckCircle2,
+    FolderCog,
+    ChevronDown,
+    ChevronUp,
+    Info,
+    Sparkles,
+    X,
+    Maximize2
 } from 'lucide-react'
 import { getAlgorithm, calibrateAlgorithm } from '../services/adminApi'
 import type { AlgorithmResponse, AlgorithmRule, HappinessTimelinePoint } from '../services/adminApi'
 import { AdminDrilldownDrawer } from '../components/AdminDrilldownDrawer'
+import { RecommenderSatisfactionSection } from '../components/RecommenderSatisfactionSection'
 
 interface CandidateAnime {
     id: string
@@ -44,7 +51,7 @@ export function AlgorithmPage() {
     ])
 
     // -------------------------------------------------------------
-    // ESTADO: Datos del Backend & Periodo Temporal
+    // ESTADO: Datos del Backend & UI Interactivo
     // -------------------------------------------------------------
     const [algoData, setAlgoData] = useState<AlgorithmResponse | null>(null)
     const [timeframe, setTimeframe] = useState<'7d' | '30d' | '90d' | 'all'>('30d')
@@ -53,11 +60,16 @@ export function AlgorithmPage() {
     const [isSaving, setIsSaving] = useState(false)
     const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
 
+    // Controles UI para colapso tipo carpeta, tooltip de info y popup de simulador
+    const [isConfigExpanded, setIsConfigExpanded] = useState(false)
+    const [activeTooltipId, setActiveTooltipId] = useState<string | null>(null)
+    const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false)
+
     // -------------------------------------------------------------
     // ESTADO: Candidatos en el Simulador
     // -------------------------------------------------------------
     const [candidates, setCandidates] = useState<CandidateAnime[]>([
-        { id: '1', title: 'Frieren: Beyond Journey\'s End', votes: [9, 8, 9], malScore: 9.38, polarization: 1.05, genreAffinity: 0.8 },
+        { id: '1', title: "Frieren: Beyond Journey's End", votes: [9, 8, 9], malScore: 9.38, polarization: 1.05, genreAffinity: 0.8 },
         { id: '2', title: 'Chainsaw Man', votes: [10, 4, 9], malScore: 8.51, polarization: 2.12, genreAffinity: 0.6 },
         { id: '3', title: 'Dungeon Meshi', votes: [8, 8, 8], malScore: 8.57, polarization: 1.15, genreAffinity: 0.9 },
     ])
@@ -83,7 +95,7 @@ export function AlgorithmPage() {
     }, [])
 
     // -------------------------------------------------------------
-    // CALCULO REACTIVO DEL SIMULADOR SEGUN PESOS Y REGLAS ACTIVAS
+    // CÁLCULO REACTIVO DEL SIMULADOR SEGÚN PESOS Y REGLAS ACTIVAS
     // -------------------------------------------------------------
     const calculateCandidateScore = (c: CandidateAnime) => {
         const votes = c.votes
@@ -247,7 +259,7 @@ export function AlgorithmPage() {
             {
                 id: 'rec-1',
                 room_name: 'Otakus del Viernes',
-                anime_title: 'Frieren: Beyond Journey\'s End',
+                anime_title: "Frieren: Beyond Journey's End",
                 rating: 5,
                 verdict: '¡Acierto total!',
                 comment: 'Llegamos a consenso en solo 2 rondas. Ninguno la había terminado y nos enganchó a todos.',
@@ -287,10 +299,10 @@ export function AlgorithmPage() {
         ]
     }
 
-    // Coordenadas SVG para el gráfico temporal
-    const svgWidth = 600
-    const svgHeight = 180
-    const padding = { top: 25, right: 30, bottom: 35, left: 45 }
+    // Coordenadas SVG para el gráfico temporal (full width)
+    const svgWidth = 840
+    const svgHeight = 210
+    const padding = { top: 25, right: 35, bottom: 35, left: 45 }
     const chartW = svgWidth - padding.left - padding.right
     const chartH = svgHeight - padding.top - padding.bottom
 
@@ -311,6 +323,93 @@ export function AlgorithmPage() {
     const areaD = points.length > 0
         ? `${pathD} L ${points[points.length - 1].x} ${padding.top + chartH} L ${points[0].x} ${padding.top + chartH} Z`
         : ''
+
+    // Helper renderizador para sliders comprimidos con tooltip modal/popover (i)
+    const renderSliderWithInfo = (
+        id: string,
+        label: string,
+        code: string,
+        val: number,
+        setVal: (n: number) => void,
+        min: number,
+        max: number,
+        step: number,
+        minLabel: string,
+        maxLabel: string,
+        accentColor: string,
+        description: string,
+        displayDecimals: number = 2
+    ) => {
+        const isTooltipOpen = activeTooltipId === id
+        return (
+            <div className="p-2.5 rounded-1 h-100" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                    <div className="d-flex align-items-center gap-1.5 position-relative">
+                        <span className="fw-semibold text-white" style={{ fontSize: '0.78rem' }}>
+                            {label} <span className="font-mono text-secondary" style={{ fontSize: '0.72rem' }}>({code})</span>
+                        </span>
+                        <button
+                            type="button"
+                            aria-label={`Información sobre ${label}`}
+                            className="btn p-0 border-0 d-inline-flex align-items-center text-secondary"
+                            style={{ cursor: 'pointer', lineHeight: 1 }}
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                setActiveTooltipId(isTooltipOpen ? null : id)
+                            }}
+                            onMouseEnter={() => setActiveTooltipId(id)}
+                            onMouseLeave={() => setActiveTooltipId(null)}
+                        >
+                            <Info size={13} style={{ color: isTooltipOpen ? 'var(--admin-emerald)' : 'var(--admin-text-muted)' }} />
+                        </button>
+
+                        {isTooltipOpen && (
+                            <div
+                                className="position-absolute p-2 rounded shadow-lg font-sans"
+                                style={{
+                                    bottom: '125%',
+                                    left: 0,
+                                    minWidth: 230,
+                                    maxWidth: 280,
+                                    backgroundColor: '#18181B',
+                                    border: '1px solid var(--admin-border-divider)',
+                                    color: '#E4E4E7',
+                                    fontSize: '0.7rem',
+                                    zIndex: 120,
+                                    lineHeight: 1.35,
+                                    pointerEvents: 'none',
+                                    boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
+                                }}
+                            >
+                                <div className="fw-semibold text-white mb-0.5">{label}</div>
+                                {description}
+                            </div>
+                        )}
+                    </div>
+
+                    <span className="font-mono fw-bold text-white px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--admin-surface-3)', fontSize: '0.75rem' }}>
+                        {val.toFixed(displayDecimals)}
+                    </span>
+                </div>
+
+                <input
+                    id={`slider-${id}`}
+                    type="range"
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={val}
+                    onChange={(e) => setVal(parseFloat(e.target.value))}
+                    className="w-100 my-1"
+                    style={{ accentColor, cursor: 'pointer', height: 4 }}
+                />
+                <div className="d-flex justify-content-between font-mono text-muted" style={{ fontSize: '0.62rem' }}>
+                    <span>{minLabel}</span>
+                    <span>{maxLabel}</span>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="pb-5">
@@ -369,621 +468,693 @@ export function AlgorithmPage() {
             )}
 
             {/* ============================================================
-               1. FILA DE KPIS PRINCIPALES (4 Tarjetas)
+               1. MICRO-KPIS CURADOS (En la misma fila manteniendo responsividad)
                ============================================================ */}
-            {/* ============================================================
-               MICRO-KPIS CURADOS (Solo 3 métricas de alta prioridad)
-               ============================================================ */}
-            <div className="row g-3 mb-4">
-                <div className="col-12 col-md-4">
-                    <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
-                        <div>
-                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
-                                Felicidad Media
-                            </span>
-                            <div className="d-flex align-baseline gap-1.5 mt-0.5">
-                                <span className="fs-4 fw-bold text-white font-mono">{algoData?.stats.average_group_happiness || 8.48}</span>
-                                <span className="small text-muted font-mono" style={{ fontSize: '0.7rem' }}>/ 10</span>
-                            </div>
-                        </div>
-                        <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.68rem' }}>
-                            {algoData?.stats.happiness_trend_delta || '+0.42'} vs mes ant.
+            <div
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                    gap: '12px'
+                }}
+                className="mb-4"
+            >
+                <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
+                    <div>
+                        <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
+                            Felicidad Media
                         </span>
+                        <div className="d-flex align-baseline gap-1.5 mt-0.5">
+                            <span className="fs-4 fw-bold text-white font-mono">{algoData?.stats.average_group_happiness || 8.48}</span>
+                            <span className="small text-muted font-mono" style={{ fontSize: '0.7rem' }}>/ 10</span>
+                        </div>
                     </div>
+                    <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.68rem' }}>
+                        {algoData?.stats.happiness_trend_delta || '+0.42'} vs mes ant.
+                    </span>
                 </div>
 
-                <div className="col-12 col-md-4">
-                    <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
-                        <div>
-                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
-                                Satisfacción de Recomendación
-                            </span>
-                            <span className="fs-4 fw-bold text-white font-mono">{satisfaction.overall_satisfaction_pct}%</span>
-                        </div>
-                        <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.68rem' }}>
-                            Alta afinidad
+                <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
+                    <div>
+                        <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
+                            Satisfacción de Recomendación
                         </span>
+                        <span className="fs-4 fw-bold text-white font-mono">{satisfaction.overall_satisfaction_pct}%</span>
                     </div>
+                    <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.68rem' }}>
+                        Alta afinidad
+                    </span>
                 </div>
 
-                <div className="col-12 col-md-4">
-                    <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
-                        <div>
-                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
-                                Tasa de Consenso en Ronda 1
-                            </span>
-                            <span className="fs-4 fw-bold text-white font-mono">{satisfaction.acceptance_rate}%</span>
-                        </div>
-                        <span className="admin-badge admin-badge-purple font-mono" style={{ fontSize: '0.68rem' }}>
-                            Sin desempate
+                <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
+                    <div>
+                        <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
+                            Tasa de Consenso en Ronda 1
                         </span>
+                        <span className="fs-4 fw-bold text-white font-mono">{satisfaction.acceptance_rate}%</span>
                     </div>
+                    <span className="admin-badge admin-badge-purple font-mono" style={{ fontSize: '0.68rem' }}>
+                        Sin desempate
+                    </span>
                 </div>
             </div>
 
             {/* ============================================================
-               2. REQUERIMIENTO 1: PANEL DE CALIBRACIÓN DE PESOS MATEMÁTICOS
+               2. CONFIGURACIÓN DEL ALGORITMO COMPRIMIDA TIPO CARPETA
+                  (Ambas configuraciones en la misma fila con tooltips 'i')
                ============================================================ */}
-            <div className="admin-card mb-4">
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
-                    <div>
-                        <h2 className="admin-title m-0 d-flex align-items-center gap-2" style={{ fontSize: '0.95rem' }}>
-                            <SlidersHorizontal size={15} style={{ color: 'var(--admin-emerald)' }} />
-                            <span>Calibración de Ponderaciones Matemáticas del Algoritmo</span>
-                        </h2>
-                        <span className="admin-subtitle">
-                            Modifica el peso que se le asigna a cada parámetro en la función objetivo de felicidad
-                        </span>
+            <div className="admin-card mb-4 p-0 overflow-hidden" style={{ border: '1px solid var(--admin-border-subtle)' }}>
+                {/* Header barra tipo carpeta colapsable */}
+                <div
+                    className="d-flex flex-wrap justify-content-between align-items-center px-3.5 py-2.5"
+                    style={{
+                        backgroundColor: 'var(--admin-surface-2)',
+                        cursor: 'pointer',
+                        borderBottom: isConfigExpanded ? '1px solid var(--admin-border-subtle)' : 'none',
+                        userSelect: 'none'
+                    }}
+                    onClick={() => setIsConfigExpanded(!isConfigExpanded)}
+                >
+                    <div className="d-flex align-items-center gap-2.5">
+                        <div
+                            className="d-flex align-items-center justify-content-center rounded"
+                            style={{
+                                width: 32,
+                                height: 32,
+                                backgroundColor: 'var(--admin-surface-3)',
+                                border: '1px solid var(--admin-border-subtle)',
+                                color: 'var(--admin-emerald)'
+                            }}
+                        >
+                            <FolderCog size={16} />
+                        </div>
+                        <div>
+                            <div className="d-flex align-items-center gap-2">
+                                <span className="fw-semibold text-white" style={{ fontSize: '0.88rem' }}>
+                                    Configuración y Calibración del Algoritmo
+                                </span>
+                                <span className="admin-badge admin-badge-neutral font-mono" style={{ fontSize: '0.62rem' }}>
+                                    {isConfigExpanded ? 'Expandido' : 'Comprimido (Carpeta)'}
+                                </span>
+                                <span className="font-mono small d-none d-sm-inline" style={{ fontSize: '0.68rem', color: 'var(--admin-emerald)' }}>
+                                    ● 6 Ponderaciones · {rules.filter(r => r.active).length} Reglas Activas
+                                </span>
+                            </div>
+                            <span className="admin-subtitle" style={{ fontSize: '0.72rem' }}>
+                                Ponderaciones matemáticas (6 sliders con tooltip informativo) y reglas de consenso grupal
+                            </span>
+                        </div>
                     </div>
 
-                    <div className="d-flex align-items-center gap-1.5">
-                        <span className="font-mono text-secondary small me-1" style={{ fontSize: '0.7rem' }}>Presets:</span>
+                    <div className="d-flex align-items-center gap-2">
                         <button
-                            onClick={() => applyPreset('standard')}
-                            className="btn btn-sm btn-outline-secondary font-mono"
-                            style={{ fontSize: '0.68rem', padding: '3px 8px', color: '#D4D4D8', borderColor: 'var(--admin-border-subtle)' }}
+                            type="button"
+                            className="admin-btn admin-btn-secondary d-flex align-items-center gap-1.5 font-mono"
+                            style={{ fontSize: '0.72rem', padding: '4px 10px' }}
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                setIsConfigExpanded(!isConfigExpanded)
+                            }}
                         >
-                            Estándar
-                        </button>
-                        <button
-                            onClick={() => applyPreset('strict_anti_veto')}
-                            className="btn btn-sm btn-outline-secondary font-mono"
-                            style={{ fontSize: '0.68rem', padding: '3px 8px', color: '#D4D4D8', borderColor: 'var(--admin-border-subtle)' }}
-                        >
-                            Antidiscordia (Alto λ)
-                        </button>
-                        <button
-                            onClick={() => applyPreset('discovery')}
-                            className="btn btn-sm btn-outline-secondary font-mono"
-                            style={{ fontSize: '0.68rem', padding: '3px 8px', color: '#D4D4D8', borderColor: 'var(--admin-border-subtle)' }}
-                        >
-                            Descubrimiento Crítico
+                            {isConfigExpanded ? (
+                                <>
+                                    <ChevronUp size={13} />
+                                    <span>Comprimir Carpeta</span>
+                                </>
+                            ) : (
+                                <>
+                                    <ChevronDown size={13} />
+                                    <span>Abrir Configuración</span>
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-                    {/* Peso de la Media w_μ */}
-                    <div>
-                        <div className="p-3 rounded-1 h-100" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                            <div className="d-flex justify-content-between align-items-center mb-1">
-                                <span className="fw-semibold text-white" style={{ fontSize: '0.78rem' }}>Media de Interés (w_μ)</span>
-                                <span className="font-mono fw-bold text-white px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--admin-surface-3)', fontSize: '0.75rem' }}>
-                                    {weightMean.toFixed(2)}
-                                </span>
-                            </div>
-                            <p className="text-secondary small mb-2" style={{ fontSize: '0.7rem' }}>
-                                Ponderación del promedio directo de votos del grupo.
-                            </p>
-                            <input
-                                id="slider-weight-mean"
-                                type="range"
-                                min="0.5"
-                                max="2.0"
-                                step="0.05"
-                                value={weightMean}
-                                onChange={(e) => setWeightMean(parseFloat(e.target.value))}
-                                className="w-100"
-                                style={{ accentColor: '#10B981', cursor: 'pointer' }}
-                            />
-                            <div className="d-flex justify-content-between font-mono text-muted" style={{ fontSize: '0.64rem' }}>
-                                <span>0.50 (Suave)</span>
-                                <span>2.00 (Dominante)</span>
-                            </div>
-                        </div>
-                    </div>
+                {/* Contenido de la carpeta: Ambas configuraciones en la misma fila */}
+                {isConfigExpanded && (
+                    <div className="p-3">
+                        <div className="row g-3">
+                            {/* Columna Izquierda: Calibración de Ponderaciones Matemáticas */}
+                            <div className="col-12 col-xl-6">
+                                <div className="p-3 rounded-2 h-100 d-flex flex-column justify-content-between" style={{ backgroundColor: 'var(--admin-surface-1)', border: '1px solid var(--admin-border-subtle)' }}>
+                                    <div>
+                                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                            <div>
+                                                <h2 className="admin-title m-0 d-flex align-items-center gap-2" style={{ fontSize: '0.88rem' }}>
+                                                    <SlidersHorizontal size={14} style={{ color: 'var(--admin-emerald)' }} />
+                                                    <span>Calibración de Ponderaciones Matemáticas</span>
+                                                </h2>
+                                                <span className="admin-subtitle" style={{ fontSize: '0.7rem' }}>
+                                                    Función objetivo de felicidad grupal
+                                                </span>
+                                            </div>
 
-                    {/* Factor de Penalización por Dispersión λ */}
-                    <div>
-                        <div className="p-3 rounded-1 h-100" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                            <div className="d-flex justify-content-between align-items-center mb-1">
-                                <span className="fw-semibold text-white" style={{ fontSize: '0.78rem' }}>Aversión a la Dispersión (λ)</span>
-                                <span className="font-mono fw-bold text-white px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--admin-surface-3)', fontSize: '0.75rem' }}>
-                                    {lambda.toFixed(2)}
-                                </span>
-                            </div>
-                            <p className="text-secondary small mb-2" style={{ fontSize: '0.7rem' }}>
-                                Penalización aplicada a la desviación estándar (σ) entre amigos.
-                            </p>
-                            <input
-                                id="slider-weight-lambda"
-                                type="range"
-                                min="0.0"
-                                max="1.0"
-                                step="0.05"
-                                value={lambda}
-                                onChange={(e) => setLambda(parseFloat(e.target.value))}
-                                className="w-100"
-                                style={{ accentColor: '#38BDF8', cursor: 'pointer' }}
-                            />
-                            <div className="d-flex justify-content-between font-mono text-muted" style={{ fontSize: '0.64rem' }}>
-                                <span>0.00 (Tolerante)</span>
-                                <span>1.00 (Aversión total)</span>
-                            </div>
-                        </div>
-                    </div>
+                                            <div className="d-flex align-items-center gap-1 font-mono">
+                                                <span className="text-secondary small me-1" style={{ fontSize: '0.65rem' }}>Presets:</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => applyPreset('standard')}
+                                                    className="btn btn-sm btn-outline-secondary font-mono"
+                                                    style={{ fontSize: '0.65rem', padding: '2px 6px', color: '#D4D4D8', borderColor: 'var(--admin-border-subtle)' }}
+                                                >
+                                                    Estándar
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => applyPreset('strict_anti_veto')}
+                                                    className="btn btn-sm btn-outline-secondary font-mono"
+                                                    style={{ fontSize: '0.65rem', padding: '2px 6px', color: '#D4D4D8', borderColor: 'var(--admin-border-subtle)' }}
+                                                >
+                                                    Antidiscordia
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => applyPreset('discovery')}
+                                                    className="btn btn-sm btn-outline-secondary font-mono"
+                                                    style={{ fontSize: '0.65rem', padding: '2px 6px', color: '#D4D4D8', borderColor: 'var(--admin-border-subtle)' }}
+                                                >
+                                                    Crítico
+                                                </button>
+                                            </div>
+                                        </div>
 
-                    {/* Penalización por Polarización Histórica β */}
-                    <div>
-                        <div className="p-3 rounded-1 h-100" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                            <div className="d-flex justify-content-between align-items-center mb-1">
-                                <span className="fw-semibold text-white" style={{ fontSize: '0.78rem' }}>Freno a Polarización (β)</span>
-                                <span className="font-mono fw-bold text-white px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--admin-surface-3)', fontSize: '0.75rem' }}>
-                                    {weightPol.toFixed(2)}
-                                </span>
+                                        {/* 6 Sliders en Grid responsivo con Info Icons */}
+                                        <div className="row g-2">
+                                            <div className="col-12 col-md-6">
+                                                {renderSliderWithInfo(
+                                                    'weight-mean',
+                                                    'Media de Interés',
+                                                    'w_μ',
+                                                    weightMean,
+                                                    setWeightMean,
+                                                    0.5,
+                                                    2.0,
+                                                    0.05,
+                                                    '0.50 (Suave)',
+                                                    '2.00 (Dominante)',
+                                                    '#10B981',
+                                                    'Ponderación del promedio directo de votos del grupo.'
+                                                )}
+                                            </div>
+                                            <div className="col-12 col-md-6">
+                                                {renderSliderWithInfo(
+                                                    'lambda',
+                                                    'Aversión a la Dispersión',
+                                                    'λ',
+                                                    lambda,
+                                                    setLambda,
+                                                    0.0,
+                                                    1.0,
+                                                    0.02,
+                                                    '0.00 (Tolerante)',
+                                                    '1.00 (Aversión total)',
+                                                    '#38BDF8',
+                                                    'Penalización aplicada a la desviación estándar (σ) entre amigos.'
+                                                )}
+                                            </div>
+                                            <div className="col-12 col-md-6">
+                                                {renderSliderWithInfo(
+                                                    'weight-pol',
+                                                    'Freno a Polarización',
+                                                    'β',
+                                                    weightPol,
+                                                    setWeightPol,
+                                                    0.0,
+                                                    0.8,
+                                                    0.05,
+                                                    '0.00 (Ignorar)',
+                                                    '0.80 (Anti-controversia)',
+                                                    '#F59E0B',
+                                                    'Castigo a animes con alta controversia histórica externa (Dataset σ).'
+                                                )}
+                                            </div>
+                                            <div className="col-12 col-md-6">
+                                                {renderSliderWithInfo(
+                                                    'weight-mal',
+                                                    'Crítica Externa',
+                                                    'w_mal',
+                                                    weightMal,
+                                                    setWeightMal,
+                                                    0.0,
+                                                    0.5,
+                                                    0.05,
+                                                    '0.00 (Solo grupo)',
+                                                    '0.50 (Influencia alta)',
+                                                    '#A855F7',
+                                                    'Aporte de la calificación histórica canónica de MyAnimeList.'
+                                                )}
+                                            </div>
+                                            <div className="col-12 col-md-6">
+                                                {renderSliderWithInfo(
+                                                    'weight-aff',
+                                                    'Afinidad de Géneros',
+                                                    'w_af',
+                                                    weightAffinity,
+                                                    setWeightAffinity,
+                                                    0.0,
+                                                    1.5,
+                                                    0.05,
+                                                    '0.00 (Neutral)',
+                                                    '1.50 (Máxima afinidad)',
+                                                    '#EC4899',
+                                                    'Multiplicador por coincidencia con géneros favoritos de los perfiles.'
+                                                )}
+                                            </div>
+                                            <div className="col-12 col-md-6">
+                                                {renderSliderWithInfo(
+                                                    'tie-thresh',
+                                                    'Umbral de Desempate',
+                                                    'ε',
+                                                    tieThreshold,
+                                                    setTieThreshold,
+                                                    0.05,
+                                                    0.5,
+                                                    0.01,
+                                                    '0.05 (Estricto)',
+                                                    '0.50 (Flexible)',
+                                                    '#14B8A6',
+                                                    'Margen de diferencia de score que activa el criterio canónico de desempate.'
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <p className="text-secondary small mb-2" style={{ fontSize: '0.7rem' }}>
-                                Castigo a animes con alta controversia histórica externa (Dataset σ).
-                            </p>
-                            <input
-                                id="slider-weight-pol"
-                                type="range"
-                                min="0.0"
-                                max="0.8"
-                                step="0.05"
-                                value={weightPol}
-                                onChange={(e) => setWeightPol(parseFloat(e.target.value))}
-                                className="w-100"
-                                style={{ accentColor: '#F59E0B', cursor: 'pointer' }}
-                            />
-                            <div className="d-flex justify-content-between font-mono text-muted" style={{ fontSize: '0.64rem' }}>
-                                <span>0.00 (Ignorar)</span>
-                                <span>0.80 (Anti-controversia)</span>
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* Ponderación Calidad Canónica MAL w_mal */}
-                    <div>
-                        <div className="p-3 rounded-1 h-100" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                            <div className="d-flex justify-content-between align-items-center mb-1">
-                                <span className="fw-semibold text-white" style={{ fontSize: '0.78rem' }}>Crítica Externa (w_mal)</span>
-                                <span className="font-mono fw-bold text-white px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--admin-surface-3)', fontSize: '0.75rem' }}>
-                                    {weightMal.toFixed(2)}
-                                </span>
-                            </div>
-                            <p className="text-secondary small mb-2" style={{ fontSize: '0.7rem' }}>
-                                Aporte de la calificación histórica de MyAnimeList.
-                            </p>
-                            <input
-                                id="slider-weight-mal"
-                                type="range"
-                                min="0.0"
-                                max="0.5"
-                                step="0.05"
-                                value={weightMal}
-                                onChange={(e) => setWeightMal(parseFloat(e.target.value))}
-                                className="w-100"
-                                style={{ accentColor: '#A855F7', cursor: 'pointer' }}
-                            />
-                            <div className="d-flex justify-content-between font-mono text-muted" style={{ fontSize: '0.64rem' }}>
-                                <span>0.00 (Solo grupo)</span>
-                                <span>0.50 (Influencia alta)</span>
-                            </div>
-                        </div>
-                    </div>
+                            {/* Columna Derecha: Reglas de Consenso Grupal */}
+                            <div className="col-12 col-xl-6">
+                                <div className="p-3 rounded-2 h-100 d-flex flex-column justify-content-between" style={{ backgroundColor: 'var(--admin-surface-1)', border: '1px solid var(--admin-border-subtle)' }}>
+                                    <div>
+                                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                            <div>
+                                                <h2 className="admin-title m-0 d-flex align-items-center gap-2" style={{ fontSize: '0.88rem' }}>
+                                                    <Scale size={14} style={{ color: 'var(--admin-emerald)' }} />
+                                                    <span>Reglas de Consenso Grupal (Activar y Desactivar)</span>
+                                                </h2>
+                                                <span className="admin-subtitle" style={{ fontSize: '0.7rem' }}>
+                                                    Filtros automáticos que rigen el veredicto en salas
+                                                </span>
+                                            </div>
 
-                    {/* Bonus Afinidad de Género Grupal w_af */}
-                    <div>
-                        <div className="p-3 rounded-1 h-100" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                            <div className="d-flex justify-content-between align-items-center mb-1">
-                                <span className="fw-semibold text-white" style={{ fontSize: '0.78rem' }}>Afinidad de Géneros (w_af)</span>
-                                <span className="font-mono fw-bold text-white px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--admin-surface-3)', fontSize: '0.75rem' }}>
-                                    {weightAffinity.toFixed(2)}
-                                </span>
-                            </div>
-                            <p className="text-secondary small mb-2" style={{ fontSize: '0.7rem' }}>
-                                Multiplicador por coincidencia con géneros favoritos de los perfiles.
-                            </p>
-                            <input
-                                id="slider-weight-affinity"
-                                type="range"
-                                min="0.0"
-                                max="1.5"
-                                step="0.1"
-                                value={weightAffinity}
-                                onChange={(e) => setWeightAffinity(parseFloat(e.target.value))}
-                                className="w-100"
-                                style={{ accentColor: '#EC4899', cursor: 'pointer' }}
-                            />
-                            <div className="d-flex justify-content-between font-mono text-muted" style={{ fontSize: '0.64rem' }}>
-                                <span>0.00 (Neutral)</span>
-                                <span>1.50 (Máxima afinidad)</span>
-                            </div>
-                        </div>
-                    </div>
+                                            <div className="d-flex align-items-center gap-2 font-mono" style={{ fontSize: '0.68rem' }}>
+                                                <span style={{ color: 'var(--admin-emerald)' }}>
+                                                    ● {rules.filter(r => r.active).length} activas
+                                                </span>
+                                                <span style={{ color: 'var(--admin-text-muted)' }}>
+                                                    / {rules.filter(r => !r.active).length} inactivas
+                                                </span>
+                                            </div>
+                                        </div>
 
-                    {/* Umbral de Desempate (Tie-Break) */}
-                    <div>
-                        <div className="p-3 rounded-1 h-100" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                            <div className="d-flex justify-content-between align-items-center mb-1">
-                                <span className="fw-semibold text-white" style={{ fontSize: '0.78rem' }}>Umbral de Desempate (ε)</span>
-                                <span className="font-mono fw-bold text-white px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--admin-surface-3)', fontSize: '0.75rem' }}>
-                                    ±{tieThreshold.toFixed(2)} pts
-                                </span>
-                            </div>
-                            <p className="text-secondary small mb-2" style={{ fontSize: '0.7rem' }}>
-                                Margen de diferencia de score que activa el criterio canónico.
-                            </p>
-                            <input
-                                id="slider-tie-threshold"
-                                type="range"
-                                min="0.05"
-                                max="0.50"
-                                step="0.05"
-                                value={tieThreshold}
-                                onChange={(e) => setTieThreshold(parseFloat(e.target.value))}
-                                className="w-100"
-                                style={{ accentColor: '#10B981', cursor: 'pointer' }}
-                            />
-                            <div className="d-flex justify-content-between font-mono text-muted" style={{ fontSize: '0.64rem' }}>
-                                <span>0.05 (Estricto)</span>
-                                <span>0.50 (Flexible)</span>
+                                        {/* Reglas de Consenso en Grid responsivo */}
+                                        <div className="row g-2">
+                                            {rules.map(rule => (
+                                                <div key={rule.id} className="col-12 col-md-6">
+                                                    <div
+                                                        className="p-2.5 rounded-1 h-100 d-flex flex-column justify-content-between transition-all"
+                                                        style={{
+                                                            backgroundColor: rule.active ? 'rgba(16, 185, 129, 0.04)' : 'var(--admin-surface-2)',
+                                                            border: `1px solid ${rule.active ? 'rgba(16, 185, 129, 0.35)' : 'var(--admin-border-subtle)'}`
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <div className="d-flex justify-content-between align-items-start gap-1 mb-1.5">
+                                                                <div className="d-flex align-items-center gap-1.5 overflow-hidden">
+                                                                    <span
+                                                                        className="font-mono rounded px-1.5 py-0.5 fw-bold flex-shrink-0"
+                                                                        style={{
+                                                                            fontSize: '0.62rem',
+                                                                            backgroundColor: rule.active ? 'rgba(16, 185, 129, 0.2)' : 'var(--admin-surface-3)',
+                                                                            color: rule.active ? 'var(--admin-emerald)' : 'var(--admin-text-muted)'
+                                                                        }}
+                                                                    >
+                                                                        {rule.id}
+                                                                    </span>
+                                                                    <span className="fw-semibold text-white text-truncate" style={{ fontSize: '0.75rem' }} title={rule.name}>
+                                                                        {rule.name}
+                                                                    </span>
+                                                                </div>
+
+                                                                <div className="form-check form-switch m-0 flex-shrink-0">
+                                                                    <input
+                                                                        id={`toggle-rule-${rule.id}`}
+                                                                        className="form-check-input"
+                                                                        type="checkbox"
+                                                                        checked={rule.active}
+                                                                        onChange={() => handleToggleRule(rule.id)}
+                                                                        style={{
+                                                                            cursor: 'pointer',
+                                                                            backgroundColor: rule.active ? 'var(--admin-emerald)' : 'var(--admin-surface-3)',
+                                                                            borderColor: rule.active ? 'var(--admin-emerald)' : 'var(--admin-border-subtle)',
+                                                                            width: '1.8em',
+                                                                            height: '0.95em'
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="font-mono mb-1 text-truncate" style={{ fontSize: '0.66rem', color: 'var(--admin-text-secondary)' }} title={rule.condition}>
+                                                                <span style={{ color: 'var(--admin-text-muted)' }}>Condición: </span>
+                                                                {rule.condition}
+                                                            </div>
+                                                        </div>
+
+                                                        <div
+                                                            className="pt-1.5 border-top mt-1 d-flex align-items-center justify-content-between font-mono"
+                                                            style={{ borderColor: 'var(--admin-border-subtle)', fontSize: '0.65rem' }}
+                                                        >
+                                                            <span className="text-truncate me-1" style={{ color: rule.active ? 'var(--admin-emerald)' : 'var(--admin-text-muted)' }} title={rule.effect}>
+                                                                → {rule.effect}
+                                                            </span>
+                                                            <span
+                                                                className={`badge ${rule.active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}`}
+                                                                style={{ fontSize: '0.58rem', padding: '2px 4px' }}
+                                                            >
+                                                                {rule.active ? 'ACTIVA' : 'INACTIVA'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* ============================================================
-               3. REQUERIMIENTO 2: REGLAS DE CONSENSO (ACTIVAR / DESACTIVAR)
+               3. VISUALIZACIÓN PROTAGONISTA: GRÁFICO TEMPORAL DE FELICIDAD
                ============================================================ */}
             <div className="admin-card mb-4">
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                     <div>
                         <h2 className="admin-title m-0 d-flex align-items-center gap-2" style={{ fontSize: '0.95rem' }}>
-                            <Scale size={15} style={{ color: 'var(--admin-emerald)' }} />
-                            <span>Reglas de Consenso Grupal (Activar y Desactivar)</span>
+                            <TrendingUp size={15} style={{ color: 'var(--admin-emerald)' }} />
+                            <span>Felicidad Media Histórica (Todas las Salas)</span>
                         </h2>
                         <span className="admin-subtitle">
-                            Habilita o deshabilita los filtros automáticos que rigen el veredicto en las salas compartidas
+                            Evolución temporal del bienestar grupal y tasa de consenso en salas activas
                         </span>
                     </div>
 
-                    <div className="d-flex align-items-center gap-2 font-mono small">
-                        <span style={{ color: 'var(--admin-emerald)' }}>
-                            ● {rules.filter(r => r.active).length} activas
-                        </span>
-                        <span style={{ color: 'var(--admin-text-muted)' }}>
-                            / {rules.filter(r => !r.active).length} inactivas
-                        </span>
+                    <div className="d-flex flex-wrap align-items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsSimulatorModalOpen(true)}
+                            className="admin-btn d-flex align-items-center gap-1.5 font-mono"
+                            style={{
+                                backgroundColor: 'var(--admin-emerald-bg)',
+                                border: '1px solid var(--admin-emerald-border)',
+                                color: 'var(--admin-emerald)',
+                                fontSize: '0.74rem',
+                                padding: '5px 12px'
+                            }}
+                        >
+                            <Sparkles size={13} />
+                            <span>Lanzar Simulador Reactivo</span>
+                        </button>
+
+                        <div className="d-flex align-items-center gap-1 p-0.5 rounded-1" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
+                            {(['7d', '30d', '90d', 'all'] as const).map(p => (
+                                <button
+                                    key={p}
+                                    id={`btn-timeframe-${p}`}
+                                    onClick={() => setTimeframe(p)}
+                                    className="btn btn-sm font-mono border-0"
+                                    style={{
+                                        fontSize: '0.68rem',
+                                        padding: '3px 8px',
+                                        backgroundColor: timeframe === p ? 'var(--admin-emerald)' : 'transparent',
+                                        color: timeframe === p ? '#000000' : 'var(--admin-text-secondary)',
+                                        fontWeight: timeframe === p ? 600 : 400
+                                    }}
+                                >
+                                    {p.toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
-                    {rules.map(rule => (
+                {/* Canvas / SVG Chart OLED */}
+                <div className="position-relative" style={{ width: '100%', height: svgHeight, overflow: 'hidden' }}>
+                    <svg
+                        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                        className="w-100 h-100"
+                        style={{ display: 'block' }}
+                        preserveAspectRatio="none"
+                    >
+                        <defs>
+                            <linearGradient id="emeraldGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#10B981" stopOpacity="0.35" />
+                                <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
+                            </linearGradient>
+                        </defs>
+
+                        {/* Guías horizontales */}
+                        {[7.0, 7.5, 8.0, 8.5, 9.0].map(val => {
+                            const normY = (val - minScore) / (maxScore - minScore)
+                            const y = padding.top + chartH - (normY * chartH)
+                            return (
+                                <g key={val}>
+                                    <line
+                                        x1={padding.left}
+                                        y1={y}
+                                        x2={svgWidth - padding.right}
+                                        y2={y}
+                                        stroke="rgba(255, 255, 255, 0.06)"
+                                        strokeDasharray="3 3"
+                                    />
+                                    <text
+                                        x={padding.left - 8}
+                                        y={y + 3}
+                                        fill="var(--admin-text-muted)"
+                                        fontSize="9"
+                                        fontFamily="monospace"
+                                        textAnchor="end"
+                                    >
+                                        {val.toFixed(1)}
+                                    </text>
+                                </g>
+                            )
+                        })}
+
+                        {/* Área sombreada */}
+                        <path d={areaD} fill="url(#emeraldGradient)" />
+
+                        {/* Línea principal */}
+                        <path
+                            d={pathD}
+                            fill="none"
+                            stroke="#10B981"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+
+                        {/* Puntos y etiquetas */}
+                        {points.map((pt, i) => (
+                            <g key={i}>
+                                <circle
+                                    cx={pt.x}
+                                    cy={pt.y}
+                                    r={hoveredPoint?.date === pt.date ? 5.5 : 3.5}
+                                    fill={hoveredPoint?.date === pt.date ? '#FFFFFF' : '#10B981'}
+                                    stroke="#000000"
+                                    strokeWidth="2"
+                                    style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+                                    onMouseEnter={() => setHoveredPoint(pt)}
+                                    onMouseLeave={() => setHoveredPoint(null)}
+                                />
+                                <text
+                                    x={pt.x}
+                                    y={svgHeight - 10}
+                                    fill="var(--admin-text-muted)"
+                                    fontSize="9"
+                                    fontFamily="monospace"
+                                    textAnchor="middle"
+                                >
+                                    {pt.label}
+                                </text>
+                            </g>
+                        ))}
+                    </svg>
+
+                    {/* Tooltip flotante */}
+                    {hoveredPoint && (
                         <div
-                            key={rule.id}
-                            className="p-3 rounded-1 d-flex flex-column justify-content-between transition-all"
+                            className="position-absolute p-2 rounded-1 font-mono shadow-lg pointer-events-none"
                             style={{
-                                backgroundColor: rule.active ? 'rgba(16, 185, 129, 0.03)' : 'var(--admin-surface-2)',
-                                border: `1px solid ${rule.active ? 'rgba(16, 185, 129, 0.35)' : 'var(--admin-border-subtle)'}`
+                                top: 10,
+                                right: 15,
+                                backgroundColor: 'rgba(10, 10, 12, 0.95)',
+                                border: '1px solid var(--admin-emerald)',
+                                fontSize: '0.72rem',
+                                zIndex: 10
                             }}
                         >
-                            <div>
-                                <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
-                                    <div className="d-flex align-items-center gap-1.5">
-                                        <span
-                                            className="font-mono rounded px-1.5 py-0.5 fw-bold"
-                                            style={{
-                                                fontSize: '0.65rem',
-                                                backgroundColor: rule.active ? 'rgba(16, 185, 129, 0.2)' : 'var(--admin-surface-3)',
-                                                color: rule.active ? 'var(--admin-emerald)' : 'var(--admin-text-muted)'
-                                            }}
-                                        >
-                                            {rule.id}
-                                        </span>
-                                        <span className="fw-semibold text-white" style={{ fontSize: '0.82rem' }}>
-                                            {rule.name}
-                                        </span>
-                                    </div>
-
-                                    {/* Toggle Switch */}
-                                    <div className="form-check form-switch m-0">
-                                        <input
-                                            id={`toggle-rule-${rule.id}`}
-                                            className="form-check-input"
-                                            type="checkbox"
-                                            checked={rule.active}
-                                            onChange={() => handleToggleRule(rule.id)}
-                                            style={{
-                                                cursor: 'pointer',
-                                                backgroundColor: rule.active ? 'var(--admin-emerald)' : 'var(--admin-surface-3)',
-                                                borderColor: rule.active ? 'var(--admin-emerald)' : 'var(--admin-border-subtle)'
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="font-mono mb-1.5" style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)' }}>
-                                    <span style={{ color: 'var(--admin-text-muted)' }}>Condición: </span>
-                                    {rule.condition}
-                                </div>
+                            <div className="fw-bold text-white mb-0.5">{hoveredPoint.label} ({hoveredPoint.date})</div>
+                            <div style={{ color: 'var(--admin-emerald)' }}>
+                                Felicidad media: <strong>{hoveredPoint.avg_happiness} / 10</strong>
                             </div>
-
-                            <div
-                                className="pt-2 border-top mt-2 d-flex align-items-center justify-content-between font-mono"
-                                style={{ borderColor: 'var(--admin-border-subtle)', fontSize: '0.7rem' }}
-                            >
-                                <span style={{ color: rule.active ? 'var(--admin-emerald)' : 'var(--admin-text-muted)' }}>
-                                    → {rule.effect}
-                                </span>
-                                <span
-                                    className={`badge ${rule.active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}`}
-                                    style={{ fontSize: '0.62rem' }}
-                                >
-                                    {rule.active ? 'ACTIVA' : 'INACTIVA'}
-                                </span>
+                            <div style={{ color: 'var(--admin-text-secondary)' }}>
+                                Salas activas: {hoveredPoint.rooms_count} | Consenso: {hoveredPoint.consensus_rate}%
                             </div>
+                            {hoveredPoint.event && (
+                                <div className="mt-1 pt-1 border-top text-info" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                    Hito: {hoveredPoint.event}
+                                </div>
+                            )}
                         </div>
-                    ))}
+                    )}
+                </div>
+
+                {/* Métricas al pie del gráfico */}
+                <div className="d-flex flex-wrap justify-content-between align-items-center pt-2.5 border-top mt-3" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                    <div className="d-flex align-items-center gap-3">
+                        <div>
+                            <span className="text-secondary small font-mono" style={{ fontSize: '0.68rem' }}>Mínimo del periodo:</span>
+                            <div className="text-white fw-bold font-mono" style={{ fontSize: '0.78rem' }}>7.62 pts</div>
+                        </div>
+                        <div className="border-start ps-3" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                            <span className="text-secondary small font-mono" style={{ fontSize: '0.68rem' }}>Pico alcanzado:</span>
+                            <div className="text-success fw-bold font-mono" style={{ fontSize: '0.78rem' }}>8.61 pts</div>
+                        </div>
+                        <div className="border-start ps-3" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                            <span className="text-secondary small font-mono" style={{ fontSize: '0.68rem' }}>Tasa de salas unánimes:</span>
+                            <div className="text-info fw-bold font-mono" style={{ fontSize: '0.78rem' }}>88.6%</div>
+                        </div>
+                    </div>
+
+                    <span className="font-mono text-muted small" style={{ fontSize: '0.68rem' }}>
+                        Datos agregados de AWS PostgreSQL
+                    </span>
                 </div>
             </div>
 
             {/* ============================================================
-               4. REQUERIMIENTO 3: GRÁFICO TEMPORAL DE FELICIDAD MEDIA (EN VEZ DE GÉNERO)
+               4. POP-UP MODAL: SIMULADOR REACTIVO DE FELICIDAD
                ============================================================ */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '16px' }} className="mb-4">
-                {/* Gráfico Temporal */}
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            {isSimulatorModalOpen && (
+                <div
+                    className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3"
+                    style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.78)',
+                        backdropFilter: 'blur(8px)',
+                        zIndex: 1050
+                    }}
+                    onClick={() => setIsSimulatorModalOpen(false)}
+                >
+                    <div
+                        className="admin-card w-100 p-4"
+                        style={{
+                            maxWidth: 860,
+                            maxHeight: '90vh',
+                            overflowY: 'auto',
+                            border: '1px solid var(--admin-border-divider)',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.85)'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="d-flex justify-content-between align-items-start mb-3 pb-2.5 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
                             <div>
-                                <h2 className="admin-title m-0 d-flex align-items-center gap-2" style={{ fontSize: '0.95rem' }}>
-                                    <TrendingUp size={15} style={{ color: 'var(--admin-emerald)' }} />
-                                    <span>Felicidad Media Histórica (Todas las Salas)</span>
-                                </h2>
-                                <span className="admin-subtitle">
-                                    Evolución temporal del bienestar grupal y tasa de consenso en salas activas
+                                <div className="d-flex align-items-center gap-2">
+                                    <span className="p-1.5 rounded-2 d-flex align-items-center justify-content-center" style={{ backgroundColor: 'var(--admin-emerald-bg)', border: '1px solid var(--admin-emerald-border)', color: 'var(--admin-emerald)' }}>
+                                        <Sparkles size={16} />
+                                    </span>
+                                    <h2 className="admin-title m-0" style={{ fontSize: '1.05rem' }}>
+                                        Simulador Reactivo de Felicidad Grupal
+                                    </h2>
+                                    <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.65rem' }}>
+                                        λ = {lambda.toFixed(2)}
+                                    </span>
+                                </div>
+                                <span className="admin-subtitle d-block mt-1">
+                                    Ajusta en tiempo real los votos de los miembros del grupo para observar el impacto inmediato del algoritmo.
                                 </span>
                             </div>
-
-                            <div className="d-flex align-items-center gap-1 p-0.5 rounded-1" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                                {(['7d', '30d', '90d', 'all'] as const).map(p => (
-                                    <button
-                                        key={p}
-                                        id={`btn-timeframe-${p}`}
-                                        onClick={() => setTimeframe(p)}
-                                        className="btn btn-sm font-mono border-0"
-                                        style={{
-                                            fontSize: '0.68rem',
-                                            padding: '3px 8px',
-                                            backgroundColor: timeframe === p ? 'var(--admin-emerald)' : 'transparent',
-                                            color: timeframe === p ? '#000000' : 'var(--admin-text-secondary)',
-                                            fontWeight: timeframe === p ? 600 : 400
-                                        }}
-                                    >
-                                        {p.toUpperCase()}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Canvas / SVG Chart OLED */}
-                        <div className="position-relative" style={{ width: '100%', height: svgHeight, overflow: 'hidden' }}>
-                            <svg
-                                viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-                                className="w-100 h-100"
-                                style={{ display: 'block' }}
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-link text-muted p-1"
+                                onClick={() => setIsSimulatorModalOpen(false)}
+                                aria-label="Cerrar Simulador"
                             >
-                                <defs>
-                                    <linearGradient id="emeraldGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#10B981" stopOpacity="0.35" />
-                                        <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
-                                    </linearGradient>
-                                </defs>
-
-                                {/* Guías horizontales */}
-                                {[7.0, 7.5, 8.0, 8.5, 9.0].map(val => {
-                                    const normY = (val - minScore) / (maxScore - minScore)
-                                    const y = padding.top + chartH - (normY * chartH)
-                                    return (
-                                        <g key={val}>
-                                            <line
-                                                x1={padding.left}
-                                                y1={y}
-                                                x2={svgWidth - padding.right}
-                                                y2={y}
-                                                stroke="rgba(255, 255, 255, 0.06)"
-                                                strokeDasharray="3 3"
-                                            />
-                                            <text
-                                                x={padding.left - 8}
-                                                y={y + 3}
-                                                fill="var(--admin-text-muted)"
-                                                fontSize="9"
-                                                fontFamily="monospace"
-                                                textAnchor="end"
-                                            >
-                                                {val.toFixed(1)}
-                                            </text>
-                                        </g>
-                                    )
-                                })}
-
-                                {/* Área sombreada */}
-                                <path d={areaD} fill="url(#emeraldGradient)" />
-
-                                {/* Línea principal */}
-                                <path
-                                    d={pathD}
-                                    fill="none"
-                                    stroke="#10B981"
-                                    strokeWidth="2.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-
-                                {/* Puntos y etiquetas */}
-                                {points.map((pt, i) => (
-                                    <g key={i}>
-                                        <circle
-                                            cx={pt.x}
-                                            cy={pt.y}
-                                            r={hoveredPoint?.date === pt.date ? 5.5 : 3.5}
-                                            fill={hoveredPoint?.date === pt.date ? '#FFFFFF' : '#10B981'}
-                                            stroke="#000000"
-                                            strokeWidth="2"
-                                            style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
-                                            onMouseEnter={() => setHoveredPoint(pt)}
-                                            onMouseLeave={() => setHoveredPoint(null)}
-                                        />
-                                        <text
-                                            x={pt.x}
-                                            y={svgHeight - 10}
-                                            fill="var(--admin-text-muted)"
-                                            fontSize="9"
-                                            fontFamily="monospace"
-                                            textAnchor="middle"
-                                        >
-                                            {pt.label}
-                                        </text>
-                                    </g>
-                                ))}
-                            </svg>
-
-                            {/* Tooltip flotante */}
-                            {hoveredPoint && (
-                                <div
-                                    className="position-absolute p-2 rounded-1 font-mono shadow-lg pointer-events-none"
-                                    style={{
-                                        top: 10,
-                                        right: 15,
-                                        backgroundColor: 'rgba(10, 10, 12, 0.95)',
-                                        border: '1px solid var(--admin-emerald)',
-                                        fontSize: '0.72rem',
-                                        zIndex: 10
-                                    }}
-                                >
-                                    <div className="fw-bold text-white mb-0.5">{hoveredPoint.label} ({hoveredPoint.date})</div>
-                                    <div style={{ color: 'var(--admin-emerald)' }}>
-                                        Felicidad media: <strong>{hoveredPoint.avg_happiness} / 10</strong>
-                                    </div>
-                                    <div style={{ color: 'var(--admin-text-secondary)' }}>
-                                        Salas activas: {hoveredPoint.rooms_count} | Consenso: {hoveredPoint.consensus_rate}%
-                                    </div>
-                                    {hoveredPoint.event && (
-                                        <div className="mt-1 pt-1 border-top text-info" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                            Hito: {hoveredPoint.event}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Métricas al pie del gráfico */}
-                    <div className="d-flex flex-wrap justify-content-between align-items-center pt-2.5 border-top mt-3" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        <div className="d-flex align-items-center gap-3">
-                            <div>
-                                <span className="text-secondary small font-mono" style={{ fontSize: '0.68rem' }}>Mínimo del periodo:</span>
-                                <div className="text-white fw-bold font-mono" style={{ fontSize: '0.78rem' }}>7.62 pts</div>
-                            </div>
-                            <div className="border-start ps-3" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                <span className="text-secondary small font-mono" style={{ fontSize: '0.68rem' }}>Pico alcanzado:</span>
-                                <div className="text-success fw-bold font-mono" style={{ fontSize: '0.78rem' }}>8.61 pts</div>
-                            </div>
-                            <div className="border-start ps-3" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                <span className="text-secondary small font-mono" style={{ fontSize: '0.68rem' }}>Tasa de salas unánimes:</span>
-                                <div className="text-info fw-bold font-mono" style={{ fontSize: '0.78rem' }}>88.6%</div>
-                            </div>
+                                <X size={20} />
+                            </button>
                         </div>
 
-                        <span className="font-mono text-muted small" style={{ fontSize: '0.68rem' }}>
-                            Datos agregados de AWS PostgreSQL
-                        </span>
-                    </div>
-                </div>
-
-                {/* Simulador reactivo de votación */}
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <div>
-                                <h2 className="admin-title m-0" style={{ fontSize: '0.92rem' }}>Simulador Reactivo de Felicidad</h2>
-                                <span className="admin-subtitle">Ajusta los votos para ver la respuesta inmediata del algoritmo</span>
-                            </div>
-                            <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.65rem' }}>
-                                λ = {lambda.toFixed(2)}
-                            </span>
-                        </div>
-
-                        <div className="d-flex flex-column gap-2">
+                        {/* Listado de candidatos */}
+                        <div className="d-flex flex-column gap-2.5 mb-3">
                             {candidatesWithStats.map((c, rank) => {
                                 const isWinner = c.id === winnerId
                                 return (
                                     <div
                                         key={c.id}
-                                        className="p-2.5 rounded-1"
+                                        className="p-3 rounded-2"
                                         style={{
                                             backgroundColor: isWinner ? 'rgba(16, 185, 129, 0.05)' : 'var(--admin-surface-2)',
                                             border: `1px solid ${isWinner ? 'rgba(16, 185, 129, 0.35)' : 'var(--admin-border-subtle)'}`
                                         }}
                                     >
-                                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1.5">
+                                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
                                             <div className="d-flex align-items-center gap-2">
                                                 <span
                                                     className="font-mono rounded d-flex align-items-center justify-content-center"
                                                     style={{
-                                                        width: 18,
-                                                        height: 18,
+                                                        width: 22,
+                                                        height: 22,
                                                         backgroundColor: isWinner ? 'var(--admin-emerald)' : 'var(--admin-surface-3)',
                                                         color: isWinner ? '#000000' : '#FFFFFF',
-                                                        fontSize: '0.68rem',
+                                                        fontSize: '0.72rem',
                                                         fontWeight: 700
                                                     }}
                                                 >
                                                     {rank + 1}
                                                 </span>
-                                                <span className="fw-semibold text-white text-truncate" style={{ fontSize: '0.8rem', maxWidth: 180 }}>
+                                                <span className="fw-semibold text-white text-truncate" style={{ fontSize: '0.85rem', maxWidth: 220 }}>
                                                     {c.title}
                                                 </span>
                                                 {isWinner && (
-                                                    <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.6rem', padding: '2px 6px' }}>
+                                                    <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.62rem', padding: '2px 8px' }}>
                                                         GANADOR
                                                     </span>
                                                 )}
                                                 {c.hasVetoApplied && (
-                                                    <span className="admin-badge font-mono" style={{ fontSize: '0.6rem', padding: '2px 6px', backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>
+                                                    <span className="admin-badge font-mono" style={{ fontSize: '0.62rem', padding: '2px 8px', backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>
                                                         VETADO (-3.0)
                                                     </span>
                                                 )}
                                             </div>
 
-                                            <div className="d-flex align-items-center gap-2 font-mono" style={{ fontSize: '0.68rem' }}>
+                                            <div className="d-flex align-items-center gap-2 font-mono" style={{ fontSize: '0.72rem' }}>
                                                 <span style={{ color: 'var(--admin-text-muted)' }}>μ: <strong className="text-white">{c.mean}</strong></span>
                                                 <span style={{ color: 'var(--admin-text-muted)' }}>σ: <strong style={{ color: c.stdDev > 2 ? '#F59E0B' : '#38BDF8' }}>{c.stdDev}</strong></span>
-                                                <span className={`admin-badge ${isWinner ? 'admin-badge-success' : 'admin-badge-neutral'} font-mono fw-bold`} style={{ fontSize: '0.7rem' }}>
+                                                <span className={`admin-badge ${isWinner ? 'admin-badge-success' : 'admin-badge-neutral'} font-mono fw-bold`} style={{ fontSize: '0.72rem' }}>
                                                     Score: {c.finalScore}
                                                 </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedCandidateId(c.id)
+                                                    }}
+                                                    className="btn btn-sm btn-outline-secondary p-1 font-mono text-white d-flex align-items-center gap-1"
+                                                    style={{ fontSize: '0.65rem', borderColor: 'var(--admin-border-subtle)' }}
+                                                    title="Ver desglose matemático completo"
+                                                >
+                                                    <Maximize2 size={11} />
+                                                    <span>Desglose</span>
+                                                </button>
                                             </div>
                                         </div>
 
                                         {/* Controles deslizantes de amigos */}
-                                        <div className="d-flex flex-wrap align-items-center gap-2 pt-1.5 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                        <div className="d-flex flex-wrap align-items-center gap-2 pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
                                             {['Matias', 'Sofia', 'Kenji'].map((vName, vIdx) => (
-                                                <div key={vIdx} className="d-flex align-items-center gap-1.5 flex-grow-1" style={{ minWidth: 100 }}>
-                                                    <span className="font-mono text-muted" style={{ fontSize: '0.65rem', width: 45 }}>
+                                                <div key={vIdx} className="d-flex align-items-center gap-2 flex-grow-1" style={{ minWidth: 120 }}>
+                                                    <span className="font-mono text-muted" style={{ fontSize: '0.7rem', width: 48 }}>
                                                         {vName}:
                                                     </span>
                                                     <input
@@ -993,13 +1164,13 @@ export function AlgorithmPage() {
                                                         value={c.votes[vIdx]}
                                                         onChange={(e) => handleVoteChange(c.id, vIdx, parseInt(e.target.value))}
                                                         className="flex-grow-1"
-                                                        style={{ height: 3, accentColor: c.votes[vIdx] <= 2 ? '#EF4444' : '#10B981', cursor: 'pointer' }}
+                                                        style={{ height: 4, accentColor: c.votes[vIdx] <= 2 ? '#EF4444' : '#10B981', cursor: 'pointer' }}
                                                     />
                                                     <span
                                                         className="font-mono fw-bold text-center"
                                                         style={{
-                                                            fontSize: '0.72rem',
-                                                            width: 18,
+                                                            fontSize: '0.78rem',
+                                                            width: 22,
                                                             color: c.votes[vIdx] <= 2 ? '#EF4444' : c.votes[vIdx] >= 8 ? 'var(--admin-emerald)' : '#D4D4D8'
                                                         }}
                                                     >
@@ -1012,174 +1183,25 @@ export function AlgorithmPage() {
                                 )
                             })}
                         </div>
-                    </div>
 
-                    <div className="d-flex justify-content-between align-items-center pt-2 border-top mt-2 font-mono" style={{ borderColor: 'var(--admin-border-subtle)', fontSize: '0.68rem', color: 'var(--admin-text-muted)' }}>
-                        <span>Fórmula: groups/services/happiness.py</span>
-                        <span style={{ color: 'var(--admin-emerald)' }}>● Recálculo reactivo 0ms</span>
+                        <div className="d-flex justify-content-between align-items-center pt-2.5 border-top font-mono" style={{ borderColor: 'var(--admin-border-subtle)', fontSize: '0.72rem', color: 'var(--admin-text-muted)' }}>
+                            <span>Fórmula de consenso: groups/services/happiness.py</span>
+                            <button
+                                type="button"
+                                className="admin-btn admin-btn-secondary"
+                                onClick={() => setIsSimulatorModalOpen(false)}
+                            >
+                                Cerrar Simulador
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* ============================================================
-               5. REQUERIMIENTO 4: ÍNDICE DE SATISFACCIÓN POR RECOMENDACIÓN AUTOMÁTICA
+               5. INFORMACIÓN DEL RECOMENDADOR (AISLADA VISUALMENTE)
                ============================================================ */}
-            <div className="admin-card">
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <div>
-                        <h2 className="admin-title m-0 d-flex align-items-center gap-2" style={{ fontSize: '0.95rem' }}>
-                            <ThumbsUp size={15} style={{ color: 'var(--admin-emerald)' }} />
-                            <span>Índice de Satisfacción por Recomendación Automática</span>
-                        </h2>
-                        <span className="admin-subtitle">
-                            Métricas directas de feedback grupal posterior a las sugerencias generadas por el recomendador
-                        </span>
-                    </div>
-
-                    <div className="d-flex align-items-center gap-2">
-                        <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.7rem' }}>
-                            {satisfaction.overall_satisfaction_pct}% Satisfacción Global
-                        </span>
-                        <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.7rem' }}>
-                            {satisfaction.total_evaluations} Salas Evaluadas
-                        </span>
-                    </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '16px' }} className="mb-4">
-                    {/* Barra de Desglose de Evaluación */}
-                    <div className="p-3 rounded-1" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                        <div className="d-flex justify-content-between align-items-baseline mb-2">
-                            <span className="fw-semibold text-white" style={{ fontSize: '0.8rem' }}>Evaluación Post-Elección</span>
-                            <span className="font-mono fw-bold text-success" style={{ fontSize: '0.78rem' }}>
-                                {satisfaction.avg_rating} / 5.0 ⭐
-                            </span>
-                        </div>
-
-                        {/* Barra trifásica */}
-                        <div className="d-flex rounded overflow-hidden mb-2.5" style={{ height: 10 }}>
-                            <div style={{ width: `${satisfaction.breakdown.excellent_pct}%`, backgroundColor: '#10B981' }} title={`Excelente: ${satisfaction.breakdown.excellent_pct}%`} />
-                            <div style={{ width: `${satisfaction.breakdown.good_pct}%`, backgroundColor: '#38BDF8' }} title={`Aceptable: ${satisfaction.breakdown.good_pct}%`} />
-                            <div style={{ width: `${satisfaction.breakdown.poor_pct}%`, backgroundColor: '#EF4444' }} title={`Desacuerdo: ${satisfaction.breakdown.poor_pct}%`} />
-                        </div>
-
-                        <div className="d-flex justify-content-between font-mono small text-secondary" style={{ fontSize: '0.68rem' }}>
-                            <div className="d-flex align-items-center gap-1">
-                                <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10B981', display: 'inline-block' }} />
-                                <span>¡Nos encantó! ({satisfaction.breakdown.excellent_pct}%)</span>
-                            </div>
-                            <div className="d-flex align-items-center gap-1">
-                                <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#38BDF8', display: 'inline-block' }} />
-                                <span>Aceptable ({satisfaction.breakdown.good_pct}%)</span>
-                            </div>
-                            <div className="d-flex align-items-center gap-1">
-                                <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#EF4444', display: 'inline-block' }} />
-                                <span>Disconforme ({satisfaction.breakdown.poor_pct}%)</span>
-                            </div>
-                        </div>
-
-                        <div className="pt-2.5 border-top mt-3" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                            <div className="d-flex justify-content-between align-items-center font-mono small">
-                                <span className="text-secondary" style={{ fontSize: '0.7rem' }}>Tasa de adopción de la 1ª sugerencia:</span>
-                                <span className="text-white fw-bold" style={{ fontSize: '0.75rem' }}>{satisfaction.acceptance_rate}%</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Comparativa: Algoritmo Automático vs Elección Manual */}
-                    <div className="p-3 rounded-1" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="fw-semibold text-white" style={{ fontSize: '0.8rem' }}>
-                                Impacto del Algoritmo vs Selección Manual Tradicional
-                            </span>
-                            <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.64rem' }}>
-                                A/B Testing en Vivo
-                            </span>
-                        </div>
-
-                        <div className="table-responsive">
-                            <table className="table table-dark table-borderless font-mono m-0" style={{ fontSize: '0.72rem' }}>
-                                <thead>
-                                    <tr className="border-bottom" style={{ borderColor: 'var(--admin-border-subtle)', color: 'var(--admin-text-muted)' }}>
-                                        <th>MÉTRICA DE SALA</th>
-                                        <th className="text-center text-success">ALGORITMO ANIMIGOS</th>
-                                        <th className="text-center text-secondary">SELECCIÓN MANUAL</th>
-                                        <th className="text-end text-white">MEJORA</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr className="border-bottom" style={{ borderColor: 'rgba(255, 255, 255, 0.04)' }}>
-                                        <td className="text-white fw-medium">Felicidad media post-sesión</td>
-                                        <td className="text-center text-success fw-bold">{satisfaction.comparison.algo_happiness} / 10</td>
-                                        <td className="text-center text-secondary">{satisfaction.comparison.manual_happiness} / 10</td>
-                                        <td className="text-end text-success fw-bold">+1.57 pts (+22%)</td>
-                                    </tr>
-                                    <tr className="border-bottom" style={{ borderColor: 'rgba(255, 255, 255, 0.04)' }}>
-                                        <td className="text-white fw-medium">Tiempo hasta el consenso</td>
-                                        <td className="text-center text-success fw-bold">{satisfaction.comparison.time_to_consensus_algo}</td>
-                                        <td className="text-center text-secondary">{satisfaction.comparison.time_to_consensus_manual}</td>
-                                        <td className="text-end text-success fw-bold">-83% más rápido</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="text-white fw-medium">Tasa de conflicto / abandonos</td>
-                                        <td className="text-center text-success fw-bold">{satisfaction.comparison.conflict_rate_algo}</td>
-                                        <td className="text-center text-secondary">{satisfaction.comparison.conflict_rate_manual}</td>
-                                        <td className="text-end text-success fw-bold">-85% discordia</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Feed de Evaluaciones Reales de Salas */}
-                <div>
-                    <h3 className="admin-title mb-2.5" style={{ fontSize: '0.85rem' }}>
-                        Evaluaciones Recientes de Grupos (Feedback de Usuarios)
-                    </h3>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-                        {satisfaction.recent_feed.map(feed => (
-                            <div key={feed.id} className="p-2.5 rounded-1 h-100 d-flex flex-column justify-content-between" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                                <div>
-                                    <div className="d-flex justify-content-between align-items-start gap-2 mb-1.5">
-                                        <div>
-                                            <div className="fw-semibold text-white" style={{ fontSize: '0.78rem' }}>
-                                                {feed.room_name}
-                                            </div>
-                                            <div className="font-mono text-secondary small" style={{ fontSize: '0.68rem' }}>
-                                                Recomendado: <strong className="text-info">{feed.anime_title}</strong>
-                                            </div>
-                                        </div>
-
-                                        <div className="d-flex flex-column align-items-end">
-                                            <span className="text-warning font-mono" style={{ fontSize: '0.72rem' }}>
-                                                {'★'.repeat(feed.rating)}{'☆'.repeat(5 - feed.rating)}
-                                            </span>
-                                            <span className="font-mono text-muted" style={{ fontSize: '0.62rem' }}>
-                                                {feed.time_ago}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <p className="text-light small fst-italic mb-2" style={{ fontSize: '0.72rem', color: '#E4E4E7' }}>
-                                        "{feed.comment}"
-                                    </p>
-                                </div>
-
-                                <div className="d-flex justify-content-between align-items-center pt-1.5 border-top font-mono" style={{ borderColor: 'var(--admin-border-subtle)', fontSize: '0.68rem' }}>
-                                    <span className="admin-badge admin-badge-success" style={{ fontSize: '0.62rem', padding: '1px 5px' }}>
-                                        {feed.verdict}
-                                    </span>
-                                    <span style={{ color: 'var(--admin-emerald)' }}>
-                                        Felicidad: <strong>{feed.happiness_score} / 10</strong>
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
+            <RecommenderSatisfactionSection satisfaction={satisfaction} />
 
             {/* DRAWER LATERAL DE DRILL-DOWN MATEMÁTICO */}
             <AdminDrilldownDrawer
