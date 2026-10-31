@@ -3,6 +3,7 @@ import { AdminSidebar, type AdminTab } from './components/AdminSidebar'
 import { OverviewPage } from './pages/OverviewPage'
 import { RoomsPage } from './pages/RoomsPage'
 import { AlgorithmPage } from './pages/AlgorithmPage'
+import { RecommenderPage } from './pages/RecommenderPage'
 import { AnimeCatalogPage } from './pages/AnimeCatalogPage'
 import { UsersGrowthPage } from './pages/UsersGrowthPage'
 import './admin-redesign.css'
@@ -50,6 +51,7 @@ export function AdminPortal({ onBackToLanding, initialTab = 'overview' }: AdminP
                             {activeTab === 'overview' && 'Pulso General & Embudo'}
                             {activeTab === 'rooms' && 'Salas de Consenso & Votación'}
                             {activeTab === 'algorithm' && 'Algoritmo de Felicidad (μ - λσ)'}
+                            {activeTab === 'recommender' && 'Recomendador IA & Satisfacción'}
                             {activeTab === 'catalog' && 'Catálogo Maestro & Taxonomía'}
                             {activeTab === 'growth' && 'Crecimiento & Moderación'}
                         </span>
@@ -71,6 +73,7 @@ export function AdminPortal({ onBackToLanding, initialTab = 'overview' }: AdminP
                     {activeTab === 'overview' && <OverviewPage />}
                     {activeTab === 'rooms' && <RoomsPage />}
                     {activeTab === 'algorithm' && <AlgorithmPage />}
+                    {activeTab === 'recommender' && <RecommenderPage />}
                     {activeTab === 'catalog' && <AnimeCatalogPage />}
                     {activeTab === 'growth' && <UsersGrowthPage />}
                 </main>

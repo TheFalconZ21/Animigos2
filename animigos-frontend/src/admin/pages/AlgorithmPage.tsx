@@ -5,7 +5,6 @@ import {
     TrendingUp,
     Save,
     CheckCircle2,
-    FolderCog,
     ChevronDown,
     ChevronUp,
     Info,
@@ -16,7 +15,6 @@ import {
 import { getAlgorithm, calibrateAlgorithm } from '../services/adminApi'
 import type { AlgorithmResponse, AlgorithmRule, HappinessTimelinePoint } from '../services/adminApi'
 import { AdminDrilldownDrawer } from '../components/AdminDrilldownDrawer'
-import { RecommenderSatisfactionSection } from '../components/RecommenderSatisfactionSection'
 
 interface CandidateAnime {
     id: string
@@ -60,8 +58,11 @@ export function AlgorithmPage() {
     const [isSaving, setIsSaving] = useState(false)
     const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
 
-    // Controles UI para colapso tipo carpeta, tooltip de info y popup de simulador
-    const [isConfigExpanded, setIsConfigExpanded] = useState(false)
+    // Estados independientes para las 2 carpetas comprimidas en la misma fila
+    const [isWeightsExpanded, setIsWeightsExpanded] = useState(false)
+    const [isRulesExpanded, setIsRulesExpanded] = useState(false)
+
+    // Tooltip de información para sliders & popup de simulador
     const [activeTooltipId, setActiveTooltipId] = useState<string | null>(null)
     const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false)
 
@@ -112,12 +113,12 @@ export function AlgorithmPage() {
         let bonus = 0
         let isDiscarded = false
 
-        // R1: Veto si alguien vota <= 2
+        // R1: Veto si alguien vota ≤ 2
         if (hasVetoRule && votes.some(v => v <= 2)) {
             penalty += 3.0
         }
 
-        // R2: Supermayoría si >= 75% vota >= 7
+        // R2: Supermayoría si ≥ 75% vota ≥ 7
         if (hasSupermajorityRule) {
             const highVotesCount = votes.filter(v => v >= 7).length
             if ((highVotesCount / votes.length) >= 0.75) {
@@ -130,8 +131,7 @@ export function AlgorithmPage() {
             isDiscarded = true
         }
 
-        // Fórmula calibrada completa:
-        // Score = w_μ · μ - λ · σ - β · Pol + w_mal · (MAL/10) + w_af · Afinidad - Penalizaciones + Bonificaciones
+        // Fórmula calibrada completa
         const rawScore = (weightMean * mean)
             - (lambda * stdDev)
             - (weightPol * c.polarization)
@@ -240,63 +240,10 @@ export function AlgorithmPage() {
         { date: '2026-10-25', label: '25 Oct (Hoy)', avg_happiness: 8.61, rooms_count: 53, consensus_rate: 95, event: 'Motor en vivo calibrado' }
     ]
 
-    // Datos de satisfacción por recomendación
+    // Datos de satisfacción tomados para los micro-KPIs superiores
     const satisfaction = algoData?.recommendation_satisfaction || {
         overall_satisfaction_pct: 89.4,
-        avg_rating: 4.7,
-        total_evaluations: 156,
-        acceptance_rate: 92.1,
-        breakdown: { excellent_pct: 76, good_pct: 16, poor_pct: 8 },
-        comparison: {
-            algo_happiness: 8.52,
-            manual_happiness: 6.95,
-            time_to_consensus_algo: '3.8 min',
-            time_to_consensus_manual: '22.4 min',
-            conflict_rate_algo: '4.1%',
-            conflict_rate_manual: '27.8%'
-        },
-        recent_feed: [
-            {
-                id: 'rec-1',
-                room_name: 'Otakus del Viernes',
-                anime_title: "Frieren: Beyond Journey's End",
-                rating: 5,
-                verdict: '¡Acierto total!',
-                comment: 'Llegamos a consenso en solo 2 rondas. Ninguno la había terminado y nos enganchó a todos.',
-                happiness_score: 9.2,
-                time_ago: 'Hace 2 horas'
-            },
-            {
-                id: 'rec-2',
-                room_name: 'Anime Chill & Pizza',
-                anime_title: 'Dungeon Meshi',
-                rating: 5,
-                verdict: 'Superó expectativas',
-                comment: 'Excelente equilibrio entre humor y fantasía culinaria. Nadie aplicó veto.',
-                happiness_score: 8.9,
-                time_ago: 'Hace 4 horas'
-            },
-            {
-                id: 'rec-3',
-                room_name: 'Cinépilos Shonen',
-                anime_title: 'Chainsaw Man',
-                rating: 4,
-                verdict: 'Buena elección',
-                comment: 'Hubo debate con la animación pero el score grupal se mantuvo alto en 8.4.',
-                happiness_score: 8.4,
-                time_ago: 'Ayer'
-            },
-            {
-                id: 'rec-4',
-                room_name: 'Mecha & Cyberpunk Club',
-                anime_title: 'Cowboy Bebop',
-                rating: 5,
-                verdict: 'Clásico indiscutido',
-                comment: 'Recomendado por afinidad musical y época. Consenso unánime del grupo.',
-                happiness_score: 9.4,
-                time_ago: 'Hace 2 días'
-            }
-        ]
+        acceptance_rate: 92.1
     }
 
     // Coordenadas SVG para el gráfico temporal (full width)
@@ -369,8 +316,8 @@ export function AlgorithmPage() {
                                 style={{
                                     bottom: '125%',
                                     left: 0,
-                                    minWidth: 230,
-                                    maxWidth: 280,
+                                    minWidth: 220,
+                                    maxWidth: 270,
                                     backgroundColor: '#18181B',
                                     border: '1px solid var(--admin-border-divider)',
                                     color: '#E4E4E7',
@@ -425,28 +372,6 @@ export function AlgorithmPage() {
                     <p className="admin-subtitle mb-0 mt-0.5">
                         Calibración matemática de pesos, reglas de consenso y analíticas de satisfacción grupal
                     </p>
-                </div>
-
-                <div className="d-flex flex-wrap align-items-center gap-2">
-                    <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.72rem' }}>
-                        Fórmula: w_μ·μ - λ·σ - β·Pol + w_mal·MAL + w_af·Afinidad
-                    </span>
-
-                    <button
-                        onClick={handleSaveCalibration}
-                        disabled={isSaving}
-                        className="btn btn-sm d-flex align-items-center gap-1.5 fw-semibold"
-                        style={{
-                            backgroundColor: 'var(--admin-emerald)',
-                            color: '#000000',
-                            border: 'none',
-                            fontSize: '0.75rem',
-                            padding: '6px 14px'
-                        }}
-                    >
-                        <Save size={13} />
-                        {isSaving ? 'Guardando...' : 'Guardar Calibración'}
-                    </button>
                 </div>
             </div>
 
@@ -519,334 +444,8 @@ export function AlgorithmPage() {
             </div>
 
             {/* ============================================================
-               2. CONFIGURACIÓN DEL ALGORITMO COMPRIMIDA TIPO CARPETA
-                  (Ambas configuraciones en la misma fila con tooltips 'i')
-               ============================================================ */}
-            <div className="admin-card mb-4 p-0 overflow-hidden" style={{ border: '1px solid var(--admin-border-subtle)' }}>
-                {/* Header barra tipo carpeta colapsable */}
-                <div
-                    className="d-flex flex-wrap justify-content-between align-items-center px-3.5 py-2.5"
-                    style={{
-                        backgroundColor: 'var(--admin-surface-2)',
-                        cursor: 'pointer',
-                        borderBottom: isConfigExpanded ? '1px solid var(--admin-border-subtle)' : 'none',
-                        userSelect: 'none'
-                    }}
-                    onClick={() => setIsConfigExpanded(!isConfigExpanded)}
-                >
-                    <div className="d-flex align-items-center gap-2.5">
-                        <div
-                            className="d-flex align-items-center justify-content-center rounded"
-                            style={{
-                                width: 32,
-                                height: 32,
-                                backgroundColor: 'var(--admin-surface-3)',
-                                border: '1px solid var(--admin-border-subtle)',
-                                color: 'var(--admin-emerald)'
-                            }}
-                        >
-                            <FolderCog size={16} />
-                        </div>
-                        <div>
-                            <div className="d-flex align-items-center gap-2">
-                                <span className="fw-semibold text-white" style={{ fontSize: '0.88rem' }}>
-                                    Configuración y Calibración del Algoritmo
-                                </span>
-                                <span className="admin-badge admin-badge-neutral font-mono" style={{ fontSize: '0.62rem' }}>
-                                    {isConfigExpanded ? 'Expandido' : 'Comprimido (Carpeta)'}
-                                </span>
-                                <span className="font-mono small d-none d-sm-inline" style={{ fontSize: '0.68rem', color: 'var(--admin-emerald)' }}>
-                                    ● 6 Ponderaciones · {rules.filter(r => r.active).length} Reglas Activas
-                                </span>
-                            </div>
-                            <span className="admin-subtitle" style={{ fontSize: '0.72rem' }}>
-                                Ponderaciones matemáticas (6 sliders con tooltip informativo) y reglas de consenso grupal
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="d-flex align-items-center gap-2">
-                        <button
-                            type="button"
-                            className="admin-btn admin-btn-secondary d-flex align-items-center gap-1.5 font-mono"
-                            style={{ fontSize: '0.72rem', padding: '4px 10px' }}
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                setIsConfigExpanded(!isConfigExpanded)
-                            }}
-                        >
-                            {isConfigExpanded ? (
-                                <>
-                                    <ChevronUp size={13} />
-                                    <span>Comprimir Carpeta</span>
-                                </>
-                            ) : (
-                                <>
-                                    <ChevronDown size={13} />
-                                    <span>Abrir Configuración</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Contenido de la carpeta: Ambas configuraciones en la misma fila */}
-                {isConfigExpanded && (
-                    <div className="p-3">
-                        <div className="row g-3">
-                            {/* Columna Izquierda: Calibración de Ponderaciones Matemáticas */}
-                            <div className="col-12 col-xl-6">
-                                <div className="p-3 rounded-2 h-100 d-flex flex-column justify-content-between" style={{ backgroundColor: 'var(--admin-surface-1)', border: '1px solid var(--admin-border-subtle)' }}>
-                                    <div>
-                                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                                            <div>
-                                                <h2 className="admin-title m-0 d-flex align-items-center gap-2" style={{ fontSize: '0.88rem' }}>
-                                                    <SlidersHorizontal size={14} style={{ color: 'var(--admin-emerald)' }} />
-                                                    <span>Calibración de Ponderaciones Matemáticas</span>
-                                                </h2>
-                                                <span className="admin-subtitle" style={{ fontSize: '0.7rem' }}>
-                                                    Función objetivo de felicidad grupal
-                                                </span>
-                                            </div>
-
-                                            <div className="d-flex align-items-center gap-1 font-mono">
-                                                <span className="text-secondary small me-1" style={{ fontSize: '0.65rem' }}>Presets:</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => applyPreset('standard')}
-                                                    className="btn btn-sm btn-outline-secondary font-mono"
-                                                    style={{ fontSize: '0.65rem', padding: '2px 6px', color: '#D4D4D8', borderColor: 'var(--admin-border-subtle)' }}
-                                                >
-                                                    Estándar
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => applyPreset('strict_anti_veto')}
-                                                    className="btn btn-sm btn-outline-secondary font-mono"
-                                                    style={{ fontSize: '0.65rem', padding: '2px 6px', color: '#D4D4D8', borderColor: 'var(--admin-border-subtle)' }}
-                                                >
-                                                    Antidiscordia
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => applyPreset('discovery')}
-                                                    className="btn btn-sm btn-outline-secondary font-mono"
-                                                    style={{ fontSize: '0.65rem', padding: '2px 6px', color: '#D4D4D8', borderColor: 'var(--admin-border-subtle)' }}
-                                                >
-                                                    Crítico
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* 6 Sliders en Grid responsivo con Info Icons */}
-                                        <div className="row g-2">
-                                            <div className="col-12 col-md-6">
-                                                {renderSliderWithInfo(
-                                                    'weight-mean',
-                                                    'Media de Interés',
-                                                    'w_μ',
-                                                    weightMean,
-                                                    setWeightMean,
-                                                    0.5,
-                                                    2.0,
-                                                    0.05,
-                                                    '0.50 (Suave)',
-                                                    '2.00 (Dominante)',
-                                                    '#10B981',
-                                                    'Ponderación del promedio directo de votos del grupo.'
-                                                )}
-                                            </div>
-                                            <div className="col-12 col-md-6">
-                                                {renderSliderWithInfo(
-                                                    'lambda',
-                                                    'Aversión a la Dispersión',
-                                                    'λ',
-                                                    lambda,
-                                                    setLambda,
-                                                    0.0,
-                                                    1.0,
-                                                    0.02,
-                                                    '0.00 (Tolerante)',
-                                                    '1.00 (Aversión total)',
-                                                    '#38BDF8',
-                                                    'Penalización aplicada a la desviación estándar (σ) entre amigos.'
-                                                )}
-                                            </div>
-                                            <div className="col-12 col-md-6">
-                                                {renderSliderWithInfo(
-                                                    'weight-pol',
-                                                    'Freno a Polarización',
-                                                    'β',
-                                                    weightPol,
-                                                    setWeightPol,
-                                                    0.0,
-                                                    0.8,
-                                                    0.05,
-                                                    '0.00 (Ignorar)',
-                                                    '0.80 (Anti-controversia)',
-                                                    '#F59E0B',
-                                                    'Castigo a animes con alta controversia histórica externa (Dataset σ).'
-                                                )}
-                                            </div>
-                                            <div className="col-12 col-md-6">
-                                                {renderSliderWithInfo(
-                                                    'weight-mal',
-                                                    'Crítica Externa',
-                                                    'w_mal',
-                                                    weightMal,
-                                                    setWeightMal,
-                                                    0.0,
-                                                    0.5,
-                                                    0.05,
-                                                    '0.00 (Solo grupo)',
-                                                    '0.50 (Influencia alta)',
-                                                    '#A855F7',
-                                                    'Aporte de la calificación histórica canónica de MyAnimeList.'
-                                                )}
-                                            </div>
-                                            <div className="col-12 col-md-6">
-                                                {renderSliderWithInfo(
-                                                    'weight-aff',
-                                                    'Afinidad de Géneros',
-                                                    'w_af',
-                                                    weightAffinity,
-                                                    setWeightAffinity,
-                                                    0.0,
-                                                    1.5,
-                                                    0.05,
-                                                    '0.00 (Neutral)',
-                                                    '1.50 (Máxima afinidad)',
-                                                    '#EC4899',
-                                                    'Multiplicador por coincidencia con géneros favoritos de los perfiles.'
-                                                )}
-                                            </div>
-                                            <div className="col-12 col-md-6">
-                                                {renderSliderWithInfo(
-                                                    'tie-thresh',
-                                                    'Umbral de Desempate',
-                                                    'ε',
-                                                    tieThreshold,
-                                                    setTieThreshold,
-                                                    0.05,
-                                                    0.5,
-                                                    0.01,
-                                                    '0.05 (Estricto)',
-                                                    '0.50 (Flexible)',
-                                                    '#14B8A6',
-                                                    'Margen de diferencia de score que activa el criterio canónico de desempate.'
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Columna Derecha: Reglas de Consenso Grupal */}
-                            <div className="col-12 col-xl-6">
-                                <div className="p-3 rounded-2 h-100 d-flex flex-column justify-content-between" style={{ backgroundColor: 'var(--admin-surface-1)', border: '1px solid var(--admin-border-subtle)' }}>
-                                    <div>
-                                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                                            <div>
-                                                <h2 className="admin-title m-0 d-flex align-items-center gap-2" style={{ fontSize: '0.88rem' }}>
-                                                    <Scale size={14} style={{ color: 'var(--admin-emerald)' }} />
-                                                    <span>Reglas de Consenso Grupal (Activar y Desactivar)</span>
-                                                </h2>
-                                                <span className="admin-subtitle" style={{ fontSize: '0.7rem' }}>
-                                                    Filtros automáticos que rigen el veredicto en salas
-                                                </span>
-                                            </div>
-
-                                            <div className="d-flex align-items-center gap-2 font-mono" style={{ fontSize: '0.68rem' }}>
-                                                <span style={{ color: 'var(--admin-emerald)' }}>
-                                                    ● {rules.filter(r => r.active).length} activas
-                                                </span>
-                                                <span style={{ color: 'var(--admin-text-muted)' }}>
-                                                    / {rules.filter(r => !r.active).length} inactivas
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Reglas de Consenso en Grid responsivo */}
-                                        <div className="row g-2">
-                                            {rules.map(rule => (
-                                                <div key={rule.id} className="col-12 col-md-6">
-                                                    <div
-                                                        className="p-2.5 rounded-1 h-100 d-flex flex-column justify-content-between transition-all"
-                                                        style={{
-                                                            backgroundColor: rule.active ? 'rgba(16, 185, 129, 0.04)' : 'var(--admin-surface-2)',
-                                                            border: `1px solid ${rule.active ? 'rgba(16, 185, 129, 0.35)' : 'var(--admin-border-subtle)'}`
-                                                        }}
-                                                    >
-                                                        <div>
-                                                            <div className="d-flex justify-content-between align-items-start gap-1 mb-1.5">
-                                                                <div className="d-flex align-items-center gap-1.5 overflow-hidden">
-                                                                    <span
-                                                                        className="font-mono rounded px-1.5 py-0.5 fw-bold flex-shrink-0"
-                                                                        style={{
-                                                                            fontSize: '0.62rem',
-                                                                            backgroundColor: rule.active ? 'rgba(16, 185, 129, 0.2)' : 'var(--admin-surface-3)',
-                                                                            color: rule.active ? 'var(--admin-emerald)' : 'var(--admin-text-muted)'
-                                                                        }}
-                                                                    >
-                                                                        {rule.id}
-                                                                    </span>
-                                                                    <span className="fw-semibold text-white text-truncate" style={{ fontSize: '0.75rem' }} title={rule.name}>
-                                                                        {rule.name}
-                                                                    </span>
-                                                                </div>
-
-                                                                <div className="form-check form-switch m-0 flex-shrink-0">
-                                                                    <input
-                                                                        id={`toggle-rule-${rule.id}`}
-                                                                        className="form-check-input"
-                                                                        type="checkbox"
-                                                                        checked={rule.active}
-                                                                        onChange={() => handleToggleRule(rule.id)}
-                                                                        style={{
-                                                                            cursor: 'pointer',
-                                                                            backgroundColor: rule.active ? 'var(--admin-emerald)' : 'var(--admin-surface-3)',
-                                                                            borderColor: rule.active ? 'var(--admin-emerald)' : 'var(--admin-border-subtle)',
-                                                                            width: '1.8em',
-                                                                            height: '0.95em'
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="font-mono mb-1 text-truncate" style={{ fontSize: '0.66rem', color: 'var(--admin-text-secondary)' }} title={rule.condition}>
-                                                                <span style={{ color: 'var(--admin-text-muted)' }}>Condición: </span>
-                                                                {rule.condition}
-                                                            </div>
-                                                        </div>
-
-                                                        <div
-                                                            className="pt-1.5 border-top mt-1 d-flex align-items-center justify-content-between font-mono"
-                                                            style={{ borderColor: 'var(--admin-border-subtle)', fontSize: '0.65rem' }}
-                                                        >
-                                                            <span className="text-truncate me-1" style={{ color: rule.active ? 'var(--admin-emerald)' : 'var(--admin-text-muted)' }} title={rule.effect}>
-                                                                → {rule.effect}
-                                                            </span>
-                                                            <span
-                                                                className={`badge ${rule.active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}`}
-                                                                style={{ fontSize: '0.58rem', padding: '2px 4px' }}
-                                                            >
-                                                                {rule.active ? 'ACTIVA' : 'INACTIVA'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* ============================================================
-               3. VISUALIZACIÓN PROTAGONISTA: GRÁFICO TEMPORAL DE FELICIDAD
+               2. VISUALIZACIÓN PROTAGONISTA: GRÁFICO TEMPORAL DE FELICIDAD
+                  (Por sobre la configuración del algoritmo - Ref Imagen 3 y 4)
                ============================================================ */}
             <div className="admin-card mb-4">
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -1036,7 +635,305 @@ export function AlgorithmPage() {
             </div>
 
             {/* ============================================================
-               4. POP-UP MODAL: SIMULADOR REACTIVO DE FELICIDAD
+               3. BARRA DE ACCIÓN: FÓRMULA Y GUARDAR CALIBRACIÓN
+                  (Ubicada sobre las carpetas - Ref Imagen 4)
+               ============================================================ */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.74rem', padding: '6px 14px' }}>
+                    Fórmula: w_μ·μ - λ·σ - β·Pol + w_mal·MAL + w_af·Afinidad
+                </span>
+
+                <button
+                    onClick={handleSaveCalibration}
+                    disabled={isSaving}
+                    className="btn btn-sm d-flex align-items-center gap-1.5 fw-semibold"
+                    style={{
+                        backgroundColor: 'var(--admin-emerald)',
+                        color: '#000000',
+                        border: 'none',
+                        fontSize: '0.75rem',
+                        padding: '7px 16px',
+                        borderRadius: 'var(--radius-md)'
+                    }}
+                >
+                    <Save size={14} />
+                    {isSaving ? 'Guardando...' : 'Guardar Calibración'}
+                </button>
+            </div>
+
+            {/* ============================================================
+               4. DOS CARPETAS DE CONFIGURACIÓN EN LA MISMA FILA
+                  (Carpeta 1: Calibración y Ponderación Matemática
+                   Carpeta 2: Reglas de Consenso - Ref Imagen 1 y 4)
+               ============================================================ */}
+            <div className="row g-3 mb-4">
+                {/* CARPETA 1: Calibración y Ponderación Matemática */}
+                <div className="col-12 col-xl-6">
+                    <div className="admin-card p-0 overflow-hidden h-100" style={{ border: '1px solid var(--admin-border-subtle)' }}>
+                        <div
+                            className="d-flex flex-wrap justify-content-between align-items-center px-3.5 py-2.5"
+                            style={{
+                                backgroundColor: 'var(--admin-surface-2)',
+                                cursor: 'pointer',
+                                borderBottom: isWeightsExpanded ? '1px solid var(--admin-border-subtle)' : 'none',
+                                userSelect: 'none'
+                            }}
+                            onClick={() => setIsWeightsExpanded(!isWeightsExpanded)}
+                        >
+                            <div className="d-flex align-items-center gap-2.5">
+                                <div
+                                    className="d-flex align-items-center justify-content-center rounded"
+                                    style={{
+                                        width: 28,
+                                        height: 28,
+                                        backgroundColor: 'var(--admin-surface-3)',
+                                        border: '1px solid var(--admin-border-subtle)',
+                                        color: 'var(--admin-emerald)'
+                                    }}
+                                >
+                                    <SlidersHorizontal size={14} />
+                                </div>
+                                <div>
+                                    <div className="d-flex align-items-center gap-1.5">
+                                        <span className="fw-semibold text-white" style={{ fontSize: '0.84rem' }}>
+                                            Calibración y Ponderación Matemática
+                                        </span>
+                                        <span className="admin-badge admin-badge-neutral font-mono" style={{ fontSize: '0.6rem' }}>
+                                            {isWeightsExpanded ? 'Expandido' : 'Comprimido (Carpeta)'}
+                                        </span>
+                                    </div>
+                                    <span className="admin-subtitle" style={{ fontSize: '0.68rem' }}>
+                                        Ponderaciones matemáticas (6 sliders con tooltip informativo)
+                                    </span>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                className="admin-btn admin-btn-secondary d-flex align-items-center gap-1 font-mono"
+                                style={{ fontSize: '0.68rem', padding: '3px 8px' }}
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    setIsWeightsExpanded(!isWeightsExpanded)
+                                }}
+                            >
+                                {isWeightsExpanded ? (
+                                    <>
+                                        <ChevronUp size={12} />
+                                        <span>Comprimir</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <ChevronDown size={12} />
+                                        <span>Abrir Configuración</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Contenido de Carpeta 1 */}
+                        {isWeightsExpanded && (
+                            <div className="p-3">
+                                <div className="d-flex flex-wrap justify-content-between align-items-center gap-1 mb-2.5 pb-2 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                    <span className="admin-subtitle font-mono" style={{ fontSize: '0.68rem' }}>Presets automáticos:</span>
+                                    <div className="d-flex align-items-center gap-1 font-mono">
+                                        <button
+                                            type="button"
+                                            onClick={() => applyPreset('standard')}
+                                            className="btn btn-sm btn-outline-secondary font-mono"
+                                            style={{ fontSize: '0.64rem', padding: '2px 6px', color: '#D4D4D8', borderColor: 'var(--admin-border-subtle)' }}
+                                        >
+                                            Estándar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => applyPreset('strict_anti_veto')}
+                                            className="btn btn-sm btn-outline-secondary font-mono"
+                                            style={{ fontSize: '0.64rem', padding: '2px 6px', color: '#D4D4D8', borderColor: 'var(--admin-border-subtle)' }}
+                                        >
+                                            Antidiscordia
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => applyPreset('discovery')}
+                                            className="btn btn-sm btn-outline-secondary font-mono"
+                                            style={{ fontSize: '0.64rem', padding: '2px 6px', color: '#D4D4D8', borderColor: 'var(--admin-border-subtle)' }}
+                                        >
+                                            Crítico
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="row g-2">
+                                    <div className="col-12 col-sm-6">
+                                        {renderSliderWithInfo('weight-mean', 'Media de Interés', 'w_μ', weightMean, setWeightMean, 0.5, 2.0, 0.05, '0.50 (Suave)', '2.00 (Dominante)', '#10B981', 'Ponderación del promedio directo de votos del grupo.')}
+                                    </div>
+                                    <div className="col-12 col-sm-6">
+                                        {renderSliderWithInfo('lambda', 'Aversión a la Dispersión', 'λ', lambda, setLambda, 0.0, 1.0, 0.02, '0.00 (Tolerante)', '1.00 (Aversión total)', '#38BDF8', 'Penalización aplicada a la desviación estándar (σ) entre amigos.')}
+                                    </div>
+                                    <div className="col-12 col-sm-6">
+                                        {renderSliderWithInfo('weight-pol', 'Freno a Polarización', 'β', weightPol, setWeightPol, 0.0, 0.8, 0.05, '0.00 (Ignorar)', '0.80 (Anti-controversia)', '#F59E0B', 'Castigo a animes con alta controversia histórica externa (Dataset σ).')}
+                                    </div>
+                                    <div className="col-12 col-sm-6">
+                                        {renderSliderWithInfo('weight-mal', 'Crítica Externa', 'w_mal', weightMal, setWeightMal, 0.0, 0.5, 0.05, '0.00 (Solo grupo)', '0.50 (Influencia alta)', '#A855F7', 'Aporte de la calificación histórica canónica de MyAnimeList.')}
+                                    </div>
+                                    <div className="col-12 col-sm-6">
+                                        {renderSliderWithInfo('weight-aff', 'Afinidad de Géneros', 'w_af', weightAffinity, setWeightAffinity, 0.0, 1.5, 0.05, '0.00 (Neutral)', '1.50 (Máxima afinidad)', '#EC4899', 'Multiplicador por coincidencia con géneros favoritos de los perfiles.')}
+                                    </div>
+                                    <div className="col-12 col-sm-6">
+                                        {renderSliderWithInfo('tie-thresh', 'Umbral de Desempate', 'ε', tieThreshold, setTieThreshold, 0.05, 0.5, 0.01, '0.05 (Estricto)', '0.50 (Flexible)', '#14B8A6', 'Margen de diferencia de score que activa el criterio canónico de desempate.')}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* CARPETA 2: Reglas de Consenso */}
+                <div className="col-12 col-xl-6">
+                    <div className="admin-card p-0 overflow-hidden h-100" style={{ border: '1px solid var(--admin-border-subtle)' }}>
+                        <div
+                            className="d-flex flex-wrap justify-content-between align-items-center px-3.5 py-2.5"
+                            style={{
+                                backgroundColor: 'var(--admin-surface-2)',
+                                cursor: 'pointer',
+                                borderBottom: isRulesExpanded ? '1px solid var(--admin-border-subtle)' : 'none',
+                                userSelect: 'none'
+                            }}
+                            onClick={() => setIsRulesExpanded(!isRulesExpanded)}
+                        >
+                            <div className="d-flex align-items-center gap-2.5">
+                                <div
+                                    className="d-flex align-items-center justify-content-center rounded"
+                                    style={{
+                                        width: 28,
+                                        height: 28,
+                                        backgroundColor: 'var(--admin-surface-3)',
+                                        border: '1px solid var(--admin-border-subtle)',
+                                        color: 'var(--admin-emerald)'
+                                    }}
+                                >
+                                    <Scale size={14} />
+                                </div>
+                                <div>
+                                    <div className="d-flex align-items-center gap-1.5">
+                                        <span className="fw-semibold text-white" style={{ fontSize: '0.84rem' }}>
+                                            Reglas de Consenso
+                                        </span>
+                                        <span className="admin-badge admin-badge-neutral font-mono" style={{ fontSize: '0.6rem' }}>
+                                            {isRulesExpanded ? 'Expandido' : 'Comprimido (Carpeta)'}
+                                        </span>
+                                    </div>
+                                    <span className="admin-subtitle" style={{ fontSize: '0.68rem' }}>
+                                        Filtros de salas ({rules.filter(r => r.active).length} activas / {rules.filter(r => !r.active).length} inactivas)
+                                    </span>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                className="admin-btn admin-btn-secondary d-flex align-items-center gap-1 font-mono"
+                                style={{ fontSize: '0.68rem', padding: '3px 8px' }}
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    setIsRulesExpanded(!isRulesExpanded)
+                                }}
+                            >
+                                {isRulesExpanded ? (
+                                    <>
+                                        <ChevronUp size={12} />
+                                        <span>Comprimir</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <ChevronDown size={12} />
+                                        <span>Abrir Reglas</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Contenido de Carpeta 2 */}
+                        {isRulesExpanded && (
+                            <div className="p-3">
+                                <div className="row g-2">
+                                    {rules.map(rule => (
+                                        <div key={rule.id} className="col-12 col-sm-6">
+                                            <div
+                                                className="p-2.5 rounded-1 h-100 d-flex flex-column justify-content-between transition-all"
+                                                style={{
+                                                    backgroundColor: rule.active ? 'rgba(16, 185, 129, 0.04)' : 'var(--admin-surface-2)',
+                                                    border: `1px solid ${rule.active ? 'rgba(16, 185, 129, 0.35)' : 'var(--admin-border-subtle)'}`
+                                                }}
+                                            >
+                                                <div>
+                                                    <div className="d-flex justify-content-between align-items-start gap-1 mb-1">
+                                                        <div className="d-flex align-items-center gap-1 overflow-hidden">
+                                                            <span
+                                                                className="font-mono rounded px-1.5 py-0.5 fw-bold flex-shrink-0"
+                                                                style={{
+                                                                    fontSize: '0.62rem',
+                                                                    backgroundColor: rule.active ? 'rgba(16, 185, 129, 0.2)' : 'var(--admin-surface-3)',
+                                                                    color: rule.active ? 'var(--admin-emerald)' : 'var(--admin-text-muted)'
+                                                                }}
+                                                            >
+                                                                {rule.id}
+                                                            </span>
+                                                            <span className="fw-semibold text-white text-truncate" style={{ fontSize: '0.74rem' }} title={rule.name}>
+                                                                {rule.name}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="form-check form-switch m-0 flex-shrink-0">
+                                                            <input
+                                                                id={`toggle-rule-${rule.id}`}
+                                                                className="form-check-input"
+                                                                type="checkbox"
+                                                                checked={rule.active}
+                                                                onChange={() => handleToggleRule(rule.id)}
+                                                                style={{
+                                                                    cursor: 'pointer',
+                                                                    backgroundColor: rule.active ? 'var(--admin-emerald)' : 'var(--admin-surface-3)',
+                                                                    borderColor: rule.active ? 'var(--admin-emerald)' : 'var(--admin-border-subtle)',
+                                                                    width: '1.8em',
+                                                                    height: '0.95em'
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="font-mono mb-1 text-truncate" style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)' }} title={rule.condition}>
+                                                        <span style={{ color: 'var(--admin-text-muted)' }}>Condición: </span>
+                                                        {rule.condition}
+                                                    </div>
+                                                </div>
+
+                                                <div
+                                                    className="pt-1.5 border-top mt-1 d-flex align-items-center justify-content-between font-mono"
+                                                    style={{ borderColor: 'var(--admin-border-subtle)', fontSize: '0.64rem' }}
+                                                >
+                                                    <span className="text-truncate me-1" style={{ color: rule.active ? 'var(--admin-emerald)' : 'var(--admin-text-muted)' }} title={rule.effect}>
+                                                        → {rule.effect}
+                                                    </span>
+                                                    <span
+                                                        className={`badge ${rule.active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}`}
+                                                        style={{ fontSize: '0.58rem', padding: '2px 4px' }}
+                                                    >
+                                                        {rule.active ? 'ACTIVA' : 'INACTIVA'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* ============================================================
+               5. POP-UP MODAL: SIMULADOR REACTIVO DE FELICIDAD
                ============================================================ */}
             {isSimulatorModalOpen && (
                 <div
@@ -1197,11 +1094,6 @@ export function AlgorithmPage() {
                     </div>
                 </div>
             )}
-
-            {/* ============================================================
-               5. INFORMACIÓN DEL RECOMENDADOR (AISLADA VISUALMENTE)
-               ============================================================ */}
-            <RecommenderSatisfactionSection satisfaction={satisfaction} />
 
             {/* DRAWER LATERAL DE DRILL-DOWN MATEMÁTICO */}
             <AdminDrilldownDrawer

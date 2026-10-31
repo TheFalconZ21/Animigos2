@@ -9,10 +9,11 @@ import {
     ChevronRight,
     ArrowLeft,
     Calendar,
-    BarChart3
+    BarChart3,
+    Sparkles
 } from 'lucide-react'
 
-export type AdminTab = 'overview' | 'rooms' | 'algorithm' | 'catalog' | 'growth'
+export type AdminTab = 'overview' | 'rooms' | 'algorithm' | 'recommender' | 'catalog' | 'growth'
 
 interface AdminSidebarProps {
     activeTab: AdminTab
@@ -69,6 +70,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     label: 'Consenso Grupal',
                     icon: <SlidersHorizontal size={16} />,
                     description: 'Vector de felicidad y penalización σ'
+                },
+                {
+                    id: 'recommender',
+                    label: 'Recomendador IA',
+                    icon: <Sparkles size={16} />,
+                    badge: 'A/B Test',
+                    description: 'Satisfacción y adopción de sugerencias'
                 },
                 {
                     id: 'catalog',
