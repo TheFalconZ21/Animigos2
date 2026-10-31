@@ -1,22 +1,40 @@
 import { useState, useEffect } from 'react'
 import {
     Clock,
-    Users,
     Flame,
-    SlidersHorizontal,
     RefreshCw,
-    Database
+    Database,
+    ChevronRight,
+    Sparkles,
+    SlidersHorizontal
 } from 'lucide-react'
 import { getOverview, getRooms } from '../services/adminApi'
 import type { OverviewResponse, RoomItem } from '../services/adminApi'
+import { AdminDrilldownDrawer } from '../components/AdminDrilldownDrawer'
+
+interface FunnelStepInfo {
+    id: string
+    title: string
+    shortDesc: string
+    count: number
+    pct: number
+    color: string
+    conversionFromPrev: string
+    bottleneckAnalysis: string
+    roomsInStage: RoomItem[]
+    operationalTip: string
+}
 
 export function OverviewPage() {
     const [data, setData] = useState<OverviewResponse | null>(null)
     const [rooms, setRooms] = useState<RoomItem[]>([])
-    const [loading, setLoading] = useState(true)
+    const [, setLoading] = useState(true)
     const [isRefreshing, setIsRefreshing] = useState(false)
-    const [showSkeletons, setShowSkeletons] = useState(false)
     const [error, setError] = useState<string | null>(null)
+
+    // Estado del Drill-down interactivo
+    const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
+    const [hoveredStepId, setHoveredStepId] = useState<string | null>(null)
 
     const loadData = async (showSpinner = false) => {
         if (showSpinner) setIsRefreshing(true)
@@ -41,10 +59,6 @@ export function OverviewPage() {
         loadData()
     }, [])
 
-    const handleRefresh = () => {
-        loadData(true)
-    }
-
     const summary = data?.summary || {
         total_rooms: 0,
         active_rooms: 0,
@@ -55,505 +69,367 @@ export function OverviewPage() {
         avg_decision_time_minutes: 8.5
     }
 
-    const funnelData = data?.funnel ? [
+    // Estructura enriquecida del Embudo Interactivo con salas asociadas a cada fase
+    const funnelSteps: FunnelStepInfo[] = [
         {
-            step: '1. Invitados Creados',
-            count: data.funnel.guests_created.toLocaleString(),
+            id: 'guests',
+            title: '1. Invitados Creados',
+            shortDesc: 'Base de usuarios que crearon sesión o entraron por enlace de invitación',
+            count: data?.funnel?.guests_created || 0,
             pct: 100,
-            color: '#FFFFFF',
-            note: 'Base total'
-        },
-        {
-            step: '2. En Salas Activas',
-            count: data.funnel.joined_room.toLocaleString(),
-            pct: data.funnel.guests_created > 0 ? Math.min(100, Math.round((data.funnel.joined_room / data.funnel.guests_created) * 100)) : 100,
             color: '#A1A1AA',
-            note: 'Unidos a sesión'
+            conversionFromPrev: '100%',
+            bottleneckAnalysis: 'El 100% de los visitantes crea una sesión anónima segura o token de invitado sin fricción.',
+            roomsInStage: rooms.filter(r => r.status === 'watching'),
+            operationalTip: 'Verifica la latencia de creación de token de sesión si la conversión inicial disminuye.'
         },
         {
-            step: '3. Quórum de Votos',
-            count: data.funnel.voted.toLocaleString(),
-            pct: data.funnel.joined_room > 0 ? Math.min(100, Math.round((data.funnel.voted / data.funnel.joined_room) * 100)) : 0,
+            id: 'joined',
+            title: '2. Unidos a Salas Activas',
+            shortDesc: 'Invitados que ingresaron el código PIN o link directo y figuran en el quórum',
+            count: data?.funnel?.joined_room || 0,
+            pct: data?.funnel?.guests_created ? Math.min(100, Math.round((data.funnel.joined_room / data.funnel.guests_created) * 100)) : 100,
             color: '#38BDF8',
-            note: 'Votación emitida'
+            conversionFromPrev: data?.funnel?.guests_created ? `${Math.min(100, Math.round((data.funnel.joined_room / data.funnel.guests_created) * 100))}%` : '100%',
+            bottleneckAnalysis: 'Usuarios sincronizados en salas. Si un usuario no se une a una sala en los primeros 3 minutos, suele abandonar.',
+            roomsInStage: rooms.filter(r => r.status === 'candidates'),
+            operationalTip: 'Asegura que el código de sala PIN de 4 dígitos sea visible y fácil de copiar en móviles.'
         },
         {
-            step: '4. Consenso Logrado',
-            count: data.funnel.winner_selected.toLocaleString(),
-            pct: data.funnel.joined_room > 0 ? Math.min(100, Math.round((data.funnel.winner_selected / data.funnel.joined_room) * 100)) : 0,
+            id: 'voted',
+            title: '3. Quórum de Votos Emitido',
+            shortDesc: 'Participantes que completaron la votación sobre los animes candidatos',
+            count: data?.funnel?.voted || 0,
+            pct: data?.funnel?.joined_room ? Math.min(100, Math.round((data.funnel.voted / data.funnel.joined_room) * 100)) : 0,
+            color: '#F59E0B',
+            conversionFromPrev: data?.funnel?.joined_room ? `${Math.round((data.funnel.voted / data.funnel.joined_room) * 100)}% de los unidos` : '0%',
+            bottleneckAnalysis: 'Fase de decisión. Los empates en 2da ronda o retrasos en emitir voto generan fricción temporal.',
+            roomsInStage: rooms.filter(r => r.status === 'voting'),
+            operationalTip: 'Revisa las salas con quórum incompleto para disparar notificaciones o recordatorios automáticos.'
+        },
+        {
+            id: 'winner',
+            title: '4. Consenso Logrado (Ganador)',
+            shortDesc: 'Salas que cerraron con anime elegido por el algoritmo de felicidad colectiva',
+            count: data?.funnel?.winner_selected || 0,
+            pct: data?.funnel?.joined_room ? Math.min(100, Math.round((data.funnel.winner_selected / data.funnel.joined_room) * 100)) : 0,
             color: '#10B981',
-            note: 'Ganador elegido'
+            conversionFromPrev: `${summary.consensus_rate}% de tasa global`,
+            bottleneckAnalysis: 'Resultado final óptimo: la fórmula Score = μ - 0.3σ determinó un título ganador aceptado unánimemente.',
+            roomsInStage: rooms.filter(r => r.status === 'selected' || r.status === 'completed'),
+            operationalTip: 'Las salas en este estado pasan automáticamente a la Watch Party para reproducción sincronizada.'
         }
-    ] : []
+    ]
 
-    const weeklyTelemetry = data?.weekly_telemetry || []
-    const maxDayTotal = Math.max(1, ...weeklyTelemetry.map(w => w.total))
-
-    const isDisplayingSkeletons = loading || showSkeletons
+    const selectedStep = funnelSteps.find(s => s.id === selectedStepId) || null
 
     return (
-        <div>
-            {/* Header del módulo con controles funcionales */}
-            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div className="d-flex flex-column gap-4">
+            {/* Cabecera con selector contextual y sincronización */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
                 <div>
-                    <h1 className="admin-title m-0">
-                        Pulso de Animigos
+                    <h1 className="admin-title m-0" style={{ fontSize: '1.25rem' }}>
+                        Embudo de Decisión Grupal
                     </h1>
-                    <p className="admin-subtitle mb-0 mt-0.5">
-                        Telemetría en tiempo real desde AWS PostgreSQL 16
+                    <p className="admin-subtitle m-0 mt-0.5">
+                        Una visualización protagonista: analiza la pérdida o retención en cada fase del consenso
                     </p>
                 </div>
 
                 <div className="d-flex align-items-center gap-2">
                     <button
                         type="button"
-                        onClick={() => setShowSkeletons(!showSkeletons)}
-                        className="admin-btn admin-btn-secondary font-mono"
-                        style={{ fontSize: '0.72rem' }}
-                    >
-                        {showSkeletons ? 'Ver datos reales' : 'Simular skeletons'}
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={handleRefresh}
+                        onClick={() => loadData(true)}
                         disabled={isRefreshing}
-                        className="admin-btn admin-btn-secondary d-flex align-items-center gap-2"
-                        style={{ fontSize: '0.74rem' }}
+                        className="admin-btn admin-btn-secondary d-flex align-items-center gap-1.5"
                     >
                         {isRefreshing ? (
                             <span className="admin-spinner"></span>
                         ) : (
                             <RefreshCw size={13} style={{ color: 'var(--admin-text-muted)' }} />
                         )}
-                        <span>{isRefreshing ? 'Sincronizando...' : 'Sincronizar'}</span>
+                        <span>{isRefreshing ? 'Actualizando...' : 'Refrescar'}</span>
                     </button>
-
-                    <span className="admin-badge admin-badge-success font-mono d-none d-sm-inline-flex">
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: 'var(--admin-emerald)' }}></span>
-                        {summary.concluded_rooms} consensos resueltos
-                    </span>
                 </div>
             </div>
 
             {error && (
-                <div className="p-3 mb-4 rounded-1" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', color: '#F87171', fontSize: '0.8rem' }}>
-                    <strong>Aviso de Conexión:</strong> {error}
+                <div className="p-3 rounded-2" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', color: '#F87171', fontSize: '0.8rem' }}>
+                    <strong>Aviso:</strong> {error}
                 </div>
             )}
 
-            {/* ============================================================
-               1. FILA DE KPIS PRINCIPALES (4 Columnas distribuidas)
-               ============================================================ */}
-            <section className="admin-grid-kpis mb-3">
-
-                {/* KPI 1: Consensos Exitosos */}
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                Consensos Exitosos
-                            </span>
-                            <div className="p-1 rounded" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: 'var(--admin-text-secondary)' }}>
-                                <Flame size={13} />
-                            </div>
-                        </div>
-
-                        {isDisplayingSkeletons ? (
-                            <div className="admin-skeleton my-2" style={{ height: 32, width: '60%' }}></div>
-                        ) : (
-                            <div className="d-flex align-baseline gap-2 mb-1">
-                                <span className="fs-3 fw-bold text-white lh-1 font-mono">{summary.concluded_rooms}</span>
-                                <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>de {summary.total_rooms} salas</span>
-                            </div>
-                        )}
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        <span className="admin-badge admin-badge-success font-mono">
-                            {summary.consensus_rate}% tasa
-                        </span>
-                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.72rem' }}>
-                            Con anime ganador
-                        </span>
-                    </div>
-                </div>
-
-                {/* KPI 2: Velocidad a Decisión */}
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                Tiempo a Decisión (TTC)
-                            </span>
-                            <div className="p-1 rounded" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: 'var(--admin-text-secondary)' }}>
-                                <Clock size={13} />
-                            </div>
-                        </div>
-
-                        {isDisplayingSkeletons ? (
-                            <div className="admin-skeleton my-2" style={{ height: 32, width: '50%' }}></div>
-                        ) : (
-                            <div className="d-flex align-baseline gap-2 mb-1">
-                                <span className="fs-3 fw-bold text-white lh-1 font-mono">{summary.avg_decision_time_minutes}</span>
-                                <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>minutos promedio</span>
-                            </div>
-                        )}
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        <span className="admin-badge admin-badge-info font-mono">
-                            {summary.total_votes} votos
-                        </span>
-                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.72rem' }}>
-                            Votos registrados
-                        </span>
-                    </div>
-                </div>
-
-                {/* KPI 3: Miembros Participantes */}
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                Miembros e Invitados
-                            </span>
-                            <div className="p-1 rounded" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: 'var(--admin-text-secondary)' }}>
-                                <Users size={13} />
-                            </div>
-                        </div>
-
-                        {isDisplayingSkeletons ? (
-                            <div className="admin-skeleton my-2" style={{ height: 32, width: '45%' }}></div>
-                        ) : (
-                            <div className="d-flex align-baseline gap-2 mb-1">
-                                <span className="fs-3 fw-bold text-white lh-1 font-mono">{summary.total_members}</span>
-                                <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>integrantes</span>
-                            </div>
-                        )}
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        <span className="admin-badge admin-badge-neutral font-mono">
-                            {summary.active_rooms} salas activas
-                        </span>
-                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.72rem' }}>
-                            Votando en vivo
-                        </span>
-                    </div>
-                </div>
-
-                {/* KPI 4: Catálogo e Infraestructura */}
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                Catálogo en AWS RDS
-                            </span>
-                            <div className="p-1 rounded" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: 'var(--admin-text-secondary)' }}>
-                                <Database size={13} />
-                            </div>
-                        </div>
-
-                        {isDisplayingSkeletons ? (
-                            <div className="admin-skeleton my-2" style={{ height: 32, width: '55%' }}></div>
-                        ) : (
-                            <div className="d-flex align-baseline gap-2 mb-1">
-                                <span className="fs-3 fw-bold text-white lh-1 font-mono">{data?.health.total_animes?.toLocaleString() || '19,384'}</span>
-                                <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>animes en DB</span>
-                            </div>
-                        )}
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        <span className="admin-badge admin-badge-success font-mono">
-                            {data?.health.latency_ms || 18}ms ping
-                        </span>
-                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.72rem' }}>
-                            {data?.health.db_engine || 'PostgreSQL 16'}
-                        </span>
-                    </div>
-                </div>
-
-            </section>
-
-            {/* ============================================================
-               2. FILA MEDIA: EMBUDO COMPACTO + SALUD DEL ALGORITMO
-               ============================================================ */}
-            <section className="admin-grid-middle mb-3">
-
-                {/* EMBUDO DE CONVERSIÓN COMPACTO */}
-                <div className="admin-card">
-                    <div className="d-flex justify-content-between align-items-center mb-3">
+            {/* Micro-KPIs Curados (Solo 3 métricas vitales sin ruido visual) */}
+            <div className="row g-3">
+                <div className="col-12 col-md-4">
+                    <div className="admin-card d-flex align-items-center justify-content-between py-3">
                         <div>
-                            <h2 className="admin-title m-0" style={{ fontSize: '0.92rem' }}>Embudo de Decisión Grupal</h2>
-                            <span className="admin-subtitle">
-                                Conversión secuencial de creación de usuarios a consenso
+                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.66rem', letterSpacing: '0.06em' }}>
+                                Tasa de Consenso
                             </span>
-                        </div>
-                        <span className="admin-badge admin-badge-success font-mono">
-                            {summary.consensus_rate}% Consenso
-                        </span>
-                    </div>
-
-                    {isDisplayingSkeletons ? (
-                        <div className="d-flex flex-column gap-2 pt-1">
-                            <div className="admin-skeleton" style={{ height: 28, width: '100%' }}></div>
-                            <div className="admin-skeleton" style={{ height: 28, width: '100%' }}></div>
-                            <div className="admin-skeleton" style={{ height: 28, width: '100%' }}></div>
-                            <div className="admin-skeleton" style={{ height: 28, width: '100%' }}></div>
-                        </div>
-                    ) : (
-                        <div className="d-flex flex-column gap-2">
-                            {funnelData.map((f, i) => (
-                                <div key={i} className="d-flex align-items-center justify-content-between gap-2 py-1.5 px-2 rounded-1" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                                    <div className="d-flex align-items-center gap-2" style={{ minWidth: 160 }}>
-                                        <span className="small text-white fw-medium" style={{ fontSize: '0.78rem' }}>
-                                            {f.step}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex-grow-1 mx-2" style={{ maxWidth: 140, minWidth: 60 }}>
-                                        <div className="admin-progress-track">
-                                            <div
-                                                className="admin-progress-bar"
-                                                style={{
-                                                    width: `${f.pct}%`,
-                                                    backgroundColor: f.color
-                                                }}
-                                            ></div>
-                                        </div>
-                                    </div>
-
-                                    <div className="d-flex align-items-center justify-content-end gap-3 text-end font-mono" style={{ minWidth: 120 }}>
-                                        <span style={{ fontSize: '0.74rem', color: 'var(--admin-text-muted)' }}>{f.count}</span>
-                                        <span className="fw-semibold text-white" style={{ fontSize: '0.78rem', minWidth: 38 }}>{f.pct}%</span>
-                                        <span className="d-none d-md-inline" style={{ fontSize: '0.68rem', color: 'var(--admin-text-muted)', minWidth: 65 }}>{f.note}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* SALUD Y DISPERSIÓN DEL ALGORITMO */}
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                            <div>
-                                <h2 className="admin-title m-0" style={{ fontSize: '0.92rem' }}>Salud del Algoritmo</h2>
-                                <span className="admin-subtitle">
-                                    Dispersión estándar (σ) y calibración de consenso
+                            <div className="d-flex align-baseline gap-2 mt-1">
+                                <span className="fs-3 fw-bold text-white lh-1 font-mono">{summary.consensus_rate}%</span>
+                                <span className="font-mono small" style={{ color: 'var(--admin-emerald)', fontSize: '0.72rem' }}>
+                                    {summary.concluded_rooms} resueltas
                                 </span>
                             </div>
-                            <SlidersHorizontal size={14} style={{ color: 'var(--admin-text-muted)' }} />
                         </div>
-
-                        {isDisplayingSkeletons ? (
-                            <div className="d-flex flex-column gap-3 pt-1">
-                                <div className="admin-skeleton" style={{ height: 42, width: '100%' }}></div>
-                                <div className="admin-skeleton" style={{ height: 42, width: '100%' }}></div>
-                                <div className="admin-skeleton" style={{ height: 42, width: '100%' }}></div>
-                            </div>
-                        ) : (
-                            <div className="d-flex flex-column gap-3">
-                                <div>
-                                    <div className="d-flex justify-content-between align-items-baseline mb-1">
-                                        <span className="small text-white fw-medium" style={{ fontSize: '0.78rem' }}>
-                                            Consenso Alto <span className="font-mono text-secondary" style={{ fontSize: '0.72rem' }}>(σ ≤ 1.2)</span>
-                                        </span>
-                                        <span className="small font-mono fw-semibold" style={{ color: 'var(--admin-emerald)', fontSize: '0.75rem' }}>64% salas</span>
-                                    </div>
-                                    <div className="admin-progress-track">
-                                        <div className="admin-progress-bar" style={{ width: '64%', backgroundColor: 'var(--admin-emerald)' }}></div>
-                                    </div>
-                                    <span className="d-block mt-1" style={{ fontSize: '0.7rem', color: 'var(--admin-text-muted)' }}>
-                                        Unanimidad: el ganador surge en Ronda 1 sin votos de polarización.
-                                    </span>
-                                </div>
-
-                                <div>
-                                    <div className="d-flex justify-content-between align-items-baseline mb-1">
-                                        <span className="small text-white fw-medium" style={{ fontSize: '0.78rem' }}>
-                                            Consenso Moderado <span className="font-mono text-secondary" style={{ fontSize: '0.72rem' }}>(σ 1.3 - 2.8)</span>
-                                        </span>
-                                        <span className="small font-mono fw-semibold" style={{ color: 'var(--admin-blue)', fontSize: '0.75rem' }}>26% salas</span>
-                                    </div>
-                                    <div className="admin-progress-track">
-                                        <div className="admin-progress-bar" style={{ width: '26%', backgroundColor: 'var(--admin-blue)' }}></div>
-                                    </div>
-                                    <span className="d-block mt-1" style={{ fontSize: '0.7rem', color: 'var(--admin-text-muted)' }}>
-                                        Penalización λ resuelve empates optimizando utilidad grupal.
-                                    </span>
-                                </div>
-
-                                <div>
-                                    <div className="d-flex justify-content-between align-items-baseline mb-1">
-                                        <span className="small text-white fw-medium" style={{ fontSize: '0.78rem' }}>
-                                            Polarización / Riesgo <span className="font-mono text-secondary" style={{ fontSize: '0.72rem' }}>(σ &gt; 2.8)</span>
-                                        </span>
-                                        <span className="small font-mono fw-semibold" style={{ color: 'var(--admin-amber)', fontSize: '0.75rem' }}>10% salas</span>
-                                    </div>
-                                    <div className="admin-progress-track">
-                                        <div className="admin-progress-bar" style={{ width: '10%', backgroundColor: 'var(--admin-amber)' }}></div>
-                                    </div>
-                                    <span className="d-block mt-1" style={{ fontSize: '0.7rem', color: 'var(--admin-text-muted)' }}>
-                                        Vetos o gustos antagónicos: sistema sugiere ronda de repesca.
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="pt-2.5 border-top mt-3 d-flex justify-content-between align-items-center" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        <span className="font-mono" style={{ fontSize: '0.7rem', color: 'var(--admin-text-muted)' }}>
-                            Fórmula activa: Score = μ - 0.3σ
-                        </span>
-                        <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.66rem' }}>
-                            PostgreSQL Sync
-                        </span>
+                        <div className="p-2 rounded-2" style={{ backgroundColor: 'var(--admin-emerald-bg)', border: '1px solid var(--admin-emerald-border)', color: 'var(--admin-emerald)' }}>
+                            <Flame size={18} />
+                        </div>
                     </div>
                 </div>
 
-            </section>
-
-            {/* ============================================================
-               3. FILA INFERIOR: TENDENCIA SEMANAL + REGISTRO DE SALAS
-               ============================================================ */}
-            <section className="admin-grid-bottom">
-
-                {/* GRÁFICO COMPACTO DE EVOLUCIÓN */}
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                            <div>
-                                <h2 className="admin-title m-0" style={{ fontSize: '0.92rem' }}>Evolución Semanal</h2>
-                                <span className="admin-subtitle">
-                                    Salas creadas vs concluidas por día
+                <div className="col-12 col-md-4">
+                    <div className="admin-card d-flex align-items-center justify-content-between py-3">
+                        <div>
+                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.66rem', letterSpacing: '0.06em' }}>
+                                Velocidad a Decisión (TTC)
+                            </span>
+                            <div className="d-flex align-baseline gap-2 mt-1">
+                                <span className="fs-3 fw-bold text-white lh-1 font-mono">{summary.avg_decision_time_minutes}m</span>
+                                <span className="font-mono text-muted small" style={{ fontSize: '0.72rem' }}>
+                                    promedio grupal
                                 </span>
                             </div>
-                            <span className="admin-badge admin-badge-neutral font-mono" style={{ fontSize: '0.68rem' }}>
-                                {weeklyTelemetry.reduce((acc, curr) => acc + curr.total, 0)} salas / ciclo
-                            </span>
                         </div>
-
-                        {isDisplayingSkeletons ? (
-                            <div className="admin-skeleton my-3" style={{ height: 110, width: '100%' }}></div>
-                        ) : (
-                            <div className="d-flex align-items-end justify-content-between gap-2 pt-3 pb-1" style={{ height: 110 }}>
-                                {weeklyTelemetry.map((w, idx) => {
-                                    const heightPx = Math.max(16, Math.round((w.total / maxDayTotal) * 75))
-                                    const isToday = idx === weeklyTelemetry.length - 1
-                                    return (
-                                        <div key={idx} className="flex-grow-1 d-flex flex-column align-items-center justify-content-end" style={{ height: '100%' }}>
-                                            <span className="font-mono small mb-1" style={{ fontSize: '0.68rem', color: 'var(--admin-text-muted)' }}>
-                                                {w.total}
-                                            </span>
-                                            <div
-                                                className="w-100"
-                                                style={{
-                                                    height: `${heightPx}px`,
-                                                    backgroundColor: isToday ? '#FFFFFF' : '#1A1A1A',
-                                                    border: isToday ? '1px solid #FFFFFF' : '1px solid var(--admin-border-subtle)',
-                                                    borderRadius: 2,
-                                                    transition: 'background-color 0.15s ease, height 0.2s ease',
-                                                }}
-                                                title={`${w.day}: ${w.completed} concluidas, ${w.abandoned} en proceso/otras`}
-                                            ></div>
-                                            <span className="font-mono mt-1.5 fw-medium" style={{ fontSize: '0.68rem', color: isToday ? '#FFFFFF' : 'var(--admin-text-muted)' }}>
-                                                {w.day}
-                                            </span>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="pt-2 border-top mt-3 d-flex justify-content-between font-mono" style={{ fontSize: '0.7rem', borderColor: 'var(--admin-border-subtle)', color: 'var(--admin-text-muted)' }}>
-                        <span>Pico semanal: {maxDayTotal} salas</span>
-                        <span style={{ color: 'var(--admin-emerald)' }}>Datos en tiempo real</span>
+                        <div className="p-2 rounded-2" style={{ backgroundColor: 'var(--admin-blue-bg)', border: '1px solid var(--admin-blue-border)', color: 'var(--admin-blue)' }}>
+                            <Clock size={18} />
+                        </div>
                     </div>
                 </div>
 
-                {/* TABLA COMPACTA DE SALAS EN VIVO */}
-                <div className="admin-card">
-                    <div className="d-flex justify-content-between align-items-center mb-3">
+                <div className="col-12 col-md-4">
+                    <div className="admin-card d-flex align-items-center justify-content-between py-3">
                         <div>
-                            <h2 className="admin-title m-0" style={{ fontSize: '0.92rem' }}>Salas Registradas en PostgreSQL</h2>
-                            <span className="admin-subtitle">
-                                Muestreo de auditoría en tiempo real
+                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.66rem', letterSpacing: '0.06em' }}>
+                                Catálogo en AWS PostgreSQL
+                            </span>
+                            <div className="d-flex align-baseline gap-2 mt-1">
+                                <span className="fs-3 fw-bold text-white lh-1 font-mono">{data?.health.total_animes?.toLocaleString() || '30,777'}</span>
+                                <span className="font-mono small" style={{ color: 'var(--admin-emerald)', fontSize: '0.72rem' }}>
+                                    {data?.health.latency_ms || 14}ms ping
+                                </span>
+                            </div>
+                        </div>
+                        <div className="p-2 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: 'var(--admin-text-secondary)' }}>
+                            <Database size={18} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ============================================================
+               EL GRÁFICO PROTAGONISTA INTERACTIVO (1 Visualización Central)
+               ============================================================ */}
+            <div className="admin-chart-stage">
+                <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+                    <div>
+                        <div className="d-flex align-items-center gap-2">
+                            <h2 className="admin-title m-0" style={{ fontSize: '1.05rem' }}>
+                                Arquitectura de Flujo: De Visitante a Anime Ganador
+                            </h2>
+                            <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.65rem' }}>
+                                Click para Drill-down
                             </span>
                         </div>
-                        <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.68rem' }}>
-                            {rooms.length} registradas
-                        </span>
+                        <p className="admin-subtitle m-0 mt-1">
+                            Haz clic en cualquiera de las 4 fases para abrir el desglose de salas, causas de abandono y métricas en profundidad.
+                        </p>
                     </div>
 
-                    {isDisplayingSkeletons ? (
-                        <div className="d-flex flex-column gap-2 pt-1">
-                            <div className="admin-skeleton" style={{ height: 36, width: '100%' }}></div>
-                            <div className="admin-skeleton" style={{ height: 36, width: '100%' }}></div>
-                            <div className="admin-skeleton" style={{ height: 36, width: '100%' }}></div>
-                        </div>
-                    ) : (
-                        <div className="table-responsive custom-scrollbar">
-                            <table className="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>SALA</th>
-                                        <th>MIEMBROS</th>
-                                        <th>ANIME / CANDIDATO LÍDER</th>
-                                        <th className="text-center">FELICIDAD</th>
-                                        <th>QUÓRUM</th>
-                                        <th className="text-end">ESTADO</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {rooms.map((r, idx) => {
-                                        const displayTitle = r.selected_anime?.title || r.top_candidate?.title || 'Pendiente'
-                                        const scoreDisplay = r.selected_anime?.score || r.top_candidate?.score || 0
-                                        const statusBadge = r.status === 'selected' || r.status === 'completed'
-                                            ? 'admin-badge-success'
-                                            : r.status === 'voting'
-                                                ? 'admin-badge-info'
-                                                : 'admin-badge-neutral'
+                    <div className="font-mono small text-secondary" style={{ fontSize: '0.74rem' }}>
+                        Muestra: <span className="text-white fw-bold">{summary.total_members} usuarios</span> en {summary.total_rooms} salas
+                    </div>
+                </div>
 
+                {/* Escenario del Embudo Interactivo */}
+                <div className="d-flex flex-column gap-3 py-2">
+                    {funnelSteps.map((step, idx) => {
+                        const isHovered = hoveredStepId === step.id
+                        const isSelected = selectedStepId === step.id
+                        const isDimmed = (hoveredStepId && !isHovered) || (selectedStepId && !isSelected)
+
+                        return (
+                            <div
+                                key={step.id}
+                                onClick={() => setSelectedStepId(step.id)}
+                                onMouseEnter={() => setHoveredStepId(step.id)}
+                                onMouseLeave={() => setHoveredStepId(null)}
+                                className={`admin-chart-interactive-node p-3 rounded-2 ${isDimmed ? 'dimmed' : ''} ${isSelected ? 'active-focus' : ''}`}
+                                style={{
+                                    backgroundColor: isSelected ? 'var(--admin-surface-3)' : 'var(--admin-surface-2)',
+                                    border: isSelected ? `1.5px solid ${step.color}` : '1px solid var(--admin-border-subtle)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-2">
+                                    <div className="d-flex align-items-center gap-2.5">
+                                        <div
+                                            className="rounded-circle d-flex align-items-center justify-content-center text-black fw-bold font-mono"
+                                            style={{
+                                                width: 24,
+                                                height: 24,
+                                                backgroundColor: step.color,
+                                                fontSize: '0.72rem'
+                                            }}
+                                        >
+                                            {idx + 1}
+                                        </div>
+                                        <div>
+                                            <span className="fw-semibold text-white d-block" style={{ fontSize: '0.88rem' }}>
+                                                {step.title}
+                                            </span>
+                                            <span className="admin-subtitle d-none d-md-block" style={{ fontSize: '0.72rem' }}>
+                                                {step.shortDesc}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="d-flex align-items-center gap-4 text-end">
+                                        <div>
+                                            <span className="font-mono fs-5 fw-bold text-white d-block lh-1">
+                                                {step.count.toLocaleString()}
+                                            </span>
+                                            <span className="font-mono text-muted small" style={{ fontSize: '0.68rem' }}>
+                                                {idx === 0 ? 'Visitantes base' : `${step.pct}% conversión`}
+                                            </span>
+                                        </div>
+
+                                        <div
+                                            className="d-flex align-items-center justify-content-center rounded-circle"
+                                            style={{
+                                                width: 28,
+                                                height: 28,
+                                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                                color: isHovered || isSelected ? '#FFFFFF' : 'var(--admin-text-muted)',
+                                                border: '1px solid var(--admin-border-subtle)'
+                                            }}
+                                        >
+                                            <ChevronRight size={15} />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Barra de Proporción y Progresión Visual */}
+                                <div className="admin-progress-track" style={{ height: 6 }}>
+                                    <div
+                                        className="admin-progress-bar"
+                                        style={{
+                                            width: `${step.pct}%`,
+                                            backgroundColor: step.color
+                                        }}
+                                    ></div>
+                                </div>
+
+                                <div className="d-flex justify-content-between align-items-center mt-2 font-mono" style={{ fontSize: '0.7rem', color: 'var(--admin-text-muted)' }}>
+                                    <span>Salas en esta fase: <strong className="text-white">{step.roomsInStage.length}</strong></span>
+                                    <span style={{ color: step.color }}>{step.conversionFromPrev}</span>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+
+                {/* Pie del Gráfico Protagonista con sugerencia de acción */}
+                <div className="mt-3 pt-3 border-top d-flex flex-wrap justify-content-between align-items-center gap-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                    <span className="small text-secondary" style={{ fontSize: '0.74rem' }}>
+                        💡 <strong>Sugerencia Pedagógica:</strong> Haz clic en <em>"3. Quórum de Votos Emitido"</em> para auditar salas que sufren retrasos antes del desempate.
+                    </span>
+                    <span className="font-mono admin-badge admin-badge-neutral" style={{ fontSize: '0.68rem' }}>
+                        Fórmula: μ - 0.3σ
+                    </span>
+                </div>
+            </div>
+
+            {/* ============================================================
+               DRILL-DOWN CONTEXTUAL (DRAWER LATERAL DE NIVEL 2)
+               ============================================================ */}
+            <AdminDrilldownDrawer
+                isOpen={!!selectedStep}
+                onClose={() => setSelectedStepId(null)}
+                title={selectedStep?.title || 'Detalle del Paso'}
+                subtitle={selectedStep?.shortDesc}
+                badgeText={`${selectedStep?.count.toLocaleString()} registros (${selectedStep?.pct}%)`}
+                badgeType={selectedStep?.id === 'winner' ? 'success' : 'info'}
+            >
+                {selectedStep && (
+                    <div className="d-flex flex-column gap-3.5">
+                        {/* Diagnóstico del cuello de botella */}
+                        <div className="p-3 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
+                            <div className="d-flex align-items-center gap-2 mb-1.5 text-white fw-semibold" style={{ fontSize: '0.82rem' }}>
+                                <Sparkles size={15} style={{ color: selectedStep.color }} />
+                                <span>Diagnóstico de Telemetría</span>
+                            </div>
+                            <p className="admin-subtitle m-0" style={{ fontSize: '0.78rem', lineHeight: 1.45 }}>
+                                {selectedStep.bottleneckAnalysis}
+                            </p>
+                        </div>
+
+                        {/* Recomendación operativa */}
+                        <div className="p-3 rounded-2" style={{ backgroundColor: 'rgba(56, 189, 248, 0.06)', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                            <div className="d-flex align-items-center gap-2 mb-1 text-info fw-semibold font-mono" style={{ fontSize: '0.74rem' }}>
+                                <SlidersHorizontal size={13} />
+                                <span>RECOMENDACIÓN DE ARQUITECTURA</span>
+                            </div>
+                            <p className="m-0 text-white" style={{ fontSize: '0.76rem', lineHeight: 1.4 }}>
+                                {selectedStep.operationalTip}
+                            </p>
+                        </div>
+
+                        {/* Salas filtradas en este paso específico */}
+                        <div>
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                                <span className="admin-title m-0" style={{ fontSize: '0.88rem' }}>
+                                    Salas en esta etapa ({selectedStep.roomsInStage.length})
+                                </span>
+                                <span className="font-mono small text-muted" style={{ fontSize: '0.7rem' }}>
+                                    PostgreSQL Live
+                                </span>
+                            </div>
+
+                            {selectedStep.roomsInStage.length === 0 ? (
+                                <div className="text-center py-4 text-muted small border rounded-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                    No hay salas activas estancadas en esta fase actualmente.
+                                </div>
+                            ) : (
+                                <div className="d-flex flex-column gap-2">
+                                    {selectedStep.roomsInStage.map((room) => {
+                                        const displayTitle = room.selected_anime?.title || room.top_candidate?.title || 'Pendiente'
                                         return (
-                                            <tr key={idx} className="admin-table-row">
-                                                <td>
-                                                    <div className="fw-semibold text-white" style={{ fontSize: '0.78rem' }}>{r.name}</div>
-                                                    <div className="font-mono text-secondary" style={{ fontSize: '0.68rem' }}>{r.invite_code}</div>
-                                                </td>
-                                                <td className="font-mono text-secondary" style={{ fontSize: '0.74rem' }}>
-                                                    {r.members_count} miembros
-                                                </td>
-                                                <td className="fw-medium text-white text-truncate" style={{ maxWidth: 170, fontSize: '0.78rem' }}>
-                                                    {displayTitle}
-                                                </td>
-                                                <td className="text-center font-mono">
-                                                    {scoreDisplay ? (
-                                                        <span className="admin-badge admin-badge-success" style={{ fontSize: '0.7rem' }}>
-                                                            {scoreDisplay}
+                                            <div
+                                                key={room.id}
+                                                className="p-2.5 rounded-2 d-flex align-items-center justify-content-between gap-2"
+                                                style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}
+                                            >
+                                                <div className="overflow-hidden">
+                                                    <div className="d-flex align-items-center gap-2">
+                                                        <span className="fw-semibold text-white text-truncate" style={{ fontSize: '0.8rem' }}>
+                                                            {room.name}
                                                         </span>
-                                                    ) : (
-                                                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.7rem' }}>—</span>
-                                                    )}
-                                                </td>
-                                                <td className="font-mono text-secondary" style={{ fontSize: '0.74rem' }}>
-                                                    {r.quorum_percentage}%
-                                                </td>
-                                                <td className="text-end font-mono">
-                                                    <span className={`admin-badge ${statusBadge}`} style={{ fontSize: '0.68rem' }}>
-                                                        {r.status}
+                                                        <span className="admin-badge admin-badge-neutral font-mono" style={{ fontSize: '0.62rem' }}>
+                                                            {room.invite_code}
+                                                        </span>
+                                                    </div>
+                                                    <span className="d-block text-secondary small text-truncate mt-0.5" style={{ fontSize: '0.72rem' }}>
+                                                        {displayTitle} • {room.members_count} miembros
                                                     </span>
-                                                </td>
-                                            </tr>
+                                                </div>
+
+                                                <div className="text-end font-mono flex-shrink-0">
+                                                    <span className="admin-badge admin-badge-info" style={{ fontSize: '0.66rem' }}>
+                                                        {room.quorum_percentage}% quórum
+                                                    </span>
+                                                </div>
+                                            </div>
                                         )
                                     })}
-                                </tbody>
-                            </table>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
-
-            </section>
+                    </div>
+                )}
+            </AdminDrilldownDrawer>
         </div>
     )
 }

@@ -1,17 +1,15 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
     SlidersHorizontal,
-    Activity,
-    Scale,
-    ShieldAlert,
-    TrendingUp,
+        Scale,
+        TrendingUp,
     ThumbsUp,
-    Clock,
-    Save,
+        Save,
     CheckCircle2
 } from 'lucide-react'
 import { getAlgorithm, calibrateAlgorithm } from '../services/adminApi'
 import type { AlgorithmResponse, AlgorithmRule, HappinessTimelinePoint } from '../services/adminApi'
+import { AdminDrilldownDrawer } from '../components/AdminDrilldownDrawer'
 
 interface CandidateAnime {
     id: string
@@ -53,6 +51,7 @@ export function AlgorithmPage() {
     const [hoveredPoint, setHoveredPoint] = useState<HappinessTimelinePoint | null>(null)
     const [saveToast, setSaveToast] = useState<{ show: boolean; msg: string }>({ show: false, msg: '' })
     const [isSaving, setIsSaving] = useState(false)
+    const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
 
     // -------------------------------------------------------------
     // ESTADO: Candidatos en el Simulador
@@ -372,115 +371,55 @@ export function AlgorithmPage() {
             {/* ============================================================
                1. FILA DE KPIS PRINCIPALES (4 Tarjetas)
                ============================================================ */}
-            <section className="admin-grid-kpis mb-4">
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                Felicidad Media (Salas)
+            {/* ============================================================
+               MICRO-KPIS CURADOS (Solo 3 métricas de alta prioridad)
+               ============================================================ */}
+            <div className="row g-3 mb-4">
+                <div className="col-12 col-md-4">
+                    <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
+                        <div>
+                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
+                                Felicidad Media
                             </span>
-                            <div className="p-1 rounded" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: 'var(--admin-emerald)' }}>
-                                <Activity size={13} />
+                            <div className="d-flex align-baseline gap-1.5 mt-0.5">
+                                <span className="fs-4 fw-bold text-white font-mono">{algoData?.stats.average_group_happiness || 8.48}</span>
+                                <span className="small text-muted font-mono" style={{ fontSize: '0.7rem' }}>/ 10</span>
                             </div>
                         </div>
-                        <div className="d-flex align-baseline gap-2 mb-1">
-                            <span className="fs-3 fw-bold text-white lh-1 font-mono">
-                                {algoData?.stats.average_group_happiness || 8.48}
-                            </span>
-                            <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>/ 10</span>
-                        </div>
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
                         <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.68rem' }}>
-                            {algoData?.stats.happiness_trend_delta || '+0.42 pts'} vs mes ant.
-                        </span>
-                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.72rem' }}>
-                            78 votos analizados
+                            {algoData?.stats.happiness_trend_delta || '+0.42'} vs mes ant.
                         </span>
                     </div>
                 </div>
 
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                Satisfacción Recomendación
+                <div className="col-12 col-md-4">
+                    <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
+                        <div>
+                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
+                                Satisfacción de Recomendación
                             </span>
-                            <div className="p-1 rounded" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: '#38BDF8' }}>
-                                <ThumbsUp size={13} />
-                            </div>
+                            <span className="fs-4 fw-bold text-white font-mono">{satisfaction.overall_satisfaction_pct}%</span>
                         </div>
-                        <div className="d-flex align-baseline gap-2 mb-1">
-                            <span className="fs-3 fw-bold text-white lh-1 font-mono">
-                                {satisfaction.overall_satisfaction_pct}%
-                            </span>
-                            <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>({satisfaction.avg_rating} ⭐)</span>
-                        </div>
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
                         <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.68rem' }}>
-                            {satisfaction.acceptance_rate}% aceptación
-                        </span>
-                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.72rem' }}>
-                            {satisfaction.total_evaluations} evaluaciones
+                            Alta afinidad
                         </span>
                     </div>
                 </div>
 
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                Tiempo de Consenso
+                <div className="col-12 col-md-4">
+                    <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
+                        <div>
+                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
+                                Tasa de Consenso en Ronda 1
                             </span>
-                            <div className="p-1 rounded" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: 'var(--admin-amber)' }}>
-                                <Clock size={13} />
-                            </div>
+                            <span className="fs-4 fw-bold text-white font-mono">{satisfaction.acceptance_rate}%</span>
                         </div>
-                        <div className="d-flex align-baseline gap-2 mb-1">
-                            <span className="fs-3 fw-bold text-white lh-1 font-mono">
-                                {satisfaction.comparison.time_to_consensus_algo}
-                            </span>
-                            <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>promedio</span>
-                        </div>
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        <span className="admin-badge admin-badge-neutral font-mono" style={{ fontSize: '0.68rem' }}>
-                            vs {satisfaction.comparison.time_to_consensus_manual} manual
-                        </span>
-                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.72rem' }}>
-                            -83% fricción
+                        <span className="admin-badge admin-badge-purple font-mono" style={{ fontSize: '0.68rem' }}>
+                            Sin desempate
                         </span>
                     </div>
                 </div>
-
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                Reglas de Consenso
-                            </span>
-                            <div className="p-1 rounded" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: 'var(--admin-emerald)' }}>
-                                <ShieldAlert size={13} />
-                            </div>
-                        </div>
-                        <div className="d-flex align-baseline gap-2 mb-1">
-                            <span className="fs-3 fw-bold text-white lh-1 font-mono">
-                                {rules.filter(r => r.active).length} / {rules.length}
-                            </span>
-                            <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>activas</span>
-                        </div>
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.68rem' }}>
-                            {rules.find(r => r.id === 'R1')?.active ? 'Antiveto ON' : 'Antiveto OFF'}
-                        </span>
-                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.72rem' }}>
-                            Calibración viva
-                        </span>
-                    </div>
-                </div>
-            </section>
+            </div>
 
             {/* ============================================================
                2. REQUERIMIENTO 1: PANEL DE CALIBRACIÓN DE PESOS MATEMÁTICOS
@@ -1241,6 +1180,76 @@ export function AlgorithmPage() {
                     </div>
                 </div>
             </div>
+
+            {/* DRAWER LATERAL DE DRILL-DOWN MATEMÁTICO */}
+            <AdminDrilldownDrawer
+                isOpen={!!selectedCandidateId}
+                onClose={() => setSelectedCandidateId(null)}
+                title={candidatesWithStats.find(c => c.id === selectedCandidateId)?.title || 'Desglose del Candidato'}
+                subtitle="Inspección detallada de la función de utilidad colectiva y penalizaciones σ"
+                badgeText={candidatesWithStats.find(c => c.id === selectedCandidateId)?.id === winnerId ? 'Ganador de la Sala' : 'Candidato'}
+                badgeType={candidatesWithStats.find(c => c.id === selectedCandidateId)?.id === winnerId ? 'success' : 'neutral'}
+            >
+                {(() => {
+                    const c = candidatesWithStats.find(cand => cand.id === selectedCandidateId)
+                    if (!c) return null
+                    return (
+                        <div className="d-flex flex-column gap-3.5">
+                            {/* Score Final y Fórmula */}
+                            <div className="p-3 rounded-2 text-center" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
+                                <span className="admin-subtitle text-uppercase font-mono" style={{ fontSize: '0.68rem' }}>Score de Utilidad Colectiva</span>
+                                <div className="fs-1 fw-bold text-white font-mono my-1">{c.finalScore}</div>
+                                <span className="font-mono text-muted small" style={{ fontSize: '0.72rem' }}>
+                                    Fórmula: ({c.mean} × {weightMean.toFixed(2)}) - ({c.stdDev} × {lambda.toFixed(2)}) + ({c.genreAffinity} × {weightAffinity.toFixed(2)})
+                                </span>
+                            </div>
+
+                            {/* Votos individuales de los miembros */}
+                            <div className="p-3 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <span className="fw-semibold text-white" style={{ fontSize: '0.82rem' }}>Votos Individuales de la Sala</span>
+                                    <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.64rem' }}>{c.votes.length} participantes</span>
+                                </div>
+                                <div className="d-flex gap-2">
+                                    {c.votes.map((v, i) => (
+                                        <div key={i} className="flex-grow-1 p-2 rounded text-center" style={{ backgroundColor: 'var(--admin-surface-3)', border: '1px solid var(--admin-border-subtle)' }}>
+                                            <span className="admin-subtitle d-block" style={{ fontSize: '0.66rem' }}>Miembro {i+1}</span>
+                                            <span className="fs-5 fw-bold font-mono text-white">{v}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Factores Matemáticos Clave */}
+                            <div className="d-flex flex-column gap-2">
+                                <div className="d-flex justify-content-between p-2 rounded" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
+                                    <span className="text-secondary small">Media Aritmética (μ):</span>
+                                    <span className="font-mono text-white fw-bold">{c.mean} pts</span>
+                                </div>
+                                <div className="d-flex justify-content-between p-2 rounded" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
+                                    <span className="text-secondary small">Dispersión Estándar (σ):</span>
+                                    <span className="font-mono fw-bold" style={{ color: c.stdDev > 2 ? '#F59E0B' : '#38BDF8' }}>{c.stdDev}</span>
+                                </div>
+                                <div className="d-flex justify-content-between p-2 rounded" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
+                                    <span className="text-secondary small">Puntaje Canónico MAL:</span>
+                                    <span className="font-mono text-white">{c.malScore} / 10</span>
+                                </div>
+                                <div className="d-flex justify-content-between p-2 rounded" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
+                                    <span className="text-secondary small">Afinidad de Género Grupal:</span>
+                                    <span className="font-mono text-emerald" style={{ color: 'var(--admin-emerald)' }}>+{(c.genreAffinity * 100).toFixed(0)}%</span>
+                                </div>
+                            </div>
+
+                            {/* Alerta si tiene veto aplicado */}
+                            {c.hasVetoApplied && (
+                                <div className="p-3 rounded-2" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#F87171' }}>
+                                    <strong>Filtro Antiveto Activado:</strong> Un participante votó ≤ 2, aplicando una deducción punitiva de -3.0 pts para proteger la armonía de la sala.
+                                </div>
+                            )}
+                        </div>
+                    )
+                })()}
+            </AdminDrilldownDrawer>
         </div>
     )
 }

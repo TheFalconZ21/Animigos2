@@ -1,0 +1,178 @@
+/* ============================================================
+   ADMIN V2: SIDEBAR Y DRAWER DE DRILL-DOWN INTERACTIVO
+   ============================================================ */
+
+.admin-sidebar {
+  width: 250px;
+  background-color: var(--admin-surface-1);
+  border-right: 1px solid var(--admin-border-subtle);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.22s var(--admin-ease);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 40;
+  flex-shrink: 0;
+}
+
+.admin-sidebar.collapsed {
+  width: 68px;
+}
+
+.admin-sidebar-header {
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--admin-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.admin-sidebar-nav {
+  padding: 0.85rem 0.5rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.admin-sidebar-section-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--admin-text-muted);
+  padding: 0.5rem 0.65rem 0.25rem;
+}
+
+.admin-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--admin-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s var(--admin-ease);
+  text-decoration: none;
+}
+
+.admin-sidebar-item:hover {
+  background-color: var(--admin-surface-2);
+  color: var(--admin-text-primary);
+  border-color: var(--admin-border-subtle);
+}
+
+.admin-sidebar-item.active {
+  background-color: var(--admin-surface-3);
+  color: #FFFFFF;
+  border-color: var(--admin-border-divider);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.admin-sidebar-footer {
+  padding: 0.85rem 0.75rem;
+  border-top: 1px solid var(--admin-border-subtle);
+  background-color: var(--admin-surface-1);
+}
+
+/* Drawer / Inspector Contextual de Drill-down */
+.admin-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 1050;
+  display: flex;
+  justify-content: flex-end;
+  animation: admin-fade-in 0.2s var(--admin-ease);
+}
+
+.admin-drawer-content {
+  width: 100%;
+  max-width: 540px;
+  background-color: var(--admin-surface-1);
+  border-left: 1px solid var(--admin-border-divider);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.75);
+  animation: admin-slide-left 0.24s var(--admin-ease);
+  overflow: hidden;
+}
+
+@keyframes admin-slide-left {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes admin-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.admin-drawer-header {
+  padding: 1.15rem 1.35rem;
+  border-bottom: 1px solid var(--admin-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--admin-surface-2);
+}
+
+.admin-drawer-body {
+  padding: 1.35rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.admin-drawer-footer {
+  padding: 1rem 1.35rem;
+  border-top: 1px solid var(--admin-border-subtle);
+  background-color: var(--admin-surface-2);
+}
+
+/* Gráficos interactivos protagonitas */
+.admin-chart-stage {
+  background: radial-gradient(circle at top center, var(--admin-surface-2) 0%, var(--admin-surface-1) 85%);
+  border: 1px solid var(--admin-border-divider);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-chart-interactive-node {
+  cursor: pointer;
+  transition: transform 0.2s var(--admin-ease), filter 0.2s var(--admin-ease), opacity 0.2s var(--admin-ease);
+}
+
+.admin-chart-interactive-node:hover {
+  filter: brightness(1.15) drop-shadow(0 4px 12px rgba(255, 255, 255, 0.15));
+}
+
+.admin-chart-interactive-node.dimmed {
+  opacity: 0.35;
+  filter: grayscale(0.5);
+}
+
+.admin-chart-interactive-node.active-focus {
+  filter: brightness(1.25) drop-shadow(0 0 16px rgba(56, 189, 248, 0.5));
+}

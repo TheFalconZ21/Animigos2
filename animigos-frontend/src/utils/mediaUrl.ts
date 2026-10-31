@@ -22,3 +22,4 @@ export function resolveMediaUrl(url: string | null | undefined): string {
     }
     return trimmed
 }
+

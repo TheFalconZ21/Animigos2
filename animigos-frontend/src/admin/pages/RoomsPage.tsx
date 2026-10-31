@@ -3,8 +3,7 @@ import {
     Tv,
     Clock,
     Users,
-    AlertCircle,
-    BellRing,
+        BellRing,
     RefreshCw,
     Search,
     SlidersHorizontal,
@@ -33,6 +32,7 @@ import {
     runRoomsCleanup
 } from '../services/adminApi'
 import type { RoomItem, RoomsCleanupPolicy, RoomsFilterParams } from '../services/adminApi'
+import { InteractiveDonutChart, type DonutSegment } from '../components/InteractiveDonutChart'
 
 export function RoomsPage() {
     // -------------------------------------------------------------
@@ -303,9 +303,52 @@ export function RoomsPage() {
 
     // KPIs calculados
     const activeCount = rooms.filter(r => ['voting', 'candidates', 'watching'].includes(r.status)).length
-    const concludedCount = rooms.filter(r => ['selected', 'completed'].includes(r.status)).length
-    const totalMembers = rooms.reduce((acc, r) => acc + r.members_count, 0)
+        const totalMembers = rooms.reduce((acc, r) => acc + r.members_count, 0)
     const avgQuorum = rooms.length > 0 ? Math.round(rooms.reduce((acc, r) => acc + r.quorum_percentage, 0) / rooms.length) : 0
+
+        // Segmentos del Donut Protagonista Interactuable
+    const donutSegments: DonutSegment[] = useMemo(() => {
+        const total = rooms.length || 1
+        const votingCount = rooms.filter(r => r.status === 'voting').length
+        const candidatesCount = rooms.filter(r => r.status === 'candidates').length
+        const selectedCount = rooms.filter(r => r.status === 'selected' || r.status === 'completed').length
+        const otherCount = rooms.filter(r => !['voting', 'candidates', 'selected', 'completed'].includes(r.status)).length
+
+        return [
+            {
+                id: 'voting',
+                label: 'En Votación Activa',
+                count: votingCount,
+                color: '#F59E0B',
+                percentage: Math.round((votingCount / total) * 100),
+                description: 'Miembros emitiendo quórum de votos'
+            },
+            {
+                id: 'candidates',
+                label: 'Definiendo Candidatos',
+                count: candidatesCount,
+                color: '#38BDF8',
+                percentage: Math.round((candidatesCount / total) * 100),
+                description: 'Postulando opciones o invitando amigos'
+            },
+            {
+                id: 'selected',
+                label: 'Consenso Alcanzado',
+                count: selectedCount,
+                color: '#10B981',
+                percentage: Math.round((selectedCount / total) * 100),
+                description: 'Anime ganador seleccionado por el algoritmo'
+            },
+            {
+                id: 'empty',
+                label: 'Inactivas / Otras',
+                count: otherCount,
+                color: '#71717A',
+                percentage: Math.round((otherCount / total) * 100),
+                description: 'Salas vacías o candidatas a purga'
+            }
+        ]
+    }, [rooms])
 
     const selectedRoom = rooms.find(r => r.id === selectedRoomId) || null
 
@@ -387,107 +430,66 @@ export function RoomsPage() {
             {/* ============================================================
                1. FILA DE KPIS PRINCIPALES (4 Columnas)
                ============================================================ */}
-            <section className="admin-grid-kpis mb-3">
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                Salas en Curso
-                            </span>
-                            <div className="p-1 rounded" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: 'var(--admin-text-secondary)' }}>
-                                <Tv size={13} />
-                            </div>
-                        </div>
-                        <div className="d-flex align-baseline gap-2 mb-1">
-                            <span className="fs-3 fw-bold text-white lh-1 font-mono">{activeCount}</span>
-                            <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>fase activa</span>
-                        </div>
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        <span className="admin-badge admin-badge-info font-mono">
-                            {concludedCount} concluidas
-                        </span>
-                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.72rem' }}>
-                            Con ganador fijado
-                        </span>
-                    </div>
-                </div>
+            {/* ============================================================
+               1. VISUALIZACIÓN PROTAGONISTA: DONUT INTERACTIVO DE FASES
+               ============================================================ */}
+            <div className="mb-4">
+                <InteractiveDonutChart
+                    title="Distribución de Salas por Fase Operativa"
+                    subtitle="Haz clic en cualquier segmento para filtrar automáticamente las salas en ese estado específico"
+                    segments={donutSegments}
+                    totalCount={rooms.length}
+                    selectedSegmentId={filterPhase === 'all' ? null : filterPhase}
+                    onSelectSegment={(segId) => setFilterPhase(segId || 'all')}
+                    centerLabel={String(rooms.length)}
+                    centerSublabel="SALAS EN AUDITORÍA"
+                />
+            </div>
 
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
+            {/* Micro-KPIs Curados */}
+            <div className="row g-3 mb-4">
+                <div className="col-12 col-md-4">
+                    <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
+                        <div>
+                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
                                 Quórum Promedio
                             </span>
-                            <div className="p-1 rounded" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: 'var(--admin-text-secondary)' }}>
-                                <Clock size={13} />
-                            </div>
+                            <span className="fs-4 fw-bold text-white font-mono">{avgQuorum}%</span>
                         </div>
-                        <div className="d-flex align-baseline gap-2 mb-1">
-                            <span className="fs-3 fw-bold text-white lh-1 font-mono">{avgQuorum}%</span>
-                            <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>participación real</span>
-                        </div>
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        <span className="admin-badge admin-badge-success font-mono">
-                            Nominal
-                        </span>
-                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.72rem' }}>
-                            Calculado en PostgreSQL
+                        <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.68rem' }}>
+                            {activeCount} activas
                         </span>
                     </div>
                 </div>
 
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                Total Integrantes
+                <div className="col-12 col-md-4">
+                    <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
+                        <div>
+                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
+                                Integrantes Registrados
                             </span>
-                            <div className="p-1 rounded" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: 'var(--admin-text-secondary)' }}>
-                                <Users size={13} />
-                            </div>
+                            <span className="fs-4 fw-bold text-white font-mono">{totalMembers}</span>
                         </div>
-                        <div className="d-flex align-baseline gap-2 mb-1">
-                            <span className="fs-3 fw-bold text-white lh-1 font-mono">{totalMembers}</span>
-                            <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>en salas filtradas</span>
-                        </div>
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        <span className="admin-badge admin-badge-neutral font-mono">
+                        <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.68rem' }}>
                             ~{rooms.length > 0 ? (totalMembers / rooms.length).toFixed(1) : 0} por sala
                         </span>
-                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.72rem' }}>
-                            Densidad grupal
-                        </span>
                     </div>
                 </div>
 
-                <div className="admin-card d-flex flex-column justify-content-between">
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                Estado de Limpieza
+                <div className="col-12 col-md-4">
+                    <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
+                        <div>
+                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
+                                Purga de Inactividad
                             </span>
-                            <div className="p-1 rounded" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', color: 'var(--admin-text-secondary)' }}>
-                                <AlertCircle size={13} />
-                            </div>
+                            <span className="fs-4 fw-bold text-white font-mono">{matchingRooms.length}</span>
                         </div>
-                        <div className="d-flex align-baseline gap-2 mb-1">
-                            <span className="fs-3 fw-bold text-white lh-1 font-mono">{matchingRooms.length}</span>
-                            <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>salas inactivas</span>
-                        </div>
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        <span className={`admin-badge ${cleanupPolicy.enabled ? 'admin-badge-success' : 'admin-badge-neutral'} font-mono`}>
-                            {cleanupPolicy.enabled ? 'Purga Activa' : 'Pausada'}
-                        </span>
-                        <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.72rem' }}>
-                            Umbral: &gt; {cleanupPolicy.inactivity_threshold_days} días
+                        <span className={`admin-badge ${cleanupPolicy.enabled ? 'admin-badge-warning' : 'admin-badge-neutral'} font-mono`} style={{ fontSize: '0.68rem' }}>
+                            {cleanupPolicy.enabled ? 'Activa' : 'Pausada'}
                         </span>
                     </div>
                 </div>
-            </section>
+            </div>
 
             {/* ============================================================
                2. PANEL DE CONFIGURACIÓN DE ELIMINACIÓN PROGRAMADA (Colapsable)
