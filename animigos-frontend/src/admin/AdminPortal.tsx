@@ -5,7 +5,9 @@ import { RoomsPage } from './pages/RoomsPage'
 import { AlgorithmPage } from './pages/AlgorithmPage'
 import { RecommenderPage } from './pages/RecommenderPage'
 import { AnimeCatalogPage } from './pages/AnimeCatalogPage'
-import { UsersGrowthPage } from './pages/UsersGrowthPage'
+import { UsersPage } from './pages/UsersPage'
+import { GrowthPage } from './pages/GrowthPage'
+import { ModerationPage } from './pages/ModerationPage'
 import './admin-redesign.css'
 
 interface AdminPortalProps {
@@ -53,7 +55,9 @@ export function AdminPortal({ onBackToLanding, initialTab = 'overview' }: AdminP
                             {activeTab === 'algorithm' && 'Algoritmo de Felicidad (μ - λσ)'}
                             {activeTab === 'recommender' && 'Recomendador IA & Satisfacción'}
                             {activeTab === 'catalog' && 'Catálogo Maestro & Taxonomía'}
-                            {activeTab === 'growth' && 'Crecimiento & Moderación'}
+                            {activeTab === 'users' && 'Directorio de Usuarios & Demografía'}
+                            {activeTab === 'growth' && 'Métricas de Crecimiento & Adopción Diaria'}
+                            {activeTab === 'moderation' && 'Centro de Moderación & Reportes de Comunidad'}
                         </span>
                     </div>
 
@@ -75,7 +79,9 @@ export function AdminPortal({ onBackToLanding, initialTab = 'overview' }: AdminP
                     {activeTab === 'algorithm' && <AlgorithmPage />}
                     {activeTab === 'recommender' && <RecommenderPage />}
                     {activeTab === 'catalog' && <AnimeCatalogPage />}
-                    {activeTab === 'growth' && <UsersGrowthPage />}
+                    {activeTab === 'users' && <UsersPage />}
+                    {activeTab === 'growth' && <GrowthPage />}
+                    {activeTab === 'moderation' && <ModerationPage />}
                 </main>
             </div>
         </div>

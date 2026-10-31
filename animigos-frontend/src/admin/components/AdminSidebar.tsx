@@ -10,10 +10,12 @@ import {
     ArrowLeft,
     Calendar,
     BarChart3,
-    Sparkles
+    Sparkles,
+    TrendingUp,
+    ShieldAlert
 } from 'lucide-react'
 
-export type AdminTab = 'overview' | 'rooms' | 'algorithm' | 'recommender' | 'catalog' | 'growth'
+export type AdminTab = 'overview' | 'rooms' | 'algorithm' | 'recommender' | 'catalog' | 'users' | 'growth' | 'moderation'
 
 interface AdminSidebarProps {
     activeTab: AdminTab
@@ -87,13 +89,26 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             ]
         },
         {
-            category: 'Audiencia & Plataforma',
+            category: 'Audiencia & Comunidad',
             items: [
                 {
-                    id: 'growth',
-                    label: 'Comunidad & Crecimiento',
+                    id: 'users',
+                    label: 'Usuarios & Demografía',
                     icon: <Users size={16} />,
-                    description: 'Retención de usuarios y moderación'
+                    description: 'Cuentas reales vs invitados, actividad y perfiles'
+                },
+                {
+                    id: 'growth',
+                    label: 'Crecimiento & Adopción',
+                    icon: <TrendingUp size={16} />,
+                    description: 'Nuevas altas, invitaciones y dinamismo diario'
+                },
+                {
+                    id: 'moderation',
+                    label: 'Centro de Moderación',
+                    icon: <ShieldAlert size={16} />,
+                    badge: 'Reportes',
+                    description: 'Denuncias, advertencias y borrado de comentarios'
                 }
             ]
         }
