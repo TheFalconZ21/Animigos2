@@ -459,42 +459,24 @@ export function AlgorithmPage() {
                         </span>
                     </div>
 
-                    <div className="d-flex flex-wrap align-items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setIsSimulatorModalOpen(true)}
-                            className="admin-btn d-flex align-items-center gap-1.5 font-mono"
-                            style={{
-                                backgroundColor: 'var(--admin-emerald-bg)',
-                                border: '1px solid var(--admin-emerald-border)',
-                                color: 'var(--admin-emerald)',
-                                fontSize: '0.74rem',
-                                padding: '5px 12px'
-                            }}
-                        >
-                            <Sparkles size={13} />
-                            <span>Lanzar Simulador Reactivo</span>
-                        </button>
-
-                        <div className="d-flex align-items-center gap-1 p-0.5 rounded-1" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                            {(['7d', '30d', '90d', 'all'] as const).map(p => (
-                                <button
-                                    key={p}
-                                    id={`btn-timeframe-${p}`}
-                                    onClick={() => setTimeframe(p)}
-                                    className="btn btn-sm font-mono border-0"
-                                    style={{
-                                        fontSize: '0.68rem',
-                                        padding: '3px 8px',
-                                        backgroundColor: timeframe === p ? 'var(--admin-emerald)' : 'transparent',
-                                        color: timeframe === p ? '#000000' : 'var(--admin-text-secondary)',
-                                        fontWeight: timeframe === p ? 600 : 400
-                                    }}
-                                >
-                                    {p.toUpperCase()}
-                                </button>
-                            ))}
-                        </div>
+                    <div className="d-flex align-items-center gap-1 p-0.5 rounded-1" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
+                        {(['7d', '30d', '90d', 'all'] as const).map(p => (
+                            <button
+                                key={p}
+                                id={`btn-timeframe-${p}`}
+                                onClick={() => setTimeframe(p)}
+                                className="btn btn-sm font-mono border-0"
+                                style={{
+                                    fontSize: '0.68rem',
+                                    padding: '3px 8px',
+                                    backgroundColor: timeframe === p ? 'var(--admin-emerald)' : 'transparent',
+                                    color: timeframe === p ? '#000000' : 'var(--admin-text-secondary)',
+                                    fontWeight: timeframe === p ? 600 : 400
+                                }}
+                            >
+                                {p.toUpperCase()}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
@@ -635,13 +617,51 @@ export function AlgorithmPage() {
             </div>
 
             {/* ============================================================
-               3. BARRA DE ACCIÓN: FÓRMULA Y GUARDAR CALIBRACIÓN
-                  (Ubicada sobre las carpetas - Ref Imagen 4)
+               3. BARRA DE ACCIÓN: FÓRMULA CON COLORES COINCIDENTES
+                  + SIMULADOR REACTIVO A SU DERECHA + GUARDAR CALIBRACIÓN
+                  (Ref Imagen 3)
                ============================================================ */}
             <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.74rem', padding: '6px 14px' }}>
-                    Fórmula: w_μ·μ - λ·σ - β·Pol + w_mal·MAL + w_af·Afinidad
-                </span>
+                <div className="d-flex flex-wrap align-items-center gap-2">
+                    {/* Fórmula con código de color idéntico a cada slider */}
+                    <div
+                        className="font-mono py-1.5 px-3 rounded d-inline-flex align-items-center"
+                        style={{
+                            fontSize: '0.76rem',
+                            backgroundColor: 'var(--admin-surface-2)',
+                            border: '1px solid var(--admin-border-subtle)',
+                            letterSpacing: '0.02em'
+                        }}
+                    >
+                        <span className="text-muted me-1.5">Fórmula:</span>
+                        <span style={{ color: '#10B981', fontWeight: 600 }}>w_μ·μ</span>
+                        <span className="text-muted mx-1">-</span>
+                        <span style={{ color: '#38BDF8', fontWeight: 600 }}>λ·σ</span>
+                        <span className="text-muted mx-1">-</span>
+                        <span style={{ color: '#F59E0B', fontWeight: 600 }}>β·Pol</span>
+                        <span className="text-muted mx-1">+</span>
+                        <span style={{ color: '#A855F7', fontWeight: 600 }}>w_mal·MAL</span>
+                        <span className="text-muted mx-1">+</span>
+                        <span style={{ color: '#EC4899', fontWeight: 600 }}>w_af·Afinidad</span>
+                    </div>
+
+                    {/* Simulador reactivo movido a la derecha de la fórmula */}
+                    <button
+                        type="button"
+                        onClick={() => setIsSimulatorModalOpen(true)}
+                        className="admin-btn d-flex align-items-center gap-1.5 font-mono"
+                        style={{
+                            backgroundColor: 'var(--admin-emerald-bg)',
+                            border: '1px solid var(--admin-emerald-border)',
+                            color: 'var(--admin-emerald)',
+                            fontSize: '0.74rem',
+                            padding: '6px 12px'
+                        }}
+                    >
+                        <Sparkles size={13} />
+                        <span>Simulador Reactivo</span>
+                    </button>
+                </div>
 
                 <button
                     onClick={handleSaveCalibration}
@@ -663,8 +683,9 @@ export function AlgorithmPage() {
 
             {/* ============================================================
                4. DOS CARPETAS DE CONFIGURACIÓN EN LA MISMA FILA
-                  (Carpeta 1: Calibración y Ponderación Matemática
-                   Carpeta 2: Reglas de Consenso - Ref Imagen 1 y 4)
+                  - Carpeta 1: Sliders en 3 filas de 2 columnas (Ref Imagen 1)
+                  - Carpeta 2: Reglas limpias sin fondo verde, sin condición/estado visible,
+                               con icono 'i' interactivo (Ref Imagen 2)
                ============================================================ */}
             <div className="row g-3 mb-4">
                 {/* CARPETA 1: Calibración y Ponderación Matemática */}
@@ -731,7 +752,7 @@ export function AlgorithmPage() {
                             </button>
                         </div>
 
-                        {/* Contenido de Carpeta 1 */}
+                        {/* Contenido de Carpeta 1: 3 filas de 2 columnas garantizadas con Grid */}
                         {isWeightsExpanded && (
                             <div className="p-3">
                                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-1 mb-2.5 pb-2 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
@@ -764,25 +785,19 @@ export function AlgorithmPage() {
                                     </div>
                                 </div>
 
-                                <div className="row g-2">
-                                    <div className="col-12 col-sm-6">
-                                        {renderSliderWithInfo('weight-mean', 'Media de Interés', 'w_μ', weightMean, setWeightMean, 0.5, 2.0, 0.05, '0.50 (Suave)', '2.00 (Dominante)', '#10B981', 'Ponderación del promedio directo de votos del grupo.')}
-                                    </div>
-                                    <div className="col-12 col-sm-6">
-                                        {renderSliderWithInfo('lambda', 'Aversión a la Dispersión', 'λ', lambda, setLambda, 0.0, 1.0, 0.02, '0.00 (Tolerante)', '1.00 (Aversión total)', '#38BDF8', 'Penalización aplicada a la desviación estándar (σ) entre amigos.')}
-                                    </div>
-                                    <div className="col-12 col-sm-6">
-                                        {renderSliderWithInfo('weight-pol', 'Freno a Polarización', 'β', weightPol, setWeightPol, 0.0, 0.8, 0.05, '0.00 (Ignorar)', '0.80 (Anti-controversia)', '#F59E0B', 'Castigo a animes con alta controversia histórica externa (Dataset σ).')}
-                                    </div>
-                                    <div className="col-12 col-sm-6">
-                                        {renderSliderWithInfo('weight-mal', 'Crítica Externa', 'w_mal', weightMal, setWeightMal, 0.0, 0.5, 0.05, '0.00 (Solo grupo)', '0.50 (Influencia alta)', '#A855F7', 'Aporte de la calificación histórica canónica de MyAnimeList.')}
-                                    </div>
-                                    <div className="col-12 col-sm-6">
-                                        {renderSliderWithInfo('weight-aff', 'Afinidad de Géneros', 'w_af', weightAffinity, setWeightAffinity, 0.0, 1.5, 0.05, '0.00 (Neutral)', '1.50 (Máxima afinidad)', '#EC4899', 'Multiplicador por coincidencia con géneros favoritos de los perfiles.')}
-                                    </div>
-                                    <div className="col-12 col-sm-6">
-                                        {renderSliderWithInfo('tie-thresh', 'Umbral de Desempate', 'ε', tieThreshold, setTieThreshold, 0.05, 0.5, 0.01, '0.05 (Estricto)', '0.50 (Flexible)', '#14B8A6', 'Margen de diferencia de score que activa el criterio canónico de desempate.')}
-                                    </div>
+                                <div
+                                    style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                                        gap: '10px'
+                                    }}
+                                >
+                                    {renderSliderWithInfo('weight-mean', 'Media de Interés', 'w_μ', weightMean, setWeightMean, 0.5, 2.0, 0.05, '0.50 (Suave)', '2.00 (Dominante)', '#10B981', 'Ponderación del promedio directo de votos del grupo.')}
+                                    {renderSliderWithInfo('lambda', 'Aversión a la Dispersión', 'λ', lambda, setLambda, 0.0, 1.0, 0.02, '0.00 (Tolerante)', '1.00 (Aversión total)', '#38BDF8', 'Penalización aplicada a la desviación estándar (σ) entre amigos.')}
+                                    {renderSliderWithInfo('weight-pol', 'Freno a Polarización', 'β', weightPol, setWeightPol, 0.0, 0.8, 0.05, '0.00 (Ignorar)', '0.80 (Anti-controversia)', '#F59E0B', 'Castigo a animes con alta controversia histórica externa (Dataset σ).')}
+                                    {renderSliderWithInfo('weight-mal', 'Crítica Externa', 'w_mal', weightMal, setWeightMal, 0.0, 0.5, 0.05, '0.00 (Solo grupo)', '0.50 (Influencia alta)', '#A855F7', 'Aporte de la calificación histórica canónica de MyAnimeList.')}
+                                    {renderSliderWithInfo('weight-aff', 'Afinidad de Géneros', 'w_af', weightAffinity, setWeightAffinity, 0.0, 1.5, 0.05, '0.00 (Neutral)', '1.50 (Máxima afinidad)', '#EC4899', 'Multiplicador por coincidencia con géneros favoritos de los perfiles.')}
+                                    {renderSliderWithInfo('tie-thresh', 'Umbral de Desempate', 'ε', tieThreshold, setTieThreshold, 0.05, 0.5, 0.01, '0.05 (Estricto)', '0.50 (Flexible)', '#14B8A6', 'Margen de diferencia de score que activa el criterio canónico de desempate.')}
                                 </div>
                             </div>
                         )}
@@ -853,78 +868,105 @@ export function AlgorithmPage() {
                             </button>
                         </div>
 
-                        {/* Contenido de Carpeta 2 */}
+                        {/* Contenido de Carpeta 2: 3 filas de 2 columnas limpias, sin verde, con info (i) */}
                         {isRulesExpanded && (
                             <div className="p-3">
-                                <div className="row g-2">
-                                    {rules.map(rule => (
-                                        <div key={rule.id} className="col-12 col-sm-6">
+                                <div
+                                    style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                                        gap: '10px'
+                                    }}
+                                >
+                                    {rules.map(rule => {
+                                        const isRuleTooltipOpen = activeTooltipId === `rule-${rule.id}`
+                                        return (
                                             <div
-                                                className="p-2.5 rounded-1 h-100 d-flex flex-column justify-content-between transition-all"
+                                                key={rule.id}
+                                                className="p-2.5 rounded-1 d-flex align-items-center justify-content-between position-relative"
                                                 style={{
-                                                    backgroundColor: rule.active ? 'rgba(16, 185, 129, 0.04)' : 'var(--admin-surface-2)',
-                                                    border: `1px solid ${rule.active ? 'rgba(16, 185, 129, 0.35)' : 'var(--admin-border-subtle)'}`
+                                                    backgroundColor: 'var(--admin-surface-2)',
+                                                    border: '1px solid var(--admin-border-subtle)',
+                                                    minHeight: 52
                                                 }}
                                             >
-                                                <div>
-                                                    <div className="d-flex justify-content-between align-items-start gap-1 mb-1">
-                                                        <div className="d-flex align-items-center gap-1 overflow-hidden">
-                                                            <span
-                                                                className="font-mono rounded px-1.5 py-0.5 fw-bold flex-shrink-0"
-                                                                style={{
-                                                                    fontSize: '0.62rem',
-                                                                    backgroundColor: rule.active ? 'rgba(16, 185, 129, 0.2)' : 'var(--admin-surface-3)',
-                                                                    color: rule.active ? 'var(--admin-emerald)' : 'var(--admin-text-muted)'
-                                                                }}
-                                                            >
-                                                                {rule.id}
-                                                            </span>
-                                                            <span className="fw-semibold text-white text-truncate" style={{ fontSize: '0.74rem' }} title={rule.name}>
-                                                                {rule.name}
-                                                            </span>
-                                                        </div>
+                                                <div className="d-flex align-items-center gap-1.5 overflow-hidden me-2 position-relative">
+                                                    <span
+                                                        className="font-mono rounded px-1.5 py-0.5 fw-bold flex-shrink-0"
+                                                        style={{
+                                                            fontSize: '0.62rem',
+                                                            backgroundColor: 'var(--admin-surface-3)',
+                                                            color: 'var(--admin-text-secondary)'
+                                                        }}
+                                                    >
+                                                        {rule.id}
+                                                    </span>
+                                                    <span className="fw-semibold text-white text-truncate" style={{ fontSize: '0.74rem' }} title={rule.name}>
+                                                        {rule.name}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        aria-label={`Información sobre ${rule.name}`}
+                                                        className="btn p-0 border-0 d-inline-flex align-items-center text-secondary flex-shrink-0"
+                                                        style={{ cursor: 'pointer', lineHeight: 1 }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setActiveTooltipId(isRuleTooltipOpen ? null : `rule-${rule.id}`)
+                                                        }}
+                                                        onMouseEnter={() => setActiveTooltipId(`rule-${rule.id}`)}
+                                                        onMouseLeave={() => setActiveTooltipId(null)}
+                                                    >
+                                                        <Info size={13} style={{ color: isRuleTooltipOpen ? 'var(--admin-emerald)' : 'var(--admin-text-muted)' }} />
+                                                    </button>
 
-                                                        <div className="form-check form-switch m-0 flex-shrink-0">
-                                                            <input
-                                                                id={`toggle-rule-${rule.id}`}
-                                                                className="form-check-input"
-                                                                type="checkbox"
-                                                                checked={rule.active}
-                                                                onChange={() => handleToggleRule(rule.id)}
-                                                                style={{
-                                                                    cursor: 'pointer',
-                                                                    backgroundColor: rule.active ? 'var(--admin-emerald)' : 'var(--admin-surface-3)',
-                                                                    borderColor: rule.active ? 'var(--admin-emerald)' : 'var(--admin-border-subtle)',
-                                                                    width: '1.8em',
-                                                                    height: '0.95em'
-                                                                }}
-                                                            />
+                                                    {isRuleTooltipOpen && (
+                                                        <div
+                                                            className="position-absolute p-2.5 rounded shadow-lg font-sans"
+                                                            style={{
+                                                                bottom: '125%',
+                                                                left: 0,
+                                                                minWidth: 240,
+                                                                maxWidth: 290,
+                                                                backgroundColor: '#18181B',
+                                                                border: '1px solid var(--admin-border-divider)',
+                                                                color: '#E4E4E7',
+                                                                fontSize: '0.7rem',
+                                                                zIndex: 120,
+                                                                lineHeight: 1.35,
+                                                                pointerEvents: 'none',
+                                                                boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
+                                                            }}
+                                                        >
+                                                            <div className="fw-semibold text-white mb-1">{rule.name}</div>
+                                                            <div className="text-secondary mb-1">
+                                                                <strong className="text-white">Condición:</strong> {rule.condition}
+                                                            </div>
+                                                            <div style={{ color: 'var(--admin-emerald)' }}>
+                                                                <strong className="text-white">Efecto:</strong> {rule.effect}
+                                                            </div>
                                                         </div>
-                                                    </div>
-
-                                                    <div className="font-mono mb-1 text-truncate" style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)' }} title={rule.condition}>
-                                                        <span style={{ color: 'var(--admin-text-muted)' }}>Condición: </span>
-                                                        {rule.condition}
-                                                    </div>
+                                                    )}
                                                 </div>
 
-                                                <div
-                                                    className="pt-1.5 border-top mt-1 d-flex align-items-center justify-content-between font-mono"
-                                                    style={{ borderColor: 'var(--admin-border-subtle)', fontSize: '0.64rem' }}
-                                                >
-                                                    <span className="text-truncate me-1" style={{ color: rule.active ? 'var(--admin-emerald)' : 'var(--admin-text-muted)' }} title={rule.effect}>
-                                                        → {rule.effect}
-                                                    </span>
-                                                    <span
-                                                        className={`badge ${rule.active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}`}
-                                                        style={{ fontSize: '0.58rem', padding: '2px 4px' }}
-                                                    >
-                                                        {rule.active ? 'ACTIVA' : 'INACTIVA'}
-                                                    </span>
+                                                <div className="form-check form-switch m-0 flex-shrink-0">
+                                                    <input
+                                                        id={`toggle-rule-${rule.id}`}
+                                                        className="form-check-input"
+                                                        type="checkbox"
+                                                        checked={rule.active}
+                                                        onChange={() => handleToggleRule(rule.id)}
+                                                        style={{
+                                                            cursor: 'pointer',
+                                                            backgroundColor: rule.active ? 'var(--admin-emerald)' : 'var(--admin-surface-3)',
+                                                            borderColor: rule.active ? 'var(--admin-emerald)' : 'var(--admin-border-subtle)',
+                                                            width: '1.8em',
+                                                            height: '0.95em'
+                                                        }}
+                                                    />
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             </div>
                         )}
