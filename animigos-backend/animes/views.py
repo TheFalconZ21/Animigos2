@@ -1,9 +1,9 @@
-from collections import Counter
+from collections import Counter, defaultdict
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Avg
 from django.core.cache import cache
 
 from .models import Anime, AnimeRecommendation
@@ -18,6 +18,8 @@ from core.constants import (
     CACHE_PREFIX_STUDIOS,
     CACHE_PREFIX_SCHEDULE,
     CACHE_PREFIX_UPCOMING,
+    CACHE_PREFIX_SEASONS_TIMELINE,
+    CACHE_PREFIX_SEASON_METRICS,
 )
 from core.utils.cache import cached_api_response, build_cache_key
 from core.services.fuentes_externas import obtener_horario_semanal, obtener_proximos_lanzamientos
@@ -43,7 +45,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = AnimeCatalogPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['title', 'title_english', 'studio', 'genres']
-    ordering_fields = ['score', 'popularity', 'rank', 'season_year', 'polarization_index', 'title']
+    ordering_fields = ['score', 'popularity', 'rank', 'season_year', 'polarization_index', 'title', 'mal_id']
     ordering = ['-score']
 
     def get_queryset(self):
@@ -302,21 +304,24 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             return Response([])
 
     @action(detail=False, methods=['get'])
-    @cached_api_response(timeout=CACHE_TTL_LONG, prefix='genres')
+    @cached_api_response(timeout=CACHE_TTL_LONG, prefix='genres_v2')
     def genres(self, request):
-        """Devuelve lista de géneros únicos presentes en el catálogo."""
+        """Devuelve lista de géneros únicos presentes en el catálogo sanitizados."""
         genres_set = set()
         for anime in Anime.objects.exclude(genres=[]).only('genres'):
             if anime.genres and isinstance(anime.genres, list):
-                genres_set.update(anime.genres)
+                for g in anime.genres:
+                    cg = str(g).strip('[]"\' \t\r\n')
+                    if cg:
+                        genres_set.add(cg)
         return Response(sorted(list(genres_set)))
 
     @action(detail=False, methods=['get'])
-    @cached_api_response(timeout=CACHE_TTL_LONG, prefix='taxonomies_v1')
+    @cached_api_response(timeout=CACHE_TTL_LONG, prefix='taxonomies_v2')
     def taxonomies(self, request):
         """
         Devuelve el catálogo completo de Géneros y Media Tags de AniList (con su categoría y conteo)
-        para el selector multi-filtro del Catálogo.
+        para el selector multi-filtro del Catálogo, asegurando sanitización de brackets y comillas.
         """
         genre_counter = Counter()
         tag_counter = Counter()
@@ -325,12 +330,13 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         for anime in Anime.objects.only('genres', 'tags_data').iterator(chunk_size=2500):
             if isinstance(anime.genres, list):
                 for g in anime.genres:
-                    if g:
-                        genre_counter[str(g).strip()] += 1
+                    cg = str(g).strip('[]"\' \t\r\n')
+                    if cg:
+                        genre_counter[cg] += 1
             if isinstance(anime.tags_data, list):
                 for t in anime.tags_data:
                     if isinstance(t, dict) and not t.get('spoiler'):
-                        t_name = str(t.get('name', '')).strip()
+                        t_name = str(t.get('name', '')).strip('[]"\' \t\r\n')
                         if t_name:
                             tag_counter[t_name] += 1
                             if t_name not in tag_categories:
@@ -377,6 +383,163 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             .order_by('-season_year')
         )
         return Response(list(years))
+
+    @action(detail=False, methods=['get'], url_path='seasons-timeline')
+    @cached_api_response(timeout=CACHE_TTL_LONG, prefix='seasons_timeline_asc_v5')
+    def seasons_timeline(self, request):
+        """
+        Retorna la lista ordenada de años disponibles (de pasado a futuro: izquierda a derecha)
+        con su conteo de animes, nota media y los top 10 animes más populares (por miembros/votos)
+        para alimentar la vista previa interactiva de la línea de tiempo.
+        """
+        years_qs = (
+            Anime.objects.filter(season_year__gte=1960, season_year__lte=2026)
+            .values('season_year')
+            .annotate(count=Count('mal_id'), avg_score=Avg('score'))
+            .order_by('season_year')
+        )
+
+        popular_animes = (
+            Anime.objects.filter(season_year__gte=1960, season_year__lte=2026, scored_by__gt=0)
+            .order_by('season_year', '-scored_by')
+            .values('mal_id', 'title', 'title_english', 'image_url', 'banner_url', 'scored_by', 'score', 'season_year')
+        )
+        popular_by_year = defaultdict(list)
+        for a in popular_animes:
+            if len(popular_by_year[a['season_year']]) < 10:
+                popular_by_year[a['season_year']].append({
+                    'mal_id': a['mal_id'],
+                    'title': a['title_english'] or a['title'],
+                    'image_url': a['image_url'],
+                    'banner_url': a.get('banner_url') or a['image_url'],
+                    'scored_by': a['scored_by'],
+                    'score': float(a['score']) if a['score'] is not None else 0.0
+                })
+
+        data = [
+            {
+                'year': item['season_year'],
+                'count': item['count'],
+                'avg_score': round(float(item['avg_score'] or 0), 2),
+                'top_popular': popular_by_year.get(item['season_year'], [])
+            }
+            for item in years_qs
+        ]
+        return Response(data)
+
+    @action(detail=False, methods=['get'], url_path='season-metrics')
+    @cached_api_response(timeout=CACHE_TTL_LONG, prefix=CACHE_PREFIX_SEASON_METRICS)
+    def season_metrics(self, request):
+        """
+        Retorna las métricas cuantitativas y cualitativas de un año específico y sus 4 temporadas:
+        - Total de animes
+        - Nota media
+        - Género más popular
+        - Top 3 animes por nota y votos
+        - Desglose detallado por Invierno, Primavera, Verano, Otoño
+        """
+        year_str = request.query_params.get('year')
+        season_req = request.query_params.get('season')
+
+        if not year_str:
+            latest_year = (
+                Anime.objects.filter(season_year__isnull=False)
+                .order_by('-season_year')
+                .values_list('season_year', flat=True)
+                .first()
+            )
+            year = latest_year or 2024
+        else:
+            try:
+                year = int(year_str)
+            except ValueError:
+                return Response({'error': 'Parámetro year inválido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        def serialize_top(items):
+            return [
+                {
+                    'mal_id': it['mal_id'],
+                    'title': it['title'],
+                    'title_english': it['title_english'] or it['title'],
+                    'score': float(it['score']) if it['score'] is not None else 0.0,
+                    'scored_by': it['scored_by'] or 0,
+                    'image_url': it['image_url'],
+                    'type': it['type'] or 'TV',
+                    'season': it['season'] or '',
+                    'studio': it['studio'] or ''
+                }
+                for it in items
+            ]
+
+        qs_year = Anime.objects.filter(season_year=year)
+        total_year = qs_year.count()
+        avg_score_year = qs_year.filter(score__gt=0).aggregate(a=Avg('score'))['a'] or 0
+
+        # Género más popular
+        genres_counter = Counter()
+        for g_list in qs_year.values_list('genres', flat=True):
+            if isinstance(g_list, list):
+                for g in g_list:
+                    if g and isinstance(g, str):
+                        genres_counter[g.strip()] += 1
+        top_genre_year = genres_counter.most_common(1)[0][0] if genres_counter else "Variado"
+
+        top_3_year_raw = list(
+            qs_year.filter(score__gt=0)
+            .order_by('-score', '-scored_by')[:3]
+            .values('mal_id', 'title', 'title_english', 'score', 'scored_by', 'image_url', 'type', 'season', 'studio')
+        )
+        top_3_year = serialize_top(top_3_year_raw)
+
+        # 4 temporadas del año
+        seasons_config = [
+            ('Winter', 'Invierno', '❄️'),
+            ('Spring', 'Primavera', '🌸'),
+            ('Summer', 'Verano', '☀️'),
+            ('Fall', 'Otoño', '🍁')
+        ]
+        seasons_dict = {}
+        for s_key, s_es, s_ico in seasons_config:
+            qs_s = qs_year.filter(season__iexact=s_key)
+            s_cnt = qs_s.count()
+            s_avg = qs_s.filter(score__gt=0).aggregate(a=Avg('score'))['a'] or 0
+            s_genres = Counter()
+            for g_list in qs_s.values_list('genres', flat=True):
+                if isinstance(g_list, list):
+                    for g in g_list:
+                        if g and isinstance(g, str):
+                            s_genres[g.strip()] += 1
+            s_top_g = s_genres.most_common(1)[0][0] if s_genres else "Variado"
+            s_top_3_raw = list(
+                qs_s.filter(score__gt=0)
+                .order_by('-score', '-scored_by')[:3]
+                .values('mal_id', 'title', 'title_english', 'score', 'scored_by', 'image_url', 'type', 'season', 'studio')
+            )
+            seasons_dict[s_key] = {
+                'season': s_key,
+                'name_es': s_es,
+                'icon': s_ico,
+                'count': s_cnt,
+                'avg_score': round(float(s_avg), 2),
+                'top_genre': s_top_g,
+                'top_3': serialize_top(s_top_3_raw)
+            }
+
+        response_payload = {
+            'year': year,
+            'total_animes': total_year,
+            'avg_score': round(float(avg_score_year), 2),
+            'top_genre': top_genre_year,
+            'top_3': top_3_year,
+            'seasons': seasons_dict
+        }
+
+        if season_req:
+            season_norm = season_req.capitalize()
+            if season_norm in seasons_dict:
+                response_payload['selected_season'] = seasons_dict[season_norm]
+
+        return Response(response_payload)
 
     @action(detail=True, methods=['get'])
     @cached_api_response(timeout=CACHE_TTL_MEDIUM, prefix=CACHE_PREFIX_RECOMMENDATIONS)

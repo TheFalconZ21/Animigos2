@@ -218,13 +218,13 @@ export function useMyList() {
 
     // Funciones de acción de negocio simplificadas para la UI
     const actualizar = async (malId: number, cambios: Partial<EntradaLista>) => {
-        const fila = filas.find((f) => f.malId === malId)
+        const fila = filas.find((f) => Number(f.malId) === Number(malId))
         if (!fila) return
 
         const payload: UpdateAnimePayload = {}
         if (cambios.estado !== undefined) payload.status = cambios.estado
         if (cambios.nota !== undefined) payload.score = cambios.nota
-        if (cambios.episodiosVistos !== undefined) payload.episodes_watched = cambios.episodiosVistos
+        if (cambios.episodiosVistos !== undefined) payload.episodes_watched = Math.max(0, cambios.episodiosVistos)
         if (cambios.favorito !== undefined) payload.is_favorite = cambios.favorito
         if (cambios.carpetaId !== undefined) payload.folder_id = cambios.carpetaId || null
         if (cambios.tags !== undefined) payload.tags = cambios.tags
@@ -234,7 +234,7 @@ export function useMyList() {
     }
 
     const quitar = async (malId: number) => {
-        const fila = filas.find((f) => f.malId === malId)
+        const fila = filas.find((f) => Number(f.malId) === Number(malId))
         if (!fila) return
         await deleteMutation.mutateAsync(fila.id)
     }

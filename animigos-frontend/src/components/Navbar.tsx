@@ -28,13 +28,28 @@ import {
 } from '../services/friendsApi'
 import { addAnimeToMyList } from '../services/userListApi'
 import { resolveMediaUrl } from '../utils/mediaUrl'
+import { NavbarSearch } from './NavbarSearch'
+import type { PlatformView } from './PlatformSidebar'
 
 interface NavbarProps {
-    currentView?: 'landing' | 'catalogo' | 'recomendador' | 'mi-lista' | 'sala' | 'tablon' | 'calendario' | 'perfil' | 'admin'
-    onSelectView?: (view: 'landing' | 'catalogo' | 'recomendador' | 'mi-lista' | 'sala' | 'tablon' | 'calendario' | 'perfil' | 'admin') => void
+    currentView?: PlatformView
+    onSelectView?: (view: PlatformView) => void
+    isSidebarCollapsed?: boolean
+    onToggleSidebar?: () => void
+    showSidebarToggle?: boolean
+    onSelectAnime?: (malId: number) => void
+    onGlobalSearch?: (query: string) => void
 }
 
-export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) {
+export function Navbar({
+    currentView = 'catalogo',
+    onSelectView,
+    isSidebarCollapsed = false,
+    onToggleSidebar,
+    showSidebarToggle = false,
+    onSelectAnime,
+    onGlobalSearch
+}: NavbarProps) {
     const { user, isAuthenticated, logout } = useAuth()
     const { setExpression } = useCatExpression()
     const queryClient = useQueryClient()
@@ -150,109 +165,169 @@ export function Navbar({ currentView = 'catalogo', onSelectView }: NavbarProps) 
         <nav className="navbar navbar-expand border-bottom border-dark py-2 sticky-top glass-nav">
             <div className="container-fluid px-3 px-md-4">
 
-                {/* Logo / Marca — Con enlace a landing page y cambio de expresión al pasar el cursor */}
-                <a
-                    className="navbar-brand text-decoration-none me-3 me-md-4 me-xl-5"
-                    href="#landing"
-                    onClick={(e) => {
-                        e.preventDefault()
-                        handleNavClick('landing')
-                    }}
-                    onMouseEnter={() => setExpression('happy')}
-                    onMouseLeave={() => setExpression('normal')}
-                    title="Animigos — Inicio"
-                >
-                    <AnimigosLogo size="md" />
-                </a>
+                {/* Si estamos en modo plataforma con Sidebar, mostramos el botón toggle solo cuando la sidebar está colapsada */}
+                {showSidebarToggle ? (
+                    <div className="d-flex align-items-center gap-2">
+                        {isSidebarCollapsed && (
+                            <button
+                                type="button"
+                                onClick={onToggleSidebar}
+                                className="btn btn-sm d-flex align-items-center justify-content-center p-1.5 rounded-2 text-white border-0 me-1"
+                                style={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                    width: 32,
+                                    height: 32,
+                                    transition: 'background-color 0.15s ease'
+                                }}
+                                title="Expandir barra lateral"
+                                aria-label="Abrir barra lateral"
+                            >
+                                <Menu size={16} />
+                            </button>
+                        )}
 
-                {/* Navegación Principal — Solo en Escritorio (>= 992px) */}
-                <div
-                    ref={overflowRef}
-                    className="nav-overflow mx-auto nav-desktop-only ps-3 ps-xl-4"
-                    data-bs-toggle="nav-overflow"
-                >
-                    <ul className="nav navbar-nav justify-content-center gap-1">
-                        {isAuthenticated && (
+                        <div className="d-flex flex-column d-none d-sm-flex">
+                            <span className="navbar-breadcrumb-title">
+                                {currentView === 'landing' && 'Animigos · Inicio'}
+                                {currentView === 'catalogo' && 'Catálogo de Animes'}
+                                {currentView === 'recomendador' && 'Recomendador Inteligente'}
+                                {currentView === 'temporadas' && 'Temporadas de Anime'}
+                                {currentView === 'tablon' && 'Tablón Social'}
+                                {currentView === 'calendario' && 'Calendario de Anime'}
+                                {currentView === 'agenda' && 'Agenda de Tareas'}
+                                {currentView === 'mi-lista' && 'Mi Lista Personal'}
+                                {currentView === 'sala' && 'Listas Grupales & Salas'}
+                                {currentView === 'perfil' && 'Perfil de Usuario'}
+                            </span>
+                            <span className="navbar-breadcrumb-subtitle d-none d-md-inline">
+                                {currentView === 'landing' && 'Descubre y vota anime en grupo'}
+                                {currentView === 'catalogo' && '26,878 series y películas indexadas'}
+                                {currentView === 'recomendador' && 'Recomendaciones por consenso y afinidad grupal'}
+                                {currentView === 'temporadas' && 'Línea de tiempo y estaciones del año'}
+                                {currentView === 'tablon' && 'Feed de amigos, noticias y watch parties en curso'}
+                                {currentView === 'calendario' && 'Horarios y emisiones de la semana'}
+                                {currentView === 'agenda' && 'Contador de capítulos pendientes en emisión'}
+                                {currentView === 'mi-lista' && 'Seguimiento personal y notas'}
+                                {currentView === 'sala' && 'Votación grupal y watch parties en vivo'}
+                                {currentView === 'perfil' && 'Estadísticas y configuración de cuenta'}
+                            </span>
+                        </div>
+                    </div>
+                ) : (
+                    /* Logo / Marca — Modo Landing o barra superior clásica */
+                    <a
+                        className="navbar-brand text-decoration-none me-3 me-md-4 me-xl-5"
+                        href="#landing"
+                        onClick={(e) => {
+                            e.preventDefault()
+                            handleNavClick('landing')
+                        }}
+                        onMouseEnter={() => setExpression('happy')}
+                        onMouseLeave={() => setExpression('normal')}
+                        title="Animigos — Inicio"
+                    >
+                        <AnimigosLogo size="md" />
+                    </a>
+                )}
+
+                {/* Navegación Horizontal Clásica — SOLO cuando NO hay sidebar (ej: Landing page) */}
+                {!showSidebarToggle && (
+                    <div
+                        ref={overflowRef}
+                        className="nav-overflow mx-auto nav-desktop-only ps-3 ps-xl-4"
+                        data-bs-toggle="nav-overflow"
+                    >
+                        <ul className="nav navbar-nav justify-content-center gap-1">
+                            {isAuthenticated && (
+                                <li className="nav-item">
+                                    <a
+                                        className={`nav-link ${currentView === 'tablon' ? 'active' : ''}`}
+                                        href="#tablon"
+                                        onClick={(e) => {
+                                            e.preventDefault()
+                                            handleNavClick('tablon')
+                                        }}
+                                    >
+                                        Tablón
+                                    </a>
+                                </li>
+                            )}
                             <li className="nav-item">
                                 <a
-                                    className={`nav-link ${currentView === 'tablon' ? 'active' : ''}`}
-                                    href="#tablon"
+                                    className={`nav-link ${currentView === 'catalogo' ? 'active' : ''}`}
+                                    href="#catalogo"
                                     onClick={(e) => {
                                         e.preventDefault()
-                                        handleNavClick('tablon')
+                                        handleNavClick('catalogo')
                                     }}
                                 >
-                                    Tablón
+                                    Catálogo
                                 </a>
                             </li>
-                        )}
-                        <li className="nav-item">
-                            <a
-                                className={`nav-link ${currentView === 'catalogo' ? 'active' : ''}`}
-                                href="#catalogo"
-                                onClick={(e) => {
-                                    e.preventDefault()
-                                    handleNavClick('catalogo')
-                                }}
-                            >
-                                Catálogo
-                            </a>
-                        </li>
-                        <li className="nav-item">
-                            <a
-                                className={`nav-link d-inline-flex align-items-center gap-1 ${currentView === 'recomendador' ? 'active' : ''}`}
-                                href="#recomendador"
-                                onClick={(e) => {
-                                    e.preventDefault()
-                                    handleNavClick('recomendador')
-                                }}
-                            >
-                                Recomendador
-                            </a>
-                        </li>
-                        {isAuthenticated && (
                             <li className="nav-item">
                                 <a
-                                    className={`nav-link ${currentView === 'mi-lista' ? 'active' : ''}`}
-                                    href="#mi-lista"
+                                    className={`nav-link d-inline-flex align-items-center gap-1 ${currentView === 'recomendador' ? 'active' : ''}`}
+                                    href="#recomendador"
                                     onClick={(e) => {
                                         e.preventDefault()
-                                        handleNavClick('mi-lista')
+                                        handleNavClick('recomendador')
                                     }}
                                 >
-                                    Mi Lista
+                                    Recomendador
                                 </a>
                             </li>
-                        )}
-                        <li className="nav-item">
-                            <a
-                                className={`nav-link ${currentView === 'sala' ? 'active' : ''}`}
-                                href="#listas"
-                                onClick={(e) => {
-                                    e.preventDefault()
-                                    handleNavClick('sala')
-                                }}
-                            >
-                                Listas Grupales
-                            </a>
-                        </li>
-                        <li className="nav-item">
-                            <a
-                                className={`nav-link ${currentView === 'calendario' ? 'active' : ''}`}
-                                href="#calendario"
-                                onClick={(e) => {
-                                    e.preventDefault()
-                                    handleNavClick('calendario')
-                                }}
-                            >
-                                Calendario
-                            </a>
-                        </li>
-                    </ul>
+                            {isAuthenticated && (
+                                <li className="nav-item">
+                                    <a
+                                        className={`nav-link ${currentView === 'mi-lista' ? 'active' : ''}`}
+                                        href="#mi-lista"
+                                        onClick={(e) => {
+                                            e.preventDefault()
+                                            handleNavClick('mi-lista')
+                                        }}
+                                    >
+                                        Mi Lista
+                                    </a>
+                                </li>
+                            )}
+                            <li className="nav-item">
+                                <a
+                                    className={`nav-link ${currentView === 'sala' ? 'active' : ''}`}
+                                    href="#listas"
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        handleNavClick('sala')
+                                    }}
+                                >
+                                    Listas Grupales
+                                </a>
+                            </li>
+                            <li className="nav-item">
+                                <a
+                                    className={`nav-link ${currentView === 'calendario' ? 'active' : ''}`}
+                                    href="#calendario"
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        handleNavClick('calendario')
+                                    }}
+                                >
+                                    Calendario
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                )}
+
+                {/* Buscador Multiusos de Animes */}
+                <div className="mx-2 mx-md-3 flex-grow-1 d-flex justify-content-center" style={{ maxWidth: '420px' }}>
+                    <NavbarSearch
+                        onSelectAnime={onSelectAnime}
+                        onSearchSubmit={onGlobalSearch}
+                    />
                 </div>
 
                 {/* Acciones del usuario a la derecha */}
-                <div className="d-flex align-items-center gap-2 ms-auto ms-lg-0">
+                <div className="d-flex align-items-center gap-2 ms-auto">
                     {/* CASO: USUARIO AUTENTICADO */}
                     {isAuthenticated && user ? (
                         <>

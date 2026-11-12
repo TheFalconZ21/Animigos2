@@ -22,14 +22,16 @@ import {
     Vote,
     ChevronDown,
     ChevronUp,
-    Eye
+    Eye,
+    Plus
 } from 'lucide-react'
 import {
     getRooms,
     moderateRoom,
     getRoomsCleanupPolicy,
     saveRoomsCleanupPolicy,
-    runRoomsCleanup
+    runRoomsCleanup,
+    createAdminRoom
 } from '../services/adminApi'
 import type { RoomItem, RoomsCleanupPolicy, RoomsFilterParams } from '../services/adminApi'
 import { InteractiveDonutChart, type DonutSegment } from '../components/InteractiveDonutChart'
@@ -44,6 +46,17 @@ export function RoomsPage() {
     const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
     const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
     const [isDetailPopupOpen, setIsDetailPopupOpen] = useState<boolean>(false)
+
+    // Estado del modal de creación de sala (CRUD Create)
+    const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState<boolean>(false)
+    const [newRoomData, setNewRoomData] = useState<{ name: string; description: string; host_name: string; status: string }>({
+        name: '',
+        description: '',
+        host_name: 'Admin',
+        status: 'voting'
+    })
+    const [isCreatingRoom, setIsCreatingRoom] = useState<boolean>(false)
+    const [createRoomError, setCreateRoomError] = useState<string | null>(null)
 
     // -------------------------------------------------------------
     // ESTADO: Búsquedas Específicas & Filtros
@@ -298,6 +311,29 @@ export function RoomsPage() {
             triggerToast(`Error al ejecutar limpieza: ${err.message}`, 'danger')
         } finally {
             setIsRunningCleanup(false)
+        }
+    }
+
+    // Crear Nueva Sala (CRUD Create)
+    const handleCreateRoom = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!newRoomData.name.trim()) {
+            setCreateRoomError('El nombre de la sala es obligatorio')
+            return
+        }
+        setIsCreatingRoom(true)
+        setCreateRoomError(null)
+        try {
+            const res = await createAdminRoom(newRoomData)
+            setRooms(prev => [res.room, ...prev])
+            setUnfilteredTotal(t => t + 1)
+            setIsCreateRoomModalOpen(false)
+            setNewRoomData({ name: '', description: '', host_name: 'Admin', status: 'voting' })
+            triggerToast(res.message, 'success')
+        } catch (err: any) {
+            setCreateRoomError(err.message || 'Error al crear la sala')
+        } finally {
+            setIsCreatingRoom(false)
         }
     }
 
@@ -721,6 +757,26 @@ export function RoomsPage() {
                             <SlidersHorizontal size={12} />
                             <span>{showAdvancedFilters ? 'Ocultar Filtros' : 'Filtros Avanzados'}</span>
                             {showAdvancedFilters ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsCreateRoomModalOpen(true)
+                                setCreateRoomError(null)
+                            }}
+                            className="admin-btn admin-btn-primary d-inline-flex align-items-center gap-1 font-mono ms-1"
+                            style={{
+                                fontSize: '0.72rem',
+                                padding: '0.35rem 0.75rem',
+                                backgroundColor: 'var(--admin-emerald)',
+                                color: '#000000',
+                                fontWeight: 600
+                            }}
+                            title="Crear una nueva sala de watch party"
+                        >
+                            <Plus size={13} />
+                            <span>Nueva Sala</span>
                         </button>
                     </div>
                 </div>
@@ -1401,6 +1457,140 @@ export function RoomsPage() {
                                 Confirmar {confirmModal.action.toUpperCase()}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ============================================================
+               MODAL DE CREACIÓN DE NUEVA SALA (CRUD CREATE)
+               ============================================================ */}
+            {isCreateRoomModalOpen && (
+                <div
+                    className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                    style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        zIndex: 1050,
+                        backdropFilter: 'blur(5px)',
+                        padding: '1rem'
+                    }}
+                >
+                    <div
+                        className="admin-card p-4 text-white"
+                        style={{
+                            maxWidth: '480px',
+                            width: '100%',
+                            border: '1px solid var(--admin-emerald)',
+                            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7)'
+                        }}
+                    >
+                        <div className="d-flex justify-content-between align-items-start pb-2 mb-3 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                            <div>
+                                <h3 className="fs-6 fw-bold m-0 text-white">Crear Nueva Sala de Watch Party</h3>
+                                <span className="text-secondary small font-mono">Inicia una sala con código de invitación único</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsCreateRoomModalOpen(false)}
+                                className="btn btn-link p-0 text-secondary"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {createRoomError && (
+                            <div className="p-2 mb-3 bg-danger bg-opacity-10 border border-danger text-danger rounded font-mono small d-flex align-items-center gap-1.5" style={{ fontSize: '0.74rem' }}>
+                                <AlertTriangle size={14} />
+                                <span>{createRoomError}</span>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleCreateRoom}>
+                            <div className="mb-2">
+                                <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                    NOMBRE DE LA SALA *
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={newRoomData.name}
+                                    onChange={e => setNewRoomData(prev => ({ ...prev, name: e.target.value }))}
+                                    placeholder="ej: Viernes de Anime & Pizza"
+                                    className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
+                                    style={{ fontSize: '0.76rem' }}
+                                />
+                            </div>
+
+                            <div className="mb-2">
+                                <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                    DESCRIPCIÓN O PROPÓSITO
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={newRoomData.description}
+                                    onChange={e => setNewRoomData(prev => ({ ...prev, description: e.target.value }))}
+                                    placeholder="ej: Sesión semanal para votar shonen de temporada..."
+                                    className="form-control form-control-sm bg-dark text-white border-secondary"
+                                    style={{ fontSize: '0.75rem', resize: 'vertical' }}
+                                />
+                            </div>
+
+                            <div className="row g-2 mb-3">
+                                <div className="col-6">
+                                    <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                        NOMBRE ANFITRIÓN
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={newRoomData.host_name}
+                                        onChange={e => setNewRoomData(prev => ({ ...prev, host_name: e.target.value }))}
+                                        placeholder="Admin"
+                                        className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
+                                        style={{ fontSize: '0.75rem' }}
+                                    />
+                                </div>
+                                <div className="col-6">
+                                    <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                        FASE INICIAL
+                                    </label>
+                                    <select
+                                        value={newRoomData.status}
+                                        onChange={e => setNewRoomData(prev => ({ ...prev, status: e.target.value }))}
+                                        className="form-select form-select-sm bg-dark text-white border-secondary font-mono"
+                                        style={{ fontSize: '0.75rem' }}
+                                    >
+                                        <option value="voting">Votación Abierta</option>
+                                        <option value="candidates">Candidaturas</option>
+                                        <option value="watching">En Emisión</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                <button
+                                    type="button"
+                                    disabled={isCreatingRoom}
+                                    onClick={() => setIsCreateRoomModalOpen(false)}
+                                    className="admin-btn admin-btn-secondary px-3 py-1.5"
+                                    style={{ fontSize: '0.75rem' }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isCreatingRoom}
+                                    className="admin-btn d-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold"
+                                    style={{
+                                        fontSize: '0.75rem',
+                                        backgroundColor: 'var(--admin-emerald)',
+                                        color: '#000000',
+                                        border: '1px solid var(--admin-emerald)'
+                                    }}
+                                >
+                                    <Plus size={13} />
+                                    <span>{isCreatingRoom ? 'Creando...' : 'Crear Sala'}</span>
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

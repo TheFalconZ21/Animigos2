@@ -835,17 +835,63 @@
     color: #ffffff;
 }
 
+.anime-profile-ep-input {
+    width: 48px;
+    height: 26px;
+    background: #181822;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 7px;
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 0 4px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.anime-profile-ep-input:focus {
+    border-color: var(--cat-acento);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--cat-acento) 25%, transparent);
+}
+
+.anime-profile-ep-minus,
 .anime-profile-ep-plus {
     width: 24px;
     height: 24px;
     border-radius: 6px;
-    background: var(--cat-acento);
-    color: #09090d;
     border: none;
     font-weight: 900;
     font-size: 0.85rem;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.anime-profile-ep-minus {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.anime-profile-ep-minus:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.anime-profile-ep-minus:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.anime-profile-ep-plus {
+    background: var(--cat-acento);
+    color: #09090d;
+}
+
+.anime-profile-ep-plus:hover {
+    filter: brightness(1.15);
 }
 
 .anime-profile-fav-btn {
@@ -869,6 +915,34 @@
     background: rgba(244, 63, 94, 0.14);
     border-color: rgba(244, 63, 94, 0.45);
     color: #fda4af;
+}
+
+.anime-profile-remove-btn {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 9px;
+    background: transparent;
+    border: 1px dashed rgba(239, 68, 68, 0.28);
+    color: #f87171;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.anime-profile-remove-btn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+}
+
+.anime-profile-remove-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .anime-profile-info-list {

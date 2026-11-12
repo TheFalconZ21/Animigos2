@@ -8,8 +8,9 @@ urlpatterns = [
     path('me/', views.get_current_user, name='user-me'),
     path('me/profile/', views.update_profile, name='user-profile-update'),
     path('me/preferences/', views.update_preferences, name='user-preferences-update'),
-    # Mi Lista personal
+    # Mi Lista personal y Agenda de tareas
     path('my-list/', views.user_my_list_view, name='user-my-list'),
+    path('agenda/', views.user_agenda_view, name='user-agenda'),
     path('my-list/import-mal-xml/', views.import_mal_xml_view, name='user-my-list-import-mal-xml'),
     path('my-list/<uuid:entry_id>/', views.user_my_list_entry_detail_view, name='user-my-list-entry-detail'),
     path('my-list/folders/', views.user_my_list_folders_view, name='user-my-list-folders'),

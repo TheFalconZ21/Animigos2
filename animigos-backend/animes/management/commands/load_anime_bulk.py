@@ -144,7 +144,17 @@ class Command(BaseCommand):
                     status = (row.get('status') or 'FINISHED').strip()
                     type_val = (row.get('type') or 'TV').strip()
                     genres_str = (row.get('genres') or '').strip()
-                    genres = [g.strip() for g in genres_str.split(',') if g.strip()] if genres_str else []
+                    genres = []
+                    if genres_str:
+                        if genres_str.startswith('[') and genres_str.endswith(']'):
+                            try:
+                                parsed = json.loads(genres_str)
+                                if isinstance(parsed, list):
+                                    genres = [str(g).strip('[]"\' \t\r\n') for g in parsed if str(g).strip('[]"\' \t\r\n')]
+                            except Exception:
+                                pass
+                        if not genres:
+                            genres = [g.strip('[]"\' \t\r\n') for g in genres_str.split(',') if g.strip('[]"\' \t\r\n')]
                     
                     tags_data_raw = (row.get('tags_data') or '').strip()
                     tags_data = []
@@ -218,7 +228,7 @@ class Command(BaseCommand):
                     type_val = (row.get('format') or row.get('type') or 'TV').strip()
 
                     genres_raw = row.get('generos_2026', '').strip()
-                    genres = [g.strip() for g in genres_raw.split(',') if g.strip()] if genres_raw else []
+                    genres = [g.strip('[]"\' \t\r\n') for g in genres_raw.split(',') if g.strip('[]"\' \t\r\n')] if genres_raw else []
                     tags_data = []
                     tags_cache = ''
 

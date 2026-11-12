@@ -1,0 +1,284 @@
+/* ============================================================
+   NAVBAR SEARCH (BUSCADOR MULTIUSOS DE ANIMES)
+   ============================================================ */
+
+.navbar-search-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  min-width: 200px;
+}
+
+@media (max-width: 768px) {
+  .navbar-search-wrapper {
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 576px) {
+  .navbar-search-wrapper {
+    max-width: 160px;
+  }
+}
+
+.navbar-search-input-box {
+  display: flex;
+  align-items: center;
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  padding: 0 0.75rem;
+  height: 34px;
+  transition: all 0.18s ease;
+}
+
+.navbar-search-input-box:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.navbar-search-input-box.is-focused {
+  background: rgba(18, 20, 29, 0.95);
+  border-color: var(--theme-acento, #a78bfa);
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.18), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.navbar-search-icon {
+  color: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.navbar-search-input-box.is-focused .navbar-search-icon {
+  color: var(--theme-acento, #a78bfa);
+}
+
+.navbar-search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 0.82rem;
+  width: 100%;
+  padding: 0 0.5rem;
+}
+
+.navbar-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 0.78rem;
+}
+
+.navbar-search-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.64rem;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.navbar-search-clear-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.navbar-search-clear-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Popover de Resultados */
+.navbar-search-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 420px;
+  max-width: 90vw;
+  background: #0f1118;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  z-index: 1060;
+  overflow: hidden;
+  animation: navbarSearchFadeIn 0.15s ease-out;
+}
+
+@keyframes navbarSearchFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.navbar-search-dropdown-header {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar-search-dropdown-list {
+  padding: 0.35rem;
+  max-height: 380px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navbar-search-dropdown-list::-webkit-scrollbar {
+  width: 5px;
+}
+.navbar-search-dropdown-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+/* Item de Anime */
+.navbar-search-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: all 0.14s ease;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+.navbar-search-item:hover,
+.navbar-search-item.is-selected {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.navbar-search-thumb {
+  width: 38px;
+  height: 52px;
+  border-radius: 5px;
+  object-fit: cover;
+  background: #181920;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.navbar-search-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navbar-search-item-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+}
+
+.navbar-search-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.navbar-search-badge-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #fbbf24;
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+
+.navbar-search-badge-type {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.64rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.navbar-search-item-genres {
+  font-size: 0.66rem;
+  color: rgba(255, 255, 255, 0.38);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Footer del Dropdown */
+.navbar-search-dropdown-footer {
+  padding: 0.55rem 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar-search-view-all-btn {
+  background: transparent;
+  border: none;
+  color: var(--theme-acento, #a78bfa);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  transition: opacity 0.15s ease;
+}
+
+.navbar-search-view-all-btn:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.navbar-search-empty {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.78rem;
+}
+

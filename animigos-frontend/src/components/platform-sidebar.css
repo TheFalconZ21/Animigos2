@@ -1,0 +1,213 @@
+/* ============================================================
+   PLATFORM SIDEBAR (LAYOUT PRINCIPAL ANIMIGOS)
+   ============================================================ */
+
+.platform-sidebar {
+  width: 250px;
+  background-color: #0c0d10;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, border-color 0.2s ease;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 1040;
+  flex-shrink: 0;
+  user-select: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Estado Colapsado / Oculto: Desaparece completamente para dejar la pantalla completa */
+.platform-sidebar.collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  border-right-width: 0 !important;
+  border-right-color: transparent !important;
+  padding: 0 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Header del Sidebar (Visible cuando se abre) */
+.platform-sidebar-header {
+  padding: 1rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 64px;
+  width: 250px;
+  box-sizing: border-box;
+}
+
+.platform-sidebar-logo-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: #ffffff;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.platform-sidebar-toggle-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.platform-sidebar-toggle-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Lista de Navegación */
+.platform-sidebar-nav {
+  padding: 0.85rem 0.65rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 250px;
+  box-sizing: border-box;
+}
+
+.platform-sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+.platform-sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.platform-sidebar-section-title {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 0.6rem 0.65rem 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Items individuales */
+.platform-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.82rem;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  text-decoration: none;
+  position: relative;
+  white-space: nowrap;
+}
+
+.platform-sidebar-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.platform-sidebar-item.active {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--theme-acento, #e8508f) 18%, transparent) 0%, color-mix(in srgb, var(--theme-acento, #e8508f) 5%, transparent) 100%);
+  color: #ffffff;
+  border-color: color-mix(in srgb, var(--theme-acento, #e8508f) 40%, transparent);
+  font-weight: 600;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--theme-acento, #e8508f) 15%, transparent);
+}
+
+.platform-sidebar-item.active .platform-sidebar-icon {
+  color: var(--theme-acento, #e8508f);
+}
+
+.platform-sidebar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.15s ease;
+}
+
+.platform-sidebar-badge {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  letter-spacing: 0.02em;
+  margin-left: auto;
+}
+
+/* Estilos de layout principal */
+.platform-layout {
+  background-color: #08090b;
+}
+
+.platform-main {
+  min-height: 100vh;
+}
+
+/* Desaturación del navbar */
+.navbar-breadcrumb-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+
+.navbar-breadcrumb-subtitle {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Responsividad en dispositivos móviles */
+@media (max-width: 768px) {
+  .platform-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1050;
+    box-shadow: 6px 0 24px rgba(0, 0, 0, 0.7);
+    width: 250px;
+    transform: translateX(0);
+    transition: transform 0.25s ease;
+  }
+
+  .platform-sidebar.collapsed {
+    transform: translateX(-100%);
+    width: 250px !important;
+  }
+
+  .platform-main {
+    width: 100% !important;
+  }
+}

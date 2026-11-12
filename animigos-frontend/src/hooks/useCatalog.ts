@@ -13,6 +13,10 @@ import {
     fetchYears,
     fetchAnimeById,
     fetchTaxonomies,
+    fetchSeasonsTimeline,
+    fetchSeasonMetrics,
+    type TimelineYearItem,
+    type YearSeasonMetrics,
     type CatalogFilterParams,
     type CatalogPaginatedResponse,
     type StudioItem,
@@ -134,5 +138,31 @@ export function useAnimeDetailQuery(malId: number | null) {
         },
         enabled: malId !== null && malId > 0,
         staleTime: 1000 * 60 * 5,
+    })
+}
+
+/**
+ * Hook para obtener la línea de tiempo completa de años con conteos y promedios
+ */
+export function useSeasonsTimelineQuery() {
+    return useQuery<TimelineYearItem[], Error>({
+        queryKey: ['animes', 'seasons-timeline', 'v2'],
+        queryFn: fetchSeasonsTimeline,
+        staleTime: 1000 * 60 * 60, // 1 hora
+    })
+}
+
+/**
+ * Hook reactivo para obtener métricas y top de un año y sus temporadas
+ */
+export function useSeasonMetricsQuery(year: number | null, season?: string) {
+    return useQuery<YearSeasonMetrics, Error>({
+        queryKey: ['animes', 'season-metrics', year, season || 'all', 'v2'],
+        queryFn: () => {
+            if (!year) throw new Error('Año requerido')
+            return fetchSeasonMetrics(year, season)
+        },
+        enabled: !!year,
+        staleTime: 1000 * 60 * 30, // 30 minutos
     })
 }

@@ -92,3 +92,14 @@ Cada propuesta, refactorización o adición de código debe:
 1. **Identificar y eliminar redundancias:** Reutilizar utilidades y componentes existentes antes de crear duplicados.
 2. **Explicar el porqué arquitectónico:** Justificar decisiones de diseño, seguridad, capas o tipado.
 3. **Entregar código de producción:** Completo, modular, libre de código muerto, con manejo explícito de errores y estados de carga/fallo.
+
+---
+
+## 6. Arquitectura Estética y Cohesión Visual (Design System Integrity)
+
+### 6.1 Mimetismo y Consistencia Estética Local Obligatoria
+- **Regla de Oro:** Toda modificación, refactorización o adición de elementos interactivos (botones, modales, contadores, inputs, badges, selectores) **debe seguir de manera estricta e ineludible la estética local preexistente** del módulo en el que se ubica (`mi-lista`, `tablon`, `catalogo`, `agenda`, etc.), a no ser que el usuario ordene explícitamente lo contrario.
+- **Prohibición de Estilos Genéricos Desalineados:** Queda terminantemente prohibido inyectar clases o estilos genéricos de frameworks (como utilidades estándar de Bootstrap `btn-outline-*`, `border-secondary`, `bg-black`, inputs sin tematizar) que rompan la armonía visual si el componente o módulo cuenta con su propio sistema de tokens y clases canónicas (`.ml-btn`, `.ml-segmentado`, pills con radio homogéneo, etc.).
+- **Fidelidad a Design Tokens y Variables CSS:**
+  - Los nuevos controles deben consumir y respetar los design tokens locales del módulo: variables de acento (`var(--ml-acento)`, `var(--ml-acento-suave)`), superficies (`var(--ml-superficie)`, `var(--ml-superficie-2)`), bordes (`var(--ml-borde)`, `var(--ml-borde-fuerte)`) y curvaturas (`border-radius: 8px / 11px / 14px`).
+  - La jerarquía tipográfica, el contraste de textos secundarios (`var(--ml-texto-2)`, `var(--ml-texto-3)`) y las microinteracciones (hover, focus, active con transiciones suaves) deben fusionarse orgánicamente con el resto de la interfaz.

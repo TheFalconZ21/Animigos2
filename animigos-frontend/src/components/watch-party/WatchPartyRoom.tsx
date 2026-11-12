@@ -5,7 +5,7 @@ import {
     Share2,
     Check,
     CheckCircle2,
-    AlertTriangle,
+    Clock,
     ChevronLeft,
     SlidersHorizontal,
     Radio,
@@ -22,6 +22,9 @@ import {
     Loader2,
     Crown,
     Search,
+    Tv,
+    Sparkles,
+    Smile,
 } from 'lucide-react'
 import { useWatchParty } from '../../hooks/useWatchParty'
 import {
@@ -43,13 +46,24 @@ import './watch-party.css'
 
 const QUICK_EMOJIS = ['🍿', '🎉', '🔥', '👏', '😱', '❤️']
 
+/** Decodifica nombres codificados en URL (ej: "M.+Falc%C3%B3n" -> "M. Falcón") */
+function cleanUserName(name: string): string {
+    if (!name) return 'Invitado'
+    try {
+        return decodeURIComponent(name.replace(/\+/g, ' '))
+    } catch {
+        return name.replace(/\+/g, ' ')
+    }
+}
+
 export const WatchPartyRoom: React.FC = () => {
     const { acento } = useThemeAccent()
     const { user } = useAuth()
-    const userName = user?.display_name || user?.username || 'Invitado'
+    const rawUserName = user?.display_name || user?.username || 'Invitado'
+    const userName = cleanUserName(rawUserName)
     const userToken = user ? `user_${user.id}` : 'guest_anon'
 
-    // Estado de vista: 'dashboard' (ver todas las listas) o 'sala' (ver una sala específica)
+    // Estado de vista: 'dashboard' o 'sala'
     const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
     const [roomsList, setRoomsList] = useState<RoomSummary[]>([])
     const [isLoadingRooms, setIsLoadingRooms] = useState(false)
@@ -59,11 +73,11 @@ export const WatchPartyRoom: React.FC = () => {
     const [searchCodeError, setSearchCodeError] = useState<string | null>(null)
     const [isSearchingCode, setIsSearchingCode] = useState(false)
 
-    // Pestaña activa dentro de la sala
-    const [roomTab, setRoomTab] = useState<'votacion' | 'grafico' | 'tracker'>('votacion')
-    const [chartMode, setChartMode] = useState<'matriz' | 'apilado' | 'radar'>('matriz')
+    // Sub-vistas dentro de la sala
+    const [roomTab, setRoomTab] = useState<'votacion' | 'analisis' | 'sesion' | 'chat'>('sesion')
+    const [chartMode, setChartMode] = useState<'matriz' | 'apilado'>('matriz')
 
-    // Valores locales de sliders de votación por candidato { [candidateId]: number }
+    // Valores locales de sliders de votación por candidato
     const [localVotes, setLocalVotes] = useState<Record<string, number>>({})
 
     // Modales
@@ -132,11 +146,10 @@ export const WatchPartyRoom: React.FC = () => {
         setSearchCodeError(null)
         try {
             const room = await fetchRoomByCode(code)
-            // Unirse a la sala para asegurar membresía persistente en su lista
             try {
                 await joinRoomApi(room.id, userName, userToken)
             } catch (joinErr) {
-                console.warn('Ya es miembro o error no crítico al unirse:', joinErr)
+                console.warn('Registro de membresía al unirse:', joinErr)
             }
             await loadRooms()
             setSearchCodeInput('')
@@ -201,19 +214,19 @@ export const WatchPartyRoom: React.FC = () => {
         sendReaction,
     } = useWatchParty({ roomId: selectedRoomId || '', userName, userToken })
 
-    // Sincronizar votos guardados del usuario en el estado de sliders locales
+    // Sincronizar votos del usuario en sliders locales
     useEffect(() => {
         if (room?.candidates) {
             const initialMap: Record<string, number> = {}
             room.candidates.forEach((cand) => {
-                const existingVote = cand.votes?.find((v) => (v.voter_name || (v as any).guest_name) === userName)
+                const existingVote = cand.votes?.find((v) => cleanUserName(v.voter_name || (v as any).guest_name) === userName)
                 initialMap[cand.id] = existingVote ? (existingVote.interest_score ?? (existingVote as any).score ?? 5) : 5
             })
             setLocalVotes(initialMap)
         }
     }, [room?.candidates, userName])
 
-    // Scroll automático en el chat
+    // Scroll automático del chat interno
     useEffect(() => {
         if (chatScrollRef.current) {
             chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
@@ -228,7 +241,7 @@ export const WatchPartyRoom: React.FC = () => {
         setTimeout(() => setCopiedCode(null), 2500)
     }
 
-    // Búsqueda de animes en catálogo general para postular
+    // Búsqueda en catálogo para nominación
     const { data: catalogResults = [], isLoading: isSearchingCatalog } = useCatalogSearch(nominateSearch)
 
     const handleNominateAnime = async (animeId: number) => {
@@ -254,7 +267,7 @@ export const WatchPartyRoom: React.FC = () => {
         })
     }
 
-    // Cálculos y Métricas del Algoritmo de Felicidad
+    // Candidatos ordenados por mayor agrado grupal
     const candidates = useMemo(() => {
         if (!room?.candidates) return []
         return [...room.candidates].sort((a, b) => {
@@ -266,38 +279,74 @@ export const WatchPartyRoom: React.FC = () => {
 
     const topCandidate = candidates[0] || null
 
-    const avgDispersion = useMemo(() => {
-        if (!candidates.length) return '0.0'
+    // Anime seleccionado o primer candidato para la sesión de maratón
+    const activeMarathonAnime = useMemo(() => {
+        if ((room as any)?.winning_anime) {
+            return (room as any).winning_anime
+        }
+        if (room?.selected_anime) {
+            return room.selected_anime
+        }
+        if (topCandidate) {
+            return {
+                title: topCandidate.title,
+                image_url: topCandidate.image_url,
+                episodes: topCandidate.episodes || 24,
+                score: topCandidate.score || 8.5,
+            }
+        }
+        return null
+    }, [room, topCandidate])
+
+    // ==============================================================
+    // DESCRIPCIONES AMIGABLES (CERO VALORES TÉCNICOS INTERNOS)
+    // ==============================================================
+    const dispersionDesc = useMemo(() => {
+        if (!candidates.length) return 'Comenzando votación'
         const dispersions = candidates
             .map((c) => c.happiness_result?.interest_dispersion ?? 0)
             .filter((d) => d > 0)
-        if (!dispersions.length) return '0.8'
-        const avg = dispersions.reduce((a, b) => a + b, 0) / dispersions.length
-        return avg.toFixed(1)
+        const avg = dispersions.length ? dispersions.reduce((a, b) => a + b, 0) / dispersions.length : 0.8
+
+        if (avg <= 1.0) return 'Mayoría en sintonía'
+        if (avg <= 1.8) return 'Gustos divididos'
+        return 'Alta dispersión de gustos'
     }, [candidates])
 
-    const avgQuorum = useMemo(() => {
-        if (!room?.members?.length || !candidates.length) return 100
+    const quorumDesc = useMemo(() => {
+        if (!room?.members?.length || !candidates.length) return 'Todos al día'
         const totalExpected = room.members.length * candidates.length
         let totalVotes = 0
         candidates.forEach((c) => {
             totalVotes += c.votes?.length || 0
         })
         const pct = Math.min(100, Math.round((totalVotes / Math.max(1, totalExpected)) * 100))
-        return pct > 0 ? pct : 100
+
+        if (pct >= 80) return 'Participación total'
+        if (pct >= 40) return 'Votación activa'
+        return 'Baja participación'
     }, [room?.members, candidates])
 
     const myWatched = useMemo(() => {
-        const member = room?.members?.find((m) => m.guest_name === userName)
+        const member = room?.members?.find((m) => cleanUserName(m.guest_name) === userName)
         return member?.episodes_watched || 0
     }, [room?.members, userName])
 
     const groupTarget = (room as any)?.target_episode || room?.current_episode || 1
-    const totalEpisodes = (room as any)?.winning_anime?.episodes || room?.selected_anime?.episodes || 24
+    const totalEpisodes = activeMarathonAnime?.episodes || 24
     const totalMembers = room?.members?.length || 1
 
+    // Miembros que faltan por ponerse al día (con nombres decodificados)
+    const cleanCatchupMembers = useMemo(() => {
+        if (!room?.catchup_members) return []
+        return room.catchup_members.map((cm) => ({
+            ...cm,
+            guest_name: cleanUserName(cm.guest_name),
+        }))
+    }, [room?.catchup_members])
+
     // ==============================================================
-    // VISTA 1: DASHBOARD DE LISTAS COMPARTIDAS (SIN CARD DE TÍTULO)
+    // VISTA 1: DASHBOARD / LOBBY (CUANDO NO HAY SALA SELECCIONADA)
     // ==============================================================
     if (!selectedRoomId) {
         return (
@@ -306,92 +355,76 @@ export const WatchPartyRoom: React.FC = () => {
                 style={{ '--ml-acento': acento, '--wp-acento': acento } as React.CSSProperties}
             >
                 <div className="container" style={{ maxWidth: '1200px' }}>
-                    {/* Header Principal sin Card */}
-                    <header className="wp-header-clean">
-                        <span className="ml-eyebrow">COORDINACIÓN GRUPAL · ANIMIGOS</span>
-                        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-1">
-                            <div>
-                                <h1 className="ml-titulo">Listas Compartidas</h1>
-                                <p className="ml-sub mb-0">
-                                    Coordina decisiones con tu grupo. Postulen animes, voten su interés de <strong>0 a 10</strong> y el <strong>Algoritmo de Felicidad</strong> elegirá la opción con mayor consenso.
-                                </p>
-                            </div>
-                            <div>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowCreateModal(true)}
-                                    className="ml-btn ml-btn-acento"
-                                >
-                                    <Plus size={16} />
-                                    <span>Crear Nueva Lista Compartida</span>
-                                </button>
-                            </div>
+                    <header className="wp-lobby-header">
+                        <div>
+                            <span className="ml-eyebrow">
+                                <Users size={14} className="me-1" />
+                                COORDINACIÓN GRUPAL · WATCH PARTY
+                            </span>
+                            <h1 className="ml-titulo mt-1 mb-1">Listas Grupales</h1>
+                            <p className="ml-sub mb-0">
+                                Organiza qué ver con tus amigos. Postulen candidatos, voten en sintonía y mantengan el ritmo de su maratón juntos.
+                            </p>
                         </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowCreateModal(true)}
+                            className="ml-btn ml-btn-acento"
+                        >
+                            <Plus size={16} />
+                            <span>Crear Lista Grupal</span>
+                        </button>
                     </header>
 
-                    {/* Barra de Búsqueda / Unirse por Código de Lista Grupal */}
-                    <div
-                        className="p-3 mb-4 rounded-3"
-                        style={{
-                            background: 'var(--wp-surface)',
-                            border: '1px solid var(--wp-border)',
-                        }}
-                    >
-                        <form
-                            onSubmit={handleSearchOrJoinByCode}
-                            className="d-flex flex-column flex-sm-row gap-2 align-items-stretch align-items-sm-center"
+                    {/* Barra de Búsqueda / Código */}
+                    <form onSubmit={handleSearchOrJoinByCode} className="wp-join-bar">
+                        <div className="d-flex align-items-center gap-2 flex-grow-1 px-3">
+                            <Search size={16} style={{ color: 'var(--wp-text-dim)' }} />
+                            <input
+                                type="text"
+                                className="bg-transparent border-0 text-white w-100"
+                                style={{ outline: 'none', fontSize: '0.9rem' }}
+                                placeholder="Buscar o unirte mediante código de sala (ej: 83B80802)..."
+                                value={searchCodeInput}
+                                onChange={(e) => setSearchCodeInput(e.target.value.toUpperCase())}
+                                maxLength={16}
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            className="ml-btn ml-btn-acento text-nowrap"
+                            disabled={!searchCodeInput.trim() || isSearchingCode}
                         >
-                            <div
-                                className="d-flex align-items-center gap-2 flex-grow-1 px-3 py-2 rounded-2"
-                                style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)' }}
-                            >
-                                <Search size={16} style={{ color: 'var(--wp-text-muted)' }} />
-                                <input
-                                    type="text"
-                                    className="bg-transparent text-white border-0 w-100 outline-none"
-                                    style={{ outline: 'none', fontSize: '0.9rem' }}
-                                    placeholder="Buscar o unirte mediante código de lista grupal (ej: 83B80802)..."
-                                    value={searchCodeInput}
-                                    onChange={(e) => setSearchCodeInput(e.target.value.toUpperCase())}
-                                    maxLength={16}
-                                />
-                            </div>
-                            <button
-                                type="submit"
-                                className="ml-btn ml-btn-acento text-nowrap"
-                                disabled={!searchCodeInput.trim() || isSearchingCode}
-                            >
-                                {isSearchingCode ? (
-                                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                                ) : (
-                                    <Search size={16} />
-                                )}
-                                <span>Buscar o Unirse</span>
-                            </button>
-                        </form>
-                        {searchCodeError && (
-                            <div className="small text-danger mt-2 mb-0 d-flex align-items-center gap-1">
-                                <AlertTriangle size={14} />
-                                <span>{searchCodeError}</span>
-                            </div>
-                        )}
-                    </div>
+                            {isSearchingCode ? (
+                                <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                            ) : (
+                                <Search size={15} />
+                            )}
+                            <span>Unirse a la Lista</span>
+                        </button>
+                    </form>
+                    {searchCodeError && (
+                        <div className="small text-danger mb-3 d-flex align-items-center gap-1.5 px-1">
+                            <ShieldAlert size={14} />
+                            <span>{searchCodeError}</span>
+                        </div>
+                    )}
 
-                    {/* Grilla de Salas Compartidas (2 Columnas, Compactas y Ordenadas) */}
+                    {/* Grilla de Salas con Bordes Redondeados */}
                     {isLoadingRooms ? (
                         <div className="text-center py-5">
                             <Loader2 size={30} className="text-secondary mb-2" style={{ animation: 'spin 1s linear infinite' }} />
-                            <p className="small" style={{ color: 'var(--wp-text-dim)' }}>Cargando tus salas compartidas...</p>
+                            <p className="small text-secondary">Cargando tus listas grupales...</p>
                         </div>
                     ) : roomsList.length === 0 ? (
                         <div
                             className="text-center py-5 p-4 rounded-4"
-                            style={{ background: 'var(--wp-surface)', border: '1px dashed var(--wp-border)' }}
+                            style={{ background: 'var(--wp-surface)', border: '1px dashed var(--wp-border)', borderRadius: '22px' }}
                         >
-                            <Users size={36} className="mb-3 text-secondary opacity-50" />
-                            <h3 className="h5 fw-bold text-white mb-2">No tienes salas compartidas todavía</h3>
-                            <p className="small mb-4" style={{ color: 'var(--wp-text-muted)' }}>
-                                Crea una lista para coordinar maratones con tus amigos y encontrar qué ver juntos.
+                            <Users size={40} className="mb-3 text-secondary opacity-50" />
+                            <h3 className="h6 fw-bold text-white mb-2">No tienes listas grupales activas</h3>
+                            <p className="small mb-4 text-secondary" style={{ maxWidth: '440px', margin: '0 auto' }}>
+                                Crea un grupo para que todos voten animes y sintonicen sus maratones semanales sin discusiones.
                             </p>
                             <button
                                 type="button"
@@ -399,7 +432,7 @@ export const WatchPartyRoom: React.FC = () => {
                                 className="ml-btn ml-btn-acento"
                             >
                                 <Plus size={16} />
-                                <span>Crear mi primera sala</span>
+                                <span>Crear mi primera lista</span>
                             </button>
                         </div>
                     ) : (
@@ -407,74 +440,59 @@ export const WatchPartyRoom: React.FC = () => {
                             {roomsList.map((r) => {
                                 const statusLabel =
                                     r.status === 'voting'
-                                        ? 'Votación en curso'
+                                        ? 'Votación abierta'
                                         : r.status === 'candidates'
-                                            ? 'Candidatos abiertos'
+                                            ? 'Postulación'
                                             : r.status === 'watching'
                                                 ? 'Viendo en grupo'
                                                 : 'Completado'
 
                                 return (
                                     <div key={r.id} className="wp-room-card">
-                                        {/* Fila Superior: Badge de Estado y Miembros */}
-                                        <div className="d-flex justify-content-between align-items-center mb-2">
-                                            <span className="wp-chip">
-                                                {statusLabel}
-                                            </span>
-                                            <span className="small d-flex align-items-center gap-1" style={{ color: 'var(--wp-text-dim)' }}>
-                                                <Users size={13} />
-                                                <span>{r.members?.length || r.members_count || 1} integrantes</span>
-                                            </span>
-                                        </div>
-
-                                        {/* Título y Descripción */}
-                                        <div className="mb-3">
-                                            <h3 className="h6 fw-bold text-white mb-1">{r.name}</h3>
-                                            <p className="small mb-0 text-truncate" style={{ color: 'var(--wp-text-muted)', lineHeight: 1.5 }}>
-                                                {r.description || 'Grupo de maratón y coordinación semanal entre amigos.'}
-                                            </p>
-                                        </div>
-
-                                        {/* Fila de Código y Copiar Enlace */}
-                                        <div className="d-flex justify-content-between align-items-center mb-3">
-                                            <div className="d-flex align-items-center gap-2">
-                                                <span className="small" style={{ color: 'var(--wp-text-dim)', fontSize: '0.78rem' }}>Código:</span>
-                                                <span className="wp-code-box font-mono fw-bold text-white">
-                                                    {r.invite_code}
+                                        <div>
+                                            <div className="d-flex justify-content-between align-items-center mb-2">
+                                                <span className="wp-pill-badge is-live">
+                                                    <Radio size={11} />
+                                                    <span>{statusLabel}</span>
+                                                </span>
+                                                <span className="small text-secondary d-flex align-items-center gap-1">
+                                                    <Users size={13} />
+                                                    <span>{r.members?.length || r.members_count || 1} amigos</span>
                                                 </span>
                                             </div>
 
-                                            <button
-                                                type="button"
-                                                onClick={(e) => handleCopy(r.invite_code, e)}
-                                                className="ml-btn ml-btn-sm"
-                                                style={{ fontSize: '0.76rem' }}
-                                            >
-                                                {copiedCode === r.invite_code ? <Check size={12} className="text-success" /> : <Share2 size={12} />}
-                                                <span>{copiedCode === r.invite_code ? 'Copiado' : 'Copiar Enlace'}</span>
-                                            </button>
+                                            <h3 className="h6 fw-bold text-white mb-1">{r.name}</h3>
+                                            <p className="small text-secondary mb-3 text-truncate" style={{ fontSize: '0.84rem' }}>
+                                                {r.description || 'Grupo para maratón y coordinación de anime.'}
+                                            </p>
                                         </div>
 
-                                        {/* Acciones de Tarjeta: Entrar y Abandonar */}
-                                        <div className="d-flex align-items-center justify-content-between gap-2 pt-1 border-top" style={{ borderColor: 'var(--wp-border)' }}>
+                                        <div>
+                                            <div className="d-flex justify-content-between align-items-center mb-3 pt-2 border-top" style={{ borderColor: 'var(--wp-border)' }}>
+                                                <span className="small font-mono text-white fw-bold" style={{ letterSpacing: '0.05em' }}>
+                                                    CÓDIGO: {r.invite_code}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => handleCopy(r.invite_code, e)}
+                                                    className="ml-btn ml-btn-fantasma ml-btn-sm"
+                                                    style={{ fontSize: '0.75rem' }}
+                                                >
+                                                    {copiedCode === r.invite_code ? <Check size={12} className="text-success" /> : <Share2 size={12} />}
+                                                    <span>{copiedCode === r.invite_code ? 'Copiado' : 'Copiar enlace'}</span>
+                                                </button>
+                                            </div>
+
                                             <button
                                                 type="button"
                                                 onClick={() => {
                                                     setSelectedRoomId(r.id)
                                                     window.location.hash = `#sala/${r.invite_code}`
                                                 }}
-                                                className="wp-btn-pill-primary flex-grow-1 justify-content-center"
+                                                className="ml-btn ml-btn-acento w-100 justify-content-center"
                                             >
-                                                <span>Entrar a la Sala de Votación</span>
+                                                <span>Entrar a la Sala</span>
                                                 <span>→</span>
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                className="wp-btn-pill-danger"
-                                                title="Abandonar esta sala"
-                                            >
-                                                <LogOut size={13} />
                                             </button>
                                         </div>
                                     </div>
@@ -484,47 +502,47 @@ export const WatchPartyRoom: React.FC = () => {
                     )}
                 </div>
 
-                {/* Modal Crear Nueva Lista */}
+                {/* Modal Crear Sala */}
                 <Dialogo
                     abierto={showCreateModal}
                     onCerrar={() => setShowCreateModal(false)}
-                    etiqueta="Crear Nueva Lista Compartida"
+                    etiqueta="Crear Nueva Lista Grupal"
                     ancho={480}
                 >
-                    <form onSubmit={handleCreateRoom}>
-                        <div className="p-4 d-flex flex-column gap-3">
-                            <div>
-                                <h3 className="h6 fw-bold text-white mb-1">Crear Nueva Lista Compartida</h3>
-                                <p className="small mb-0" style={{ color: 'var(--wp-text-muted)' }}>
-                                    Crea una sala para que tus amigos postulen y voten animes con el Algoritmo de Felicidad.
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="form-label small fw-semibold text-white">Nombre de la Sala</label>
-                                <input
-                                    type="text"
-                                    placeholder="Ej: Anime de los Viernes 🍿"
-                                    value={newRoomName}
-                                    onChange={(e) => setNewRoomName(e.target.value)}
-                                    className="form-control bg-black text-white border-secondary"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="form-label small fw-semibold text-white">Descripción / Objetivo</label>
-                                <textarea
-                                    rows={3}
-                                    placeholder="Ej: Grupo de maratón semanal entre amigos."
-                                    value={newRoomDesc}
-                                    onChange={(e) => setNewRoomDesc(e.target.value)}
-                                    className="form-control bg-black text-white border-secondary"
-                                />
-                            </div>
+                    <form onSubmit={handleCreateRoom} className="p-4 d-flex flex-column gap-3">
+                        <div>
+                            <h3 className="h6 fw-bold text-white mb-1">Crear Nueva Lista Grupal</h3>
+                            <p className="small text-secondary mb-0">
+                                Una sala privada donde tus amigos pueden sugerir animes y votarlos en tiempo real.
+                            </p>
                         </div>
 
-                        <div className="p-3 border-top border-dark d-flex justify-content-end gap-2">
+                        <div>
+                            <label className="form-label small fw-semibold text-white">Nombre del Grupo / Maratón</label>
+                            <input
+                                type="text"
+                                placeholder="Ej: Anime de los Viernes 🍿"
+                                value={newRoomName}
+                                onChange={(e) => setNewRoomName(e.target.value)}
+                                className="form-control text-white"
+                                style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '12px' }}
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="form-label small fw-semibold text-white">Objetivo o Notas (Opcional)</label>
+                            <textarea
+                                rows={2}
+                                placeholder="Ej: Buscamos un Shonen o Seinen de 12 a 24 episodios."
+                                value={newRoomDesc}
+                                onChange={(e) => setNewRoomDesc(e.target.value)}
+                                className="form-control text-white"
+                                style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '12px' }}
+                            />
+                        </div>
+
+                        <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--wp-border)' }}>
                             <button
                                 type="button"
                                 className="ml-btn ml-btn-fantasma ml-btn-sm"
@@ -543,178 +561,407 @@ export const WatchPartyRoom: React.FC = () => {
     }
 
     // ==============================================================
-    // VISTA 2 & 3: SALA SELECCIONADA (SIN CARD EN EL TÍTULO)
+    // VISTA 2: SALA FIT-TO-VIEWPORT (CERO SCROLL EXTERIOR + SUB-VISTAS)
     // ==============================================================
     return (
         <div
-            className="ml-root wp-root py-4 px-3 px-md-5"
+            className="ml-root wp-root px-3 px-md-4"
             style={{ '--ml-acento': acento, '--wp-acento': acento } as React.CSSProperties}
         >
-            <div className="container" style={{ maxWidth: '1240px' }}>
-                {/* Botón de Retorno Limpio */}
-                <button
-                    type="button"
-                    onClick={() => {
-                        setSelectedRoomId(null)
-                        window.location.hash = '#listas'
-                    }}
-                    className="ml-btn ml-btn-fantasma ml-btn-sm mb-3"
-                >
-                    <ChevronLeft size={15} />
-                    <span>Volver a Listas Compartidas</span>
-                </button>
+            <div className="container-fluid wp-viewport-room" style={{ maxWidth: '1360px' }}>
+                {/* 1. Cabecera Redondeada y Limpia */}
+                <header className="wp-room-header">
+                    <div className="wp-room-header-left">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSelectedRoomId(null)
+                                window.location.hash = '#listas'
+                            }}
+                            className="ml-btn ml-btn-fantasma ml-btn-sm"
+                            title="Volver a listas"
+                        >
+                            <ChevronLeft size={16} />
+                            <span>Listas</span>
+                        </button>
 
-                {/* Encabezado Limpio sin Card */}
-                <header className="wp-header-clean mb-4">
-                    {/* Fila Superior: Badges de Estado Socket y Miembros */}
-                    <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
-                        <span className="ml-eyebrow">SALA DE VOTACIÓN · CÓDIGO {room?.invite_code || ''}</span>
-                        <span className="wp-chip wp-chip-active">
-                            <Radio size={11} className={connectionStatus === 'connected' ? 'text-success' : ''} />
-                            <span>
-                                {connectionStatus === 'connected'
-                                    ? `En Vivo (${latencyMs ?? 15}ms)`
-                                    : 'Reconectando...'}
-                            </span>
+                        <h1 className="wp-room-title">{room?.name || 'Lista Grupal'}</h1>
+
+                        <span className="wp-pill-badge is-live">
+                            <Radio size={11} className={connectionStatus === 'connected' ? 'text-success' : 'text-warning'} />
+                            <span>{connectionStatus === 'connected' ? `En vivo (${latencyMs ?? 15}ms)` : 'Reconectando'}</span>
                         </span>
-                        <span className="wp-chip">
+
+                        <span className="wp-pill-badge">
                             <Users size={12} />
-                            <span>{totalMembers} integrantes</span>
+                            <span>{totalMembers} amigos</span>
                         </span>
                     </div>
 
-                    <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-start gap-4">
-                        <div className="flex-grow-1">
-                            <h1 className="ml-titulo">{room?.name || 'Anime de los Viernes 🍿'}</h1>
-                            <p className="ml-sub mb-2">
-                                Ajusta tu puntuación por slider (<strong>0 a 10</strong>) y presiona <strong>Votar</strong> para actualizar el ranking en vivo.
-                            </p>
+                    <div className="wp-room-header-actions">
+                        <button
+                            type="button"
+                            onClick={() => setShowNominateModal(true)}
+                            className="ml-btn ml-btn-acento ml-btn-sm"
+                        >
+                            <Plus size={14} />
+                            <span>Postular Anime</span>
+                        </button>
 
-                            {/* Criterios del Grupo */}
-                            <div className="d-flex flex-wrap align-items-center gap-1.5 mt-2">
-                                <span className="small text-secondary fw-semibold me-1">Criterios:</span>
-                                <span className="ml-tag font-mono">🍇 {criteriaDuration}</span>
-                                <span className="ml-tag">{criteriaGenres}</span>
-                                <span className="ml-tag font-mono">{criteriaYears}</span>
-                            </div>
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowCriteriaModal(true)}
+                            className="ml-btn ml-btn-sm"
+                            title="Criterios del Grupo"
+                        >
+                            <SlidersHorizontal size={13} />
+                            <span>Criterios</span>
+                        </button>
 
-                        {/* Botones de Acción de Cabecera */}
-                        <div className="d-flex flex-wrap align-items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setShowNominateModal(true)}
-                                className="ml-btn ml-btn-acento"
-                            >
-                                <Plus size={15} />
-                                <span>Postular Anime</span>
-                            </button>
+                        <button
+                            type="button"
+                            onClick={() => handleCopy(room?.invite_code || '')}
+                            className="ml-btn ml-btn-sm"
+                            title="Copiar enlace de invitación"
+                        >
+                            <Share2 size={13} />
+                            <span>{copiedCode === room?.invite_code ? 'Copiado' : room?.invite_code || 'Invitar'}</span>
+                        </button>
 
-                            <button
-                                type="button"
-                                onClick={() => setShowCriteriaModal(true)}
-                                className="ml-btn"
-                            >
-                                <SlidersHorizontal size={14} />
-                                <span>Criterios Ideales</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => handleCopy(room?.invite_code || '')}
-                                className="ml-btn"
-                            >
-                                <Share2 size={14} />
-                                <span>{copiedCode === room?.invite_code ? 'Copiado' : 'Invitar Amigos'}</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setSelectedRoomId(null)
-                                    window.location.hash = '#listas'
-                                }}
-                                className="ml-btn ml-btn-fantasma ml-peligro"
-                                title="Abandonar sala"
-                            >
-                                <LogOut size={14} />
-                                <span>Salir</span>
-                            </button>
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSelectedRoomId(null)
+                                window.location.hash = '#listas'
+                            }}
+                            className="ml-btn ml-btn-fantasma ml-btn-sm text-danger"
+                            title="Salir de la sala"
+                        >
+                            <LogOut size={13} />
+                        </button>
                     </div>
                 </header>
 
-                {/* Barra de Pestañas estilo "Mi Lista" (.ml-tabs) */}
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-                    <div className="ml-tabs mb-0">
+                {/* 2. Cinta de KPIs Descriptivos (UNA SOLA LÍNEA, LENGUAJE HUMANO) */}
+                <div className="wp-kpi-strip">
+                    <div className="wp-kpi-pill is-gold">
+                        <Trophy size={14} />
+                        <span>Favorito:</span>
+                        <strong>{topCandidate ? topCandidate.title : 'Por definir'}</strong>
+                    </div>
+
+                    <div className="wp-kpi-divider" />
+
+                    <div className="wp-kpi-pill is-accent">
+                        <Target size={14} />
+                        <span>Sintonía:</span>
+                        <strong>{dispersionDesc}</strong>
+                    </div>
+
+                    <div className="wp-kpi-divider" />
+
+                    <div className="wp-kpi-pill is-success">
+                        <Sparkles size={14} />
+                        <span>Quórum:</span>
+                        <strong>{quorumDesc}</strong>
+                    </div>
+
+                    <div className="wp-kpi-divider" />
+
+                    <div className="wp-kpi-pill">
+                        <Users size={14} />
+                        <span>Grupo:</span>
+                        <strong>{totalMembers} integrantes</strong>
+                    </div>
+
+                    <div className="wp-kpi-divider" />
+
+                    <div className="wp-kpi-pill">
+                        <Tv size={14} style={{ color: '#60a5fa' }} />
+                        <span>Meta de Maratón:</span>
+                        <strong>Capítulo {groupTarget} de {totalEpisodes}</strong>
+                    </div>
+                </div>
+
+                {/* 3. Barra de Sub-vistas y Acciones */}
+                <div className="wp-subview-nav">
+                    <div className="wp-tabs">
                         <button
                             type="button"
-                            className="ml-tab"
+                            className={`wp-tab ${roomTab === 'sesion' ? 'active' : ''}`}
+                            aria-selected={roomTab === 'sesion'}
+                            onClick={() => setRoomTab('sesion')}
+                        >
+                            <Target size={14} />
+                            <span>Sesión & Tracker</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className={`wp-tab ${roomTab === 'votacion' ? 'active' : ''}`}
                             aria-selected={roomTab === 'votacion'}
                             onClick={() => setRoomTab('votacion')}
                         >
-                            <List size={15} />
-                            <span>Lista de Votación</span>
-                            <span className="ml-tab-num">{candidates.length}</span>
+                            <List size={14} />
+                            <span>Votación</span>
+                            <span className="wp-tab-badge">{candidates.length}</span>
                         </button>
 
                         <button
                             type="button"
-                            className="ml-tab"
-                            aria-selected={roomTab === 'grafico'}
-                            onClick={() => setRoomTab('grafico')}
+                            className={`wp-tab ${roomTab === 'analisis' ? 'active' : ''}`}
+                            aria-selected={roomTab === 'analisis'}
+                            onClick={() => setRoomTab('analisis')}
                         >
-                            <BarChart3 size={15} />
-                            <span>Gráfico & Análisis de Felicidad</span>
+                            <BarChart3 size={14} />
+                            <span>Matriz de Decisión</span>
                         </button>
 
                         <button
                             type="button"
-                            className="ml-tab"
-                            aria-selected={roomTab === 'tracker'}
-                            onClick={() => setRoomTab('tracker')}
+                            className={`wp-tab ${roomTab === 'chat' ? 'active' : ''}`}
+                            aria-selected={roomTab === 'chat'}
+                            onClick={() => setRoomTab('chat')}
                         >
-                            <Target size={15} />
-                            <span>Conteo de Capítulos & Sesión</span>
+                            <MessageSquare size={14} />
+                            <span>Chat en Vivo</span>
+                            {chatMessages.length > 0 && (
+                                <span className="wp-tab-badge">{chatMessages.length}</span>
+                            )}
                         </button>
                     </div>
 
-                    {/* Acción rápida de votar todos si está en pestaña de votación */}
-                    {roomTab === 'votacion' && candidates.length > 0 && (
-                        <button
-                            type="button"
-                            onClick={handleConfirmAllVotes}
-                            className="ml-btn ml-btn-sm"
-                        >
-                            <Check size={14} className="text-success" />
-                            <span>Confirmar Todos mis Votos</span>
-                        </button>
-                    )}
+                    {/* Acciones contextuales */}
+                    <div>
+                        {roomTab === 'votacion' && candidates.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={handleConfirmAllVotes}
+                                className="ml-btn ml-btn-sm"
+                            >
+                                <Check size={13} className="text-success" />
+                                <span>Confirmar todos mis votos</span>
+                            </button>
+                        )}
+
+                        {roomTab === 'sesion' && (
+                            <button
+                                type="button"
+                                onClick={() => setShowScheduleModal(true)}
+                                className="ml-btn ml-btn-sm"
+                            >
+                                <CalendarPlus size={13} />
+                                <span>Agendar Sesión</span>
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                {/* ==============================================================
-                    PESTAÑA 1: LISTA DE VOTACIÓN (RANKING POR FELICIDAD GRUPAL)
-                   ============================================================== */}
-                {roomTab === 'votacion' && (
-                    <div>
-                        {candidates.length === 0 ? (
-                            <div
-                                className="p-5 text-center rounded-4"
-                                style={{ background: 'var(--wp-surface)', border: '1px dashed var(--wp-border)' }}
-                            >
-                                <p style={{ color: 'var(--wp-text-muted)' }}>Aún no hay animes postulados en esta lista.</p>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowNominateModal(true)}
-                                    className="ml-btn ml-btn-acento"
-                                >
-                                    <Plus size={16} />
-                                    <span>Postular el primer anime</span>
-                                </button>
+                {/* 4. Panel de Sub-vista Activa */}
+                <div className="wp-subview-pane">
+                    {/* ==============================================================
+                        SUB-VISTA: SESIÓN & TRACKER (HERMOSO, CÁLIDO, PARA USUARIOS)
+                       ============================================================== */}
+                    {roomTab === 'sesion' && (
+                        <div className="wp-tracker-container">
+                            {/* Panel Izquierdo: Hero del Anime y Tu Progreso */}
+                            <div className="wp-tracker-card">
+                                {/* Hero del anime en maratón */}
+                                {activeMarathonAnime ? (
+                                    <div className="wp-marathon-hero">
+                                        <img
+                                            src={activeMarathonAnime.image_url}
+                                            alt={activeMarathonAnime.title}
+                                            className="wp-marathon-poster"
+                                        />
+                                        <div className="wp-marathon-info">
+                                            <span className="small text-secondary fw-semibold d-block mb-1" style={{ fontSize: '0.72rem' }}>
+                                                EN MARATÓN GRUPAL
+                                            </span>
+                                            <h3 className="h6 fw-bold text-white mb-1 text-truncate">{activeMarathonAnime.title}</h3>
+                                            <span className="small text-secondary font-mono d-block mb-2">
+                                                ★ {activeMarathonAnime.score || '8.5'} · {totalEpisodes} episodios
+                                            </span>
+                                            <div className="d-flex align-items-center gap-2">
+                                                <span className="wp-pill-badge is-live" style={{ fontSize: '0.72rem' }}>
+                                                    <Tv size={12} />
+                                                    <span>Capítulo {groupTarget} de {totalEpisodes}</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="p-3 text-center rounded-3"
+                                        style={{ background: 'var(--wp-surface-2)', border: '1px dashed var(--wp-border)' }}
+                                    >
+                                        <Tv size={28} className="text-secondary opacity-50 mb-1" />
+                                        <p className="small text-secondary mb-0">Aún no se ha seleccionado anime para ver en grupo.</p>
+                                    </div>
+                                )}
+
+                                {/* Sintonía de los amigos (Catch-up amigable) */}
+                                {cleanCatchupMembers.length > 0 ? (
+                                    <div className="wp-group-sync-card has-catchup">
+                                        <Clock size={16} className="flex-shrink-0 text-warning" />
+                                        <div className="small">
+                                            <div className="fw-semibold text-warning mb-1">
+                                                Amigos poniéndose al día con el Cap {groupTarget}:
+                                            </div>
+                                            <div className="d-flex flex-wrap gap-1.5">
+                                                {cleanCatchupMembers.map((cm) => (
+                                                    <span
+                                                        key={cm.id}
+                                                        className="wp-pill-badge"
+                                                        style={{ background: '#1c1710', color: '#fef08a', borderColor: '#4a3510' }}
+                                                    >
+                                                        {cm.guest_name}: {cm.episodes_behind} caps pendientes
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="wp-group-sync-card is-synced">
+                                        <CheckCircle2 size={16} className="flex-shrink-0 text-success" />
+                                        <div className="small fw-semibold text-success">
+                                            ✨ ¡Todos van al día con el Capítulo {groupTarget}! Listos para el siguiente.
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Caja de Tu Progreso con Stepper Amigable */}
+                                <div className="wp-progress-box">
+                                    <div>
+                                        <span className="small text-secondary fw-bold text-uppercase d-block mb-1" style={{ fontSize: '0.68rem' }}>
+                                            TU PROGRESO ({userName})
+                                        </span>
+                                        <div className="d-flex align-items-baseline gap-2">
+                                            <span className="h5 fw-bold text-white mb-0 font-mono">
+                                                Capítulo {myWatched}
+                                            </span>
+                                            <span className="small text-secondary">de {totalEpisodes}</span>
+                                            <span
+                                                className="badge ms-1"
+                                                style={{
+                                                    background: myWatched >= groupTarget ? 'rgba(52, 211, 153, 0.15)' : 'rgba(251, 191, 36, 0.15)',
+                                                    color: myWatched >= groupTarget ? '#34d399' : '#fbbf24',
+                                                    borderRadius: '999px',
+                                                    padding: '0.2rem 0.6rem',
+                                                }}
+                                            >
+                                                {myWatched >= groupTarget ? 'Al día' : `Faltan ${groupTarget - myWatched}`}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="d-flex align-items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => updateMyProgress(Math.max(0, myWatched - 1))}
+                                            disabled={myWatched <= 0}
+                                            className="wp-stepper-btn"
+                                            title="Retroceder 1 capítulo"
+                                        >
+                                            -
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => updateMyProgress(myWatched + 1)}
+                                            className="wp-btn-catchup"
+                                        >
+                                            <Plus size={14} />
+                                            <span>¡Vi el Cap {myWatched + 1}!</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Meta de la Sala */}
+                                <div className="d-flex justify-content-between align-items-center p-3 rounded-3" style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '16px' }}>
+                                    <div>
+                                        <span className="small text-secondary fw-bold text-uppercase d-block mb-0.5" style={{ fontSize: '0.68rem' }}>
+                                            META DE LA SALA
+                                        </span>
+                                        <strong className="text-white font-mono h6 mb-0">Capítulo {groupTarget} de {totalEpisodes}</strong>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setGroupTarget(groupTarget + 1)}
+                                        className="ml-btn ml-btn-sm"
+                                    >
+                                        <span>Avanzar Meta (+1)</span>
+                                    </button>
+                                </div>
                             </div>
-                        ) : (
-                            <div className="d-flex flex-column gap-2.5">
-                                {candidates.map((cand, index) => {
+
+                            {/* Panel Derecho: Lista de Amigos Integrantes */}
+                            <div className="wp-tracker-card">
+                                <div className="d-flex justify-content-between align-items-center pb-2 border-bottom" style={{ borderColor: 'var(--wp-border)' }}>
+                                    <span className="small fw-bold text-white">Amigos en la Sala ({totalMembers})</span>
+                                    <span className="small text-secondary font-mono">Meta: Cap {groupTarget}</span>
+                                </div>
+
+                                <div className="wp-members-scroll">
+                                    {room?.members?.map((m) => {
+                                        const cleanName = cleanUserName(m.guest_name)
+                                        const isBehind = m.sync_status === 'atrasado' || m.episodes_watched < groupTarget
+
+                                        return (
+                                            <div key={m.id} className="wp-member-card">
+                                                <div className="d-flex align-items-center gap-2.5">
+                                                    <div className="wp-member-avatar">
+                                                        {cleanName.slice(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <span className="small fw-semibold text-white d-block">{cleanName}</span>
+                                                        <span className="small text-secondary font-mono" style={{ fontSize: '0.74rem' }}>
+                                                            {m.episodes_watched} de {totalEpisodes} episodios
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <span
+                                                    className="wp-pill-badge"
+                                                    style={{
+                                                        background: isBehind ? 'rgba(251, 191, 36, 0.12)' : 'rgba(52, 211, 153, 0.12)',
+                                                        borderColor: isBehind ? 'rgba(251, 191, 36, 0.3)' : 'rgba(52, 211, 153, 0.3)',
+                                                        color: isBehind ? '#fbbf24' : '#34d399',
+                                                    }}
+                                                >
+                                                    {isBehind ? `Atrasado (-${groupTarget - m.episodes_watched})` : 'Al día'}
+                                                </span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ==============================================================
+                        SUB-VISTA: VOTACIÓN DE ANIMES
+                       ============================================================== */}
+                    {roomTab === 'votacion' && (
+                        <div className="wp-candidates-scroll">
+                            {candidates.length === 0 ? (
+                                <div
+                                    className="p-5 text-center rounded-4 my-auto"
+                                    style={{ background: 'var(--wp-surface)', border: '1px dashed var(--wp-border)', borderRadius: '22px' }}
+                                >
+                                    <p className="text-secondary mb-3">Aún no hay animes postulados en esta lista grupal.</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowNominateModal(true)}
+                                        className="ml-btn ml-btn-acento"
+                                    >
+                                        <Plus size={15} />
+                                        <span>Postular el primer anime</span>
+                                    </button>
+                                </div>
+                            ) : (
+                                candidates.map((cand, index) => {
                                     const rankNum = index + 1
                                     const myVoteScore = localVotes[cand.id] ?? 5
                                     const happinessScore = cand.happiness_result?.final_score ?? cand.avg_interest ?? 10
@@ -725,50 +972,34 @@ export const WatchPartyRoom: React.FC = () => {
                                     const explanation =
                                         cand.happiness_result?.explanations?.[0] ||
                                         (isPolarized
-                                            ? 'Opiniones divididas entre el grupo (polarizado).'
-                                            : 'Interés parejo y alto consenso entre los integrantes.')
+                                            ? 'Opiniones divididas en el grupo'
+                                            : 'Alto consenso y agrado parejo entre amigos')
 
                                     return (
-                                        <div key={cand.id} className="wp-candidate-row">
-                                            {/* Posición / Ranking */}
-                                            <div className="d-flex align-items-center justify-content-center" style={{ width: 28 }}>
-                                                {rankNum === 1 ? (
-                                                    <Crown size={20} className="text-warning" />
-                                                ) : (
-                                                    <span className="wp-rank-indicator">
-                                                        #{rankNum}
-                                                    </span>
-                                                )}
+                                        <div key={cand.id} className="wp-cand-card">
+                                            <div className={`wp-cand-rank ${rankNum === 1 ? 'is-top' : ''}`}>
+                                                {rankNum === 1 ? <Crown size={18} className="text-warning" /> : `#${rankNum}`}
                                             </div>
 
-                                            {/* Poster Thumbnail Compacto */}
                                             <img
                                                 src={cand.image_url}
                                                 alt={cand.title}
-                                                className="wp-candidate-poster-compact"
+                                                className="wp-cand-poster"
                                             />
 
-                                            {/* Columna Central: Información, Consenso y Slider */}
-                                            <div className="flex-grow-1" style={{ minWidth: 0 }}>
-                                                {/* Título y Metadata */}
-                                                <div className="d-flex flex-wrap align-items-baseline gap-2 mb-1">
-                                                    <strong className="text-white text-truncate" style={{ fontSize: '0.98rem' }}>
-                                                        {cand.title}
-                                                    </strong>
-                                                    <span className="small" style={{ color: 'var(--wp-text-dim)', fontSize: '0.75rem' }}>
-                                                        ★ {cand.score || '9.0'} MAL · {cand.episodes || 24} eps · por {cand.suggested_by}
+                                            <div className="wp-cand-info">
+                                                <div className="wp-cand-title-row">
+                                                    <span className="wp-cand-title">{cand.title}</span>
+                                                    <span className="wp-cand-meta">
+                                                        ★ {cand.score || '8.5'} · {cand.episodes || 24} eps · por {cleanUserName(cand.suggested_by)}
                                                     </span>
                                                 </div>
 
-                                                {/* Etiqueta de Consenso */}
-                                                <div className="mb-2">
+                                                <div>
                                                     <span
-                                                        className={`wp-consenso-tag ${isConsensusWinner
-                                                                ? 'tag-ganador'
-                                                                : isPolarized
-                                                                    ? 'tag-polarizado'
-                                                                    : ''
-                                                            }`}
+                                                        className={`wp-cand-consenso ${
+                                                            isConsensusWinner ? 'is-winner' : isPolarized ? 'is-polar' : ''
+                                                        }`}
                                                     >
                                                         {isConsensusWinner && '👑 '}
                                                         {isPolarized && '⚡ '}
@@ -776,781 +1007,464 @@ export const WatchPartyRoom: React.FC = () => {
                                                     </span>
                                                 </div>
 
-                                                {/* Slider de Puntuación (0 a 10) */}
-                                                <div className="d-flex flex-column flex-md-row align-items-md-center gap-2.5">
-                                                    <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '340px' }}>
-                                                        <input
-                                                            type="range"
-                                                            min={0}
-                                                            max={10}
-                                                            step={0.5}
-                                                            value={myVoteScore}
-                                                            onChange={(e) =>
-                                                                setLocalVotes((prev) => ({
-                                                                    ...prev,
-                                                                    [cand.id]: parseFloat(e.target.value),
-                                                                }))
-                                                            }
-                                                            className="wp-slider-track"
-                                                        />
-                                                    </div>
+                                                <div className="wp-cand-slider-row">
+                                                    <input
+                                                        type="range"
+                                                        min={0}
+                                                        max={10}
+                                                        step={0.5}
+                                                        value={myVoteScore}
+                                                        onChange={(e) =>
+                                                            setLocalVotes((prev) => ({
+                                                                ...prev,
+                                                                [cand.id]: parseFloat(e.target.value),
+                                                            }))
+                                                        }
+                                                        className="wp-slider"
+                                                    />
 
-                                                    {/* Score Box y Botón Votar */}
-                                                    <div className="d-flex align-items-center gap-2">
-                                                        <span className="wp-score-box">
-                                                            Tu voto: <strong>{myVoteScore.toFixed(1).replace('.', ',')}</strong> / 10
-                                                        </span>
+                                                    <span className="wp-vote-score-pill">
+                                                        Tu voto: <strong>{myVoteScore.toFixed(1).replace('.', ',')}</strong> / 10
+                                                    </span>
 
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleSendVote(cand.id)}
-                                                            className="ml-btn ml-btn-sm"
-                                                            title="Guardar voto para este anime"
-                                                        >
-                                                            <ThumbsUp size={12} />
-                                                            <span>Votar</span>
-                                                        </button>
-                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleSendVote(cand.id)}
+                                                        className="ml-btn ml-btn-sm"
+                                                        title="Guardar voto"
+                                                    >
+                                                        <ThumbsUp size={12} />
+                                                        <span>Votar</span>
+                                                    </button>
                                                 </div>
                                             </div>
 
-                                            {/* Tarjeta de Felicidad Grupal (Derecha) */}
-                                            <div className="wp-happiness-pill d-flex flex-column align-items-center justify-content-center">
-                                                <span className="small fw-bold text-uppercase d-block" style={{ fontSize: '0.65rem', color: '#fbbf24', letterSpacing: '0.05em' }}>
-                                                    FELICIDAD
-                                                </span>
-                                                <div className="h5 fw-bold mb-0 text-white font-mono">
-                                                    {Number(happinessScore).toFixed(0)} <span style={{ fontSize: '0.75rem', color: 'var(--wp-text-dim)' }}>/ 10</span>
-                                                </div>
+                                            <div className="wp-cand-happiness">
+                                                <span className="wp-cand-hap-label">SINTONÍA</span>
+                                                <span className="wp-cand-hap-val">{Number(happinessScore).toFixed(0)}</span>
                                                 <button
                                                     type="button"
                                                     onClick={async () => {
                                                         if (room) {
                                                             await selectWinningAnimeApi(room.id, cand.anime_id)
-                                                            setRoomTab('tracker')
+                                                            setRoomTab('sesion')
                                                         }
                                                     }}
-                                                    className="btn btn-link text-decoration-none p-0 mt-1"
-                                                    style={{ fontSize: '0.7rem', color: 'var(--wp-acento)' }}
+                                                    className="wp-cand-btn-win"
                                                 >
-                                                    Ver en Grupo →
+                                                    Elegir para Maratón →
                                                 </button>
                                             </div>
                                         </div>
                                     )
-                                })}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* ==============================================================
-                    PESTAÑA 2: GRÁFICO & ANÁLISIS DE FELICIDAD
-                   ============================================================== */}
-                {roomTab === 'grafico' && (
-                    <div className="d-flex flex-column gap-3">
-                        {/* 3 Tarjetas Métricas Superiores */}
-                        <div className="row g-3">
-                            <div className="col-12 col-md-4">
-                                <div className="wp-metric-card h-100">
-                                    <div className="wp-metric-icon text-warning">
-                                        <Trophy size={20} />
-                                    </div>
-                                    <div>
-                                        <span className="small d-block fw-bold text-uppercase" style={{ fontSize: '0.68rem', color: 'var(--wp-text-dim)', letterSpacing: '0.08em' }}>
-                                            MEJOR OPCIÓN GRUPAL
-                                        </span>
-                                        <strong className="text-white d-block text-truncate" style={{ maxWidth: '190px', fontSize: '0.92rem' }}>
-                                            {topCandidate ? topCandidate.title : 'Sin candidatos'}
-                                        </strong>
-                                        <span className="small font-mono fw-bold" style={{ color: '#fbbf24', fontSize: '0.78rem' }}>
-                                            {topCandidate?.happiness_result?.final_score || 10} / 10 pts
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="col-12 col-md-4">
-                                <div className="wp-metric-card h-100">
-                                    <div className="wp-metric-icon" style={{ color: 'var(--wp-acento)' }}>
-                                        <Target size={20} />
-                                    </div>
-                                    <div>
-                                        <span className="small d-block fw-bold text-uppercase" style={{ fontSize: '0.68rem', color: 'var(--wp-text-dim)', letterSpacing: '0.08em' }}>
-                                            DISPERSIÓN PROMEDIO
-                                        </span>
-                                        <strong className="text-white d-block font-mono" style={{ fontSize: '1rem' }}>
-                                            ±{avgDispersion} SD
-                                        </strong>
-                                        <span className="small" style={{ color: 'var(--wp-text-muted)', fontSize: '0.75rem' }}>
-                                            Nivel de acuerdo en votos
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="col-12 col-md-4">
-                                <div className="wp-metric-card h-100">
-                                    <div className="wp-metric-icon text-success">
-                                        <Users size={20} />
-                                    </div>
-                                    <div>
-                                        <span className="small d-block fw-bold text-uppercase" style={{ fontSize: '0.68rem', color: 'var(--wp-text-dim)', letterSpacing: '0.08em' }}>
-                                            QUÓRUM DEL GRUPO
-                                        </span>
-                                        <strong className="text-white d-block font-mono" style={{ fontSize: '1rem' }}>
-                                            {avgQuorum}%
-                                        </strong>
-                                        <span className="small" style={{ color: 'var(--wp-text-muted)', fontSize: '0.75rem' }}>
-                                            Participación activa
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
+                                })
+                            )}
                         </div>
+                    )}
 
-                        {/* Visualizador de Felicidad Grupal (Matriz 2D) */}
-                        <div className="wp-matrix-container">
-                            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3 pb-2 border-bottom" style={{ borderColor: 'var(--wp-border)' }}>
+                    {/* ==============================================================
+                        SUB-VISTA: MATRIZ 2D & ANÁLISIS
+                       ============================================================== */}
+                    {roomTab === 'analisis' && (
+                        <div className="wp-matrix-pane">
+                            <div className="wp-matrix-header">
                                 <div>
-                                    <div className="d-flex align-items-center gap-2 mb-0.5">
-                                        <BarChart3 size={16} style={{ color: 'var(--wp-acento)' }} />
-                                        <h3 className="h6 fw-bold text-white mb-0">Matriz de Decisión 2D</h3>
-                                    </div>
-                                    <p className="small mb-0" style={{ color: 'var(--wp-text-dim)', fontSize: '0.78rem' }}>
-                                        Eje X: Consenso (Baja Dispersión) · Eje Y: Ganas del Grupo (0 a 10)
-                                    </p>
+                                    <h3 className="h6 fw-bold text-white mb-0">Mapa de Gustos Grupales</h3>
+                                    <span className="small text-secondary" style={{ fontSize: '0.78rem' }}>
+                                        Eje horizontal: Sintonía de grupo · Eje vertical: Ganas de verlo
+                                    </span>
                                 </div>
 
-                                <div className="ml-tabs mb-0 p-1" style={{ gap: '0.2rem' }}>
+                                <div className="d-flex gap-1.5">
                                     <button
                                         type="button"
                                         onClick={() => setChartMode('matriz')}
-                                        className={`ml-tab py-1 px-2.5 ${chartMode === 'matriz' ? 'active' : ''}`}
-                                        aria-selected={chartMode === 'matriz'}
-                                        style={{ fontSize: '0.78rem' }}
+                                        className={`ml-btn ml-btn-sm ${chartMode === 'matriz' ? 'ml-btn-acento' : 'ml-btn-fantasma'}`}
                                     >
-                                        Matriz 2D
+                                        Mapa 2D
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setChartMode('apilado')}
-                                        className={`ml-tab py-1 px-2.5 ${chartMode === 'apilado' ? 'active' : ''}`}
-                                        aria-selected={chartMode === 'apilado'}
-                                        style={{ fontSize: '0.78rem' }}
+                                        className={`ml-btn ml-btn-sm ${chartMode === 'apilado' ? 'ml-btn-acento' : 'ml-btn-fantasma'}`}
                                     >
-                                        Desglose Apilado
+                                        Lista Resumen
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Canvas / SVG de la Matriz de Decisión 2D */}
-                            <div
-                                className="position-relative rounded-3 overflow-hidden"
-                                style={{
-                                    height: '340px',
-                                    background: '#090d15',
-                                    border: '1px solid rgba(255, 255, 255, 0.05)',
-                                }}
-                            >
-                                {/* Cuadrantes Rotulados */}
-                                <div
-                                    className="wp-quadrant-badge"
-                                    style={{
-                                        top: '12px',
-                                        left: '12px',
-                                        background: 'rgba(245, 158, 11, 0.1)',
-                                        borderColor: 'rgba(245, 158, 11, 0.3)',
-                                        color: '#fbbf24',
-                                    }}
-                                >
-                                    ⚡ AMOR U ODIO (POLARIZADO)
-                                </div>
+                            {chartMode === 'matriz' ? (
+                                <div className="wp-matrix-canvas">
+                                    <div className="wp-quad-badge wp-quad-winner">👑 GANADOR SEGURO (EN SINTONÍA)</div>
+                                    <div className="wp-quad-badge wp-quad-polar">⚡ AMOR U ODIO (DIVIDIDO)</div>
+                                    <div className="wp-quad-badge wp-quad-meh">💤 POCO INTERÉS</div>
+                                    <div className="wp-quad-badge wp-quad-niche">🎯 JOYA OCULTA</div>
 
-                                <div
-                                    className="wp-quadrant-badge"
-                                    style={{
-                                        top: '12px',
-                                        right: '12px',
-                                        background: 'rgba(52, 211, 153, 0.1)',
-                                        borderColor: 'rgba(52, 211, 153, 0.3)',
-                                        color: '#34d399',
-                                    }}
-                                >
-                                    👑 GANADOR SEGURO
-                                </div>
+                                    <div className="wp-matrix-axis-x" />
+                                    <div className="wp-matrix-axis-y" />
 
-                                {/* Líneas de división de cuadrantes */}
-                                <div
-                                    className="position-absolute"
-                                    style={{
-                                        top: 0,
-                                        bottom: 0,
-                                        left: '50%',
-                                        width: 1,
-                                        background: 'rgba(255, 255, 255, 0.06)',
-                                    }}
-                                />
-                                <div
-                                    className="position-absolute"
-                                    style={{
-                                        left: 0,
-                                        right: 0,
-                                        top: '50%',
-                                        height: 1,
-                                        background: 'rgba(255, 255, 255, 0.06)',
-                                    }}
-                                />
+                                    {candidates.map((cand, idx) => {
+                                        const mean = cand.happiness_result?.interest_mean ?? cand.avg_interest ?? 7.5
+                                        const disp = cand.happiness_result?.interest_dispersion ?? 1.2
 
-                                {/* Renderizado de Candidatos en el Espacio 2D */}
-                                {candidates.map((cand, idx) => {
-                                    const mean = cand.happiness_result?.interest_mean ?? cand.avg_interest ?? 7.5
-                                    const disp = cand.happiness_result?.interest_dispersion ?? 1.2
+                                        const yPercent = Math.max(16, Math.min(84, 100 - (mean / 10) * 100))
+                                        const consensusVal = Math.max(0, 10 - disp * 2.5)
+                                        const xPercent = Math.max(16, Math.min(84, (consensusVal / 10) * 100))
 
-                                    const yPercent = Math.max(18, Math.min(82, 100 - (mean / 10) * 100))
-                                    const consensusVal = Math.max(0, 10 - disp * 2.5)
-                                    const xPercent = Math.max(15, Math.min(85, (consensusVal / 10) * 100))
-
-                                    return (
-                                        <div
-                                            key={cand.id}
-                                            className="position-absolute d-flex flex-column align-items-center"
-                                            style={{
-                                                left: `${xPercent}%`,
-                                                top: `${yPercent}%`,
-                                                transform: 'translate(-50%, -50%)',
-                                                cursor: 'pointer',
-                                                transition: 'transform 0.2s ease',
-                                                zIndex: 3,
-                                            }}
-                                            title={`${cand.title} — Ganas: ${mean.toFixed(1)}, Dispersión: ±${disp.toFixed(2)}`}
-                                        >
-                                            <div className="position-relative">
-                                                <img
-                                                    src={cand.image_url}
-                                                    alt={cand.title}
-                                                    className="rounded-circle shadow"
-                                                    style={{
-                                                        width: 38,
-                                                        height: 38,
-                                                        objectFit: 'cover',
-                                                        border: idx === 0 ? '2px solid #fbbf24' : '2px solid rgba(255,255,255,0.3)',
-                                                    }}
-                                                />
-                                                <span
-                                                    className="position-absolute bottom-0 end-0 badge rounded-pill"
-                                                    style={{
-                                                        background: idx === 0 ? '#fbbf24' : '#1e293b',
-                                                        color: idx === 0 ? '#000000' : '#ffffff',
-                                                        fontSize: '0.6rem',
-                                                        padding: '0.12rem 0.3rem',
-                                                    }}
-                                                >
-                                                    #{idx + 1}
-                                                </span>
+                                        return (
+                                            <div
+                                                key={cand.id}
+                                                className="wp-matrix-pin"
+                                                style={{ left: `${xPercent}%`, top: `${yPercent}%` }}
+                                                title={`${cand.title} — Interés de grupo`}
+                                            >
+                                                <div className="position-relative">
+                                                    <img
+                                                        src={cand.image_url}
+                                                        alt={cand.title}
+                                                        className="wp-pin-img"
+                                                        style={{
+                                                            border: idx === 0 ? '2px solid #fbbf24' : '2px solid rgba(255,255,255,0.35)',
+                                                        }}
+                                                    />
+                                                    <span
+                                                        className="wp-pin-badge"
+                                                        style={{
+                                                            background: idx === 0 ? '#fbbf24' : '#1e293b',
+                                                            color: idx === 0 ? '#000000' : '#ffffff',
+                                                        }}
+                                                    >
+                                                        #{idx + 1}
+                                                    </span>
+                                                </div>
+                                                <span className="wp-pin-label">{cand.title}</span>
                                             </div>
-                                            <span
-                                                className="small text-truncate mt-1 px-1 rounded"
-                                                style={{
-                                                    maxWidth: '110px',
-                                                    fontSize: '0.66rem',
-                                                    background: 'rgba(0,0,0,0.7)',
-                                                    color: '#ffffff',
-                                                }}
-                                            >
-                                                {cand.title}
-                                            </span>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* ==============================================================
-                    PESTAÑA 3: CONTEO DE CAPÍTULOS & SESIÓN (WATCH PARTY TRACKER)
-                   ============================================================== */}
-                {roomTab === 'tracker' && (
-                    <div className="row g-3">
-                        {/* Columna Izquierda: Conteo y Ponerse al Día */}
-                        <div className="col-12 col-lg-8 d-flex flex-column gap-3">
-                            {/* Alerta de Catch-up: Quiénes faltan por ponerse al día */}
-                            {room?.catchup_members && room.catchup_members.length > 0 ? (
-                                <div
-                                    className="p-3 rounded-3 d-flex flex-column gap-2"
-                                    style={{
-                                        background: 'rgba(245, 158, 11, 0.08)',
-                                        border: '1px solid rgba(245, 158, 11, 0.25)',
-                                    }}
-                                >
-                                    <div className="d-flex align-items-center gap-2 text-warning fw-bold small">
-                                        <AlertTriangle size={15} />
-                                        <span>Faltan por ponerse al día con el Capítulo {groupTarget}:</span>
-                                    </div>
-                                    <div className="d-flex flex-wrap gap-2">
-                                        {room.catchup_members.map((cm) => (
-                                            <span
-                                                key={cm.id}
-                                                className="wp-chip"
-                                                style={{ background: '#1c1710', color: '#fef08a', borderColor: '#4a3510' }}
-                                            >
-                                                <strong>{cm.guest_name}</strong>: {cm.episodes_behind} caps pendientes (en cap {cm.episodes_watched})
-                                            </span>
-                                        ))}
-                                    </div>
+                                        )
+                                    })}
                                 </div>
                             ) : (
-                                <div
-                                    className="p-3 rounded-3 d-flex align-items-center gap-2 text-success small fw-semibold"
-                                    style={{
-                                        background: 'rgba(52, 211, 153, 0.08)',
-                                        border: '1px solid rgba(52, 211, 153, 0.25)',
-                                    }}
-                                >
-                                    <CheckCircle2 size={16} />
-                                    <span>¡Excelente! Todo el grupo está al día con el Capítulo {groupTarget}.</span>
+                                <div className="wp-candidates-scroll">
+                                    {candidates.map((cand, idx) => {
+                                        const mean = cand.happiness_result?.interest_mean ?? cand.avg_interest ?? 7.5
+                                        return (
+                                            <div
+                                                key={cand.id}
+                                                className="p-3 rounded-3 d-flex justify-content-between align-items-center"
+                                                style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '14px' }}
+                                            >
+                                                <div className="d-flex align-items-center gap-3">
+                                                    <span className="fw-bold text-white font-mono">#{idx + 1}</span>
+                                                    <img
+                                                        src={cand.image_url}
+                                                        alt={cand.title}
+                                                        style={{ width: 40, height: 56, objectFit: 'cover', borderRadius: '8px' }}
+                                                    />
+                                                    <div>
+                                                        <strong className="text-white d-block">{cand.title}</strong>
+                                                        <span className="small text-secondary">
+                                                            {cand.votes?.length || 0} votos registrados
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <span className="wp-pill-badge is-live">
+                                                    Promedio: {mean.toFixed(1)} / 10
+                                                </span>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             )}
-
-                            {/* Tarjeta de Progreso Personal (1 Click) */}
-                            <div
-                                className="p-3 rounded-3 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3"
-                                style={{ background: 'var(--wp-surface)', border: '1px solid var(--wp-border)' }}
-                            >
-                                <div>
-                                    <span className="small text-uppercase fw-bold d-block mb-1" style={{ color: 'var(--wp-text-dim)', fontSize: '0.7rem' }}>
-                                        Tu Progreso ({userName})
-                                    </span>
-                                    <div className="d-flex align-items-baseline gap-2">
-                                        <span className="h5 fw-bold text-white mb-0 font-mono">Capítulo {myWatched}</span>
-                                        <span className="small" style={{ color: 'var(--wp-text-muted)' }}>de {totalEpisodes}</span>
-                                        <span
-                                            className="badge rounded-pill ms-2"
-                                            style={{
-                                                background: myWatched >= groupTarget ? 'rgba(52, 211, 153, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                                                color: myWatched >= groupTarget ? '#34d399' : '#fbbf24',
-                                                fontSize: '0.7rem',
-                                            }}
-                                        >
-                                            {myWatched >= groupTarget ? 'Al día' : `Atrasado (-${groupTarget - myWatched})`}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="d-flex gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => updateMyProgress(Math.max(0, myWatched - 1))}
-                                        disabled={myWatched <= 0}
-                                        className="ml-btn ml-btn-sm"
-                                    >
-                                        -1
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => updateMyProgress(myWatched + 1)}
-                                        className="ml-btn ml-btn-acento ml-btn-sm"
-                                    >
-                                        <Plus size={14} />
-                                        <span>¡Ya vi el Cap {myWatched + 1}!</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Meta del Grupo y Próxima Sesión */}
-                            <div
-                                className="p-3 rounded-3 d-flex justify-content-between align-items-center"
-                                style={{ background: 'var(--wp-surface)', border: '1px solid var(--wp-border)' }}
-                            >
-                                <div>
-                                    <span className="small fw-bold text-uppercase d-block mb-0.5" style={{ color: 'var(--wp-text-dim)', fontSize: '0.68rem' }}>
-                                        META GRUPAL ACTUAL
-                                    </span>
-                                    <strong className="text-white font-mono h6 mb-0">Capítulo {groupTarget} de {totalEpisodes}</strong>
-                                </div>
-                                <div className="d-flex gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setGroupTarget(groupTarget + 1)}
-                                        className="ml-btn ml-btn-sm"
-                                    >
-                                        Avanzar Meta (+1)
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowScheduleModal(true)}
-                                        className="ml-btn ml-btn-sm"
-                                    >
-                                        <CalendarPlus size={13} />
-                                        <span>Agendar Sesión</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Lista de Miembros con su progreso */}
-                            <div
-                                className="rounded-3 overflow-hidden"
-                                style={{ background: 'var(--wp-surface)', border: '1px solid var(--wp-border)' }}
-                            >
-                                <div className="p-3 border-bottom d-flex justify-content-between align-items-center" style={{ borderColor: 'var(--wp-border)' }}>
-                                    <span className="small fw-bold text-white">Conteo por Miembro ({totalMembers})</span>
-                                    <span className="small font-mono" style={{ color: 'var(--wp-text-dim)', fontSize: '0.78rem' }}>Meta: Cap {groupTarget}</span>
-                                </div>
-
-                                <div className="p-3 d-flex flex-column gap-2">
-                                    {room?.members?.map((m, idx) => (
-                                        <div
-                                            key={m.id}
-                                            className="p-2 rounded-2 d-flex justify-content-between align-items-center"
-                                            style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)' }}
-                                        >
-                                            <div className="d-flex align-items-center gap-2">
-                                                <span className="small font-mono text-secondary" style={{ fontSize: '0.75rem' }}>0{idx + 1}</span>
-                                                <div
-                                                    className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white font-mono"
-                                                    style={{ width: 26, height: 26, background: '#1e293b', fontSize: '0.72rem' }}
-                                                >
-                                                    {m.guest_name.slice(0, 2).toUpperCase()}
-                                                </div>
-                                                <span className="small fw-semibold text-white">{m.guest_name}</span>
-                                            </div>
-
-                                            <div className="d-flex align-items-center gap-2.5">
-                                                <span className="small font-mono" style={{ color: 'var(--wp-text-muted)', fontSize: '0.78rem' }}>
-                                                    {m.episodes_watched} / {totalEpisodes} caps
-                                                </span>
-                                                <span
-                                                    className="badge rounded-pill"
-                                                    style={{
-                                                        background: m.sync_status === 'atrasado' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(52, 211, 153, 0.15)',
-                                                        color: m.sync_status === 'atrasado' ? '#fbbf24' : '#34d399',
-                                                        fontSize: '0.7rem',
-                                                    }}
-                                                >
-                                                    {m.sync_status === 'atrasado' ? `Atrasado (-${m.episodes_behind})` : 'Al día'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
                         </div>
+                    )}
 
-                        {/* Columna Derecha: Chat en Tiempo Real */}
-                        <div className="col-12 col-lg-4">
-                            <div
-                                className="rounded-3 d-flex flex-column overflow-hidden position-relative"
-                                style={{
-                                    background: 'var(--wp-surface)',
-                                    border: '1px solid var(--wp-border)',
-                                    height: '520px',
-                                }}
-                            >
-                                {/* Overlay de Reacciones Flotantes */}
-                                <div className="position-absolute top-0 start-0 w-100 h-100 pointer-events-none overflow-hidden z-2">
-                                    {floatingReactions.map((r) => (
-                                        <span
-                                            key={r.id}
-                                            className="position-absolute"
-                                            style={{
-                                                left: `${r.xPos}%`,
-                                                bottom: '60px',
-                                                fontSize: '1.6rem',
-                                                animation: 'floatUp 2.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards',
-                                            }}
-                                        >
-                                            {r.emoji}
-                                        </span>
-                                    ))}
+                    {/* ==============================================================
+                        SUB-VISTA: CHAT EN VIVO SOCIAL & MODERNO
+                       ============================================================== */}
+                    {roomTab === 'chat' && (
+                        <div className="wp-chat-container">
+                            {/* Reacciones Flotantes Animadas */}
+                            {floatingReactions.map((r) => (
+                                <span
+                                    key={r.id}
+                                    className="wp-float-reaction"
+                                    style={{ left: `${r.xPos}%` }}
+                                >
+                                    {r.emoji}
+                                </span>
+                            ))}
+
+                            <div className="wp-chat-header">
+                                <div className="d-flex align-items-center gap-2">
+                                    <MessageSquare size={16} style={{ color: 'var(--wp-acento)' }} />
+                                    <span className="small fw-bold text-white">Sala de Chat</span>
+                                    <span className="wp-pill-badge is-live" style={{ fontSize: '0.7rem' }}>
+                                        {totalMembers} amigos
+                                    </span>
                                 </div>
 
-                                {/* Cabecera del Chat */}
-                                <div className="p-2.5 border-bottom d-flex justify-content-between align-items-center" style={{ borderColor: 'var(--wp-border)' }}>
-                                    <div className="d-flex align-items-center gap-2">
-                                        <MessageSquare size={14} style={{ color: 'var(--wp-acento)' }} />
-                                        <span className="small fw-bold text-white">Chat de la Sala</span>
+                                <div className="wp-chat-spoiler-capsule">
+                                    <ShieldAlert size={13} />
+                                    <span>Libre de spoilers hasta Cap. {groupTarget}</span>
+                                </div>
+                            </div>
+
+                            <div ref={chatScrollRef} className="wp-chat-stream">
+                                {chatMessages.length === 0 ? (
+                                    <div className="text-center my-auto small text-secondary">
+                                        <Smile size={28} className="text-secondary opacity-40 mb-2" />
+                                        <p className="mb-0">¡Sé el primero en escribir para coordinar la maratón!</p>
                                     </div>
-                                    <span className="small" style={{ color: 'var(--wp-text-dim)', fontSize: '0.72rem' }}>
-                                        {totalMembers} online
-                                    </span>
-                                </div>
+                                ) : (
+                                    chatMessages.map((msg) => {
+                                        const cleanSender = cleanUserName(msg.sender)
+                                        const isMine = cleanSender === userName
 
-                                {/* Aviso de Spoilers */}
-                                <div
-                                    className="px-2.5 py-1.5 d-flex align-items-center gap-1.5"
-                                    style={{ background: 'var(--wp-surface-2)', borderBottom: '1px solid var(--wp-border)', fontSize: '0.7rem' }}
-                                >
-                                    <ShieldAlert size={12} className="text-warning" />
-                                    <span style={{ color: 'var(--wp-text-muted)' }}>
-                                        Libre de spoilers hasta Cap <strong>{groupTarget}</strong>
-                                    </span>
-                                </div>
-
-                                {/* Mensajes del Chat */}
-                                <div
-                                    ref={chatScrollRef}
-                                    className="flex-grow-1 p-2.5 overflow-y-auto d-flex flex-column gap-2"
-                                    style={{ scrollBehavior: 'smooth' }}
-                                >
-                                    {chatMessages.length === 0 ? (
-                                        <div className="text-center my-auto small" style={{ color: 'var(--wp-text-dim)', fontSize: '0.78rem' }}>
-                                            Escribe un mensaje para coordinar la maratón
-                                        </div>
-                                    ) : (
-                                        chatMessages.map((msg) => (
+                                        return (
                                             <div
                                                 key={msg.id}
-                                                className={`d-flex flex-column ${msg.sender === userName ? 'align-items-end' : 'align-items-start'}`}
+                                                className={isMine ? 'wp-bubble-user' : 'wp-bubble-friend'}
                                             >
-                                                <span className="small font-mono mb-0.5" style={{ fontSize: '0.65rem', color: 'var(--wp-text-dim)' }}>
-                                                    {msg.sender}
-                                                </span>
-                                                <div
-                                                    className="py-1 px-2.5 rounded-2 small"
-                                                    style={{
-                                                        background: msg.sender === userName ? '#ffffff' : 'var(--wp-surface-2)',
-                                                        color: msg.sender === userName ? '#000000' : '#ffffff',
-                                                        maxWidth: '85%',
-                                                        fontSize: '0.8rem',
-                                                    }}
-                                                >
-                                                    {msg.text}
+                                                <div className="wp-msg-author">
+                                                    {cleanSender}
                                                 </div>
+                                                <div>{msg.text}</div>
                                             </div>
-                                        ))
-                                    )}
-                                </div>
-
-                                {/* Reacciones Rápidas */}
-                                <div className="px-2.5 py-1.5 d-flex justify-content-between align-items-center border-top" style={{ borderColor: 'var(--wp-border)' }}>
-                                    <span className="small" style={{ fontSize: '0.68rem', color: 'var(--wp-text-dim)' }}>Reaccionar:</span>
-                                    <div className="d-flex gap-1">
-                                        {QUICK_EMOJIS.map((em) => (
-                                            <button
-                                                key={em}
-                                                type="button"
-                                                onClick={() => sendReaction(em)}
-                                                className="btn btn-sm btn-dark p-0.5 border-0"
-                                                style={{ fontSize: '0.85rem' }}
-                                            >
-                                                {em}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Input del Chat */}
-                                <form
-                                    onSubmit={(e) => {
-                                        e.preventDefault()
-                                        if (chatInput.trim()) {
-                                            sendChat(chatInput)
-                                            setChatInput('')
-                                        }
-                                    }}
-                                    className="p-2 border-top d-flex gap-2"
-                                    style={{ borderColor: 'var(--wp-border)' }}
-                                >
-                                    <input
-                                        type="text"
-                                        placeholder="Escribe un mensaje..."
-                                        value={chatInput}
-                                        onChange={(e) => setChatInput(e.target.value)}
-                                        className="form-control form-control-sm bg-black text-white border-secondary"
-                                        style={{ fontSize: '0.8rem' }}
-                                    />
-                                    <button type="submit" className="ml-btn ml-btn-acento ml-btn-sm py-1 px-2.5">
-                                        <Send size={12} />
-                                    </button>
-                                </form>
+                                        )
+                                    })
+                                )}
                             </div>
-                        </div>
-                    </div>
-                )}
 
-                {/* ==============================================================
-                    MODALES DE LA SALA
-                   ============================================================== */}
-                {/* Modal Postular Anime */}
-                <Dialogo
-                    abierto={showNominateModal}
-                    onCerrar={() => setShowNominateModal(false)}
-                    etiqueta="Postular Anime a la Sala"
-                    ancho={520}
-                >
-                    <div className="p-4 d-flex flex-column gap-3">
-                        <div>
-                            <h3 className="h6 fw-bold text-white mb-1">Postular Anime a la Votación</h3>
-                            <p className="small mb-0" style={{ color: 'var(--wp-text-muted)' }}>
-                                Busca en el catálogo y postúlalo para que el grupo lo vote.
-                            </p>
-                        </div>
-
-                        <div className="position-relative">
-                            <input
-                                type="text"
-                                placeholder="Busca por título en el catálogo..."
-                                value={nominateSearch}
-                                onChange={(e) => setNominateSearch(e.target.value)}
-                                className="form-control bg-black text-white border-secondary"
-                            />
-                            {isSearchingCatalog && (
-                                <Loader2 size={16} className="position-absolute end-0 top-50 translate-middle-y me-3 text-secondary spinner-border-sm" />
-                            )}
-                        </div>
-
-                        <div className="d-flex flex-column gap-2 overflow-y-auto" style={{ maxHeight: '300px' }}>
-                            {catalogResults.map((anime: ApiAnimeData) => (
-                                <div
-                                    key={anime.mal_id}
-                                    className="p-2 rounded-2 d-flex align-items-center justify-content-between gap-3"
-                                    style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)' }}
-                                >
-                                    <div className="d-flex align-items-center gap-2 overflow-hidden">
-                                        <img
-                                            src={anime.image_url}
-                                            alt={anime.title}
-                                            className="rounded"
-                                            style={{ width: 36, height: 50, objectFit: 'cover' }}
-                                        />
-                                        <div className="overflow-hidden">
-                                            <strong className="d-block text-white small text-truncate">{anime.title}</strong>
-                                            <span className="small text-secondary font-mono" style={{ fontSize: '0.72rem' }}>
-                                                ★ {anime.score || '8.5'} · {anime.episodes || 24} eps
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => handleNominateAnime(anime.mal_id)}
-                                        className="ml-btn ml-btn-acento ml-btn-sm text-nowrap"
-                                    >
-                                        Postular
-                                    </button>
+                            {/* Reacciones con Emojis */}
+                            <div className="wp-chat-emojis-bar">
+                                <span className="small text-secondary" style={{ fontSize: '0.74rem' }}>Reacciones:</span>
+                                <div className="d-flex gap-1.5">
+                                    {QUICK_EMOJIS.map((em) => (
+                                        <button
+                                            key={em}
+                                            type="button"
+                                            onClick={() => sendReaction(em)}
+                                            className="wp-emoji-btn"
+                                        >
+                                            {em}
+                                        </button>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                </Dialogo>
+                            </div>
 
-                {/* Modal Criterios Ideales */}
-                <Dialogo
-                    abierto={showCriteriaModal}
-                    onCerrar={() => setShowCriteriaModal(false)}
-                    etiqueta="Criterios Ideales del Grupo"
-                    ancho={460}
-                >
-                    <div className="p-4 d-flex flex-column gap-3">
-                        <div>
-                            <h3 className="h6 fw-bold text-white mb-1">Criterios Ideales del Grupo</h3>
-                            <p className="small mb-0" style={{ color: 'var(--wp-text-muted)' }}>
-                                Define los filtros preferidos de duración, géneros y años para esta maratón.
-                            </p>
-                        </div>
-
-                        <div>
-                            <label className="form-label small text-white fw-semibold">Duración de Capítulos</label>
-                            <input
-                                type="text"
-                                value={criteriaDuration}
-                                onChange={(e) => setCriteriaDuration(e.target.value)}
-                                className="form-control bg-black text-white border-secondary"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="form-label small text-white fw-semibold">Géneros Preferidos</label>
-                            <input
-                                type="text"
-                                value={criteriaGenres}
-                                onChange={(e) => setCriteriaGenres(e.target.value)}
-                                className="form-control bg-black text-white border-secondary"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="form-label small text-white fw-semibold">Rango de Años</label>
-                            <input
-                                type="text"
-                                value={criteriaYears}
-                                onChange={(e) => setCriteriaYears(e.target.value)}
-                                className="form-control bg-black text-white border-secondary"
-                            />
-                        </div>
-
-                        <div className="d-flex justify-content-end gap-2 pt-2">
-                            <button
-                                type="button"
-                                onClick={() => setShowCriteriaModal(false)}
-                                className="ml-btn ml-btn-acento ml-btn-sm"
+                            {/* Input Pill Redondeado */}
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault()
+                                    if (chatInput.trim()) {
+                                        sendChat(chatInput)
+                                        setChatInput('')
+                                    }
+                                }}
+                                className="wp-chat-input-row"
                             >
-                                Guardar Criterios
-                            </button>
-                        </div>
-                    </div>
-                </Dialogo>
-
-                {/* Modal Agendar Próxima Sesión */}
-                <Dialogo
-                    abierto={showScheduleModal}
-                    onCerrar={() => setShowScheduleModal(false)}
-                    etiqueta="Agendar Próxima Sesión"
-                    ancho={460}
-                >
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault()
-                            scheduleSession(scheduleDate || null, scheduleNotes)
-                            setShowScheduleModal(false)
-                        }}
-                    >
-                        <div className="p-4 d-flex flex-column gap-3">
-                            <div>
-                                <h3 className="h6 fw-bold text-white mb-1">Agendar Próxima Reunión</h3>
-                                <p className="small mb-0" style={{ color: 'var(--wp-text-muted)' }}>
-                                    Acuerden fecha, hora y notas para la próxima sesión de anime.
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="form-label small text-white fw-semibold">Fecha y Hora</label>
                                 <input
-                                    type="datetime-local"
-                                    value={scheduleDate}
-                                    onChange={(e) => setScheduleDate(e.target.value)}
-                                    className="form-control bg-black text-white border-secondary"
+                                    type="text"
+                                    placeholder="Escribe un mensaje para el grupo..."
+                                    value={chatInput}
+                                    onChange={(e) => setChatInput(e.target.value)}
+                                    className="wp-input-pill"
                                 />
-                            </div>
+                                <button type="submit" className="wp-send-circle-btn" title="Enviar mensaje">
+                                    <Send size={15} />
+                                </button>
+                            </form>
+                        </div>
+                    )}
+                </div>
+            </div>
 
-                            <div>
-                                <label className="form-label small text-white fw-semibold">Notas / Plataforma</label>
-                                <textarea
-                                    rows={3}
-                                    value={scheduleNotes}
-                                    onChange={(e) => setScheduleNotes(e.target.value)}
-                                    placeholder="Ej: Nos vemos en Discord a las 21:00 hs. Veremos capítulos 4 y 5."
-                                    className="form-control bg-black text-white border-secondary"
-                                />
-                            </div>
+            {/* ==============================================================
+                MODALES REDONDEADOS
+               ============================================================== */}
+            {/* Modal Postular Anime */}
+            <Dialogo
+                abierto={showNominateModal}
+                onCerrar={() => setShowNominateModal(false)}
+                etiqueta="Postular Anime a la Sala"
+                ancho={500}
+            >
+                <div className="p-4 d-flex flex-column gap-3">
+                    <div>
+                        <h3 className="h6 fw-bold text-white mb-1">Postular Anime</h3>
+                        <p className="small text-secondary mb-0">
+                            Busca un anime en el catálogo para sumarlo a la lista de candidatos.
+                        </p>
+                    </div>
 
-                            <div className="d-flex justify-content-end gap-2 pt-2">
+                    <div className="position-relative">
+                        <input
+                            type="text"
+                            placeholder="Buscar por título..."
+                            value={nominateSearch}
+                            onChange={(e) => setNominateSearch(e.target.value)}
+                            className="form-control text-white"
+                            style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '12px' }}
+                        />
+                        {isSearchingCatalog && (
+                            <Loader2 size={16} className="position-absolute end-0 top-50 translate-middle-y me-3 text-secondary spinner-border-sm" />
+                        )}
+                    </div>
+
+                    <div className="d-flex flex-column gap-2 overflow-y-auto" style={{ maxHeight: '280px' }}>
+                        {catalogResults.map((anime: ApiAnimeData) => (
+                            <div
+                                key={anime.mal_id}
+                                className="p-2.5 rounded-3 d-flex align-items-center justify-content-between gap-3"
+                                style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '14px' }}
+                            >
+                                <div className="d-flex align-items-center gap-2.5 overflow-hidden">
+                                    <img
+                                        src={anime.image_url}
+                                        alt={anime.title}
+                                        className="rounded"
+                                        style={{ width: 36, height: 50, objectFit: 'cover', borderRadius: '8px' }}
+                                    />
+                                    <div className="overflow-hidden">
+                                        <strong className="d-block text-white small text-truncate">{anime.title}</strong>
+                                        <span className="small text-secondary font-mono" style={{ fontSize: '0.74rem' }}>
+                                            ★ {anime.score || '8.5'} · {anime.episodes || 24} eps
+                                        </span>
+                                    </div>
+                                </div>
+
                                 <button
                                     type="button"
-                                    onClick={() => setShowScheduleModal(false)}
-                                    className="ml-btn ml-btn-fantasma ml-btn-sm"
+                                    onClick={() => handleNominateAnime(anime.mal_id)}
+                                    className="ml-btn ml-btn-acento ml-btn-sm text-nowrap"
                                 >
-                                    Cancelar
-                                </button>
-                                <button type="submit" className="ml-btn ml-btn-acento ml-btn-sm">
-                                    Agendar Sesión
+                                    Postular
                                 </button>
                             </div>
-                        </div>
-                    </form>
-                </Dialogo>
-            </div>
+                        ))}
+                    </div>
+                </div>
+            </Dialogo>
+
+            {/* Modal Criterios Ideales */}
+            <Dialogo
+                abierto={showCriteriaModal}
+                onCerrar={() => setShowCriteriaModal(false)}
+                etiqueta="Criterios Ideales"
+                ancho={440}
+            >
+                <div className="p-4 d-flex flex-column gap-3">
+                    <div>
+                        <h3 className="h6 fw-bold text-white mb-1">Criterios de la Maratón</h3>
+                        <p className="small text-secondary mb-0">
+                            Filtros de referencia acordados para esta selección.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="form-label small text-white fw-semibold">Duración de Capítulos</label>
+                        <input
+                            type="text"
+                            value={criteriaDuration}
+                            onChange={(e) => setCriteriaDuration(e.target.value)}
+                            className="form-control text-white"
+                            style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '12px' }}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="form-label small text-white fw-semibold">Géneros Preferidos</label>
+                        <input
+                            type="text"
+                            value={criteriaGenres}
+                            onChange={(e) => setCriteriaGenres(e.target.value)}
+                            className="form-control text-white"
+                            style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '12px' }}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="form-label small text-white fw-semibold">Rango de Años</label>
+                        <input
+                            type="text"
+                            value={criteriaYears}
+                            onChange={(e) => setCriteriaYears(e.target.value)}
+                            className="form-control text-white"
+                            style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '12px' }}
+                        />
+                    </div>
+
+                    <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--wp-border)' }}>
+                        <button
+                            type="button"
+                            onClick={() => setShowCriteriaModal(false)}
+                            className="ml-btn ml-btn-acento ml-btn-sm"
+                        >
+                            Guardar Criterios
+                        </button>
+                    </div>
+                </div>
+            </Dialogo>
+
+            {/* Modal Agendar Sesión */}
+            <Dialogo
+                abierto={showScheduleModal}
+                onCerrar={() => setShowScheduleModal(false)}
+                etiqueta="Agendar Próxima Sesión"
+                ancho={440}
+            >
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault()
+                        scheduleSession(scheduleDate || null, scheduleNotes)
+                        setShowScheduleModal(false)
+                    }}
+                    className="p-4 d-flex flex-column gap-3"
+                >
+                    <div>
+                        <h3 className="h6 fw-bold text-white mb-1">Agendar Próxima Sesión</h3>
+                        <p className="small text-secondary mb-0">
+                            Coordina día, hora y notas para ver los siguientes capítulos juntos.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="form-label small text-white fw-semibold">Fecha y Hora</label>
+                        <input
+                            type="datetime-local"
+                            value={scheduleDate}
+                            onChange={(e) => setScheduleDate(e.target.value)}
+                            className="form-control text-white"
+                            style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '12px' }}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="form-label small text-white fw-semibold">Notas / Plataforma</label>
+                        <textarea
+                            rows={3}
+                            value={scheduleNotes}
+                            onChange={(e) => setScheduleNotes(e.target.value)}
+                            placeholder="Ej: Nos conectamos por Discord a las 21:00 hs para ver capítulos 4 y 5."
+                            className="form-control text-white"
+                            style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '12px' }}
+                        />
+                    </div>
+
+                    <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--wp-border)' }}>
+                        <button
+                            type="button"
+                            onClick={() => setShowScheduleModal(false)}
+                            className="ml-btn ml-btn-fantasma ml-btn-sm"
+                        >
+                            Cancelar
+                        </button>
+                        <button type="submit" className="ml-btn ml-btn-acento ml-btn-sm">
+                            Guardar Sesión
+                        </button>
+                    </div>
+                </form>
+            </Dialogo>
         </div>
     )
 }

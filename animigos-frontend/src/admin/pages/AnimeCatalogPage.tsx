@@ -17,9 +17,10 @@ import {
     Plus,
     Tag,
     Sparkles,
-    AlertCircle
+    AlertCircle,
+    Trash2
 } from 'lucide-react'
-import { getAnimes, updateAdminAnime } from '../services/adminApi'
+import { getAnimes, updateAdminAnime, createAdminAnime, deleteAdminAnime } from '../services/adminApi'
 import type { AnimeItem, AdminAnimeUpdatePayload } from '../services/adminApi'
 
 export function AnimeCatalogPage() {
@@ -40,6 +41,29 @@ export function AnimeCatalogPage() {
     const [newTagRank, setNewTagRank] = useState<number>(80)
     const [saving, setSaving] = useState(false)
     const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+    // Estado del modal de creación de nuevo anime
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+    const [createFormData, setCreateFormData] = useState<Partial<AnimeItem>>({
+        title: '',
+        title_english: '',
+        title_japanese: '',
+        synopsis: '',
+        image_url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80',
+        banner_url: '',
+        studio: 'MAPPA',
+        score: 7.85,
+        episodes: 12,
+        status: 'FINISHED',
+        season_year: new Date().getFullYear(),
+        genres: ['Action', 'Fantasy']
+    })
+    const [isCreating, setIsCreating] = useState(false)
+    const [createFeedback, setCreateFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+    // Estado de eliminación de anime
+    const [deleteConfirmAnime, setDeleteConfirmAnime] = useState<AnimeItem | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     const genresList = [
         'Todos',
@@ -191,6 +215,63 @@ export function AnimeCatalogPage() {
         }
     }
 
+    const handleSaveCreate = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!createFormData.title?.trim()) {
+            setCreateFeedback({ type: 'error', message: 'El título del anime es obligatorio.' })
+            return
+        }
+        setIsCreating(true)
+        setCreateFeedback(null)
+        try {
+            const res = await createAdminAnime(createFormData)
+            setAnimes((prev) => [res.anime, ...prev])
+            setTotalCount((c) => c + 1)
+            queryClient.invalidateQueries({ queryKey: ['animes'] })
+            setCreateFeedback({ type: 'success', message: res.message })
+            setTimeout(() => {
+                setIsCreateModalOpen(false)
+                setCreateFeedback(null)
+                setCreateFormData({
+                    title: '',
+                    title_english: '',
+                    title_japanese: '',
+                    synopsis: '',
+                    image_url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80',
+                    banner_url: '',
+                    studio: 'MAPPA',
+                    score: 7.85,
+                    episodes: 12,
+                    status: 'FINISHED',
+                    season_year: new Date().getFullYear(),
+                    genres: ['Action', 'Fantasy']
+                })
+            }, 1200)
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Error al registrar el nuevo anime'
+            setCreateFeedback({ type: 'error', message: msg })
+        } finally {
+            setIsCreating(false)
+        }
+    }
+
+    const handleConfirmDelete = async () => {
+        if (!deleteConfirmAnime) return
+        setIsDeleting(true)
+        try {
+            await deleteAdminAnime(deleteConfirmAnime.mal_id)
+            setAnimes((prev) => prev.filter((a) => a.mal_id !== deleteConfirmAnime.mal_id))
+            setTotalCount((c) => Math.max(0, c - 1))
+            queryClient.invalidateQueries({ queryKey: ['animes'] })
+            setDeleteConfirmAnime(null)
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Error al eliminar anime'
+            alert(msg)
+        } finally {
+            setIsDeleting(false)
+        }
+    }
+
     return (
         <div>
             {/* Header del módulo */}
@@ -331,32 +412,55 @@ export function AnimeCatalogPage() {
                         </span>
                     </div>
 
-                    <div className="admin-input-wrapper d-flex align-items-center gap-2" style={{ minWidth: 260 }}>
-                        <Search size={13} style={{ color: 'var(--admin-text-muted)' }} />
-                        <input
-                            type="text"
-                            placeholder="Buscar por título, inglés, estudio..."
-                            value={searchQuery}
-                            onChange={(e) => {
-                                setSearchQuery(e.target.value)
-                                setPage(1)
-                            }}
-                            className="bg-transparent border-0 text-white font-mono w-100"
-                            style={{ outline: 'none', fontSize: '0.75rem' }}
-                        />
-                        {searchQuery && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setSearchQuery('')
+                    <div className="d-flex align-items-center gap-2">
+                        <div className="admin-input-wrapper d-flex align-items-center gap-2" style={{ minWidth: 260 }}>
+                            <Search size={13} style={{ color: 'var(--admin-text-muted)' }} />
+                            <input
+                                type="text"
+                                placeholder="Buscar por título, inglés, estudio..."
+                                value={searchQuery}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value)
                                     setPage(1)
                                 }}
-                                className="btn btn-link p-0 text-secondary"
-                                title="Limpiar búsqueda"
-                            >
-                                <X size={13} />
-                            </button>
-                        )}
+                                className="bg-transparent border-0 text-white font-mono w-100"
+                                style={{ outline: 'none', fontSize: '0.75rem' }}
+                            />
+                            {searchQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSearchQuery('')
+                                        setPage(1)
+                                    }}
+                                    className="btn btn-link p-0 text-secondary"
+                                    title="Limpiar búsqueda"
+                                >
+                                    <X size={13} />
+                                </button>
+                            )}
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsCreateModalOpen(true)
+                                setCreateFeedback(null)
+                            }}
+                            className="admin-btn admin-btn-primary d-inline-flex align-items-center gap-1.5 font-mono"
+                            style={{
+                                fontSize: '0.74rem',
+                                padding: '0.34rem 0.75rem',
+                                backgroundColor: 'var(--admin-emerald)',
+                                color: '#000000',
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap'
+                            }}
+                            title="Registrar manualmente un nuevo anime en el catálogo"
+                        >
+                            <Plus size={14} />
+                            <span>Nuevo Anime</span>
+                        </button>
                     </div>
                 </div>
 
@@ -474,6 +578,22 @@ export function AnimeCatalogPage() {
                                                 >
                                                     <Edit3 size={12} />
                                                     <span>Editar</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDeleteConfirmAnime(a)}
+                                                    className="admin-btn d-inline-flex align-items-center gap-1"
+                                                    style={{
+                                                        fontSize: '0.71rem',
+                                                        padding: '0.24rem 0.5rem',
+                                                        borderColor: 'rgba(239, 68, 68, 0.4)',
+                                                        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                                        color: '#fca5a5'
+                                                    }}
+                                                    title="Eliminar este anime del catálogo"
+                                                >
+                                                    <Trash2 size={12} />
+                                                    <span>Eliminar</span>
                                                 </button>
                                                 <a
                                                     href={`#anime/${a.mal_id}`}
@@ -1031,6 +1151,314 @@ export function AnimeCatalogPage() {
                                 </div>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ============================================================
+               4. MODAL DE CREACIÓN DE NUEVO ANIME
+               ============================================================ */}
+            {isCreateModalOpen && (
+                <div
+                    className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                    style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        zIndex: 1050,
+                        backdropFilter: 'blur(5px)',
+                        padding: '1rem'
+                    }}
+                >
+                    <div
+                        className="admin-card p-4 text-white overflow-y-auto custom-scrollbar"
+                        style={{
+                            maxWidth: '750px',
+                            width: '100%',
+                            maxHeight: '90vh',
+                            border: '1px solid var(--admin-emerald)',
+                            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7)'
+                        }}
+                    >
+                        {/* Encabezado del Modal */}
+                        <div className="d-flex justify-content-between align-items-start gap-3 pb-3 mb-3 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                            <div>
+                                <div className="d-flex align-items-center gap-2 mb-1">
+                                    <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.7rem' }}>
+                                        NUEVO REGISTRO
+                                    </span>
+                                </div>
+                                <h2 className="fs-5 fw-bold m-0 text-white">Registrar Nuevo Anime en el Catálogo</h2>
+                                <span className="text-secondary small font-mono">
+                                    Ingresa los datos esenciales para incorporar este título a la base de datos de Animigos.
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsCreateModalOpen(false)}
+                                className="btn btn-link p-1 text-secondary"
+                                title="Cerrar modal"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {createFeedback && (
+                            <div
+                                className={`d-flex align-items-center gap-2 p-2.5 rounded-2 mb-3 font-mono small ${
+                                    createFeedback.type === 'success'
+                                        ? 'bg-success bg-opacity-10 border border-success text-success'
+                                        : 'bg-danger bg-opacity-10 border border-danger text-danger'
+                                }`}
+                                style={{ fontSize: '0.75rem' }}
+                            >
+                                {createFeedback.type === 'success' ? <Check size={14} /> : <AlertCircle size={14} />}
+                                <span>{createFeedback.message}</span>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSaveCreate}>
+                            <div className="row g-3">
+                                {/* Vista previa y portada */}
+                                <div className="col-12 col-md-4">
+                                    <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                        URL PORTADA (POSTER)
+                                    </label>
+                                    <div
+                                        className="rounded overflow-hidden mb-2 d-flex align-items-center justify-content-center"
+                                        style={{ height: '220px', backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}
+                                    >
+                                        {createFormData.image_url ? (
+                                            <img
+                                                src={createFormData.image_url}
+                                                alt="Preview"
+                                                className="w-100 h-100 object-fit-cover"
+                                                onError={(e) => {
+                                                    ;(e.target as HTMLImageElement).src =
+                                                        'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80'
+                                                }}
+                                            />
+                                        ) : (
+                                            <span className="text-secondary font-mono small">Sin portada</span>
+                                        )}
+                                    </div>
+                                    <input
+                                        type="url"
+                                        value={createFormData.image_url || ''}
+                                        onChange={(e) => setCreateFormData(prev => ({ ...prev, image_url: e.target.value }))}
+                                        placeholder="https://..."
+                                        className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
+                                        style={{ fontSize: '0.72rem' }}
+                                    />
+                                </div>
+
+                                {/* Formulario principal */}
+                                <div className="col-12 col-md-8">
+                                    <div className="mb-2">
+                                        <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                            TÍTULO PRINCIPAL *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={createFormData.title || ''}
+                                            onChange={(e) => setCreateFormData(prev => ({ ...prev, title: e.target.value }))}
+                                            placeholder="Ej: Jujutsu Kaisen 2nd Season"
+                                            className="form-control form-control-sm bg-dark text-white border-secondary fw-semibold"
+                                            style={{ fontSize: '0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div className="row g-2 mb-2">
+                                        <div className="col-6">
+                                            <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                                TÍTULO EN INGLÉS
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={createFormData.title_english || ''}
+                                                onChange={(e) => setCreateFormData(prev => ({ ...prev, title_english: e.target.value }))}
+                                                placeholder="Ej: Jujutsu Kaisen Season 2"
+                                                className="form-control form-control-sm bg-dark text-white border-secondary"
+                                                style={{ fontSize: '0.75rem' }}
+                                            />
+                                        </div>
+                                        <div className="col-6">
+                                            <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                                ESTUDIO DE ANIMACIÓN
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={createFormData.studio || ''}
+                                                onChange={(e) => setCreateFormData(prev => ({ ...prev, studio: e.target.value }))}
+                                                placeholder="Ej: MAPPA, ufotable"
+                                                className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
+                                                style={{ fontSize: '0.75rem' }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="row g-2 mb-2">
+                                        <div className="col-4">
+                                            <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                                PUNTUACIÓN (SCORE)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="1"
+                                                max="10"
+                                                value={createFormData.score ?? 7.5}
+                                                onChange={(e) => setCreateFormData(prev => ({ ...prev, score: parseFloat(e.target.value) }))}
+                                                className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
+                                                style={{ fontSize: '0.75rem' }}
+                                            />
+                                        </div>
+                                        <div className="col-4">
+                                            <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                                EPISODIOS
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={createFormData.episodes ?? 12}
+                                                onChange={(e) => setCreateFormData(prev => ({ ...prev, episodes: parseInt(e.target.value) || 1 }))}
+                                                className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
+                                                style={{ fontSize: '0.75rem' }}
+                                            />
+                                        </div>
+                                        <div className="col-4">
+                                            <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                                AÑO
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={createFormData.season_year ?? new Date().getFullYear()}
+                                                onChange={(e) => setCreateFormData(prev => ({ ...prev, season_year: parseInt(e.target.value) || new Date().getFullYear() }))}
+                                                className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
+                                                style={{ fontSize: '0.75rem' }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="mb-2">
+                                        <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                            GÉNEROS (SEPARADOS POR COMA)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={Array.isArray(createFormData.genres) ? createFormData.genres.join(', ') : ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                                                setCreateFormData(prev => ({ ...prev, genres: val }))
+                                            }}
+                                            placeholder="Action, Fantasy, Adventure"
+                                            className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
+                                            style={{ fontSize: '0.75rem' }}
+                                        />
+                                    </div>
+
+                                    <div className="mb-3">
+                                        <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                            SINOPSIS
+                                        </label>
+                                        <textarea
+                                            rows={3}
+                                            value={createFormData.synopsis || ''}
+                                            onChange={(e) => setCreateFormData(prev => ({ ...prev, synopsis: e.target.value }))}
+                                            placeholder="Resumen del argumento..."
+                                            className="form-control form-control-sm bg-dark text-white border-secondary"
+                                            style={{ fontSize: '0.75rem', resize: 'vertical' }}
+                                        />
+                                    </div>
+
+                                    <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                        <button
+                                            type="button"
+                                            disabled={isCreating}
+                                            onClick={() => setIsCreateModalOpen(false)}
+                                            className="admin-btn admin-btn-secondary px-3 py-1.5"
+                                            style={{ fontSize: '0.76rem' }}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={isCreating}
+                                            className="admin-btn d-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold"
+                                            style={{
+                                                fontSize: '0.76rem',
+                                                backgroundColor: 'var(--admin-emerald)',
+                                                color: '#000000',
+                                                border: '1px solid var(--admin-emerald)'
+                                            }}
+                                        >
+                                            <Plus size={14} />
+                                            <span>{isCreating ? 'Guardando...' : 'Crear Anime en Catálogo'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ============================================================
+               5. MODAL DE CONFIRMACIÓN DE ELIMINACIÓN DE ANIME
+               ============================================================ */}
+            {deleteConfirmAnime && (
+                <div
+                    className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                    style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        zIndex: 1060,
+                        backdropFilter: 'blur(4px)',
+                        padding: '1rem'
+                    }}
+                >
+                    <div
+                        className="admin-card p-4 text-white"
+                        style={{
+                            maxWidth: '480px',
+                            width: '100%',
+                            border: '1px solid rgba(239, 68, 68, 0.6)',
+                            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)'
+                        }}
+                    >
+                        <div className="d-flex align-items-center gap-2 mb-2 text-danger">
+                            <Trash2 size={20} />
+                            <h3 className="fs-6 fw-bold m-0">Confirmar Eliminación de Anime</h3>
+                        </div>
+                        <p className="small text-secondary mb-3">
+                            ¿Estás seguro de que deseas eliminar permanentemente{' '}
+                            <strong className="text-white">"{deleteConfirmAnime.title}"</strong> (ID #{deleteConfirmAnime.mal_id})
+                            del catálogo? Esta acción no se puede deshacer y purgará los registros asociados.
+                        </p>
+                        <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                            <button
+                                type="button"
+                                disabled={isDeleting}
+                                onClick={() => setDeleteConfirmAnime(null)}
+                                className="admin-btn admin-btn-secondary px-3 py-1.5"
+                                style={{ fontSize: '0.75rem' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                disabled={isDeleting}
+                                onClick={handleConfirmDelete}
+                                className="admin-btn d-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold"
+                                style={{
+                                    fontSize: '0.75rem',
+                                    backgroundColor: 'var(--admin-rose)',
+                                    color: '#ffffff',
+                                    border: '1px solid #ef4444'
+                                }}
+                            >
+                                <Trash2 size={13} />
+                                <span>{isDeleting ? 'Eliminando...' : 'Eliminar Definitivamente'}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

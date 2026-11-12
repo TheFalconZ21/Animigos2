@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
     ArrowLeft,
     Building2,
@@ -11,6 +11,7 @@ import {
     Eye,
     EyeOff,
     Loader2,
+    Trash2,
 } from 'lucide-react'
 import { useAnimeDetailQuery, useAnimeRecommendations } from '../../hooks/useCatalog'
 import { useMyList } from '../../hooks/useMyList'
@@ -43,7 +44,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
 }) => {
     const { isAuthenticated } = useAuth()
     const { acento } = useThemeAccent()
-    const { filas, agregarAnime, actualizar } = useMyList()
+    const { filas, agregarAnime, actualizar, quitar } = useMyList()
 
     const { data: fetchedAnime, isLoading } = useAnimeDetailQuery(malId)
     const { data: recommendations = [], isLoading: loadingRecs } = useAnimeRecommendations(malId)
@@ -57,9 +58,17 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
 
     // Entrada actual del usuario en Mi Lista (si ya lo tiene agregado)
     const myEntry = useMemo(
-        () => filas.find((f) => f.malId === malId) || null,
+        () => filas.find((f) => Number(f.malId) === Number(malId)) || null,
         [filas, malId]
     )
+
+    const [localEp, setLocalEp] = useState<string>('0')
+
+    useEffect(() => {
+        if (myEntry) {
+            setLocalEp(String(myEntry.episodiosVistos ?? 0))
+        }
+    }, [myEntry?.episodiosVistos])
 
     const { mainTags, secondaryTags, spoilerCount } = useMemo(() => {
         const raw = anime?.tags_data || []
@@ -125,18 +134,45 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
         actualizar(malId, { nota: scoreVal })
     }
 
+    const handleDecrementEpisodes = () => {
+        if (!myEntry) return
+        const prevEps = Math.max(0, (myEntry.episodiosVistos || 0) - 1)
+        actualizar(Number(malId), { episodiosVistos: prevEps })
+    }
+
     const handleIncrementEpisodes = () => {
         if (!myEntry) return
         const maxEps = anime?.episodes || 9999
         const nextEps = Math.min(maxEps, (myEntry.episodiosVistos || 0) + 1)
         const nextStatus: EstadoLista =
-            anime?.episodes && nextEps >= anime.episodes ? 'visto' : myEntry.estado
-        actualizar(malId, { episodiosVistos: nextEps, estado: nextStatus })
+            anime?.episodes && nextEps >= anime.episodes ? 'visto' : myEntry.estado === 'pendiente' ? 'viendo' : myEntry.estado
+        actualizar(Number(malId), { episodiosVistos: nextEps, estado: nextStatus })
+    }
+
+    const handleCommitEpisodes = () => {
+        if (!myEntry) return
+        const num = Math.max(0, parseInt(localEp, 10) || 0)
+        const maxEps = anime?.episodes || 9999
+        const finalVal = Math.min(maxEps, num)
+        setLocalEp(String(finalVal))
+        const nextStatus: EstadoLista =
+            anime?.episodes && finalVal >= anime.episodes ? 'visto' : myEntry.estado === 'pendiente' && finalVal > 0 ? 'viendo' : myEntry.estado
+        actualizar(Number(malId), { episodiosVistos: finalVal, estado: nextStatus })
     }
 
     const handleToggleFavorite = () => {
         if (!myEntry) return
         actualizar(malId, { favorito: !myEntry.favorito })
+    }
+
+    const handleRemoveFromMyList = async () => {
+        if (!myEntry) return
+        setSavingList(true)
+        try {
+            await quitar(Number(malId))
+        } finally {
+            setSavingList(false)
+        }
     }
 
     if (isLoading && !anime) {
@@ -290,34 +326,50 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                         <span className="anime-profile-field-label">Estado:</span>
                                         <select
                                             className="cat-select py-1 px-2"
-                                            style={{ width: '145px', fontSize: '0.78rem' }}
+                                            style={{ width: '155px', fontSize: '0.78rem' }}
                                             value={myEntry.estado}
-                                            onChange={(e) => handleUpdateStatus(e.target.value as EstadoLista)}
+                                            onChange={(e) => {
+                                                if (e.target.value === 'eliminar') {
+                                                    handleRemoveFromMyList()
+                                                } else {
+                                                    handleUpdateStatus(e.target.value as EstadoLista)
+                                                }
+                                            }}
                                         >
                                             <option value="viendo">🟢 Viendo</option>
                                             <option value="visto">🔵 Completado</option>
                                             <option value="pendiente">⚪ Pendiente</option>
                                             <option value="dropeado">🔴 Dropeado</option>
+                                            <option value="eliminar">🗑️ Quitar de Mi Lista</option>
                                         </select>
                                     </div>
 
                                     <div className="d-flex align-items-center justify-content-between">
                                         <span className="anime-profile-field-label">Episodios:</span>
                                         <div className="d-flex align-items-center gap-1.5">
+                                            <button
+                                                type="button"
+                                                onClick={handleDecrementEpisodes}
+                                                className="anime-profile-ep-minus"
+                                                disabled={(myEntry.episodiosVistos || 0) <= 0}
+                                                title="Restar 1 episodio visto"
+                                            >
+                                                -
+                                            </button>
                                             <input
-                                                type="number"
-                                                min={0}
-                                                max={anime.episodes || 9999}
-                                                value={myEntry.episodiosVistos}
-                                                onChange={(e) =>
-                                                    actualizar(malId, {
-                                                        episodiosVistos: Math.max(0, Number(e.target.value) || 0),
-                                                    })
-                                                }
-                                                className="cat-select text-center py-1 px-1"
-                                                style={{ width: '58px', fontSize: '0.78rem' }}
+                                                type="text"
+                                                inputMode="numeric"
+                                                pattern="[0-9]*"
+                                                value={localEp}
+                                                onChange={(e) => setLocalEp(e.target.value.replace(/[^0-9]/g, ''))}
+                                                onBlur={handleCommitEpisodes}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleCommitEpisodes()
+                                                }}
+                                                className="anime-profile-ep-input"
+                                                title="Escribe el episodio y presiona Enter"
                                             />
-                                            <span className="small text-secondary font-mono">
+                                            <span className="small text-secondary font-mono px-1">
                                                 / {anime.episodes || '?'}
                                             </span>
                                             <button
@@ -361,6 +413,17 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                         <span>
                                             {myEntry.favorito ? 'En tus Animes Favoritos' : 'Añadir a Favoritos'}
                                         </span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleRemoveFromMyList}
+                                        disabled={savingList}
+                                        className="anime-profile-remove-btn"
+                                        title="Eliminar este anime de tu lista"
+                                    >
+                                        <Trash2 size={13} />
+                                        <span>{savingList ? 'Quitando...' : 'Quitar de Mi Lista'}</span>
                                     </button>
                                 </div>
                             )}

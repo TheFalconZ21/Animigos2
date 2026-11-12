@@ -518,3 +518,96 @@ export async function moderateAdminUser(
   return res.json();
 }
 
+export async function createAdminAnime(
+  payload: Partial<AnimeItem>
+): Promise<{ status: string; message: string; anime: AnimeItem }> {
+  const res = await fetch(`${API_BASE_URL}/admin/animes/`, {
+    method: 'POST',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}: Error al registrar nuevo anime`);
+  }
+  return res.json();
+}
+
+export async function deleteAdminAnime(
+  malId: number
+): Promise<{ status: string; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/admin/animes/${malId}/`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: Error al eliminar anime #${malId}`);
+  return res.json();
+}
+
+export async function createAdminUser(payload: {
+  username: string;
+  email: string;
+  password?: string;
+  role: 'admin' | 'user';
+  display_name?: string;
+}): Promise<{ status: string; message: string; user: AdminUserItem }> {
+  const res = await fetch(`${API_BASE_URL}/admin/users/create/`, {
+    method: 'POST',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}: Error al crear usuario`);
+  }
+  return res.json();
+}
+
+export async function deleteAdminUser(
+  userId: string
+): Promise<{ status: string; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: Error al eliminar usuario`);
+  return res.json();
+}
+
+export async function updateAdminUser(
+  userId: string,
+  payload: { role?: 'admin' | 'user'; status?: 'active' | 'suspended'; email?: string; name?: string }
+): Promise<{ status: string; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/`, {
+    method: 'PATCH',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: Error al actualizar usuario`);
+  return res.json();
+}
+
+export async function createAdminRoom(payload: {
+  name: string;
+  description?: string;
+  host_name?: string;
+  status?: string;
+}): Promise<{ success: boolean; message: string; room: RoomItem }> {
+  const res = await fetch(`${API_BASE_URL}/admin/rooms/create/`, {
+    method: 'POST',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}: Error al crear sala`);
+  }
+  return res.json();
+}
+

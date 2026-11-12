@@ -62,9 +62,9 @@ export function AdminPortal({ onBackToLanding, initialTab = 'overview' }: AdminP
                     </div>
 
                     <div className="d-flex align-items-center gap-2">
-                        <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.65rem', padding: '0.15rem 0.45rem' }}>
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: 'var(--admin-emerald)' }}></span>
-                            AWS RDS ACTIVE
+                        <span className="admin-badge admin-badge-success font-mono d-flex align-items-center gap-1.5" style={{ fontSize: '0.65rem', padding: '0.2rem 0.55rem' }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--admin-emerald)', boxShadow: '0 0 8px var(--admin-emerald)' }}></span>
+                            <span>AWS CLOUD ACTIVE (EC2 34.231.198.115 · RDS)</span>
                         </span>
                         <span className="font-mono text-secondary small d-none d-md-inline" style={{ fontSize: '0.7rem' }}>
                             {period}

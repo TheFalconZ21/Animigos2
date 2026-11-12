@@ -13,6 +13,7 @@ import { SalasLateral } from './SalasLateral'
 import { PublicarDialog, type Borrador, type ModoPublicar } from './PublicarDialog'
 import { PestanaNoticias } from './PestanaNoticias'
 import { HoyEnEmision } from './HoyEnEmision'
+import { AgendaInicioWidget } from './AgendaInicioWidget'
 import { BannerRotativo } from './BannerRotativo'
 import { FondoAfiches } from './FondoAfiches'
 import '../mi-lista/mi-lista.css'
@@ -174,6 +175,7 @@ export function Tablon() {
                     </div>
 
                     <div className="tb-columna">
+                        <AgendaInicioWidget onVerAgenda={() => { window.location.hash = '#agenda' }} />
                         <SalasLateral salas={tablon.salas} cargando={tablon.cargandoSalas} error={tablon.errorSalas} onEntrar={entrarSala} />
                         <HoyEnEmision
                             emisiones={horario.emisiones}

@@ -1153,6 +1153,71 @@
     white-space: nowrap;
 }
 
+/* Agenda Widget Lateral en Tablón (Integración nativa) */
+.tb-agenda-kpi {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    border-radius: 10px;
+    background: var(--ml-superficie-2);
+    border: 1px solid var(--ml-borde);
+    margin-bottom: 0.75rem;
+}
+
+.tb-agenda-kpi-label {
+    font-size: 0.75rem;
+    color: var(--ml-texto-3);
+    font-weight: 600;
+}
+
+.tb-agenda-kpi-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: rgba(244, 63, 94, 0.12);
+    border: 1px solid rgba(244, 63, 94, 0.28);
+    color: #fb7185;
+}
+
+.tb-agenda-kpi-pill.al-dia {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.28);
+    color: #34d399;
+}
+
+.tb-agenda-faltan {
+    color: #fb7185;
+    font-weight: 700;
+}
+
+.tb-agenda-btn-sumar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.22rem 0.55rem;
+    border-radius: 7px;
+    border: 1px solid var(--ml-borde-fuerte);
+    background: var(--ml-superficie-2);
+    color: var(--ml-texto);
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-variant-numeric: tabular-nums;
+}
+
+.tb-agenda-btn-sumar:hover {
+    border-color: var(--ml-acento);
+    color: #ffffff;
+    background: var(--ml-acento);
+    box-shadow: 0 0 10px var(--ml-acento-suave);
+}
+
 /* ---------- Diálogo: anime elegido ---------- */
 
 .tb-elegido {

@@ -828,22 +828,77 @@ MODERATION_STORE = {
 def admin_users_list(request):
     """
     Buscador de usuarios con filtros de rol, tipo y estado de moderación.
+    Combina cuentas registradas en Django Auth y miembros de salas.
     """
+    from django.contrib.auth.models import User
     q = request.query_params.get('q', '').lower().strip()
     role_filter = request.query_params.get('role', 'all')
     status_filter = request.query_params.get('status', 'all')
     
-    # Obtener miembros de salas
-    members = SharedListMember.objects.select_related('shared_list').all().order_by('-joined_at')
-    
     users_data = []
     seen_names = set()
 
+    # 1. Cuentas registradas de Django Auth
+    registered_users = User.objects.all().order_by('-date_joined')
+    for u in registered_users:
+        user_id = f"user_{u.id}"
+        is_admin = u.is_staff or u.is_superuser
+        display_name = u.first_name or u.username
+        profile = getattr(u, 'profile', None)
+        if profile and profile.display_name:
+            display_name = profile.display_name
+        if profile and getattr(profile, 'role', '') == 'admin':
+            is_admin = True
+            
+        mod_status = 'active' if u.is_active else 'suspended'
+        
+        # Filtros
+        if q:
+            match = q in display_name.lower() or q in u.username.lower() or q in (u.email or '').lower()
+            if not match:
+                continue
+
+        if role_filter != 'all':
+            if role_filter in ('owner', 'admin') and not is_admin:
+                continue
+            elif role_filter == 'registered':
+                pass
+            elif role_filter == 'guest':
+                continue
+
+        if status_filter != 'all' and mod_status != status_filter:
+            continue
+
+        seen_names.add(u.username.lower())
+        seen_names.add(display_name.lower())
+
+        rooms_count = SharedListMember.objects.filter(guest_name__iexact=u.username).values('shared_list').distinct().count()
+        votes_count = SharedListVote.objects.filter(voter_name__iexact=u.username).count()
+
+        users_data.append({
+            'id': user_id,
+            'name': display_name,
+            'username': f"@{u.username}",
+            'email': u.email or f"{u.username.lower()}@animigos.app",
+            'avatar_url': (profile.avatar_url if profile and profile.avatar_url else f"https://api.dicebear.com/7.x/bottts/svg?seed={u.username}"),
+            'role': 'owner' if is_admin else 'member',
+            'user_type': 'registered',
+            'status': mod_status,
+            'warnings': 0,
+            'reason': 'Administrador del sistema' if is_admin else 'Usuario registrado',
+            'rooms_count': max(rooms_count, 1 if is_admin else 0),
+            'votes_count': max(votes_count, 2 if is_admin else 0),
+            'joined_at': u.date_joined.strftime('%Y-%m-%d %H:%M'),
+            'last_activity': 'En línea' if u.is_active else 'Inactivo'
+        })
+
+    # 2. Miembros e invitados de salas
+    members = SharedListMember.objects.select_related('shared_list').all().order_by('-joined_at')
     for m in members:
         name = m.guest_name
-        if name in seen_names:
+        if name.lower() in seen_names:
             continue
-        seen_names.add(name)
+        seen_names.add(name.lower())
 
         user_id = str(m.id)
         is_owner = m.role == 'owner'
@@ -865,7 +920,7 @@ def admin_users_list(request):
                 continue
 
         if role_filter != 'all':
-            if role_filter == 'owner' and m.role != 'owner':
+            if role_filter in ('owner', 'admin') and m.role != 'owner':
                 continue
             elif role_filter == 'registered' and user_type != 'registered':
                 continue
@@ -896,6 +951,126 @@ def admin_users_list(request):
         'total': len(users_data),
         'users': users_data
     })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def admin_create_user(request):
+    """
+    Crea un nuevo usuario directamente desde el panel de administración.
+    """
+    from django.contrib.auth.models import User
+    from users.models import Profile
+    data = request.data or {}
+    username = str(data.get('username', '')).strip()
+    email = str(data.get('email', '')).strip()
+    password = str(data.get('password', '')).strip() or 'animigos2026'
+    role = str(data.get('role', 'user')).lower().strip()
+    display_name = str(data.get('display_name', '')).strip() or username
+
+    if not username:
+        return Response({'error': 'El nombre de usuario es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
+    if User.objects.filter(username__iexact=username).exists():
+        return Response({'error': f"El nombre de usuario '{username}' ya está registrado"}, status=status.HTTP_400_BAD_REQUEST)
+    if email and User.objects.filter(email__iexact=email).exists():
+        return Response({'error': f"El correo '{email}' ya está registrado"}, status=status.HTTP_400_BAD_REQUEST)
+
+    is_admin = (role == 'admin')
+    user = User.objects.create_user(
+        username=username,
+        email=email or f"{username.lower()}@animigos.app",
+        password=password,
+        first_name=display_name,
+        is_staff=is_admin,
+        is_superuser=is_admin
+    )
+    profile, _ = Profile.objects.get_or_create(
+        user=user,
+        defaults={'display_name': display_name}
+    )
+
+    return Response({
+        'status': 'created',
+        'message': f"Usuario '{user.username}' ({'Administrador' if is_admin else 'Usuario'}) creado exitosamente.",
+        'user': {
+            'id': f"user_{user.id}",
+            'name': display_name,
+            'username': f"@{user.username}",
+            'email': user.email,
+            'role': 'owner' if is_admin else 'member',
+            'user_type': 'registered',
+            'status': 'active',
+            'warnings': 0,
+            'rooms_count': 0,
+            'votes_count': 0,
+            'joined_at': user.date_joined.strftime('%Y-%m-%d %H:%M'),
+            'last_activity': 'Recién registrado'
+        }
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+@permission_classes([AllowAny])
+def admin_user_detail_or_delete(request, user_id):
+    """
+    Consulta, modifica o elimina una cuenta de usuario o miembro de sala.
+    """
+    from django.contrib.auth.models import User
+    from users.models import Profile
+
+    user_obj = None
+    member_obj = None
+
+    if str(user_id).startswith('user_'):
+        try:
+            uid = int(str(user_id).replace('user_', ''))
+            user_obj = User.objects.filter(id=uid).first()
+        except ValueError:
+            pass
+    else:
+        try:
+            member_obj = SharedListMember.objects.filter(id=user_id).first()
+        except Exception:
+            pass
+        if not member_obj:
+            user_obj = User.objects.filter(username__iexact=user_id).first()
+
+    if not user_obj and not member_obj:
+        return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        if user_obj:
+            uname = user_obj.username
+            user_obj.delete()
+            return Response({'status': 'deleted', 'message': f"Usuario '{uname}' eliminado permanentemente del sistema."})
+        elif member_obj:
+            gname = member_obj.guest_name
+            member_obj.delete()
+            return Response({'status': 'deleted', 'message': f"Miembro invitado '{gname}' eliminado de las salas."})
+
+    if request.method == 'PATCH':
+        data = request.data or {}
+        if user_obj:
+            if 'role' in data:
+                is_admin = (data['role'] == 'admin')
+                user_obj.is_staff = is_admin
+                user_obj.save()
+            if 'status' in data:
+                user_obj.is_active = (data['status'] == 'active')
+                user_obj.save()
+            if 'email' in data and data['email']:
+                user_obj.email = str(data['email']).strip()
+                user_obj.save()
+            if 'name' in data and data['name']:
+                user_obj.first_name = str(data['name']).strip()
+                user_obj.save()
+                profile = getattr(user_obj, 'profile', None)
+                if profile:
+                    profile.display_name = str(data['name']).strip()
+                    profile.save()
+            return Response({'status': 'updated', 'message': f"Usuario '{user_obj.username}' actualizado correctamente."})
+
+    return Response({'status': 'ok'})
 
 
 @api_view(['POST'])
@@ -935,11 +1110,11 @@ def admin_moderate_user(request, user_id):
     })
 
 
-@api_view(['GET', 'PATCH', 'PUT'])
+@api_view(['GET', 'PATCH', 'PUT', 'DELETE'])
 @permission_classes([AllowAny])
 def admin_update_anime(request, mal_id):
     """
-    Permite desde la consola de administración consultar y modificar la ficha
+    Permite desde la consola de administración consultar, modificar y eliminar la ficha
     de cualquier anime del catálogo (foto de portada image_url, banner_url, títulos,
     sinopsis, estudio, géneros, taxonomía tags_data, episodios, nota, etc.).
     """
@@ -950,6 +1125,15 @@ def admin_update_anime(request, mal_id):
 
     if request.method == 'GET':
         return Response(AnimeSerializer(anime, context={'request': request}).data)
+
+    if request.method == 'DELETE':
+        title = anime.title
+        anime.delete()
+        cache.clear()
+        return Response({
+            'status': 'deleted',
+            'message': f"Anime '{title}' (MAL ID #{mal_id}) eliminado exitosamente del catálogo."
+        })
 
     data = request.data or {}
 
@@ -1059,3 +1243,130 @@ def admin_update_anime(request, mal_id):
         'message': f"Anime '{anime.title}' actualizado correctamente.",
         'anime': AnimeSerializer(anime, context={'request': request}).data,
     })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def admin_create_anime(request):
+    """
+    Permite registrar un nuevo anime manualmente desde la consola de administración.
+    """
+    from django.core.cache import cache
+    from django.db.models import Max
+    from animes.models import Anime
+    from animes.serializers import AnimeSerializer
+
+    data = request.data or {}
+    title = str(data.get('title', '')).strip()
+    if not title:
+        return Response({'error': 'El título es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
+
+    raw_mal_id = data.get('mal_id')
+    if raw_mal_id:
+        try:
+            mal_id = int(raw_mal_id)
+            if Anime.objects.filter(mal_id=mal_id).exists():
+                return Response({'error': f"Ya existe un anime con el ID #{mal_id}"}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, TypeError):
+            return Response({'error': 'ID numérico inválido'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        max_id = Anime.objects.aggregate(max_id=Max('mal_id'))['max_id'] or 900000
+        mal_id = max_id + 1
+
+    anime = Anime(
+        mal_id=mal_id,
+        title=title,
+        title_english=str(data.get('title_english', '')).strip(),
+        title_japanese=str(data.get('title_japanese', '')).strip(),
+        synopsis=str(data.get('synopsis', '')).strip(),
+        image_url=str(data.get('image_url', '')).strip() or 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80',
+        banner_url=str(data.get('banner_url', '')).strip(),
+        studio=str(data.get('studio', '')).strip() or 'Estudio Independiente',
+        status=str(data.get('status', 'FINISHED')).strip(),
+        season=str(data.get('season', '')).strip(),
+        type=str(data.get('type', 'TV')).strip(),
+    )
+
+    try:
+        if data.get('episodes') not in (None, ''):
+            anime.episodes = int(data.get('episodes'))
+    except (ValueError, TypeError):
+        pass
+
+    try:
+        if data.get('season_year') not in (None, ''):
+            anime.season_year = int(data.get('season_year'))
+    except (ValueError, TypeError):
+        pass
+
+    try:
+        if data.get('score') not in (None, ''):
+            anime.score = round(float(data.get('score')), 2)
+        else:
+            anime.score = 7.50
+    except (ValueError, TypeError):
+        anime.score = 7.50
+
+    genres = data.get('genres', [])
+    if isinstance(genres, list):
+        anime.genres = [str(g).strip() for g in genres if str(g).strip()]
+    elif isinstance(genres, str):
+        anime.genres = [g.strip() for g in genres.split(',') if g.strip()]
+
+    tokens = [g.lower().strip() for g in anime.genres]
+    anime.tags_cache = '|' + '|'.join(tokens) + '|' if tokens else ''
+
+    anime.save()
+    cache.clear()
+
+    return Response({
+        'status': 'created',
+        'message': f"Anime '{anime.title}' registrado exitosamente con ID #{anime.mal_id}.",
+        'anime': AnimeSerializer(anime, context={'request': request}).data,
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def admin_create_room(request):
+    """
+    Permite crear una nueva sala de watch party desde la consola de administración.
+    """
+    name = str(request.data.get('name', '')).strip()
+    if not name:
+        return Response({'error': 'El nombre de la sala es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    description = str(request.data.get('description', '')).strip()
+    host_name = str(request.data.get('host_name', 'Admin')).strip() or 'Admin'
+    status_val = str(request.data.get('status', 'voting')).strip()
+
+    room = SharedList.objects.create(
+        name=name,
+        description=description,
+        status=status_val
+    )
+    # Crear al anfitrión
+    SharedListMember.objects.create(
+        shared_list=room,
+        guest_name=host_name,
+        role='owner'
+    )
+
+    return Response({
+        'success': True,
+        'message': f"Sala '{room.name}' creada exitosamente con código {room.invite_code}.",
+        'room': {
+            'id': str(room.id),
+            'name': room.name,
+            'description': room.description,
+            'invite_code': room.invite_code,
+            'status': room.status,
+            'members_count': 1,
+            'candidates_count': 0,
+            'votes_count': 0,
+            'quorum_percentage': 100,
+            'created_at': room.created_at.isoformat(),
+            'created_display': 'Recién creada',
+            'members': [{'name': host_name, 'role': 'owner', 'channel': 'web'}]
+        }
+    }, status=status.HTTP_201_CREATED)

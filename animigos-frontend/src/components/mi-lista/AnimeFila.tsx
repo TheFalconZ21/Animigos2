@@ -27,10 +27,12 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
     }
 
     const sumarEpisodio = () => {
-        const episodiosVistos = fila.episodiosVistos + 1
-        const termino = episodiosVistos >= anime.episodes
+        const next = (fila.episodiosVistos || 0) + 1
+        const maxEps = anime.episodes || 9999
+        const capped = Math.min(maxEps, next)
+        const termino = Boolean(anime.episodes && capped >= anime.episodes)
         onActualizar({
-            episodiosVistos,
+            episodiosVistos: capped,
             estado: termino ? 'visto' : fila.estado === 'pendiente' ? 'viendo' : fila.estado,
         })
     }
@@ -85,10 +87,16 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
                         ))}
                     </select>
                     {/* Solo mientras lo está viendo: en qué episodio va y +1 */}
-                    {fila.estado === 'viendo' && anime.episodes > 1 && (
+                    {fila.estado === 'viendo' && (
                         <span className="ml-ep-actual">
-                            Ep {fila.episodiosVistos}/{anime.episodes}
-                            <button type="button" className="ml-mas-ep" onClick={sumarEpisodio} title="Marcar un episodio más">
+                            Ep {fila.episodiosVistos}/{anime.episodes || '?'}
+                            <button
+                                type="button"
+                                className="ml-mas-ep"
+                                onClick={sumarEpisodio}
+                                disabled={Boolean(anime.episodes && fila.episodiosVistos >= anime.episodes)}
+                                title="Marcar un episodio más"
+                            >
                                 +1
                             </button>
                         </span>

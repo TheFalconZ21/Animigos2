@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from django.conf import settings
 from animes.models import Anime
+from core.services.fuentes_externas import obtener_estado_emision_animes
 from .models import Profile, UserPreferences, UserAnimeFolder, UserAnimeEntry, Friendship
 from .serializers import (
     ProfileSerializer,
@@ -322,6 +323,123 @@ def user_my_list_folder_detail_view(request, folder_id):
             folder.name = name
             folder.save(update_fields=['name', 'updated_at'])
         return Response(UserAnimeFolderSerializer(folder).data)
+
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def user_agenda_view(request):
+    """
+    Agenda de Tareas Pendientes (Pilar 1.2 y 2.1 de AGENTS.md):
+    Devuelve los animes en emisión que el usuario está siguiendo,
+    ordenados según capítulos de retraso (mayor retraso primero).
+    Sirve como contador interactivo de capítulos para saber en cuál va y cuántos faltan para estar al día.
+    """
+    user = request.user
+    items = []
+    user_mal_ids = set()
+
+    if user.is_authenticated:
+        entries_qs = (
+            UserAnimeEntry.objects.filter(user=user, anime__status='RELEASING')
+            .select_related('anime')
+        )
+        user_mal_ids = set(entries_qs.values_list('anime__mal_id', flat=True))
+
+        mal_ids = list(user_mal_ids)
+        airing_data = obtener_estado_emision_animes(mal_ids)
+
+        for entry in entries_qs:
+            anime = entry.anime
+            info = airing_data.get(anime.mal_id, {})
+            latest_ep = info.get('latest_episode') or (anime.episodes or 1)
+            episodes_watched = entry.episodes_watched or 0
+            episodes_behind = max(0, latest_ep - episodes_watched)
+            is_up_to_date = (episodes_behind == 0)
+            progress_pct = min(100, round((episodes_watched / latest_ep) * 100)) if latest_ep > 0 else 100
+            duration_num = int(anime.duration) if (anime.duration and anime.duration > 0) else 24
+
+            items.append({
+                'entry_id': str(entry.id),
+                'mal_id': anime.mal_id,
+                'title': anime.title,
+                'title_english': anime.title_english or anime.title,
+                'image_url': anime.image_url,
+                'banner_url': anime.banner_url or anime.image_url,
+                'user_status': entry.status,
+                'episodes_watched': episodes_watched,
+                'latest_episode': latest_ep,
+                'total_episodes': info.get('total_episodes') or anime.episodes,
+                'episodes_behind': episodes_behind,
+                'is_up_to_date': is_up_to_date,
+                'progress_percent': progress_pct,
+                'duration': duration_num,
+                'next_airing_at': info.get('next_airing_at'),
+                'next_episode': info.get('next_episode'),
+                'score': float(entry.score) if entry.score else None,
+                'is_favorite': entry.is_favorite,
+            })
+
+        # Ordenar por capítulos de atraso descendente (mayor retraso primero)
+        items.sort(key=lambda x: (-x['episodes_behind'], x['title']))
+
+    # Animes en emisión sugeridos (top popular por scored_by)
+    suggested_qs = (
+        Anime.objects.filter(status='RELEASING')
+        .order_by('-scored_by', 'popularity')[:15]
+        .values(
+            'mal_id', 'title', 'title_english', 'image_url', 'banner_url',
+            'score', 'scored_by', 'episodes', 'synopsis', 'synopsis_es', 'genres', 'duration'
+        )
+    )
+    sugg_ids = [s['mal_id'] for s in suggested_qs]
+    sugg_airing = obtener_estado_emision_animes(sugg_ids)
+
+    suggested_items = []
+    for s in suggested_qs:
+        mid = s['mal_id']
+        info = sugg_airing.get(mid, {})
+        latest_ep = info.get('latest_episode') or (s['episodes'] or 1)
+        synopsis_text = s['synopsis_es'] or s['synopsis'] or ''
+        genres_list = s['genres'] if isinstance(s['genres'], list) else []
+        dur_val = int(s['duration']) if (s['duration'] and s['duration'] > 0) else 24
+
+        suggested_items.append({
+            'mal_id': mid,
+            'title': s['title'],
+            'title_english': s['title_english'] or s['title'],
+            'image_url': s['image_url'],
+            'banner_url': s['banner_url'] or s['image_url'],
+            'synopsis': synopsis_text,
+            'genres': genres_list,
+            'duration': dur_val,
+            'score': float(s['score']) if s['score'] else 0.0,
+            'scored_by': s['scored_by'],
+            'latest_episode': latest_ep,
+            'total_episodes': info.get('total_episodes') or s['episodes'],
+            'next_airing_at': info.get('next_airing_at'),
+            'next_episode': info.get('next_episode'),
+            'in_user_list': mid in user_mal_ids
+        })
+
+    total_series = len(items)
+    total_behind = sum(x['episodes_behind'] for x in items)
+    up_to_date_count = sum(1 for x in items if x['is_up_to_date'])
+    behind_count = sum(1 for x in items if not x['is_up_to_date'])
+    estimated_minutes = sum(x['episodes_behind'] * x.get('duration', 24) for x in items)
+
+    return Response({
+        'summary': {
+            'total_series': total_series,
+            'total_episodes_behind': total_behind,
+            'behind_count': behind_count,
+            'estimated_minutes': estimated_minutes,
+            'up_to_date_count': up_to_date_count,
+        },
+        'items': items,
+        'suggested_airing': suggested_items,
+        'is_authenticated': user.is_authenticated
+    })
 
 
 @api_view(['POST'])

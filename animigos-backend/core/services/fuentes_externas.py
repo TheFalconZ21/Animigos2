@@ -130,6 +130,118 @@ def obtener_horario_semanal(dias: int = 7) -> list[Emision]:
     return emisiones
 
 
+def obtener_estado_emision_animes(mal_ids: list[int]) -> dict[int, dict]:
+    """
+    Consulta AniList (con caché en memoria / Redis) para obtener el último episodio emitido
+    y el horario del próximo episodio para una lista de IDs de MyAnimeList.
+    Devuelve: {mal_id: {'latest_episode': int, 'next_airing_at': int | None, 'next_episode': int | None, 'total_episodes': int | None, 'status': str}}
+    """
+    if not mal_ids:
+        return {}
+
+    from django.core.cache import cache
+    resultados: dict[int, dict] = {}
+    faltantes: list[int] = []
+
+    # 1. Revisar caché para cada ID
+    for mid in mal_ids:
+        cached = cache.get(f'airing_info_{mid}')
+        if cached:
+            resultados[mid] = cached
+        else:
+            faltantes.append(mid)
+
+    if not faltantes:
+        return resultados
+
+    consulta = """
+    query ($ids: [Int]) {
+      Page(page: 1, perPage: 50) {
+        media(idMal_in: $ids, type: ANIME) {
+          id
+          idMal
+          status
+          episodes
+          nextAiringEpisode {
+            episode
+            airingAt
+          }
+          airingSchedule(notYetAired: false, perPage: 1) {
+            nodes {
+              episode
+              airingAt
+            }
+          }
+        }
+      }
+    }
+    """
+    # Procesar en lotes de 50
+    for i in range(0, len(faltantes), 50):
+        lote = faltantes[i:i + 50]
+        try:
+            resp = _post_json(ANILIST_URL, {
+                'query': consulta,
+                'variables': {'ids': lote}
+            })
+            items = resp.get('data', {}).get('Page', {}).get('media', [])
+            encontrados_lote = set()
+            for m in items:
+                mid = m.get('idMal')
+                if not mid:
+                    continue
+                encontrados_lote.add(mid)
+                next_ep = m.get('nextAiringEpisode')
+                sched = m.get('airingSchedule', {}).get('nodes', [])
+                if next_ep and next_ep.get('episode'):
+                    latest = max(0, next_ep['episode'] - 1)
+                    next_airing = next_ep.get('airingAt')
+                    next_num = next_ep.get('episode')
+                elif sched and sched[0].get('episode'):
+                    latest = sched[0]['episode']
+                    next_airing = None
+                    next_num = latest + 1 if m.get('status') == 'RELEASING' else None
+                else:
+                    latest = m.get('episodes') or 1
+                    next_airing = None
+                    next_num = None
+
+                info = {
+                    'latest_episode': latest,
+                    'next_airing_at': next_airing,
+                    'next_episode': next_num,
+                    'total_episodes': m.get('episodes'),
+                    'status': m.get('status') or 'RELEASING'
+                }
+                resultados[mid] = info
+                cache.set(f'airing_info_{mid}', info, timeout=900)  # 15 minutos
+
+            for mid in lote:
+                if mid not in encontrados_lote:
+                    fallback_info = {
+                        'latest_episode': 1,
+                        'next_airing_at': None,
+                        'next_episode': None,
+                        'total_episodes': None,
+                        'status': 'RELEASING'
+                    }
+                    resultados[mid] = fallback_info
+                    cache.set(f'airing_info_{mid}', fallback_info, timeout=300)
+
+        except Exception:
+            for mid in lote:
+                if mid not in resultados:
+                    resultados[mid] = {
+                        'latest_episode': 1,
+                        'next_airing_at': None,
+                        'next_episode': None,
+                        'total_episodes': None,
+                        'status': 'RELEASING'
+                    }
+
+    return resultados
+
+
 # ---------------------------------------------------------------------------
 # Próximos lanzamientos (series nuevas, temporadas y películas)
 # ---------------------------------------------------------------------------

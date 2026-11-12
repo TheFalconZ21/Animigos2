@@ -662,6 +662,11 @@ export function MiLista({ visitedUsername }: { visitedUsername?: string } = {}) 
                     setDetalleId(null)
                     recomendarUno(filaDetalle)
                 }}
+                onEliminar={() => {
+                    if (isReadOnlyVisit || detalleId === null) return
+                    ownQuitar(detalleId)
+                    setDetalleId(null)
+                }}
             />
             <VerTodosDialog
                 categoria={verTodos}

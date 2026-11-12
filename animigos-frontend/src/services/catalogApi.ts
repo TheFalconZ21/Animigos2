@@ -247,3 +247,98 @@ export async function fetchAnimeScoreHistory(malId: number): Promise<AnimeScoreH
 
     return response.json()
 }
+
+export interface PopularAnimePreview {
+    mal_id: number
+    title: string
+    image_url: string
+    banner_url?: string
+    scored_by: number
+    score: number
+}
+
+export interface TimelineYearItem {
+    year: number
+    count: number
+    avg_score: number
+    top_popular?: PopularAnimePreview[]
+}
+
+export interface SeasonTopAnime {
+    mal_id: number
+    title: string
+    title_english: string
+    score: number
+    scored_by: number
+    image_url: string
+    type: string
+    season: string
+    studio: string
+}
+
+export interface SeasonMetricItem {
+    season: 'Winter' | 'Spring' | 'Summer' | 'Fall' | string
+    name_es: string
+    icon: string
+    count: number
+    avg_score: number
+    top_genre: string
+    top_3: SeasonTopAnime[]
+}
+
+export interface YearSeasonMetrics {
+    year: number
+    total_animes: number
+    avg_score: number
+    top_genre: string
+    top_3: SeasonTopAnime[]
+    seasons: {
+        Winter: SeasonMetricItem
+        Spring: SeasonMetricItem
+        Summer: SeasonMetricItem
+        Fall: SeasonMetricItem
+        [key: string]: SeasonMetricItem
+    }
+    selected_season?: SeasonMetricItem
+}
+
+/**
+ * Obtiene la línea de tiempo completa de años con su conteo y nota media
+ */
+export async function fetchSeasonsTimeline(): Promise<TimelineYearItem[]> {
+    const response = await fetch(`${API_BASE_URL}/animes/seasons-timeline/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+    })
+
+    if (!response.ok) {
+        throw new Error(`Error ${response.status} al consultar la línea de tiempo de temporadas.`)
+    }
+
+    return response.json()
+}
+
+/**
+ * Obtiene métricas cuantitativas y cualitativas de un año específico y sus 4 temporadas
+ */
+export async function fetchSeasonMetrics(year: number, season?: string): Promise<YearSeasonMetrics> {
+    const params = new URLSearchParams()
+    params.set('year', String(year))
+    if (season) {
+        params.set('season', season)
+    }
+
+    const response = await fetch(`${API_BASE_URL}/animes/season-metrics/?${params.toString()}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+    })
+
+    if (!response.ok) {
+        throw new Error(`Error ${response.status} al consultar las métricas de la temporada.`)
+    }
+
+    return response.json()
+}
+

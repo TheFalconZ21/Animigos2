@@ -177,6 +177,10 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5175',
     'https://animigos.app',
     'https://www.animigos.app',
+    'http://34.231.198.115',
+    'http://34.231.198.115:80',
+    'http://34.231.198.115:8000',
+    'http://34.231.198.115:5173',
 ]
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://(localhost|127\.0\.0\.1):(517[0-9]|3000)$",
@@ -194,6 +198,10 @@ CSRF_TRUSTED_ORIGINS = [
     'https://www.animigos.app',
     'https://*.vercel.app',
     'https://*.onrender.com',
+    'http://34.231.198.115',
+    'http://34.231.198.115:80',
+    'http://34.231.198.115:8000',
+    'http://34.231.198.115:5173',
 ]
 
 CORS_ALLOW_CREDENTIALS = True

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
     Sparkles,
     RotateCcw,
@@ -16,6 +16,7 @@ import {
     Info,
     Search,
     X,
+    ChevronDown,
 } from 'lucide-react'
 import { useRecommender } from '../../hooks/useRecommender'
 import { useMyList } from '../../hooks/useMyList'
@@ -181,6 +182,43 @@ export const RecomendadorView: React.FC = () => {
             handleSelectYearRange(validMin, validMax)
         }
     }
+
+    // Control de filtros desplegables suaves (Formato, Género, Año)
+    const [expandedFilter, setExpandedFilter] = useState<'format' | 'genre' | 'year' | null>(null)
+    const filterSectionRef = useRef<HTMLDivElement | null>(null)
+
+    useEffect(() => {
+        const handleClickOutside = (ev: MouseEvent) => {
+            if (filterSectionRef.current && !filterSectionRef.current.contains(ev.target as Node)) {
+                setExpandedFilter(null)
+            }
+        }
+        if (expandedFilter) {
+            document.addEventListener('mousedown', handleClickOutside)
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [expandedFilter])
+
+    const activeFormatLabel = useMemo(() => {
+        return FORMAT_OPTIONS.find((f) => f.id === preferredFormat)?.label || '✨ Sorpréndeme (Todos)'
+    }, [preferredFormat])
+
+    const activeGenreLabel = useMemo(() => {
+        return GENRE_PREF_OPTIONS.find((g) => g.id === preferredGenre)?.label || '✨ Sorpréndeme (Según mi perfil)'
+    }, [preferredGenre])
+
+    const isYearCustomized = preferredYearMin !== null || preferredYearMax !== null
+
+    const activeYearLabel = useMemo(() => {
+        const found = YEAR_RANGE_PRESETS.find(
+            (p) => p.min === preferredYearMin && p.max === preferredYearMax
+        )
+        if (found) return found.label
+        if (preferredYearMin || preferredYearMax) {
+            return `${preferredYearMin || '...'} – ${preferredYearMax || '...'}`
+        }
+        return '✨ Cualquier época'
+    }, [preferredYearMin, preferredYearMax])
 
     const myListIds = useMemo(() => new Set(filas.map((f) => f.malId)), [filas])
 
@@ -839,7 +877,10 @@ export const RecomendadorView: React.FC = () => {
                                               }
                                             : undefined
                                     }
-                                    onClick={handleSurpriseMeReset}
+                                    onClick={() => {
+                                        handleSurpriseMeReset()
+                                        setExpandedFilter(null)
+                                    }}
                                 >
                                     <Wand2 size={15} /> Sorpréndeme
                                 </button>
@@ -859,147 +900,266 @@ export const RecomendadorView: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="rec-filter-group mb-3">
-                            <span className="rec-filter-label">
-                                <Film size={13} /> Formato:
-                            </span>
-                            <div className="rec-chips-row">
-                                {FORMAT_OPTIONS.map((fmt) => {
-                                    const active = preferredFormat === fmt.id
-                                    return (
-                                        <button
-                                            key={fmt.id}
-                                            type="button"
-                                            className={`rec-pref-chip ${active ? 'active' : ''}`}
-                                            style={
-                                                active
-                                                    ? {
-                                                          borderColor: acento,
-                                                          backgroundColor: `color-mix(in srgb, ${acento} 20%, transparent)`,
-                                                          color: '#ffffff',
-                                                      }
-                                                    : undefined
-                                            }
-                                            onClick={() => handleSelectFormat(fmt.id)}
-                                        >
-                                            {fmt.label}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
+                        {/* Selector de Preferencias Desplegable Suave */}
+                        <div ref={filterSectionRef} className="position-relative">
+                            <div className="rec-collapsible-filters-bar">
+                                {/* Trigger Formato */}
+                                <button
+                                    type="button"
+                                    onClick={() => setExpandedFilter((prev) => (prev === 'format' ? null : 'format'))}
+                                    className={`rec-filter-trigger-btn ${expandedFilter === 'format' ? 'is-open' : ''} ${
+                                        preferredFormat !== 'sorprendeme' ? 'is-customized' : ''
+                                    }`}
+                                    aria-expanded={expandedFilter === 'format'}
+                                >
+                                    <Film size={14} className="rec-trigger-icon" />
+                                    <span className="rec-trigger-title">Formato:</span>
+                                    <span className="rec-trigger-badge">{activeFormatLabel}</span>
+                                    <ChevronDown
+                                        size={14}
+                                        className={`rec-trigger-chevron ${expandedFilter === 'format' ? 'rotated' : ''}`}
+                                    />
+                                </button>
 
-                        <div className="rec-filter-group">
-                            <span className="rec-filter-label">
-                                <Tag size={13} /> Género / Tag:
-                            </span>
-                            <div className="rec-chips-row">
-                                {GENRE_PREF_OPTIONS.map((g) => {
-                                    const active = preferredGenre === g.id
-                                    return (
-                                        <button
-                                            key={g.id}
-                                            type="button"
-                                            className={`rec-pref-chip ${active ? 'active' : ''}`}
-                                            style={
-                                                active
-                                                    ? {
-                                                          borderColor: acento,
-                                                          backgroundColor: `color-mix(in srgb, ${acento} 20%, transparent)`,
-                                                          color: '#ffffff',
-                                                      }
-                                                    : undefined
-                                            }
-                                            onClick={() => handleSelectGenre(g.id)}
-                                        >
-                                            {g.label}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
+                                {/* Trigger Género / Tag */}
+                                <button
+                                    type="button"
+                                    onClick={() => setExpandedFilter((prev) => (prev === 'genre' ? null : 'genre'))}
+                                    className={`rec-filter-trigger-btn ${expandedFilter === 'genre' ? 'is-open' : ''} ${
+                                        preferredGenre !== 'sorprendeme' ? 'is-customized' : ''
+                                    }`}
+                                    aria-expanded={expandedFilter === 'genre'}
+                                >
+                                    <Tag size={14} className="rec-trigger-icon" />
+                                    <span className="rec-trigger-title">Género / Tag:</span>
+                                    <span className="rec-trigger-badge">{activeGenreLabel}</span>
+                                    <ChevronDown
+                                        size={14}
+                                        className={`rec-trigger-chevron ${expandedFilter === 'genre' ? 'rotated' : ''}`}
+                                    />
+                                </button>
 
-                        <div className="rec-filter-group mt-3">
-                            <span className="rec-filter-label">
-                                <Calendar size={13} /> Época / Años:
-                            </span>
-                            <div className="d-flex flex-column gap-2 flex-grow-1">
-                                <div className="rec-chips-row">
-                                    {YEAR_RANGE_PRESETS.map((p) => {
-                                        const active =
-                                            preferredYearMin === p.min && preferredYearMax === p.max
-                                        return (
+                                {/* Trigger Época / Años */}
+                                <button
+                                    type="button"
+                                    onClick={() => setExpandedFilter((prev) => (prev === 'year' ? null : 'year'))}
+                                    className={`rec-filter-trigger-btn ${expandedFilter === 'year' ? 'is-open' : ''} ${
+                                        isYearCustomized ? 'is-customized' : ''
+                                    }`}
+                                    aria-expanded={expandedFilter === 'year'}
+                                >
+                                    <Calendar size={14} className="rec-trigger-icon" />
+                                    <span className="rec-trigger-title">Época / Años:</span>
+                                    <span className="rec-trigger-badge">{activeYearLabel}</span>
+                                    <ChevronDown
+                                        size={14}
+                                        className={`rec-trigger-chevron ${expandedFilter === 'year' ? 'rotated' : ''}`}
+                                    />
+                                </button>
+                            </div>
+
+                            {/* Cajón Desplegable Animado */}
+                            <div className={`rec-filter-dropdown-drawer ${expandedFilter ? 'is-expanded' : ''}`}>
+                                {expandedFilter === 'format' && (
+                                    <div className="rec-dropdown-content-inner">
+                                        <div className="d-flex align-items-center justify-content-between mb-2">
+                                            <span className="rec-dropdown-header-label">
+                                                <Film size={13} style={{ color: acento }} /> Selecciona el formato deseado:
+                                            </span>
                                             <button
-                                                key={p.label}
                                                 type="button"
-                                                className={`rec-pref-chip ${active ? 'active' : ''}`}
-                                                style={
-                                                    active
-                                                        ? {
-                                                              borderColor: acento,
-                                                              backgroundColor: `color-mix(in srgb, ${acento} 20%, transparent)`,
-                                                              color: '#ffffff',
-                                                          }
-                                                        : undefined
-                                                }
-                                                onClick={() => handleSelectYearRange(p.min, p.max)}
+                                                onClick={() => setExpandedFilter(null)}
+                                                className="rec-dropdown-close-btn"
+                                                title="Cerrar opciones de formato"
                                             >
-                                                {p.label}
+                                                <X size={14} />
                                             </button>
-                                        )
-                                    })}
-                                </div>
+                                        </div>
+                                        <div className="rec-chips-row">
+                                            {FORMAT_OPTIONS.map((fmt) => {
+                                                const active = preferredFormat === fmt.id
+                                                return (
+                                                    <button
+                                                        key={fmt.id}
+                                                        type="button"
+                                                        className={`rec-pref-chip ${active ? 'active' : ''}`}
+                                                        style={
+                                                            active
+                                                                ? {
+                                                                      borderColor: acento,
+                                                                      backgroundColor: `color-mix(in srgb, ${acento} 20%, transparent)`,
+                                                                      color: '#ffffff',
+                                                                  }
+                                                                : undefined
+                                                        }
+                                                        onClick={() => {
+                                                            handleSelectFormat(fmt.id)
+                                                            setExpandedFilter(null)
+                                                        }}
+                                                    >
+                                                        {fmt.label}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
 
-                                <div className="rec-custom-year-row d-flex align-items-center flex-wrap gap-2">
-                                    <div className="rec-year-field d-flex align-items-center gap-1">
-                                        <label className="rec-year-field-label">Desde:</label>
-                                        <input
-                                            type="number"
-                                            min="1950"
-                                            max="2030"
-                                            placeholder="Ej. 2010"
-                                            value={inputYearMin}
-                                            onChange={(e) => setInputYearMin(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleApplyCustomYears()}
-                                            className="rec-year-input"
-                                        />
+                                {expandedFilter === 'genre' && (
+                                    <div className="rec-dropdown-content-inner">
+                                        <div className="d-flex align-items-center justify-content-between mb-2">
+                                            <span className="rec-dropdown-header-label">
+                                                <Tag size={13} style={{ color: acento }} /> Selecciona el género o temática:
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setExpandedFilter(null)}
+                                                className="rec-dropdown-close-btn"
+                                                title="Cerrar opciones de género"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                        <div className="rec-chips-row">
+                                            {GENRE_PREF_OPTIONS.map((g) => {
+                                                const active = preferredGenre === g.id
+                                                return (
+                                                    <button
+                                                        key={g.id}
+                                                        type="button"
+                                                        className={`rec-pref-chip ${active ? 'active' : ''}`}
+                                                        style={
+                                                            active
+                                                                ? {
+                                                                      borderColor: acento,
+                                                                      backgroundColor: `color-mix(in srgb, ${acento} 20%, transparent)`,
+                                                                      color: '#ffffff',
+                                                                  }
+                                                                : undefined
+                                                        }
+                                                        onClick={() => {
+                                                            handleSelectGenre(g.id)
+                                                            setExpandedFilter(null)
+                                                        }}
+                                                    >
+                                                        {g.label}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
                                     </div>
-                                    <div className="rec-year-field d-flex align-items-center gap-1">
-                                        <label className="rec-year-field-label">Hasta:</label>
-                                        <input
-                                            type="number"
-                                            min="1950"
-                                            max="2030"
-                                            placeholder="Ej. 2024"
-                                            value={inputYearMax}
-                                            onChange={(e) => setInputYearMax(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleApplyCustomYears()}
-                                            className="rec-year-input"
-                                        />
+                                )}
+
+                                {expandedFilter === 'year' && (
+                                    <div className="rec-dropdown-content-inner">
+                                        <div className="d-flex align-items-center justify-content-between mb-2">
+                                            <span className="rec-dropdown-header-label">
+                                                <Calendar size={13} style={{ color: acento }} /> Selecciona la época o define un rango personalizado:
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setExpandedFilter(null)}
+                                                className="rec-dropdown-close-btn"
+                                                title="Cerrar opciones de época"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                        <div className="rec-chips-row mb-2">
+                                            {YEAR_RANGE_PRESETS.map((p) => {
+                                                const active =
+                                                    preferredYearMin === p.min && preferredYearMax === p.max
+                                                return (
+                                                    <button
+                                                        key={p.label}
+                                                        type="button"
+                                                        className={`rec-pref-chip ${active ? 'active' : ''}`}
+                                                        style={
+                                                            active
+                                                                ? {
+                                                                      borderColor: acento,
+                                                                      backgroundColor: `color-mix(in srgb, ${acento} 20%, transparent)`,
+                                                                      color: '#ffffff',
+                                                                  }
+                                                                : undefined
+                                                        }
+                                                        onClick={() => {
+                                                            handleSelectYearRange(p.min, p.max)
+                                                            setExpandedFilter(null)
+                                                        }}
+                                                    >
+                                                        {p.label}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+
+                                        <div className="rec-custom-year-row d-flex align-items-center flex-wrap gap-2">
+                                            <div className="rec-year-field d-flex align-items-center gap-1">
+                                                <label className="rec-year-field-label">Desde:</label>
+                                                <input
+                                                    type="number"
+                                                    min="1950"
+                                                    max="2030"
+                                                    placeholder="Ej. 2010"
+                                                    value={inputYearMin}
+                                                    onChange={(e) => setInputYearMin(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            handleApplyCustomYears()
+                                                            setExpandedFilter(null)
+                                                        }
+                                                    }}
+                                                    className="rec-year-input"
+                                                />
+                                            </div>
+                                            <div className="rec-year-field d-flex align-items-center gap-1">
+                                                <label className="rec-year-field-label">Hasta:</label>
+                                                <input
+                                                    type="number"
+                                                    min="1950"
+                                                    max="2030"
+                                                    placeholder="Ej. 2024"
+                                                    value={inputYearMax}
+                                                    onChange={(e) => setInputYearMax(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            handleApplyCustomYears()
+                                                            setExpandedFilter(null)
+                                                        }
+                                                    }}
+                                                    className="rec-year-input"
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="rec-year-apply-btn"
+                                                style={{ borderColor: acento }}
+                                                onClick={() => {
+                                                    handleApplyCustomYears()
+                                                    setExpandedFilter(null)
+                                                }}
+                                            >
+                                                Aplicar Rango
+                                            </button>
+                                            {(preferredYearMin !== null || preferredYearMax !== null) && (
+                                                <button
+                                                    type="button"
+                                                    className="rec-year-clear-btn"
+                                                    onClick={() => {
+                                                        setInputYearMin('')
+                                                        setInputYearMax('')
+                                                        handleSelectYearRange(null, null)
+                                                        setExpandedFilter(null)
+                                                    }}
+                                                    title="Limpiar rango de años"
+                                                >
+                                                    <X size={13} /> Limpiar
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        className="rec-year-apply-btn"
-                                        style={{ borderColor: acento }}
-                                        onClick={() => handleApplyCustomYears()}
-                                    >
-                                        Aplicar Rango
-                                    </button>
-                                    {(preferredYearMin !== null || preferredYearMax !== null) && (
-                                        <button
-                                            type="button"
-                                            className="rec-year-clear-btn"
-                                            onClick={() => {
-                                                setInputYearMin('')
-                                                setInputYearMax('')
-                                                handleSelectYearRange(null, null)
-                                            }}
-                                            title="Limpiar rango de años"
-                                        >
-                                            <X size={13} /> Limpiar
-                                        </button>
-                                    )}
-                                </div>
+                                )}
                             </div>
                         </div>
                     </section>

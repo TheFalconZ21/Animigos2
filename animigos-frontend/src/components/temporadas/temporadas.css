@@ -1,0 +1,1237 @@
+/* ==========================================================================
+   TEMPORADAS & CRONOLOGÍA ANIME (LÍNEA COMPLETA EN PANTALLA & MORPHING CARDS)
+   ========================================================================== */
+
+:root {
+    --temp-acento: var(--theme-acento, var(--ml-acento, #e8508f));
+}
+
+.temporadas-window-app {
+    --temp-acento: var(--theme-acento, var(--ml-acento, #e8508f));
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem 1.5rem 2.5rem;
+    color: #f1f5f9;
+    min-height: calc(100vh - 85px);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Transiciones fluidas entre ventanas */
+.window-pane {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    animation: windowFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.pane-fade-out {
+    opacity: 0;
+    transform: scale(0.97);
+    transition: all 0.16s ease;
+}
+
+.pane-fade-in {
+    opacity: 1;
+    transform: scale(1);
+}
+
+@keyframes windowFadeIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.97);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* ==========================================================================
+   VENTANA 1: LÍNEA TEMPORAL MINIMALISTA (100% VISIBLE SIN SCROLL HORIZONTAL)
+   ========================================================================== */
+.timeline-window-pane {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2.5rem 1rem 4rem;
+}
+
+.timeline-hero-section {
+    max-width: 680px;
+    margin: 0 auto 3rem;
+}
+
+.timeline-window-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--temp-acento) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--temp-acento) 35%, transparent);
+    color: var(--temp-acento);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.8rem;
+}
+
+.timeline-main-title {
+    font-size: 2.7rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin: 0 0 0.8rem 0;
+    background: linear-gradient(135deg, #ffffff 40%, var(--temp-acento) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.timeline-main-desc {
+    font-size: 0.96rem;
+    color: #94a3b8;
+    margin: 0;
+    line-height: 1.6;
+}
+
+/* Contenedor de la regla minimalista con altura superior ampliada */
+.minimal-ruler-outer {
+    position: relative;
+    width: 100%;
+    max-width: 1250px;
+    background: rgba(13, 14, 24, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 2.25rem 2rem 2.25rem;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+    overflow: hidden; /* Permite que las imágenes se propaguen por toda la card respetando los bordes redondeados */
+}
+
+/* FONDO DE ANIMES QUE SE PROPAGA POR TODA LA CARD CONTENEDORA */
+.minimal-ruler-bg-showcase {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+}
+
+.minimal-ruler-bg-showcase.showcase-active {
+    opacity: 1;
+}
+
+.popular-cinematic-grid {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    inset: 0;
+}
+
+/* Transiciones de rotación cada 3.5s (Fade In / Fade Out) */
+.popular-cinematic-grid.slide-fading-out {
+    opacity: 0;
+    transform: scale(0.98);
+    transition: opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.popular-cinematic-grid.slide-fading-in {
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Paneles que se propagan a lo ancho de la card con desvanecimiento central suave */
+.popular-bg-panel {
+    flex: 1;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.popular-bg-panel.panel-left {
+    -webkit-mask-image: linear-gradient(to right, black 72%, transparent 100%);
+    mask-image: linear-gradient(to right, black 72%, transparent 100%);
+}
+
+.popular-bg-panel.panel-right {
+    -webkit-mask-image: linear-gradient(to left, black 72%, transparent 100%);
+    mask-image: linear-gradient(to left, black 72%, transparent 100%);
+}
+
+/* Imagen grande con encuadre de tercio a tercio y movimiento vertical intercalado (sin zoom in) */
+.popular-pure-img {
+    position: absolute;
+    top: -8%;
+    left: 0;
+    width: 100%;
+    height: 116%;
+    object-fit: cover;
+    object-position: center 32%;
+    display: block;
+    filter: brightness(0.85) saturate(1.1);
+    transform-origin: center center;
+    will-change: transform;
+}
+
+/* Movimiento suave de arriba hacia abajo (de tercio a tercio) */
+.popular-pure-img.pan-down {
+    animation: pureImgPanDown 5.5s cubic-bezier(0.25, 1, 0.5, 1) infinite alternate;
+}
+
+/* Movimiento suave de abajo hacia arriba (de tercio a tercio) */
+.popular-pure-img.pan-up {
+    animation: pureImgPanUp 5.5s cubic-bezier(0.25, 1, 0.5, 1) infinite alternate;
+}
+
+@keyframes pureImgPanDown {
+    0% {
+        transform: translate3d(0, -3%, 0) scale(1.04);
+    }
+    100% {
+        transform: translate3d(0, 3%, 0) scale(1.04);
+    }
+}
+
+@keyframes pureImgPanUp {
+    0% {
+        transform: translate3d(0, 3%, 0) scale(1.04);
+    }
+    100% {
+        transform: translate3d(0, -3%, 0) scale(1.04);
+    }
+}
+
+/* OVERLAY DE CONTRASTE INTENSO: PERMANENTE PARA QUE NUNCA SE VEA LA FOTO ANTES DEL OSCURECIMIENTO */
+.minimal-ruler-contrast-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 1; /* Permanece activo al 100% de forma inmediata y permanente */
+    background:
+        linear-gradient(to bottom,
+            rgba(10, 11, 20, 0.98) 0%,
+            rgba(10, 11, 20, 0.95) 26%,
+            rgba(10, 11, 20, 0.86) 42%,
+            rgba(10, 11, 20, 0.45) 58%,
+            rgba(10, 11, 20, 0.22) 70%,
+            rgba(10, 11, 20, 0.72) 84%,
+            rgba(10, 11, 20, 0.98) 100%
+        ),
+        linear-gradient(to right,
+            rgba(10, 11, 20, 0.88) 0%,
+            transparent 8%,
+            transparent 92%,
+            rgba(10, 11, 20, 0.88) 100%
+        );
+}
+
+.ruler-direction-hints {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 2rem;
+}
+
+.direction-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: #94a3b8;
+    font-weight: 700;
+}
+
+.direction-center-note {
+    color: var(--temp-acento);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+/* Track horizontal completo sin scroll con altura ampliada para gráfico de notas */
+.full-ruler-track-wrapper {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    padding-top: 175px; /* Espacio vertical amplio para el gráfico con altura extendida */
+    padding-bottom: 1.25rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    overflow: visible;
+    min-height: 295px;
+}
+
+/* Gráfico de líneas con mayor altura y amplitud dinámica */
+.timeline-bg-chart-svg {
+    position: absolute;
+    top: 8px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 145px;
+    pointer-events: none;
+    z-index: 4;
+    overflow: visible;
+}
+
+.chart-active-glow-group circle[filter] {
+    animation: chartNeonPulse 2s infinite ease-in-out;
+    transform-origin: center;
+}
+
+@keyframes chartNeonPulse {
+    0%, 100% {
+        opacity: 0.8;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+.full-ruler-track {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    width: 100%;
+    height: 95px;
+    position: relative;
+    overflow: visible;
+    z-index: 2;
+}
+
+.ruler-baseline {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.12);
+    pointer-events: none;
+}
+
+.ruler-skeleton {
+    width: 100%;
+    text-align: center;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+/* Slots individuales para cada año con transición de acordeón */
+.ruler-slot {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    position: relative;
+    height: 100%;
+    cursor: pointer;
+    outline: none;
+    padding: 0 1px;
+    transition: flex-grow 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease;
+}
+
+/* Líneas minimalistas por defecto */
+.ruler-tick-bar {
+    border-radius: 999px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transform-origin: bottom center;
+}
+
+/* Años intermedios: líneas cortas */
+.slot-intermediate .ruler-tick-bar {
+    width: 2.5px;
+    height: 26px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Múltiplos de 10 (1960, 1970, 1980, 1990, 2000, 2010, 2020...): líneas largas */
+.slot-decade .ruler-tick-bar {
+    width: 4px;
+    height: 62px;
+    background: rgba(255, 255, 255, 0.52);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+}
+
+/* FEEDBACK VISUAL: LA LÍNEA PERMANECE VISIBLE Y DESTACADA EN HOVER (NO SE TAPA) */
+.ruler-slot:hover .ruler-tick-bar,
+.ruler-slot.slot-hovered .ruler-tick-bar,
+.ruler-slot:focus-visible .ruler-tick-bar {
+    opacity: 1;
+    height: 72px;
+    width: 3.5px;
+    background: var(--temp-acento);
+    box-shadow: 0 0 12px var(--temp-acento), 0 0 24px color-mix(in srgb, var(--temp-acento) 70%, transparent);
+    transform: scaleY(1);
+}
+
+.ruler-slot.slot-activating .ruler-tick-bar {
+    background: #ffffff;
+    box-shadow: 0 0 20px #ffffff, 0 0 35px var(--temp-acento);
+    height: 76px;
+    width: 4px;
+}
+
+/* CARDS MORFING: FLOTA POR ENCIMA DE LA LÍNEA CON ESPACIO CLARO ENTRE AMBAS */
+.tick-morph-card {
+    position: absolute;
+    bottom: 86px; /* 14px por encima de la barra más alta (72px) para no taparla */
+    left: 50%;
+    transform: translateX(-50%) scale(0.7) translateY(6px);
+    opacity: 0;
+    pointer-events: none;
+    min-width: 58px;
+    width: auto;
+    background: rgba(18, 19, 34, 0.95);
+    border: 1px solid color-mix(in srgb, var(--temp-acento) 70%, transparent);
+    border-radius: 8px;
+    padding: 0.25rem 0.65rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8), 0 0 18px color-mix(in srgb, var(--temp-acento) 35%, transparent);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 50;
+    backdrop-filter: blur(14px);
+    white-space: nowrap;
+}
+
+/* Flechita sutil apuntando a la línea seleccionada */
+.tick-morph-card::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid color-mix(in srgb, var(--temp-acento) 75%, transparent);
+}
+
+.ruler-slot:hover .tick-morph-card,
+.ruler-slot.slot-hovered .tick-morph-card,
+.ruler-slot:focus-visible .tick-morph-card {
+    opacity: 1;
+    transform: translateX(-50%) scale(1) translateY(0);
+    pointer-events: auto;
+}
+
+/* FEEDBACK VISUAL INMEDIATO AL SELECCIONAR/HACER CLIC EN UN AÑO */
+.ruler-slot.slot-activating .tick-morph-card {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: translateX(-50%) scale(1.15) translateY(-4px) !important;
+    border-color: #ffffff !important;
+    box-shadow: 0 0 30px var(--temp-acento), 0 0 50px color-mix(in srgb, var(--temp-acento) 95%, transparent) !important;
+    background: color-mix(in srgb, var(--temp-acento) 25%, #161224) !important;
+}
+
+/* Ajustes de bordes para evitar corte en los extremos izquierdo y derecho */
+.ruler-slot:first-child .tick-morph-card,
+.ruler-slot:nth-child(2) .tick-morph-card {
+    left: 0;
+    transform: translateX(0) scale(0.7) translateY(6px);
+}
+.ruler-slot:first-child .tick-morph-card::after,
+.ruler-slot:nth-child(2) .tick-morph-card::after {
+    left: 14px;
+}
+.ruler-slot:first-child:hover .tick-morph-card,
+.ruler-slot:first-child.slot-hovered .tick-morph-card,
+.ruler-slot:nth-child(2):hover .tick-morph-card,
+.ruler-slot:nth-child(2).slot-hovered .tick-morph-card {
+    transform: translateX(0) scale(1) translateY(0);
+}
+
+.ruler-slot:last-child .tick-morph-card,
+.ruler-slot:nth-last-child(2) .tick-morph-card {
+    left: auto;
+    right: 0;
+    transform: translateX(0) scale(0.7) translateY(6px);
+}
+.ruler-slot:last-child .tick-morph-card::after,
+.ruler-slot:nth-last-child(2) .tick-morph-card::after {
+    left: auto;
+    right: 14px;
+}
+.ruler-slot:last-child:hover .tick-morph-card,
+.ruler-slot:last-child.slot-hovered .tick-morph-card,
+.ruler-slot:nth-last-child(2):hover .tick-morph-card,
+.ruler-slot:nth-last-child(2).slot-hovered .tick-morph-card {
+    transform: translateX(0) scale(1) translateY(0);
+}
+
+/* Contenido dentro de la card que se transforma: ÚNICAMENTE EL AÑO */
+.morph-year {
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    line-height: 1;
+    color: #ffffff;
+    text-shadow: 0 0 10px color-mix(in srgb, var(--temp-acento) 60%, transparent);
+}
+
+.morph-count {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.morph-score {
+    font-size: 0.72rem;
+    color: #fbbf24;
+    font-weight: 800;
+}
+
+.morph-cta {
+    font-size: 0.62rem;
+    color: var(--temp-acento);
+    font-weight: 700;
+    margin-top: 0.2rem;
+    background: color-mix(in srgb, var(--temp-acento) 16%, transparent);
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+}
+
+/* ==========================================================================
+   BARRA SUPERIOR COMPARTIDA PARA VENTANAS (AÑO Y TEMPORADA)
+   ========================================================================== */
+.window-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.window-back-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.45rem 0.9rem;
+    border-radius: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    transition: all 0.2s ease;
+}
+
+.window-back-btn:hover {
+    background: color-mix(in srgb, var(--temp-acento) 18%, transparent);
+    border-color: color-mix(in srgb, var(--temp-acento) 40%, transparent);
+    color: #ffffff;
+}
+
+.window-back-btn.secondary-btn {
+    background: transparent;
+    border-color: transparent;
+    color: #64748b;
+}
+
+.window-back-btn.secondary-btn:hover {
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.window-topbar-center {
+    text-align: center;
+}
+
+.window-topbar-spacer {
+    width: 140px;
+}
+
+.window-current-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--temp-acento);
+    letter-spacing: 0.08em;
+    display: block;
+    margin-bottom: 0.15rem;
+}
+
+.window-current-title {
+    font-size: 1.85rem;
+    font-weight: 900;
+    color: #ffffff;
+    margin: 0;
+    line-height: 1.1;
+}
+
+.window-catalog-link-btn {
+    background: color-mix(in srgb, var(--temp-acento) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--temp-acento) 35%, transparent);
+    color: var(--temp-acento);
+    font-size: 0.84rem;
+    font-weight: 600;
+    padding: 0.48rem 1rem;
+    border-radius: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    transition: all 0.2s ease;
+}
+
+.window-catalog-link-btn:hover {
+    background: color-mix(in srgb, var(--temp-acento) 30%, transparent);
+    border-color: var(--temp-acento);
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--temp-acento) 25%, transparent);
+}
+
+.window-catalog-link-btn.primary-btn {
+    background: var(--temp-acento);
+    border-color: color-mix(in srgb, var(--temp-acento) 80%, black);
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.window-catalog-link-btn.primary-btn:hover {
+    background: color-mix(in srgb, var(--temp-acento) 85%, black);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--temp-acento) 40%, transparent);
+}
+
+/* ==========================================================================
+   VENTANA 2: DASHBOARD DE AÑO (ESTRUCTURA REORDENADA VERTICALMENTE)
+   ========================================================================== */
+.year-top-overview {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.year-kpis-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.clean-kpi-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 0.85rem 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    position: relative;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.2s ease,
+                box-shadow 0.2s ease,
+                background 0.2s ease;
+}
+
+.clean-kpi-card.clickeable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.clean-kpi-card.clickeable:hover {
+    transform: translateY(-3px);
+    background: rgba(26, 20, 42, 0.85);
+    border-color: color-mix(in srgb, var(--temp-acento) 60%, transparent);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px color-mix(in srgb, var(--temp-acento) 25%, transparent);
+}
+
+.clean-kpi-card.clickeable:active {
+    transform: translateY(-1px) scale(0.99);
+}
+
+.kpi-action-pill {
+    margin-left: auto;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--temp-acento);
+    background: color-mix(in srgb, var(--temp-acento) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--temp-acento) 25%, transparent);
+    padding: 0.22rem 0.55rem;
+    border-radius: 999px;
+    opacity: 0.7;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.clean-kpi-card.clickeable:hover .kpi-action-pill {
+    opacity: 1;
+    background: color-mix(in srgb, var(--temp-acento) 25%, transparent);
+    border-color: var(--temp-acento);
+    color: #ffffff;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--temp-acento) 40%, transparent);
+}
+
+.clean-kpi-card.large {
+    padding: 1rem 1.25rem;
+}
+
+.kpi-texts {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.kpi-num {
+    font-size: 1.22rem;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.15;
+}
+
+.clean-kpi-card.large .kpi-num {
+    font-size: 1.35rem;
+}
+
+.kpi-txt {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    margin-top: 0.15rem;
+}
+
+.clean-kpi-card.large .kpi-txt {
+    font-size: 0.74rem;
+}
+
+/* Top 3 animes compacto horizontal */
+.year-top3-block {
+    background: rgba(18, 19, 31, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 1rem 1.25rem;
+}
+
+.panel-subheading {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+}
+
+.btn-link-clean {
+    background: transparent;
+    border: none;
+    color: var(--temp-acento);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.2s ease;
+}
+
+.btn-link-clean:hover {
+    color: #ffffff;
+    text-decoration: underline;
+}
+
+.year-top3-grid-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.compact-top-row {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 0.6rem 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.compact-top-row:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: color-mix(in srgb, var(--temp-acento) 35%, transparent);
+    transform: translateY(-2px);
+}
+
+.compact-medal {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #ffffff;
+    flex-shrink: 0;
+}
+
+.medal-1 { background: linear-gradient(135deg, #f59e0b, #b45309); }
+.medal-2 { background: linear-gradient(135deg, #94a3b8, #475569); }
+.medal-3 { background: linear-gradient(135deg, #d97706, #78350f); }
+
+.compact-poster {
+    width: 38px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.compact-texts {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.compact-title {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+    margin-bottom: 0.2rem;
+}
+
+.compact-sub {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+.badge-type {
+    color: var(--temp-acento);
+    font-weight: 700;
+}
+
+.compact-score {
+    color: #fbbf24;
+    font-weight: 800;
+}
+
+.compact-votes {
+    color: #64748b;
+}
+
+/* ==========================================================================
+   SECCIÓN INFERIOR: SECUENCIA DE TEMPORADAS HORIZONTAL
+   ========================================================================== */
+.year-bottom-seasons-sequence {
+    background: rgba(18, 19, 31, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 1.25rem 1.5rem;
+}
+
+.panel-heading {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.panel-instruction {
+    font-size: 0.76rem;
+    color: #94a3b8;
+}
+
+.clean-seasons-horizontal-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-top: 0.75rem;
+}
+
+.clean-season-card {
+    position: relative;
+    background: rgba(14, 15, 25, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 0.95rem 1.25rem;
+    cursor: pointer;
+    overflow: hidden;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    min-height: auto;
+    user-select: none;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.clean-season-card:hover {
+    transform: translateY(-3px);
+    background: rgba(20, 22, 36, 0.95);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+}
+
+.clean-season-card.season-winter:hover { border-color: #38bdf8; box-shadow: 0 10px 24px rgba(0,0,0,0.5), 0 0 16px rgba(56, 189, 248, 0.25); }
+.clean-season-card.season-spring:hover { border-color: #f472b6; box-shadow: 0 10px 24px rgba(0,0,0,0.5), 0 0 16px rgba(244, 114, 182, 0.25); }
+.clean-season-card.season-summer:hover { border-color: #fbbf24; box-shadow: 0 10px 24px rgba(0,0,0,0.5), 0 0 16px rgba(251, 191, 36, 0.25); }
+.clean-season-card.season-fall:hover   { border-color: #fb923c; box-shadow: 0 10px 24px rgba(0,0,0,0.5), 0 0 16px rgba(251, 146, 60, 0.25); }
+
+.season-gradient-underlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.season-ident {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.season-title-text {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+}
+
+.season-click-cue {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.season-cue-icon {
+    color: #94a3b8;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease;
+}
+
+.clean-season-card:hover .season-click-cue {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.clean-season-card:hover .season-cue-icon {
+    color: #ffffff;
+    transform: translateX(2.5px);
+}
+
+.clean-season-card.season-winter:hover .season-cue-icon { color: #38bdf8; }
+.clean-season-card.season-spring:hover .season-cue-icon { color: #f472b6; }
+.clean-season-card.season-summer:hover .season-cue-icon { color: #fbbf24; }
+.clean-season-card.season-fall:hover   .season-cue-icon { color: #fb923c; }
+
+.season-stats-row {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4rem;
+    margin: 0.6rem 0;
+}
+
+.stat-pill {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 0.35rem 0.3rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-val {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.stat-lbl {
+    font-size: 0.6rem;
+    color: #94a3b8;
+    margin-top: 0.1rem;
+}
+
+.season-leader-box {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 0.35rem 0.5rem;
+}
+
+.leader-thumb {
+    width: 26px;
+    height: 34px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.leader-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.leader-lbl {
+    font-size: 0.58rem;
+    color: #f59e0b;
+    font-weight: 700;
+}
+
+.leader-name {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #ffffff;
+    line-height: 1.2;
+}
+
+.leader-score {
+    font-size: 0.66rem;
+    color: #fbbf24;
+    font-weight: 700;
+}
+
+/* ==========================================================================
+   VENTANA 3: VENTANA DE TEMPORADA
+   ========================================================================== */
+.season-dashboard-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.season-kpis-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.season-top3-area {
+    background: rgba(18, 19, 31, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 1.5rem;
+}
+
+.season-top3-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+}
+
+.season-anime-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    gap: 1rem;
+    padding: 0.85rem;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.season-anime-card:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-4px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+
+.anime-poster-wrapper {
+    position: relative;
+    width: 75px;
+    height: 105px;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.anime-poster {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.season-anime-card:hover .anime-poster {
+    transform: scale(1.08);
+}
+
+.medal-corner {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.score-corner {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fbbf24;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+}
+
+.anime-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    flex: 1;
+}
+
+.anime-type-badge {
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: var(--temp-acento);
+    margin-bottom: 0.2rem;
+}
+
+.anime-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 0.25rem 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.25;
+}
+
+.anime-studio {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    margin-bottom: 0.35rem;
+}
+
+.anime-votes {
+    font-size: 0.68rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+}
+
+/* Switcher rápido de estaciones hermanas */
+.season-sibling-switcher {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sibling-lbl {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.sibling-pills {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.sibling-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.35rem 0.8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sibling-pill-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    transform: translateY(-2px);
+}
+
+/* Colores temáticos de iconos */
+.season-ico-winter { color: #38bdf8; }
+.season-ico-spring { color: #f472b6; }
+.season-ico-summer { color: #fbbf24; }
+.season-ico-fall   { color: #fb923c; }
+
+/* Responsive */
+@media (max-width: 992px) {
+    .clean-seasons-horizontal-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .year-top3-grid-row {
+        grid-template-columns: 1fr;
+    }
+    .year-kpis-row {
+        grid-template-columns: 1fr;
+    }
+    .season-top3-grid {
+        grid-template-columns: 1fr;
+    }
+    .season-kpis-strip {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .clean-seasons-horizontal-row {
+        grid-template-columns: 1fr;
+    }
+    .window-topbar-spacer {
+        display: none;
+    }
+}

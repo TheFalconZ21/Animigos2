@@ -245,6 +245,153 @@
     border-color: rgba(239, 68, 68, 0.4);
 }
 
+/* ============================================================
+   FILTROS DESPLEGABLES SUAVES (COLLAPSIBLE FILTERS)
+   ============================================================ */
+
+.rec-collapsible-filters-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    align-items: center;
+}
+
+.rec-filter-trigger-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    background: #14151d;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+}
+
+.rec-filter-trigger-btn:hover {
+    background: #1a1c27;
+    border-color: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.rec-filter-trigger-btn.is-open {
+    background: #1e202e;
+    border-color: var(--theme-acento, #a78bfa);
+    box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.18), 0 4px 14px rgba(0, 0, 0, 0.4);
+    color: #ffffff;
+}
+
+.rec-filter-trigger-btn.is-customized {
+    border-color: rgba(167, 139, 250, 0.45);
+    background: rgba(167, 139, 250, 0.1);
+}
+
+.rec-trigger-title {
+    font-weight: 700;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.rec-trigger-badge {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #ffffff;
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rec-trigger-chevron {
+    color: rgba(255, 255, 255, 0.4);
+    transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1), color 0.18s ease;
+    flex-shrink: 0;
+}
+
+.rec-trigger-chevron.rotated {
+    transform: rotate(180deg);
+    color: var(--theme-acento, #a78bfa);
+}
+
+/* Contenedor Animado Desplegable */
+.rec-filter-dropdown-drawer {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transform: translateY(-8px);
+    transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.24s ease,
+                transform 0.24s cubic-bezier(0.4, 0, 0.2, 1),
+                margin 0.2s ease,
+                padding 0.2s ease,
+                border-color 0.2s ease;
+    pointer-events: none;
+    background: #111219;
+    border: 1px solid transparent;
+    border-radius: 12px;
+}
+
+.rec-filter-dropdown-drawer.is-expanded {
+    max-height: 480px;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+    margin-top: 0.75rem;
+    padding: 0.95rem 1.1rem;
+}
+
+.rec-dropdown-content-inner {
+    animation: recDrawerFadeIn 0.22s ease-out;
+}
+
+@keyframes recDrawerFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.rec-dropdown-header-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.65);
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.rec-dropdown-close-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.45);
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rec-dropdown-close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
 /* --- Grilla de las 5 Alternativas --- */
 .rec-section-title {
     font-size: 1.2rem;

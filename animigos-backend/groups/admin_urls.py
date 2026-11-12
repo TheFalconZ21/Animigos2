@@ -4,6 +4,7 @@ from . import admin_views
 urlpatterns = [
     path('overview/', admin_views.overview_analytics, name='admin-overview'),
     path('rooms/', admin_views.rooms_analytics, name='admin-rooms'),
+    path('rooms/create/', admin_views.admin_create_room, name='admin-room-create'),
     path('rooms/<uuid:pk>/ping/', admin_views.ping_room, name='admin-room-ping'),
     path('rooms/<uuid:room_id>/moderate/', admin_views.admin_moderate_room, name='admin-room-moderate'),
     path('rooms/cleanup-policy/', admin_views.admin_rooms_cleanup_policy, name='admin-rooms-cleanup-policy'),
@@ -13,6 +14,9 @@ urlpatterns = [
     path('algorithm/calibrate/', admin_views.calibrate_algorithm, name='admin-algorithm-calibrate'),
     path('growth/', admin_views.growth_analytics, name='admin-growth'),
     path('users/', admin_views.admin_users_list, name='admin-users-list'),
+    path('users/create/', admin_views.admin_create_user, name='admin-user-create'),
+    path('users/<str:user_id>/', admin_views.admin_user_detail_or_delete, name='admin-user-detail-delete'),
     path('users/<str:user_id>/moderate/', admin_views.admin_moderate_user, name='admin-user-moderate'),
+    path('animes/', admin_views.admin_create_anime, name='admin-anime-create'),
     path('animes/<int:mal_id>/', admin_views.admin_update_anime, name='admin-anime-update'),
 ]

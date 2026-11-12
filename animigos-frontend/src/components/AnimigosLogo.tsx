@@ -20,6 +20,8 @@ export interface AnimigosLogoProps {
     interactiveCat?: boolean
     /** Cambiar expresión al pasar el cursor por encima (hover). Por defecto true */
     hoverExpression?: boolean
+    /** Mostrar texto 'Animig...s' junto al isotipo del gato. Por defecto true */
+    showText?: boolean
 }
 
 /**
@@ -39,6 +41,7 @@ export function AnimigosLogo({
     onCatClick,
     interactiveCat = false,
     hoverExpression = true,
+    showText = true,
 }: AnimigosLogoProps) {
     const { expression: hookExpression, setExpression, toggleExpression } = useCatExpression()
     const [isHovered, setIsHovered] = useState(false)
@@ -89,7 +92,7 @@ export function AnimigosLogo({
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
         >
-            <span className="animigos-logo-text">Animig</span>
+            {showText && <span className="animigos-logo-text">Animig</span>}
             <img
                 src={catSrc}
                 alt={activeExpression === 'happy' ? 'Animigos feliz (> ▽ <)' : 'Animigos (u w u)'}
@@ -99,7 +102,7 @@ export function AnimigosLogo({
                 onClick={interactiveCat || onCatClick ? handleCatClick : undefined}
                 title={interactiveCat ? '¡Haz clic para cambiar mi expresión! 🐱' : undefined}
             />
-            <span className="animigos-logo-text">s</span>
+            {showText && <span className="animigos-logo-text">s</span>}
         </span>
     )
 }

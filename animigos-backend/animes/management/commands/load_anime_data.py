@@ -120,7 +120,7 @@ class Command(BaseCommand):
 
                 # Géneros
                 genres_raw = row.get('generos_2026', '').strip()
-                genres = [g.strip() for g in genres_raw.split(',') if g.strip()] if genres_raw else []
+                genres = [g.strip('[]"\' \t\r\n') for g in genres_raw.split(',') if g.strip('[]"\' \t\r\n')] if genres_raw else []
 
                 obj, created = Anime.objects.update_or_create(
                     mal_id=mal_id,

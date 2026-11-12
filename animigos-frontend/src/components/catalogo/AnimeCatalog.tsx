@@ -31,6 +31,11 @@ import './catalogo.css'
 
 interface AnimeCatalogProps {
     initialAnimeId?: number | null
+    initialSearch?: string
+    initialYear?: string | number | null
+    initialSeason?: string | null
+    initialGenre?: string | null
+    initialOrdering?: string | null
 }
 
 const GENRES_DEFAULT = [
@@ -83,12 +88,20 @@ const ORDERING_LIST = [
     { id: 'score', label: 'Puntuación MAL (Menor)' },
     { id: '-popularity', label: 'Popularidad' },
     { id: '-season_year', label: 'Año (Recientes)' },
+    { id: 'season_year', label: 'Fecha de emisión (Ascendente)' },
     { id: 'title', label: 'Título (A–Z)' },
 ]
 
 type TaxonomyTabId = 'all' | 'Genre' | 'Theme' | 'Cast' | 'Setting' | 'Demographic'
 
-export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({ initialAnimeId = null }) => {
+export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
+    initialAnimeId = null,
+    initialSearch = '',
+    initialYear = null,
+    initialSeason = null,
+    initialGenre = null,
+    initialOrdering = null
+}) => {
     const { isAuthenticated } = useAuth()
     const { filas, agregarAnime } = useMyList()
     const { acento } = useThemeAccent()
@@ -105,12 +118,27 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({ initialAnimeId = nul
     // --- Filtros ---
     const [studio, setStudio] = useState('')
     // Lista combinada de Géneros y Taxonomías de AniList seleccionados (Intersección AND)
-    const [selectedTerms, setSelectedTerms] = useState<string[]>([])
-    const [season, setSeason] = useState('')
-    const [year, setYear] = useState('')
+    const [selectedTerms, setSelectedTerms] = useState<string[]>(initialGenre ? [initialGenre] : [])
+    const [season, setSeason] = useState(initialSeason ? String(initialSeason).toLowerCase() : '')
+    const [year, setYear] = useState(initialYear ? String(initialYear) : '')
     const [minScore, setMinScore] = useState('')
     const [format, setFormat] = useState('')
-    const [ordering, setOrdering] = useState('-score')
+    const [ordering, setOrdering] = useState(initialOrdering || '-score')
+
+    useEffect(() => {
+        if (initialYear !== undefined && initialYear !== null) {
+            setYear(String(initialYear))
+        }
+        if (initialSeason !== undefined && initialSeason !== null) {
+            setSeason(String(initialSeason).toLowerCase())
+        }
+        if (initialGenre) {
+            setSelectedTerms([initialGenre])
+        }
+        if (initialOrdering) {
+            setOrdering(initialOrdering)
+        }
+    }, [initialYear, initialSeason, initialGenre, initialOrdering])
 
     // Selector desplegable de Géneros + Taxonomías de AniList
     const [taxDropdownOpen, setTaxDropdownOpen] = useState(false)
@@ -135,10 +163,18 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({ initialAnimeId = nul
     const [notInMyList, setNotInMyList] = useState(false)
 
     // Búsqueda por texto y paginación
-    const [searchInput, setSearchInput] = useState('')
-    const [submittedSearch, setSubmittedSearch] = useState('')
+    const [searchInput, setSearchInput] = useState(initialSearch)
+    const [submittedSearch, setSubmittedSearch] = useState(initialSearch)
     const [currentPage, setCurrentPage] = useState(1)
     const [addedAnimeId, setAddedAnimeId] = useState<number | null>(null)
+
+    useEffect(() => {
+        if (initialSearch) {
+            setSearchInput(initialSearch)
+            setSubmittedSearch(initialSearch)
+            setCurrentPage(1)
+        }
+    }, [initialSearch])
 
     // Queries auxiliares
     const { data: genresData } = useGenresQuery()
@@ -151,30 +187,43 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({ initialAnimeId = nul
             ? yearsData
             : [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2010, 2005, 2000]
 
+    // Helper para sanitizar nombres de taxonomía y evitar corchetes o comillas residuales
+    const cleanTaxonomyToken = (raw: string): string => {
+        return raw.replace(/^[\["'\s]+|[\]"'\s]+$/g, '').trim()
+    }
+
     // Unificar Géneros y Media Tags de AniList para el selector multi-taxonomía
     const allTaxonomyOptions = useMemo(() => {
         const map = new Map<string, { name: string; category: string; count: number }>()
 
+        const addOption = (rawName: string, category: string, count: number) => {
+            const cleanName = cleanTaxonomyToken(rawName)
+            if (!cleanName) return
+            const key = cleanName.toLowerCase()
+            const existing = map.get(key)
+            if (existing) {
+                existing.count = Math.max(existing.count, 0) + (count > 0 ? count : 0)
+                if (category === 'Genre') existing.category = 'Genre'
+            } else {
+                map.set(key, {
+                    name: cleanName,
+                    category: category || 'Theme',
+                    count: count > 0 ? count : 0
+                })
+            }
+        }
+
         const baseGenres = genresData && genresData.length ? genresData : GENRES_DEFAULT
         for (const g of baseGenres) {
-            map.set(g.toLowerCase(), { name: g, category: 'Genre', count: 0 })
+            addOption(g, 'Genre', 0)
         }
 
         if (taxonomiesData) {
             for (const g of taxonomiesData.genres || []) {
-                map.set(g.name.toLowerCase(), { name: g.name, category: 'Genre', count: g.count })
+                addOption(g.name, 'Genre', g.count)
             }
             for (const t of taxonomiesData.tags || []) {
-                const existing = map.get(t.name.toLowerCase())
-                if (!existing) {
-                    map.set(t.name.toLowerCase(), {
-                        name: t.name,
-                        category: t.category || 'Theme',
-                        count: t.count,
-                    })
-                } else if (existing.count === 0) {
-                    existing.count = t.count
-                }
+                addOption(t.name, t.category || 'Theme', t.count)
             }
         }
 
@@ -195,12 +244,13 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({ initialAnimeId = nul
     }, [allTaxonomyOptions, taxSearch, taxCategoryTab])
 
     const toggleTerm = (termName: string) => {
+        const clean = cleanTaxonomyToken(termName)
         setSelectedTerms((prev) => {
-            const exists = prev.some((t) => t.toLowerCase() === termName.toLowerCase())
+            const exists = prev.some((t) => t.toLowerCase() === clean.toLowerCase())
             if (exists) {
-                return prev.filter((t) => t.toLowerCase() !== termName.toLowerCase())
+                return prev.filter((t) => t.toLowerCase() !== clean.toLowerCase())
             }
-            return [...prev, termName]
+            return [...prev, clean]
         })
         setCurrentPage(1)
     }

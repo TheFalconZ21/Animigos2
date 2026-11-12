@@ -9,9 +9,14 @@ import {
     Monitor,
     RefreshCw,
     Activity,
-    Compass
+    Compass,
+    Plus,
+    Trash2,
+    Shield,
+    X,
+    AlertCircle
 } from 'lucide-react'
-import { getGrowth, getAdminUsers } from '../services/adminApi'
+import { getGrowth, getAdminUsers, createAdminUser, deleteAdminUser, updateAdminUser } from '../services/adminApi'
 import type { GrowthResponse, AdminUserItem } from '../services/adminApi'
 
 export function UsersPage() {
@@ -21,6 +26,28 @@ export function UsersPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'registered' | 'guest'>('all')
     const [activityFilter, setActivityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all')
+
+    // Modales de CRUD de usuarios
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+    const [createFormData, setCreateFormData] = useState<{
+        username: string;
+        email: string;
+        password?: string;
+        role: 'admin' | 'user';
+        display_name: string;
+    }>({
+        username: '',
+        email: '',
+        password: '',
+        role: 'user',
+        display_name: ''
+    })
+    const [isCreating, setIsCreating] = useState(false)
+    const [createError, setCreateError] = useState<string | null>(null)
+
+    // Modal de confirmación de eliminación
+    const [deleteConfirmUser, setDeleteConfirmUser] = useState<AdminUserItem | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     const loadData = async () => {
         setIsLoading(true)
@@ -35,6 +62,50 @@ export function UsersPage() {
             console.error('Error cargando datos de usuarios:', err)
         } finally {
             setIsLoading(false)
+        }
+    }
+
+    const handleCreateUser = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!createFormData.username.trim()) {
+            setCreateError('El nombre de usuario es obligatorio')
+            return
+        }
+        setIsCreating(true)
+        setCreateError(null)
+        try {
+            const res = await createAdminUser(createFormData)
+            setUsers(prev => [res.user, ...prev])
+            setIsCreateModalOpen(false)
+            setCreateFormData({ username: '', email: '', password: '', role: 'user', display_name: '' })
+        } catch (err: any) {
+            setCreateError(err.message || 'Error al crear usuario')
+        } finally {
+            setIsCreating(false)
+        }
+    }
+
+    const handleConfirmDeleteUser = async () => {
+        if (!deleteConfirmUser) return
+        setIsDeleting(true)
+        try {
+            await deleteAdminUser(deleteConfirmUser.id)
+            setUsers(prev => prev.filter(u => u.id !== deleteConfirmUser.id))
+            setDeleteConfirmUser(null)
+        } catch (err: any) {
+            alert(err.message || 'Error al eliminar usuario')
+        } finally {
+            setIsDeleting(false)
+        }
+    }
+
+    const handleToggleRole = async (user: AdminUserItem) => {
+        const nextRole = (user.role === 'owner' || user.role === ('admin' as any)) ? 'user' : 'admin'
+        try {
+            await updateAdminUser(user.id, { role: nextRole })
+            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: nextRole === 'admin' ? 'owner' : 'member' } : u))
+        } catch (err: any) {
+            alert(err.message || 'Error al actualizar rol de usuario')
         }
     }
 
@@ -416,6 +487,27 @@ export function UsersPage() {
                                 </button>
                             ))}
                         </div>
+
+                        {/* Botón Nuevo Usuario (CRUD Create) */}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsCreateModalOpen(true)
+                                setCreateError(null)
+                            }}
+                            className="admin-btn admin-btn-primary d-inline-flex align-items-center gap-1 font-mono ms-1"
+                            style={{
+                                fontSize: '0.72rem',
+                                padding: '0.3rem 0.7rem',
+                                backgroundColor: 'var(--admin-emerald)',
+                                color: '#000000',
+                                fontWeight: 600
+                            }}
+                            title="Crear un nuevo usuario en la base de datos"
+                        >
+                            <Plus size={13} />
+                            <span>Nuevo Usuario</span>
+                        </button>
                     </div>
                 </div>
 
@@ -426,17 +518,19 @@ export function UsersPage() {
                             <tr className="border-bottom" style={{ borderColor: 'var(--admin-border-subtle)', color: 'var(--admin-text-muted)' }}>
                                 <th>USUARIO</th>
                                 <th>TIPO</th>
-                                <th>SALAS PARTICIPADAS</th>
-                                <th>VOTOS EMITIDOS</th>
+                                <th>ROL</th>
+                                <th>SALAS</th>
+                                <th>VOTOS</th>
                                 <th>NIVEL ACTIVIDAD</th>
                                 <th>ÚLTIMA CONEXIÓN</th>
-                                <th className="text-end">FECHA ALTA</th>
+                                <th>FECHA ALTA</th>
+                                <th className="text-end pe-2">ACCIONES</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="text-center py-4 text-muted">
+                                    <td colSpan={9} className="text-center py-4 text-muted">
                                         No se encontraron usuarios coincidentes con los filtros seleccionados.
                                     </td>
                                 </tr>
@@ -444,6 +538,7 @@ export function UsersPage() {
                                 filteredUsers.slice(0, 15).map(u => {
                                     const isHigh = u.votes_count >= 10 || u.rooms_count >= 4
                                     const isMedium = u.votes_count >= 3 && u.votes_count < 10
+                                    const isAdmin = u.role === 'owner' || (u.role as string) === 'admin'
                                     return (
                                         <tr key={u.id} className="border-bottom" style={{ borderColor: 'rgba(255, 255, 255, 0.04)' }}>
                                             <td>
@@ -456,7 +551,7 @@ export function UsersPage() {
                                                     />
                                                     <div>
                                                         <div className="text-white fw-semibold">{u.name}</div>
-                                                        <div className="text-muted small" style={{ fontSize: '0.66rem' }}>@{u.username} • {u.email}</div>
+                                                        <div className="text-muted small" style={{ fontSize: '0.66rem' }}>{u.username} • {u.email}</div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -474,31 +569,61 @@ export function UsersPage() {
                                                 )}
                                             </td>
                                             <td>
-                                                <span className="text-white fw-bold">{u.rooms_count}</span> salas
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleToggleRole(u)}
+                                                    className={`admin-badge border-0 font-mono ${isAdmin ? 'admin-badge-success' : 'admin-badge-neutral'}`}
+                                                    style={{ fontSize: '0.64rem', padding: '2px 6px', cursor: 'pointer' }}
+                                                    title="Clic para alternar entre Administrador y Usuario"
+                                                >
+                                                    <Shield size={10} className="me-1" />
+                                                    {isAdmin ? 'Administrador' : 'Usuario'}
+                                                </button>
                                             </td>
                                             <td>
-                                                <span className="text-white fw-bold">{u.votes_count}</span> votos
+                                                <span className="text-white fw-bold">{u.rooms_count}</span>
+                                            </td>
+                                            <td>
+                                                <span className="text-white fw-bold">{u.votes_count}</span>
                                             </td>
                                             <td>
                                                 {isHigh ? (
                                                     <span className="admin-badge admin-badge-success" style={{ fontSize: '0.62rem' }}>
-                                                        Alta Actividad
+                                                        Alta
                                                     </span>
                                                 ) : isMedium ? (
                                                     <span className="admin-badge admin-badge-info" style={{ fontSize: '0.62rem' }}>
-                                                        Actividad Media
+                                                        Media
                                                     </span>
                                                 ) : (
                                                     <span className="admin-badge admin-badge-neutral" style={{ fontSize: '0.62rem' }}>
-                                                        Baja / Ocasional
+                                                        Baja
                                                     </span>
                                                 )}
                                             </td>
                                             <td className="text-secondary small">
                                                 {u.last_activity}
                                             </td>
-                                            <td className="text-end text-muted small">
+                                            <td className="text-muted small">
                                                 {u.joined_at}
+                                            </td>
+                                            <td className="text-end pe-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDeleteConfirmUser(u)}
+                                                    className="admin-btn d-inline-flex align-items-center gap-1"
+                                                    style={{
+                                                        fontSize: '0.68rem',
+                                                        padding: '0.2rem 0.5rem',
+                                                        borderColor: 'rgba(239, 68, 68, 0.4)',
+                                                        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                                        color: '#fca5a5'
+                                                    }}
+                                                    title="Eliminar usuario del sistema"
+                                                >
+                                                    <Trash2 size={11} />
+                                                    <span>Eliminar</span>
+                                                </button>
                                             </td>
                                         </tr>
                                     )
@@ -509,10 +634,217 @@ export function UsersPage() {
                 </div>
 
                 <div className="d-flex justify-content-between align-items-center pt-2.5 border-top mt-2 font-mono text-muted small" style={{ borderColor: 'var(--admin-border-subtle)', fontSize: '0.68rem' }}>
-                    <span>Mostrando {Math.min(15, filteredUsers.length)} de {filteredUsers.length} usuarios filtrados</span>
-                    <span>Sincronizado con base de datos PostgreSQL</span>
+                    <span>Mostrando {Math.min(15, filteredUsers.length)} de {filteredUsers.length} usuarios</span>
+                    <span>Sincronizado con base de datos PostgreSQL (AWS)</span>
                 </div>
             </div>
+
+            {/* ============================================================
+               MODAL DE CREACIÓN DE NUEVO USUARIO
+               ============================================================ */}
+            {isCreateModalOpen && (
+                <div
+                    className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                    style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        zIndex: 1050,
+                        backdropFilter: 'blur(5px)',
+                        padding: '1rem'
+                    }}
+                >
+                    <div
+                        className="admin-card p-4 text-white"
+                        style={{
+                            maxWidth: '500px',
+                            width: '100%',
+                            border: '1px solid var(--admin-emerald)',
+                            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7)'
+                        }}
+                    >
+                        <div className="d-flex justify-content-between align-items-start pb-2 mb-3 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                            <div>
+                                <h3 className="fs-6 fw-bold m-0 text-white">Crear Nuevo Usuario</h3>
+                                <span className="text-secondary small font-mono">Registra una cuenta de acceso con asignación de rol</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsCreateModalOpen(false)}
+                                className="btn btn-link p-0 text-secondary"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {createError && (
+                            <div className="p-2 mb-3 bg-danger bg-opacity-10 border border-danger text-danger rounded font-mono small d-flex align-items-center gap-1.5" style={{ fontSize: '0.74rem' }}>
+                                <AlertCircle size={14} />
+                                <span>{createError}</span>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleCreateUser}>
+                            <div className="mb-2">
+                                <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                    NOMBRE DE USUARIO (USERNAME) *
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={createFormData.username}
+                                    onChange={(e) => setCreateFormData(prev => ({ ...prev, username: e.target.value }))}
+                                    placeholder="ej: usuario_nuevo"
+                                    className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
+                                    style={{ fontSize: '0.76rem' }}
+                                />
+                            </div>
+
+                            <div className="mb-2">
+                                <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                    NOMBRE VISIBLE (DISPLAY NAME)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={createFormData.display_name}
+                                    onChange={(e) => setCreateFormData(prev => ({ ...prev, display_name: e.target.value }))}
+                                    placeholder="ej: Juan Pérez"
+                                    className="form-control form-control-sm bg-dark text-white border-secondary"
+                                    style={{ fontSize: '0.76rem' }}
+                                />
+                            </div>
+
+                            <div className="mb-2">
+                                <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                    CORREO ELECTRÓNICO
+                                </label>
+                                <input
+                                    type="email"
+                                    value={createFormData.email}
+                                    onChange={(e) => setCreateFormData(prev => ({ ...prev, email: e.target.value }))}
+                                    placeholder="usuario@ejemplo.com"
+                                    className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
+                                    style={{ fontSize: '0.76rem' }}
+                                />
+                            </div>
+
+                            <div className="mb-2">
+                                <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                    CONTRASEÑA
+                                </label>
+                                <input
+                                    type="password"
+                                    value={createFormData.password}
+                                    onChange={(e) => setCreateFormData(prev => ({ ...prev, password: e.target.value }))}
+                                    placeholder="Dejar en blanco para clave por defecto"
+                                    className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
+                                    style={{ fontSize: '0.76rem' }}
+                                />
+                            </div>
+
+                            <div className="mb-3">
+                                <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
+                                    ROL DEL USUARIO
+                                </label>
+                                <select
+                                    value={createFormData.role}
+                                    onChange={(e) => setCreateFormData(prev => ({ ...prev, role: e.target.value as 'admin' | 'user' }))}
+                                    className="form-select form-select-sm bg-dark text-white border-secondary font-mono"
+                                    style={{ fontSize: '0.76rem' }}
+                                >
+                                    <option value="user">Usuario Convencional (member)</option>
+                                    <option value="admin">Administrador del Sistema (admin/staff)</option>
+                                </select>
+                            </div>
+
+                            <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                <button
+                                    type="button"
+                                    disabled={isCreating}
+                                    onClick={() => setIsCreateModalOpen(false)}
+                                    className="admin-btn admin-btn-secondary px-3 py-1.5"
+                                    style={{ fontSize: '0.75rem' }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isCreating}
+                                    className="admin-btn d-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold"
+                                    style={{
+                                        fontSize: '0.75rem',
+                                        backgroundColor: 'var(--admin-emerald)',
+                                        color: '#000000',
+                                        border: '1px solid var(--admin-emerald)'
+                                    }}
+                                >
+                                    <Plus size={13} />
+                                    <span>{isCreating ? 'Creando...' : 'Crear Usuario'}</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ============================================================
+               MODAL DE CONFIRMACIÓN DE ELIMINACIÓN DE USUARIO
+               ============================================================ */}
+            {deleteConfirmUser && (
+                <div
+                    className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                    style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        zIndex: 1060,
+                        backdropFilter: 'blur(4px)',
+                        padding: '1rem'
+                    }}
+                >
+                    <div
+                        className="admin-card p-4 text-white"
+                        style={{
+                            maxWidth: '450px',
+                            width: '100%',
+                            border: '1px solid rgba(239, 68, 68, 0.6)',
+                            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)'
+                        }}
+                    >
+                        <div className="d-flex align-items-center gap-2 mb-2 text-danger">
+                            <Trash2 size={20} />
+                            <h3 className="fs-6 fw-bold m-0">Eliminar Cuenta de Usuario</h3>
+                        </div>
+                        <p className="small text-secondary mb-3">
+                            ¿Estás seguro de que deseas eliminar permanentemente al usuario{' '}
+                            <strong className="text-white">"{deleteConfirmUser.name}" ({deleteConfirmUser.username})</strong>?
+                            Esta acción eliminará sus datos de autenticación y registros de sala.
+                        </p>
+                        <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                            <button
+                                type="button"
+                                disabled={isDeleting}
+                                onClick={() => setDeleteConfirmUser(null)}
+                                className="admin-btn admin-btn-secondary px-3 py-1.5"
+                                style={{ fontSize: '0.75rem' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                disabled={isDeleting}
+                                onClick={handleConfirmDeleteUser}
+                                className="admin-btn d-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold"
+                                style={{
+                                    fontSize: '0.75rem',
+                                    backgroundColor: 'var(--admin-rose)',
+                                    color: '#ffffff',
+                                    border: '1px solid #ef4444'
+                                }}
+                            >
+                                <Trash2 size={13} />
+                                <span>{isDeleting ? 'Eliminando...' : 'Eliminar Usuario'}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
