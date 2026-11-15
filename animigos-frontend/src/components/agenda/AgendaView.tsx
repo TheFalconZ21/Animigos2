@@ -1,6 +1,9 @@
 /**
  * Componente Principal de Agenda de Tareas Pendientes (Pilar 1.2 y 1.3 de AGENTS.md).
- * Contador reactivo de capítulos para animes en emisión, ordenados según capítulos de atraso.
+ * KPI interactivos como sub-vistas:
+ * 1. Caps de Atraso -> Sub-vista con alto enfoque en cantidad de atraso y siguiente capítulo a ver.
+ * 2. Próximo capítulo sale en -> Sub-vista con lista de hasta 15 capítulos futuros por páginas.
+ * 3. Minutos estimados -> Sub-vista de gráfico de torta que distribuye el tiempo a invertir.
  */
 
 import { useState, useMemo, useEffect } from 'react'
@@ -9,7 +12,6 @@ import {
     CheckCircle2,
     AlertCircle,
     Flame,
-    Search,
     Plus,
     Minus,
     Sparkles,
@@ -18,10 +20,13 @@ import {
     ChevronLeft,
     ChevronRight,
     Clapperboard,
+    PieChart as PieChartIcon,
+    Tv,
+    Calendar,
 } from 'lucide-react'
 import { useAgenda } from '../../hooks/useAgenda'
 import { alFallarPoster } from '../mi-lista/mi-lista-data'
-import { dentroDe } from '../../shared/tiempo'
+import { dentroDe, aFecha, fechaLarga, horaLocal } from '../../shared/tiempo'
 import type { AgendaItem, SuggestedAiringAnime } from '../../services/agendaApi'
 import './agenda.css'
 
@@ -29,8 +34,33 @@ interface AgendaViewProps {
     onOpenAnimeDetail?: (malId: number) => void
 }
 
-type FiltroTab = 'todos' | 'atrasados' | 'al_dia'
-type OrdenCriterio = 'atraso_desc' | 'atraso_asc' | 'titulo'
+type SubvistaAgenda = 'atrasados' | 'proximos' | 'tiempo'
+
+interface CapituloFuturo {
+    id: string
+    malId: number
+    title: string
+    titleEnglish: string
+    imageUrl: string
+    episodeNumber: number
+    airingAtUnix: number
+    episodesWatched: number
+    episodesBehind: number
+}
+
+// Paleta de colores distintivos y armoniosos para el gráfico de torta
+const PALETA_TORTA = [
+    '#e8508f', // Acento primario rosa
+    '#8b5cf6', // Violeta
+    '#38bdf8', // Cyan brillante
+    '#34d399', // Esmeralda / menta
+    '#fbbf24', // Ámbar cálido
+    '#f87171', // Coral suave
+    '#a78bfa', // Lavanda
+    '#f472b6', // Fucsia suave
+    '#2dd4bf', // Turquesa
+    '#c084fc', // Púrpura pastel
+]
 
 export function AgendaView({ onOpenAnimeDetail }: AgendaViewProps) {
     const {
@@ -46,9 +76,15 @@ export function AgendaView({ onOpenAnimeDetail }: AgendaViewProps) {
         isAdding,
     } = useAgenda()
 
-    const [filtro, setFiltro] = useState<FiltroTab>('todos')
-    const [busqueda, setBusqueda] = useState('')
-    const [orden, setOrden] = useState<OrdenCriterio>('atraso_desc')
+    // Sub-vista activa seleccionada a través de los KPIs
+    const [subvista, setSubvista] = useState<SubvistaAgenda>('atrasados')
+
+    // Paginación para la sub-vista de próximos capítulos futuros (5 por página, hasta 15)
+    const [proximosPagina, setProximosPagina] = useState(1)
+    const itemsPorPagina = 5
+
+    // Estado del hover en el gráfico de torta
+    const [hoveredAnimeId, setHoveredAnimeId] = useState<number | null>(null)
 
     // Estado del carrusel para los animes sugeridos
     const [slideIndex, setSlideIndex] = useState(0)
@@ -77,40 +113,116 @@ export function AgendaView({ onOpenAnimeDetail }: AgendaViewProps) {
     const formatoTiempo = (minutos: number) => {
         if (!minutos || minutos <= 0) return '0 min'
         if (minutos < 60) return `${minutos} min`
-        const horas = Math.round(minutos / 60)
-        return `${horas} h`
+        const horas = Math.floor(minutos / 60)
+        const resto = minutos % 60
+        return resto > 0 ? `${horas}h ${resto}m` : `${horas} h`
     }
     const formatoMinutos = formatoTiempo
 
-    // Filtrado y ordenación reactiva de la lista de pendientes
-    const itemsFiltrados = useMemo(() => {
-        let res = [...items]
+    // 1. Cálculo del anime con el estreno más cercano para el KPI 2
+    const proximoEstreno = useMemo(() => {
+        const ahora = Date.now() / 1000
+        const conEstreno = items
+            .filter((it) => it.next_airing_at && it.next_airing_at > ahora)
+            .sort((a, b) => a.next_airing_at! - b.next_airing_at!)
+        return conEstreno[0] || null
+    }, [items])
 
-        if (filtro === 'atrasados') {
-            res = res.filter((item) => item.episodes_behind > 0)
-        } else if (filtro === 'al_dia') {
-            res = res.filter((item) => item.is_up_to_date)
+    // 2. Animes que tienen atraso actualmente (para la sub-vista 1)
+    const animesConAtraso = useMemo(() => {
+        return items
+            .filter((item) => item.episodes_behind > 0)
+            .sort((a, b) => b.episodes_behind - a.episodes_behind || a.title.localeCompare(b.title))
+    }, [items])
+
+    // 3. Proyección de hasta 15 capítulos futuros de las series del usuario (para la sub-vista 2)
+    const capsFuturos = useMemo(() => {
+        const ahora = Date.now() / 1000
+        const lista: CapituloFuturo[] = []
+
+        items.forEach((item) => {
+            if (!item.next_airing_at || item.next_airing_at <= ahora) return
+
+            const baseTime = item.next_airing_at
+            const baseEp = item.next_episode || item.latest_episode + 1
+            const maxEp = item.total_episodes || 999
+
+            // Proyectamos hasta 4 semanas futuras por anime si no excede su total
+            for (let i = 0; i < 4; i++) {
+                const epNum = baseEp + i
+                if (epNum > maxEp) break
+                const airTime = baseTime + i * 7 * 86400
+
+                lista.push({
+                    id: `${item.mal_id}-ep-${epNum}`,
+                    malId: item.mal_id,
+                    title: item.title,
+                    titleEnglish: item.title_english || item.title,
+                    imageUrl: item.image_url,
+                    episodeNumber: epNum,
+                    airingAtUnix: airTime,
+                    episodesWatched: item.episodes_watched,
+                    episodesBehind: item.episodes_behind,
+                })
+            }
+        })
+
+        // Ordenamos cronológicamente y recortamos a exactamente máximo 15 capítulos
+        lista.sort((a, b) => a.airingAtUnix - b.airingAtUnix)
+        return lista.slice(0, 15)
+    }, [items])
+
+    // Paginación de capítulos futuros
+    const totalPaginasProximos = Math.max(1, Math.ceil(capsFuturos.length / itemsPorPagina))
+    const capsFuturosPaginados = useMemo(() => {
+        const inicio = (proximosPagina - 1) * itemsPorPagina
+        return capsFuturos.slice(inicio, inicio + itemsPorPagina)
+    }, [capsFuturos, proximosPagina, itemsPorPagina])
+
+    // 4. Datos para el Gráfico de Torta de Distribución de Tiempo (para la sub-vista 3)
+    const datosTorta = useMemo(() => {
+        const conTiempo = animesConAtraso.map((item, idx) => {
+            const minutos = item.episodes_behind * (item.duration || 24)
+            return {
+                malId: item.mal_id,
+                title: item.title_english || item.title,
+                imageUrl: item.image_url,
+                episodesBehind: item.episodes_behind,
+                minutos,
+                color: PALETA_TORTA[idx % PALETA_TORTA.length],
+            }
+        })
+
+        const totalMinutos = conTiempo.reduce((acc, curr) => acc + curr.minutos, 0)
+
+        // Calcular segmentos para el Donut Chart SVG
+        // Radio R = 75, Circunferencia C = 2 * PI * 75 ≈ 471.24
+        const radio = 75
+        const circunferencia = 2 * Math.PI * radio
+        let offsetAcumulado = 0
+
+        const segmentos = conTiempo.map((item) => {
+            const porcentaje = totalMinutos > 0 ? (item.minutos / totalMinutos) * 100 : 0
+            const longitudSegmento = (porcentaje / 100) * circunferencia
+            const dasharray = `${Math.max(1, longitudSegmento)} ${circunferencia}`
+            const dashoffset = -offsetAcumulado
+            offsetAcumulado += longitudSegmento
+
+            return {
+                ...item,
+                porcentaje,
+                dasharray,
+                dashoffset,
+            }
+        })
+
+        return {
+            items: segmentos,
+            totalMinutos,
+            circunferencia,
+            radio,
         }
-
-        if (busqueda.trim()) {
-            const q = busqueda.toLowerCase().trim()
-            res = res.filter(
-                (item) =>
-                    item.title.toLowerCase().includes(q) ||
-                    (item.title_english && item.title_english.toLowerCase().includes(q))
-            )
-        }
-
-        if (orden === 'atraso_desc') {
-            res.sort((a, b) => b.episodes_behind - a.episodes_behind || a.title.localeCompare(b.title))
-        } else if (orden === 'atraso_asc') {
-            res.sort((a, b) => a.episodes_behind - b.episodes_behind || a.title.localeCompare(b.title))
-        } else if (orden === 'titulo') {
-            res.sort((a, b) => a.title.localeCompare(b.title))
-        }
-
-        return res
-    }, [items, filtro, busqueda, orden])
+    }, [animesConAtraso])
 
     const abrirLogin = () => (document.getElementById('loginDialog') as HTMLDialogElement | null)?.showModal()
 
@@ -131,243 +243,461 @@ export function AgendaView({ onOpenAnimeDetail }: AgendaViewProps) {
                     cuántos episodios te faltan para no perderte ningún estreno.
                 </p>
 
-                {/* KPI Metric Cards */}
+                {/* KPI Cards Interactivos — Funcionan como Selectores de Sub-vistas */}
                 <div className="agenda-kpi-grid">
-                    <div className="agenda-kpi-card kpi-accent">
+                    {/* KPI 1: Caps de Atraso Totales */}
+                    <div
+                        className={`agenda-kpi-card ${subvista === 'atrasados' ? 'kpi-active' : ''}`}
+                        onClick={() => setSubvista('atrasados')}
+                        title="Click para ver animes con capítulos atrasados"
+                    >
                         <div className="agenda-kpi-icon">
                             <Flame size={24} />
                         </div>
                         <div>
                             <div className="agenda-kpi-val">{summary.total_episodes_behind}</div>
                             <div className="agenda-kpi-label">Caps de Atraso Totales</div>
+                            <div className="agenda-kpi-subtext">
+                                {animesConAtraso.length === 1
+                                    ? '1 anime con retraso'
+                                    : `${animesConAtraso.length} animes con retraso`}
+                            </div>
                         </div>
+                        {subvista === 'atrasados' && (
+                            <span className="agenda-kpi-active-pill">Viendo</span>
+                        )}
                     </div>
 
-                    <div className="agenda-kpi-card">
-                        <div className="agenda-kpi-icon text-warning">
-                            <AlertCircle size={24} />
-                        </div>
-                        <div>
-                            <div className="agenda-kpi-val">{summary.behind_count}</div>
-                            <div className="agenda-kpi-label">Series con Atraso</div>
-                        </div>
-                    </div>
-
-                    <div className="agenda-kpi-card">
+                    {/* KPI 2: Próximo Capítulo Sale En */}
+                    <div
+                        className={`agenda-kpi-card ${subvista === 'proximos' ? 'kpi-active' : ''}`}
+                        onClick={() => {
+                            setSubvista('proximos')
+                            setProximosPagina(1)
+                        }}
+                        title="Click para ver los próximos 15 capítulos futuros de tus series"
+                    >
                         <div className="agenda-kpi-icon text-info">
                             <Clock size={24} />
                         </div>
                         <div>
+                            <div className="agenda-kpi-val" style={{ fontSize: '1.5rem' }}>
+                                {proximoEstreno ? dentroDe(proximoEstreno.next_airing_at!) : 'Al día'}
+                            </div>
+                            <div className="agenda-kpi-label">Próximo capítulo sale en</div>
+                            <div className="agenda-kpi-subtext" title={proximoEstreno ? `${proximoEstreno.title_english || proximoEstreno.title} Ep. ${proximoEstreno.next_episode}` : ''}>
+                                {proximoEstreno
+                                    ? `Ep. ${proximoEstreno.next_episode} · ${proximoEstreno.title_english || proximoEstreno.title}`
+                                    : 'Sin estrenos programados'}
+                            </div>
+                        </div>
+                        {subvista === 'proximos' && (
+                            <span className="agenda-kpi-active-pill">Viendo</span>
+                        )}
+                    </div>
+
+                    {/* KPI 3: Minutos Estimados / Gráfico de Tiempo */}
+                    <div
+                        className={`agenda-kpi-card ${subvista === 'tiempo' ? 'kpi-active' : ''}`}
+                        onClick={() => setSubvista('tiempo')}
+                        title="Click para ver gráfico de torta con la distribución de tiempo"
+                    >
+                        <div className="agenda-kpi-icon text-warning">
+                            <PieChartIcon size={24} />
+                        </div>
+                        <div>
                             <div className="agenda-kpi-val">{formatoMinutos(summary.estimated_minutes)}</div>
                             <div className="agenda-kpi-label">Minutos Estimados</div>
+                            <div className="agenda-kpi-subtext">Distribución de tiempo</div>
                         </div>
+                        {subvista === 'tiempo' && (
+                            <span className="agenda-kpi-active-pill">Viendo</span>
+                        )}
                     </div>
                 </div>
             </header>
 
-            {/* Barra de Herramientas y Filtros */}
-            <div className="agenda-toolbar">
-                <div className="agenda-tabs" role="tablist" aria-label="Filtro de agenda">
-                    <button
-                        type="button"
-                        className={`agenda-tab ${filtro === 'todos' ? 'active' : ''}`}
-                        onClick={() => setFiltro('todos')}
-                    >
-                        Todos <span className="agenda-tab-count">{items.length}</span>
-                    </button>
-                    <button
-                        type="button"
-                        className={`agenda-tab ${filtro === 'atrasados' ? 'active' : ''}`}
-                        onClick={() => setFiltro('atrasados')}
-                    >
-                        Atrasados <span className="agenda-tab-count">{summary.behind_count}</span>
-                    </button>
-                    <button
-                        type="button"
-                        className={`agenda-tab ${filtro === 'al_dia' ? 'active' : ''}`}
-                        onClick={() => setFiltro('al_dia')}
-                    >
-                        Al Día <span className="agenda-tab-count">{summary.up_to_date_count}</span>
-                    </button>
-                </div>
-
-                <div className="d-flex align-items-center gap-2 flex-wrap">
-                    <div className="agenda-search-box">
-                        <Search size={16} />
-                        <input
-                            type="text"
-                            placeholder="Buscar en tu agenda..."
-                            value={busqueda}
-                            onChange={(e) => setBusqueda(e.target.value)}
-                            className="agenda-search-input"
-                        />
-                    </div>
-
-                    <select
-                        className="form-select form-select-sm bg-dark text-light border-secondary"
-                        style={{ width: 'auto', fontSize: '0.85rem' }}
-                        value={orden}
-                        onChange={(e) => setOrden(e.target.value as OrdenCriterio)}
-                        aria-label="Criterio de ordenación"
-                    >
-                        <option value="atraso_desc">Mayor atraso primero</option>
-                        <option value="atraso_asc">Menor atraso primero</option>
-                        <option value="titulo">Título A-Z</option>
-                    </select>
-                </div>
+            {/* Cabecera Descriptiva de la Sub-vista Activa */}
+            <div className="agenda-subview-header">
+                <h2 className="agenda-subview-title">
+                    {subvista === 'atrasados' && (
+                        <>
+                            <Flame size={18} className="text-warning" />
+                            <span>Animes con Atraso y Próximo Capítulo a Ver</span>
+                            <span className="agenda-subview-badge">{animesConAtraso.length} series</span>
+                        </>
+                    )}
+                    {subvista === 'proximos' && (
+                        <>
+                            <Calendar size={18} style={{ color: '#38bdf8' }} />
+                            <span>Próximos Capítulos de tus Series</span>
+                            <span className="agenda-subview-badge">{capsFuturos.length} programados</span>
+                        </>
+                    )}
+                    {subvista === 'tiempo' && (
+                        <>
+                            <PieChartIcon size={18} className="text-warning" />
+                            <span>Distribución del Tiempo a Invertir</span>
+                            <span className="agenda-subview-badge">{formatoMinutos(datosTorta.totalMinutos)} total</span>
+                        </>
+                    )}
+                </h2>
             </div>
 
-            {/* Listado Principal de Tarjetas */}
-            {isLoading ? (
-                <div className="agenda-zero-state">
-                    <div className="spinner-border text-primary mb-3" role="status" />
-                    <p className="text-secondary mb-0">Cargando tu agenda de episodios en emisión...</p>
-                </div>
-            ) : itemsFiltrados.length > 0 ? (
-                <div className="agenda-cards-list">
-                    {itemsFiltrados.map((item: AgendaItem) => {
-                        const isSevere = item.episodes_behind >= 4
-                        const cardStateClass = item.is_up_to_date
-                            ? 'card-up-to-date'
-                            : isSevere
-                            ? 'card-severe'
-                            : 'card-behind'
+            {/* ==============================================================
+                SUB-VISTA 1: ANIMES CON ATRASO (ALTO ENFOQUE EN CANTIDAD Y SIGUIENTE CAP)
+               ============================================================== */}
+            {subvista === 'atrasados' && (
+                <>
+                    {isLoading ? (
+                        <div className="agenda-zero-state">
+                            <div className="spinner-border text-primary mb-3" role="status" />
+                            <p className="text-secondary mb-0">Cargando tus animes con atraso...</p>
+                        </div>
+                    ) : animesConAtraso.length > 0 ? (
+                        <div className="agenda-cards-list">
+                            {animesConAtraso.map((item: AgendaItem) => {
+                                const isSevere = item.episodes_behind >= 4
+                                const siguienteCap = item.episodes_watched + 1
 
-                        return (
-                            <article key={item.entry_id} className={`agenda-card ${cardStateClass}`}>
-                                {/* Poster */}
-                                <img
-                                    src={item.image_url}
-                                    alt={item.title}
-                                    className="agenda-card-poster"
-                                    onError={alFallarPoster}
-                                    onClick={() => onOpenAnimeDetail?.(item.mal_id)}
-                                    title="Ver ficha del anime"
-                                />
-
-                                {/* Info Central */}
-                                <div className="agenda-card-main">
-                                    <div className="agenda-card-title-row">
-                                        <h2
-                                            className="agenda-card-title mb-0"
+                                return (
+                                    <article
+                                        key={item.entry_id}
+                                        className={`agenda-card ${isSevere ? 'card-severe' : 'card-behind'}`}
+                                    >
+                                        {/* Poster */}
+                                        <img
+                                            src={item.image_url}
+                                            alt={item.title}
+                                            className="agenda-card-poster"
+                                            onError={alFallarPoster}
                                             onClick={() => onOpenAnimeDetail?.(item.mal_id)}
-                                            title={item.title_english || item.title}
-                                        >
-                                            {item.title_english || item.title}
-                                        </h2>
+                                            title="Ver ficha del anime"
+                                        />
 
-                                        {item.is_up_to_date ? (
-                                            <span className="agenda-delay-badge badge-success">
-                                                <Check size={12} /> Al día
-                                            </span>
-                                        ) : (
-                                            <span
-                                                className={`agenda-delay-badge ${
-                                                    isSevere ? 'badge-danger' : 'badge-warning'
-                                                }`}
-                                            >
-                                                <AlertCircle size={12} />
-                                                {item.episodes_behind} de atraso
-                                            </span>
-                                        )}
-                                    </div>
+                                        {/* Contenido en 3 filas completas sin desbordes */}
+                                        <div className="agenda-card-content">
+                                            {/* Fila 1: Título y Badge de Atraso */}
+                                            <div className="agenda-card-header-row">
+                                                <h3
+                                                    className="agenda-card-title"
+                                                    onClick={() => onOpenAnimeDetail?.(item.mal_id)}
+                                                    title={item.title_english || item.title}
+                                                >
+                                                    {item.title_english || item.title}
+                                                </h3>
 
-                                    {/* Metadatos Acotados */}
-                                    <div className="agenda-card-meta">
-                                        <span className="agenda-meta-item">
-                                            Vas en el cap: <strong>{item.episodes_watched}</strong>
-                                        </span>
-                                        <span className="agenda-meta-sep">·</span>
-                                        <span className="agenda-meta-item">
-                                            Te faltan:{' '}
-                                            <strong className={item.episodes_behind > 0 ? 'text-warning' : 'text-success'}>
-                                                {item.episodes_behind}
-                                            </strong>
-                                        </span>
-                                        <span className="agenda-meta-sep">·</span>
-                                        <span className="agenda-meta-item">
-                                            Tiempo:{' '}
-                                            <strong className="text-info">
-                                                {formatoTiempo(item.episodes_behind * (item.duration || 24))}
-                                            </strong>
-                                        </span>
-
-                                        {item.next_airing_at && (
-                                            <div className="agenda-meta-next">
-                                                <Clock size={12} />
-                                                <span>
-                                                    Próximo ep. <strong>{item.next_episode}</strong> {dentroDe(item.next_airing_at)}
+                                                <span
+                                                    className={`agenda-delay-badge ${
+                                                        isSevere ? 'badge-danger' : 'badge-warning'
+                                                    }`}
+                                                >
+                                                    <AlertCircle size={12} />
+                                                    {item.episodes_behind} de atraso
                                                 </span>
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
 
-                                {/* Acciones y Contador */}
-                                <div className="agenda-card-actions">
-                                    <div className="agenda-counter-controls">
-                                        <button
-                                            type="button"
-                                            className="agenda-btn-counter"
-                                            title="Restar 1 capítulo"
-                                            disabled={item.episodes_watched <= 0}
-                                            onClick={() => decrementEpisode(item)}
-                                        >
-                                            <Minus size={14} />
-                                        </button>
+                                            {/* Fila 2: Enfoque Siguiente Capítulo + Stepper y Botón Visto */}
+                                            <div className="agenda-card-action-row">
+                                                <div className="agenda-next-focus-tag">
+                                                    <Tv size={14} style={{ color: 'var(--theme-acento, #e8508f)' }} />
+                                                    <span>A continuación:</span>
+                                                    <strong className="agenda-next-focus-cap">
+                                                        Capítulo {siguienteCap}
+                                                    </strong>
+                                                </div>
 
-                                        <span className="agenda-counter-current" title="Capítulo actual visto">
-                                            {item.episodes_watched}
-                                        </span>
+                                                <div className="agenda-action-buttons-group">
+                                                    <div className="agenda-counter-controls">
+                                                        <button
+                                                            type="button"
+                                                            className="agenda-btn-counter"
+                                                            title="Restar 1 capítulo"
+                                                            disabled={item.episodes_watched <= 0}
+                                                            onClick={() => decrementEpisode(item)}
+                                                        >
+                                                            <Minus size={13} />
+                                                        </button>
 
-                                        <button
-                                            type="button"
-                                            className="agenda-btn-counter agenda-btn-plus"
-                                            title="Sumar 1 capítulo visto"
-                                            onClick={() => incrementEpisode(item)}
-                                        >
-                                            <Plus size={14} /> +1 Visto
-                                        </button>
-                                    </div>
+                                                        <span className="agenda-counter-current" title="Capítulo actual visto">
+                                                            {item.episodes_watched}
+                                                        </span>
 
-                                    <button
-                                        type="button"
-                                        className="agenda-btn-uptodate"
-                                        disabled={item.is_up_to_date}
-                                        onClick={() => markSetUpToDate(item)}
-                                        title={`Marcar hasta el capítulo ${item.latest_episode} como visto`}
-                                    >
-                                        <Check size={14} /> ¡Poner al día!
-                                    </button>
-                                </div>
-                            </article>
-                        )
-                    })}
-                </div>
-            ) : (
-                <div className="agenda-zero-state">
-                    <div className="agenda-zero-icon">
-                        {filtro === 'atrasados' ? <CheckCircle2 size={28} /> : <CalendarCheck size={28} />}
-                    </div>
-                    {filtro === 'atrasados' ? (
-                        <>
-                            <h3 className="h5 text-white mb-2">¡Estás completamente al día! 🎉</h3>
+                                                        <button
+                                                            type="button"
+                                                            className="agenda-btn-counter"
+                                                            title="Sumar 1 capítulo"
+                                                            onClick={() => incrementEpisode(item)}
+                                                        >
+                                                            <Plus size={13} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Fila 3: Metadatos y Botón Poner al Día */}
+                                            <div className="agenda-card-footer-row">
+                                                <div className="agenda-footer-meta">
+                                                    <span>Vas: <strong>{item.episodes_watched}</strong></span>
+                                                    <span className="agenda-meta-sep">·</span>
+                                                    <span>Faltan: <strong className="text-warning">{item.episodes_behind}</strong></span>
+                                                    <span className="agenda-meta-sep">·</span>
+                                                    <span>Tiempo: <strong className="text-info">{formatoTiempo(item.episodes_behind * (item.duration || 24))}</strong></span>
+                                                </div>
+
+                                                <div className="agenda-footer-right">
+                                                    {item.next_airing_at && (
+                                                        <div className="agenda-meta-next" title={`Próximo episodio ${item.next_episode}`}>
+                                                            <Clock size={11} />
+                                                            <span>Ep. {item.next_episode} {dentroDe(item.next_airing_at)}</span>
+                                                        </div>
+                                                    )}
+
+                                                    <button
+                                                        type="button"
+                                                        className="agenda-btn-uptodate"
+                                                        disabled={item.is_up_to_date}
+                                                        onClick={() => markSetUpToDate(item)}
+                                                        title={`Marcar hasta el capítulo ${item.latest_episode} como visto`}
+                                                    >
+                                                        <Check size={12} />
+                                                        <span>¡Poner al día!</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </article>
+                                )
+                            })}
+                        </div>
+                    ) : (
+                        <div className="agenda-zero-state">
+                            <div className="agenda-zero-icon">
+                                <CheckCircle2 size={32} />
+                            </div>
+                            <h3 className="h5 text-white mb-2">¡Felicidades! Estás completamente al día 🎉</h3>
                             <p className="text-secondary small mb-0">
                                 No tienes ningún capítulo atrasado entre tus animes en emisión.
                             </p>
-                        </>
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* ==============================================================
+                SUB-VISTA 2: PRÓXIMOS LANZAMIENTOS (HASTA 15 CAPS, PAGINADOS)
+               ============================================================== */}
+            {subvista === 'proximos' && (
+                <div className="agenda-future-container">
+                    {capsFuturos.length === 0 ? (
+                        <div className="agenda-zero-state" style={{ background: 'transparent', border: 'none' }}>
+                            <div className="agenda-zero-icon">
+                                <CalendarCheck size={32} />
+                            </div>
+                            <h3 className="h5 text-white mb-2">No hay fechas de emisión programadas</h3>
+                            <p className="text-secondary small mb-0">
+                                Agrega animes en emisión a tu lista para ver el calendario de sus próximos estrenos.
+                            </p>
+                        </div>
                     ) : (
                         <>
-                            <h3 className="h5 text-white mb-2">No hay animes en emisión en tu lista</h3>
-                            <p className="text-secondary small mb-3">
-                                Agrega las series que estás viendo de la temporada actual para que la agenda lleve
-                                automáticamente la cuenta de tus episodios pendientes.
-                            </p>
-                            {!isAuthenticated && (
-                                <button type="button" className="btn btn-primary btn-sm" onClick={abrirLogin}>
-                                    Iniciar sesión para guardar tu progreso
+                            <div className="agenda-future-grid">
+                                {capsFuturosPaginados.map((cap) => {
+                                    const fechaObj = aFecha(cap.airingAtUnix)
+                                    const fechaTexto = fechaLarga(fechaObj)
+                                    const horaTexto = horaLocal(cap.airingAtUnix)
+
+                                    return (
+                                        <div key={cap.id} className="agenda-future-card">
+                                            <div className="agenda-future-left">
+                                                <img
+                                                    src={cap.imageUrl}
+                                                    alt={cap.title}
+                                                    className="agenda-future-poster"
+                                                    onError={alFallarPoster}
+                                                    onClick={() => onOpenAnimeDetail?.(cap.malId)}
+                                                    title="Ver anime"
+                                                />
+
+                                                <div className="agenda-future-info">
+                                                    <h3
+                                                        className="agenda-future-title"
+                                                        onClick={() => onOpenAnimeDetail?.(cap.malId)}
+                                                        title={cap.titleEnglish}
+                                                    >
+                                                        {cap.titleEnglish}
+                                                    </h3>
+                                                    <div className="d-flex align-items-center gap-2">
+                                                        <span className="agenda-future-ep-badge">
+                                                            <Clapperboard size={12} />
+                                                            Capítulo {cap.episodeNumber}
+                                                        </span>
+                                                        <span className="small text-secondary font-mono" style={{ fontSize: '0.75rem' }}>
+                                                            Vas en el cap. {cap.episodesWatched}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="agenda-future-right">
+                                                <div className="agenda-future-countdown">
+                                                    <Clock size={13} />
+                                                    <span>Sale {dentroDe(cap.airingAtUnix)}</span>
+                                                </div>
+                                                <span className="agenda-future-date">
+                                                    {fechaTexto}, {horaTexto} hs
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+
+                            {/* Paginación (5 capítulos por página) */}
+                            <div className="agenda-pagination-row">
+                                <button
+                                    type="button"
+                                    className="agenda-page-btn"
+                                    disabled={proximosPagina <= 1}
+                                    onClick={() => setProximosPagina((p) => Math.max(1, p - 1))}
+                                >
+                                    <ChevronLeft size={16} />
+                                    <span>Anteriores</span>
                                 </button>
-                            )}
+
+                                <span className="agenda-page-indicator">
+                                    Página {proximosPagina} de {totalPaginasProximos} ({capsFuturos.length} capítulos)
+                                </span>
+
+                                <button
+                                    type="button"
+                                    className="agenda-page-btn"
+                                    disabled={proximosPagina >= totalPaginasProximos}
+                                    onClick={() => setProximosPagina((p) => Math.min(totalPaginasProximos, p + 1))}
+                                >
+                                    <span>Siguientes</span>
+                                    <ChevronRight size={16} />
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
+
+            {/* ==============================================================
+                SUB-VISTA 3: GRÁFICO DE TORTA / DISTRIBUCIÓN DE TIEMPO
+               ============================================================== */}
+            {subvista === 'tiempo' && (
+                <div className="agenda-pie-wrapper">
+                    {datosTorta.items.length === 0 ? (
+                        <div className="agenda-zero-state w-100" style={{ background: 'transparent', border: 'none' }}>
+                            <div className="agenda-zero-icon">
+                                <CheckCircle2 size={32} />
+                            </div>
+                            <h3 className="h5 text-white mb-2">¡Cero tiempo pendiente por invertir! 🎉</h3>
+                            <p className="text-secondary small mb-0">
+                                Estás al día con todos tus animes en emisión, no requieres tiempo de maratón.
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Columna Izquierda: Gráfico Donut SVG Reactivo */}
+                            <div className="agenda-pie-chart-col">
+                                <div className="agenda-pie-svg-container">
+                                    <svg viewBox="0 0 200 200" className="agenda-pie-svg">
+                                        {/* Pista de fondo */}
+                                        <circle
+                                            cx="100"
+                                            cy="100"
+                                            r={datosTorta.radio}
+                                            fill="transparent"
+                                            stroke="rgba(255, 255, 255, 0.05)"
+                                            strokeWidth="28"
+                                        />
+
+                                        {/* Segmentos por Anime */}
+                                        {datosTorta.items.map((seg) => {
+                                            const isHovered = hoveredAnimeId === seg.malId
+
+                                            return (
+                                                <circle
+                                                    key={seg.malId}
+                                                    cx="100"
+                                                    cy="100"
+                                                    r={datosTorta.radio}
+                                                    fill="transparent"
+                                                    stroke={seg.color}
+                                                    strokeWidth={isHovered ? '34' : '28'}
+                                                    strokeDasharray={seg.dasharray}
+                                                    strokeDashoffset={seg.dashoffset}
+                                                    strokeLinecap="butt"
+                                                    style={{
+                                                        transition: 'all 0.25s ease',
+                                                        cursor: 'pointer',
+                                                        filter: isHovered ? `drop-shadow(0 0 8px ${seg.color})` : 'none',
+                                                    }}
+                                                    onMouseEnter={() => setHoveredAnimeId(seg.malId)}
+                                                    onMouseLeave={() => setHoveredAnimeId(null)}
+                                                />
+                                            )
+                                        })}
+                                    </svg>
+
+                                    {/* Centro del Donut */}
+                                    <div className="agenda-pie-center-text">
+                                        <div className="agenda-pie-total-val">
+                                            {formatoTiempo(datosTorta.totalMinutos)}
+                                        </div>
+                                        <div className="agenda-pie-total-label">Tiempo Total</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Columna Derecha: Leyenda Desglosada con Barras */}
+                            <div className="agenda-pie-legend">
+                                {datosTorta.items.map((item) => {
+                                    const isHovered = hoveredAnimeId === item.malId
+
+                                    return (
+                                        <div
+                                            key={item.malId}
+                                            className={`agenda-pie-item ${isHovered ? 'is-hovered' : ''}`}
+                                            onMouseEnter={() => setHoveredAnimeId(item.malId)}
+                                            onMouseLeave={() => setHoveredAnimeId(null)}
+                                            onClick={() => onOpenAnimeDetail?.(item.malId)}
+                                            title="Ver anime"
+                                        >
+                                            <div className="agenda-pie-item-left">
+                                                <span
+                                                    className="agenda-pie-color-dot"
+                                                    style={{ background: item.color }}
+                                                />
+                                                <img
+                                                    src={item.imageUrl}
+                                                    alt={item.title}
+                                                    className="agenda-pie-thumb"
+                                                    onError={alFallarPoster}
+                                                />
+                                                <div className="agenda-pie-item-info">
+                                                    <h4 className="agenda-pie-item-title mb-0">{item.title}</h4>
+                                                    <span className="agenda-pie-item-behind">
+                                                        {item.episodesBehind} {item.episodesBehind === 1 ? 'capítulo' : 'capítulos'} de atraso
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="agenda-pie-item-right">
+                                                <div className="agenda-pie-item-time">
+                                                    {formatoTiempo(item.minutos)}
+                                                </div>
+                                                <span className="agenda-pie-item-pct">
+                                                    {item.porcentaje.toFixed(0)}% del total
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
                         </>
                     )}
                 </div>
