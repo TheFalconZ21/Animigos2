@@ -20,7 +20,7 @@
   position: sticky;
   top: 0;
   height: 100vh;
-  z-index: 1040;
+  z-index: 40 !important;
   flex-shrink: 0;
   user-select: none;
   box-sizing: border-box;
@@ -93,7 +93,7 @@
 /* Desplazamiento ligero a la derecha cuando está colapsado */
 .platform-sidebar.collapsed .admin-sidebar-header button,
 .platform-sidebar.collapsed .platform-sidebar-header button {
-  transform: translateX(6px);
+  transform: translateX(7px);
   transition: transform 0.2s ease;
 }
 
@@ -365,18 +365,26 @@
 }
 
 .platform-main {
+  position: relative;
+  z-index: 50;
   min-height: 100vh;
 }
 
 /* Desaturación y alineación milimétrica del navbar con el sidebar */
 .glass-nav {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 60 !important;
   height: 64px !important;
   min-height: 64px !important;
   max-height: 64px !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
   box-sizing: border-box !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-bottom: 1px solid var(--platform-sidebar-border, rgba(255, 255, 255, 0.08)) !important;
+  background-color: var(--platform-sidebar-bg, #08080c) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
 }
 
 .navbar-subview-back-btn {
