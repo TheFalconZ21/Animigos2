@@ -69,6 +69,7 @@ export function apiEntryToFila(entry: ApiUserListEntry): FilaLista {
         genres: rawAnime.genres || [],
         tagsData: rawAnime.tags_data || [],
         synopsis: rawAnime.synopsis || '',
+        type: rawAnime.type,
     }
 
     return {

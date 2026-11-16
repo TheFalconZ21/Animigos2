@@ -19,7 +19,6 @@ import {
     Compass,
     Tag,
     Search,
-    Calendar,
     PieChart,
     Filter,
     X,
@@ -29,8 +28,9 @@ import type { FilaLista } from '../mi-lista/mi-lista-data'
 import { ESCALA_NOTAS } from '../mi-lista/mi-lista-data'
 import { AnimeDetalleDialog } from '../mi-lista/AnimeDetalleDialog'
 import { TasteCorrelationGraph } from '../recomendador/TasteCorrelationGraph'
+import { AnimeTimeWatchedView } from './AnimeTimeWatchedView'
 import type { TasteAnalyticsResponse } from '../../services/recommenderApi'
-import type { ProfileSubView, ProfileTimeRange } from './perfil-types'
+import type { ProfileSubView } from './perfil-types'
 
 interface AnimeStatsDashboardProps {
     filas: FilaLista[]
@@ -49,15 +49,6 @@ interface AnimeStatsDashboardProps {
 type GenreSortField = 'count' | 'meanScore' | 'minutes' | 'weighted'
 type ContrastTab = 'hated_enjoyed' | 'loved_didnt' | 'hidden_gems' | 'all'
 
-const TREND_COLORS = ['#38bdf8', '#f43f5e', '#34d399', '#fbbf24', '#a78bfa']
-
-const TIME_RANGE_LABELS: Record<ProfileTimeRange, string> = {
-    '7d': 'Últimos 7 días',
-    '30d': 'Último mes',
-    '1y': 'Último año',
-    all: 'All time',
-}
-
 function getEntryMinutes(f: FilaLista): number {
     const epDuration = f.anime.durationMinutes && f.anime.durationMinutes > 0 ? f.anime.durationMinutes : 24
     const eps =
@@ -72,24 +63,6 @@ function getEntryWatchedEpisodes(f: FilaLista): number {
         return f.anime.episodes || f.episodiosVistos || 12
     }
     return f.episodiosVistos || (f.estado === 'viendo' ? 1 : 0)
-}
-
-function filterFilasByTimeRange(filas: FilaLista[], range: ProfileTimeRange): FilaLista[] {
-    if (range === 'all') return filas
-    const now = Date.now()
-    const daysMap: Record<Exclude<ProfileTimeRange, 'all'>, number> = {
-        '7d': 7,
-        '30d': 30,
-        '1y': 365,
-    }
-    const cutoff = now - daysMap[range] * 24 * 60 * 60 * 1000
-    const filtered = filas.filter((f) => {
-        const rawDate = f.updatedAt || f.createdAt
-        if (!rawDate) return true
-        const ts = new Date(rawDate).getTime()
-        return !isNaN(ts) && ts >= cutoff
-    })
-    return filtered
 }
 
 function calculateGenreStatsForFilas(
@@ -249,10 +222,6 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
     const [selectedAnime, setSelectedAnime] = useState<FilaLista | null>(null)
     const favGridRef = useRef<HTMLDivElement | null>(null)
     const [totalRowSlots, setTotalRowSlots] = useState<number>(8)
-
-    // Estado para Subvista 1: Tiempo de Anime Visto
-    const [timeRangeWatched, setTimeRangeWatched] = useState<ProfileTimeRange>('all')
-    const [selectedTimeGenre, setSelectedTimeGenre] = useState<string | null>(null)
 
     // Estado para Subvista 2: Cantidad de Animes en Lista (Estados, % Géneros, % Tags)
     const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'visto' | 'viendo' | 'pendiente' | 'dropeado'>('all')
@@ -454,78 +423,6 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         }
     }, [filas])
 
-    // =========================================================================
-    // 2. CÁLCULO DE TIEMPO CONSUMIDO POR GÉNERO SEGÚN VENTANA TEMPORAL (SUBVISTA 1)
-    // =========================================================================
-    const timeWatchedByGenreData = useMemo(() => {
-        const rangeFilas = filterFilasByTimeRange(
-            filas.filter((f) => f.estado === 'visto' || f.estado === 'viendo' || f.episodiosVistos > 0),
-            timeRangeWatched
-        )
-        const totalMins = rangeFilas.reduce((acc, f) => acc + getEntryMinutes(f), 0)
-        const totalEps = rangeFilas.reduce((acc, f) => acc + getEntryWatchedEpisodes(f), 0)
-
-        const gMap = new Map<
-            string,
-            {
-                genre: string
-                minutes: number
-                episodes: number
-                count: number
-                animes: Array<{ fila: FilaLista; minutes: number; episodes: number }>
-            }
-        >()
-
-        for (const f of rangeFilas) {
-            const mins = getEntryMinutes(f)
-            if (mins <= 0) continue
-            const eps = getEntryWatchedEpisodes(f)
-            const gList = Array.isArray(f.anime.genres) && f.anime.genres.length > 0 ? f.anime.genres : ['General']
-
-            for (const rawG of gList) {
-                const g = String(rawG).trim()
-                if (!g) continue
-                const prev = gMap.get(g) || { genre: g, minutes: 0, episodes: 0, count: 0, animes: [] }
-                prev.minutes += mins
-                prev.episodes += eps
-                prev.count += 1
-                prev.animes.push({ fila: f, minutes: mins, episodes: eps })
-                gMap.set(g, prev)
-            }
-        }
-
-        const genres = Array.from(gMap.values())
-            .sort((a, b) => b.minutes - a.minutes)
-            .map((item) => ({
-                ...item,
-                hours: Number((item.minutes / 60).toFixed(1)),
-                days: Number((item.minutes / (60 * 24)).toFixed(1)),
-                pctOfTime: totalMins > 0 ? Math.min(100, Math.round((item.minutes / totalMins) * 100)) : 0,
-                animes: item.animes.sort((a, b) => b.minutes - a.minutes),
-            }))
-
-        const maxGenreMinutes = Math.max(1, ...genres.map((g) => g.minutes))
-
-        return {
-            totalMinutes: totalMins,
-            totalHours: Math.round(totalMins / 60),
-            totalDays: (totalMins / (60 * 24)).toFixed(1),
-            totalEpisodes: totalEps,
-            totalAnimes: rangeFilas.length,
-            genres,
-            maxGenreMinutes,
-        }
-    }, [filas, timeRangeWatched])
-
-    const activeTimeGenreObj = useMemo(() => {
-        if (timeWatchedByGenreData.genres.length === 0) return null
-        if (selectedTimeGenre) {
-            const found = timeWatchedByGenreData.genres.find((g) => g.genre === selectedTimeGenre)
-            if (found) return found
-        }
-        return timeWatchedByGenreData.genres[0]
-    }, [timeWatchedByGenreData.genres, selectedTimeGenre])
-
     // Subconjuntos reactivos para Subvista 2: Cantidad de Animes en Lista
     const listMetricsFilas = useMemo(() => {
         if (selectedStatusFilter === 'all') return filas
@@ -680,235 +577,17 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         )
     }
 
-    const renderTimeRangeSwitcher = (
-        current: ProfileTimeRange,
-        onChange: (r: ProfileTimeRange) => void
-    ) => (
-        <div className="perfil-subview-switcher">
-            {(['7d', '30d', '1y', 'all'] as ProfileTimeRange[]).map((rk) => (
-                <button
-                    key={rk}
-                    type="button"
-                    onClick={() => onChange(rk)}
-                    className={`perfil-subview-pill ${current === rk ? 'is-active' : ''}`}
-                >
-                    <Calendar size={12} />
-                    <span>{TIME_RANGE_LABELS[rk]}</span>
-                </button>
-            ))}
-        </div>
-    )
-
     // =========================================================================
-    // SUBVISTA 1: TIEMPO DE ANIME VISTO (GÉNEROS VS TIEMPO + PROFUNDIZACIÓN)
+    // SUBVISTA 1: TIEMPO CONSUMIDO (CAPÍTULOS, PELÍCULAS, HORAS, DÍAS + BARRAS + DIMENSIONA TU TIEMPO)
     // =========================================================================
     if (activeSubView === 'time-watched') {
         return (
             <div className="perfil-analytics-hub perfil-subview-enter">
-                <div className="perfil-breakdown-card mb-3">
-                    <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-                        <div>
-                            <span className="ml-eyebrow">SUBVISTA DEDICADA · TIEMPO CONSUMIDO</span>
-                            <h3 className="h5 fw-bold text-white mb-0 d-flex align-items-center gap-2">
-                                <Clock size={18} style={{ color: 'var(--perfil-acento)' }} />
-                                <span>Tiempo de Anime Visto por Género</span>
-                            </h3>
-                            <p className="small text-secondary mb-0 mt-1">
-                                Haz clic en cualquier género de la gráfica para inspeccionar los animes que más tiempo te han consumido
-                            </p>
-                        </div>
-
-                        {renderTimeRangeSwitcher(timeRangeWatched, setTimeRangeWatched)}
-                    </div>
-
-                    {/* Resumen rápido del periodo seleccionado */}
-                    <div className="row g-3 mb-4">
-                        <div className="col-6 col-md-3">
-                            <div className="p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
-                                <div className="small text-secondary">Tiempo en Días</div>
-                                <div className="h4 fw-bold text-white mb-0 mt-1 font-mono" style={{ color: 'var(--perfil-acento)' }}>
-                                    {timeWatchedByGenreData.totalDays} d
-                                </div>
-                            </div>
-                        </div>
-                        <div className="col-6 col-md-3">
-                            <div className="p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
-                                <div className="small text-secondary">Horas Totales</div>
-                                <div className="h4 fw-bold text-white mb-0 mt-1 font-mono">
-                                    {timeWatchedByGenreData.totalHours.toLocaleString()} h
-                                </div>
-                            </div>
-                        </div>
-                        <div className="col-6 col-md-3">
-                            <div className="p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
-                                <div className="small text-secondary">Episodios Vistos</div>
-                                <div className="h4 fw-bold text-white mb-0 mt-1 font-mono" style={{ color: 'var(--perfil-cyan)' }}>
-                                    {timeWatchedByGenreData.totalEpisodes.toLocaleString()} eps
-                                </div>
-                            </div>
-                        </div>
-                        <div className="col-6 col-md-3">
-                            <div className="p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
-                                <div className="small text-secondary">Género con Más Horas</div>
-                                <div className="h5 fw-bold text-white mb-0 mt-1 text-truncate" style={{ color: 'var(--perfil-green)' }}>
-                                    {timeWatchedByGenreData.genres[0]?.genre || '—'}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {timeWatchedByGenreData.genres.length === 0 ? (
-                        <div className="perfil-contrast-empty">
-                            <span>No hay registros de tiempo visto en el rango seleccionado ({TIME_RANGE_LABELS[timeRangeWatched]}).</span>
-                        </div>
-                    ) : (
-                        <div className="row g-4">
-                            {/* Columna Izquierda: Gráfica Comparativa de Géneros vs Tiempo Consumido */}
-                            <div className="col-12 col-lg-7">
-                                <div className="d-flex align-items-center justify-content-between mb-2">
-                                    <span className="small fw-bold text-white text-uppercase" style={{ letterSpacing: '0.05em', fontSize: '0.75rem' }}>
-                                        Comparativa de Géneros por Horas Consumidas
-                                    </span>
-                                    <span className="small text-secondary" style={{ fontSize: '0.73rem' }}>
-                                        Click en un género para profundizar →
-                                    </span>
-                                </div>
-
-                                <div className="d-flex flex-column gap-2.5">
-                                    {timeWatchedByGenreData.genres.slice(0, 10).map((g) => {
-                                        const isSelected = activeTimeGenreObj?.genre === g.genre
-                                        const barWidth = Math.max(6, Math.round((g.minutes / timeWatchedByGenreData.maxGenreMinutes) * 100))
-
-                                        return (
-                                            <div
-                                                key={g.genre}
-                                                onClick={() => setSelectedTimeGenre(g.genre)}
-                                                className={`perfil-interactive-genre-node ${isSelected ? 'is-selected' : ''}`}
-                                                role="button"
-                                                tabIndex={0}
-                                            >
-                                                <div className="d-flex align-items-center justify-content-between mb-1.5">
-                                                    <div className="d-flex align-items-center gap-2">
-                                                        <span className="fw-bold text-white" style={{ fontSize: '0.88rem' }}>
-                                                            {g.genre}
-                                                        </span>
-                                                        <span className="badge rounded-pill px-2 py-0.5 font-mono" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--perfil-text-muted)', fontSize: '0.68rem' }}>
-                                                            {g.count} {g.count === 1 ? 'anime' : 'animes'} · {g.episodes} eps
-                                                        </span>
-                                                    </div>
-                                                    <div className="d-flex align-items-center gap-2 font-mono">
-                                                        <strong className="text-white" style={{ fontSize: '0.9rem' }}>
-                                                            {g.hours} h
-                                                        </strong>
-                                                        <span style={{ color: 'var(--perfil-acento)', fontSize: '0.76rem' }}>
-                                                            ({g.days} d)
-                                                        </span>
-                                                        <ChevronRight size={14} style={{ color: isSelected ? 'var(--perfil-acento)' : 'var(--perfil-text-dim)' }} />
-                                                    </div>
-                                                </div>
-
-                                                <div className="w-100 rounded-pill overflow-hidden" style={{ height: 8, background: 'rgba(255,255,255,0.06)' }}>
-                                                    <div
-                                                        style={{
-                                                            width: `${barWidth}%`,
-                                                            height: '100%',
-                                                            background: isSelected
-                                                                ? 'linear-gradient(90deg, var(--perfil-acento), var(--perfil-cyan))'
-                                                                : 'var(--perfil-acento)',
-                                                            borderRadius: 999,
-                                                            transition: 'width 0.35s ease',
-                                                        }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Columna Derecha: Profundización en los Animes del Género Seleccionado */}
-                            <div className="col-12 col-lg-5">
-                                {activeTimeGenreObj && (
-                                    <div
-                                        className="p-3.5 rounded-4 h-100 d-flex flex-column justify-content-between"
-                                        style={{
-                                            background: 'var(--perfil-card-2)',
-                                            border: '1px solid var(--perfil-acento-border)',
-                                        }}
-                                    >
-                                        <div>
-                                            <div className="d-flex align-items-center justify-content-between mb-2">
-                                                <span className="ml-eyebrow" style={{ color: 'var(--perfil-acento)' }}>
-                                                    DESGLOSE POR OBRA
-                                                </span>
-                                                <span className="badge rounded-pill font-mono" style={{ background: 'var(--perfil-acento-soft)', color: 'var(--perfil-acento)' }}>
-                                                    {activeTimeGenreObj.hours} h totales
-                                                </span>
-                                            </div>
-                                            <h4 className="h6 fw-bold text-white mb-1">
-                                                Animes de {activeTimeGenreObj.genre} y Tiempo Consumido
-                                            </h4>
-                                            <p className="small text-secondary mb-3" style={{ fontSize: '0.76rem' }}>
-                                                Ordenados por horas invertidas. Haz clic en cualquier anime para abrir su ficha.
-                                            </p>
-
-                                            <div className="d-flex flex-column gap-2.5" style={{ maxHeight: 420, overflowY: 'auto' }}>
-                                                {activeTimeGenreObj.animes.map(({ fila, minutes, episodes }) => {
-                                                    const hours = (minutes / 60).toFixed(1)
-                                                    const shareInGenre =
-                                                        activeTimeGenreObj.minutes > 0
-                                                            ? Math.max(4, Math.round((minutes / activeTimeGenreObj.minutes) * 100))
-                                                            : 0
-                                                    return (
-                                                        <div
-                                                            key={fila.id}
-                                                            onClick={() => setSelectedAnime(fila)}
-                                                            className="p-2.5 rounded-3 d-flex align-items-center gap-2.5 border"
-                                                            style={{
-                                                                background: 'var(--perfil-card)',
-                                                                borderColor: 'var(--perfil-border)',
-                                                                cursor: 'pointer',
-                                                            }}
-                                                        >
-                                                            <img
-                                                                src={fila.anime.imageUrl}
-                                                                alt={fila.anime.title}
-                                                                style={{ width: 38, height: 54, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
-                                                            />
-                                                            <div className="flex-grow-1 min-w-0">
-                                                                <div className="d-flex align-items-center justify-content-between gap-2">
-                                                                    <span className="small fw-bold text-white text-truncate">
-                                                                        {fila.anime.title}
-                                                                    </span>
-                                                                    <span className="small font-mono fw-bold flex-shrink-0" style={{ color: 'var(--perfil-acento)' }}>
-                                                                        {hours} h
-                                                                    </span>
-                                                                </div>
-                                                                <div className="d-flex align-items-center justify-content-between small text-secondary mt-0.5" style={{ fontSize: '0.72rem' }}>
-                                                                    <span>{episodes} eps vistos · {fila.anime.durationMinutes || 24} min/ep</span>
-                                                                    <span className="font-mono">{shareInGenre}% del género</span>
-                                                                </div>
-                                                                <div className="w-100 rounded-pill overflow-hidden mt-1.5" style={{ height: 5, background: 'rgba(255,255,255,0.06)' }}>
-                                                                    <div
-                                                                        style={{
-                                                                            width: `${shareInGenre}%`,
-                                                                            height: '100%',
-                                                                            background: 'var(--perfil-acento)',
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                <AnimeTimeWatchedView
+                    filas={filas}
+                    onSelectAnime={(f) => setSelectedAnime(f)}
+                    accentColor={accentColor}
+                />
 
                 {selectedAnime && (
                     <AnimeDetalleDialog

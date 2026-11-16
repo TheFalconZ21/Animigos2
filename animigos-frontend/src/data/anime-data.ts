@@ -22,6 +22,7 @@ export interface ExtendedAnime {
   watchedByFriends?: string[];
   airingDay?: AiringDay;
   broadcastTime?: string;
+  type?: string;
 }
 
 export interface StudioInfo {

@@ -2455,6 +2455,22 @@
     border-color: var(--perfil-border-strong);
 }
 
+/* ============================================================
+   SUBVISTA 1: TIEMPO CONSUMIDO Y EQUIVALENCIAS TEMPORALES
+   ============================================================ */
+.perfil-time-watched-container {
+    position: relative;
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    border-radius: var(--perfil-radius-sm);
+    padding: 1.35rem 1.5rem;
+}
+
+.perfil-time-watched-container svg rect {
+    will-change: height, y;
+}
+
+
 
 
 
