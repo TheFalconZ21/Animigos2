@@ -163,6 +163,21 @@ export function MiLista({ visitedUsername }: { visitedUsername?: string } = {}) 
     const [importarAbierto, setImportarAbierto] = useState(false)
     const [verTodos, setVerTodos] = useState<string | null>(null)
 
+    // --- Interacción con afiches laterales ---
+    const [hoveredFila, setHoveredFila] = useState<FilaLista | null>(null)
+    const [selectedFilaId, setSelectedFilaId] = useState<number | null>(null)
+
+    const activeFila = useMemo(() => {
+        if (hoveredFila) return hoveredFila
+        if (selectedFilaId) {
+            return filas.find((f) => f.malId === selectedFilaId) ?? null
+        }
+        if (detalleId) {
+            return filas.find((f) => f.malId === detalleId) ?? null
+        }
+        return null
+    }, [hoveredFila, selectedFilaId, detalleId, filas])
+
     const handleAgregarAnime = async (nuevaEntrada: EntradaLista, _animeData?: ApiAnimeData) => {
         if (isReadOnlyVisit) return
         try {
@@ -295,7 +310,7 @@ export function MiLista({ visitedUsername }: { visitedUsername?: string } = {}) 
 
     return (
         <section className="ml-root" style={{ '--ml-acento': acento } as CSSProperties}>
-            <LateralesAnime />
+            <LateralesAnime filas={filas} visibles={visibles} activeFila={activeFila} />
 
             <div className="container">
                 {/* ---------- Cabecera ---------- */}
@@ -562,6 +577,9 @@ export function MiLista({ visitedUsername }: { visitedUsername?: string } = {}) 
                                         fila={fila}
                                         posicion={i + 1}
                                         carpetas={carpetas}
+                                        isSelected={selectedFilaId === fila.malId}
+                                        onHover={(hovered) => setHoveredFila(hovered ? fila : null)}
+                                        onSelect={() => setSelectedFilaId((prev) => (prev === fila.malId ? null : fila.malId))}
                                         onActualizar={(cambios) => {
                                             if (isReadOnlyVisit) return
                                             actualizar(fila.malId, cambios)

@@ -620,6 +620,12 @@
     background: linear-gradient(90deg, var(--ml-acento-suave), transparent 60%);
 }
 
+.ml-fila.is-selected {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--ml-acento) 20%, transparent), color-mix(in srgb, var(--ml-acento) 4%, transparent) 85%);
+    border-left: 3px solid var(--ml-acento);
+    padding-left: calc(0.5rem - 3px);
+}
+
 /* Número de posición, como un ranking personal */
 .ml-posicion {
     font-family: var(--font-heading);
@@ -1865,78 +1871,98 @@
     z-index: 1;
 }
 
-/* El ancho y cuántas columnas caben los calcula LateralesAnime.tsx */
+/* ---------- Banners laterales de afiches (Mi Lista) ---------- */
+
 .ml-lateral {
-    display: flex;
     position: fixed;
     top: 0;
     bottom: 0;
     z-index: 0;
-    justify-content: center;
-    gap: 0.9rem;
     overflow: hidden;
     pointer-events: none;
-    opacity: 0.55;
-    -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
-    mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+    opacity: 0.38;
+    transition: opacity 0.5s ease;
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
 }
 
-.ml-lateral-izq { left: 0; }
-.ml-lateral-der { right: 0; }
-
-.ml-columna {
-    width: var(--ml-columna, 150px);
-    flex-shrink: 0;
+.ml-lateral.is-active {
+    opacity: 0.72;
 }
 
-.ml-columna-pista {
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-    animation-timing-function: linear;
-    animation-iteration-count: infinite;
-    will-change: transform;
+/* 
+   Reglas clave de encuadre y recorte:
+   - Lateral DERECHO: muestra el extremo IZQUIERDO del afiche (object-position: left center)
+   - Lateral IZQUIERDO: muestra el extremo DERECHO del afiche (object-position: right center)
+*/
+.ml-lateral-izq {
+    left: 0;
+    -webkit-mask-image: linear-gradient(to right, #000 70%, transparent 100%),
+                        linear-gradient(transparent 0%, #000 12%, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 70%, transparent 100%),
+                linear-gradient(transparent 0%, #000 12%, #000 88%, transparent 100%);
 }
 
-.ml-sube { animation-name: ml-subir; }
-.ml-baja { animation-name: ml-bajar; }
-
-/* Se mueve media pista (una copia completa de la lista) */
-@keyframes ml-subir {
-    from { transform: translateY(0); }
-    to { transform: translateY(calc(-50% - 0.45rem)); }
+.ml-lateral-der {
+    right: 0;
+    -webkit-mask-image: linear-gradient(to left, #000 70%, transparent 100%),
+                        linear-gradient(transparent 0%, #000 12%, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to left, #000 70%, transparent 100%),
+                linear-gradient(transparent 0%, #000 12%, #000 88%, transparent 100%);
 }
 
-@keyframes ml-bajar {
-    from { transform: translateY(calc(-50% - 0.45rem)); }
-    to { transform: translateY(0); }
+.ml-lateral-contenedor {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
 }
 
-.ml-lateral-portada {
-    position: relative;
-    margin: 0;
-    aspect-ratio: 2 / 3;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: var(--ml-superficie-2);
+.ml-lateral-capa {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
 }
 
-.ml-lateral-portada img {
+.ml-lateral-capa.ml-lateral-entra {
+    animation: ml-lateral-fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.ml-lateral-img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    pointer-events: none;
 }
 
-.ml-lateral-portada figcaption {
+.ml-lateral-izq .ml-lateral-img {
+    object-position: right center;
+}
+
+.ml-lateral-der .ml-lateral-img {
+    object-position: left center;
+}
+
+@keyframes ml-lateral-fade-in {
+    from {
+        opacity: 0;
+        transform: scale(1.03);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.ml-lateral-overlay {
     position: absolute;
-    inset: auto 0 0;
-    padding: 1.4rem 0.45rem 0.4rem;
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
-    color: #fff;
-    font-size: 0.66rem;
-    font-weight: 600;
-    line-height: 1.2;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(8, 8, 12, 0.35) 0%, rgba(8, 8, 12, 0.1) 30%, rgba(8, 8, 12, 0.1) 70%, rgba(8, 8, 12, 0.5) 100%);
+    pointer-events: none;
+    z-index: 2;
 }
 
 /* ---------- Responsive ---------- */

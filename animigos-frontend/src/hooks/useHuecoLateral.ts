@@ -7,20 +7,32 @@ import { useEffect, useRef, useState } from 'react'
  */
 export function useHuecoLateral<T extends HTMLElement>() {
     const ref = useRef<T>(null)
-    const [hueco, setHueco] = useState(0)
+    const [dimensiones, setDimensiones] = useState({ hueco: 0, huecoIzq: 0, huecoDer: 0 })
 
     useEffect(() => {
         const contenedor = ref.current?.parentElement?.querySelector<HTMLElement>(':scope > .container')
         if (!contenedor) return
         const medir = () => {
-            const relleno = parseFloat(getComputedStyle(contenedor).paddingLeft)
-            setHueco(contenedor.getBoundingClientRect().left + relleno)
+            const rect = contenedor.getBoundingClientRect()
+            const izq = Math.max(0, rect.left)
+            const der = Math.max(0, window.innerWidth - rect.right)
+            setDimensiones({ hueco: izq, huecoIzq: izq, huecoDer: der })
         }
         medir()
         const observador = new ResizeObserver(medir)
         observador.observe(document.documentElement)
-        return () => observador.disconnect()
+        observador.observe(contenedor)
+        window.addEventListener('resize', medir)
+        return () => {
+            observador.disconnect()
+            window.removeEventListener('resize', medir)
+        }
     }, [])
 
-    return { ref, hueco }
+    return {
+        ref,
+        hueco: dimensiones.hueco,
+        huecoIzq: dimensiones.huecoIzq,
+        huecoDer: dimensiones.huecoDer,
+    }
 }

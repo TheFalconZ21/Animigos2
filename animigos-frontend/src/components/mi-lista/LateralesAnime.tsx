@@ -1,64 +1,187 @@
-import { useState, type CSSProperties } from 'react'
-import { SHOWCASE_ROW_1, SHOWCASE_ROW_2, SHOWCASE_ROW_3, type ShowcaseAnime } from '../../data/showcase-animes'
+import { useEffect, useMemo, useState, type RefObject } from 'react'
+import { SHOWCASE_ROW_1, SHOWCASE_ROW_2, SHOWCASE_ROW_3 } from '../../data/showcase-animes'
 import { useHuecoLateral } from '../../hooks/useHuecoLateral'
-import { mezclar } from '../../shared/aleatorio'
+import type { FilaLista } from './mi-lista-data'
 
 // ============================================================
-// Columnas de portadas que suben y bajan en los costados.
-// Mide el espacio libre al lado del .container y decide cuántas
-// columnas caben (0, 1 o 2 por lado). En pantallas chicas no aparece.
-// Se eligen 12 portadas al azar para no cargar demasiadas imágenes.
+// Banners laterales de afiches de Mi Lista
+// - Al posar el cursor o seleccionar un anime de la lista:
+//     * Lateral derecho: extremo izquierdo del afiche
+//     * Lateral izquierdo: extremo derecho del afiche
+// - Sin selección activa: rotación automática cada 5s con crossfade (fade in/fade out)
 // ============================================================
 
-const MAX_PORTADAS = 12
-const ANCHO_COLUMNA = 150
-const ANCHO_MINIMO = 100
-const SEPARACION = 16
+export interface LateralAnimeItem {
+    title: string
+    imageUrl: string
+}
 
-export function LateralesAnime() {
-    const { ref, hueco } = useHuecoLateral<HTMLDivElement>() // Píxeles libres entre el borde de la pantalla y el contenido
-    const [portadas] = useState(() =>
-        mezclar([...SHOWCASE_ROW_1, ...SHOWCASE_ROW_2, ...SHOWCASE_ROW_3]).slice(0, MAX_PORTADAS),
-    )
+interface Props {
+    filas?: FilaLista[]
+    visibles?: FilaLista[]
+    activeFila?: FilaLista | null
+}
 
-    // Dos columnas si caben a buen tamaño; si no, una que se achica hasta ANCHO_MINIMO
-    const espacio = hueco - SEPARACION * 2
-    const columnas = espacio >= ANCHO_COLUMNA * 2 + SEPARACION ? 2 : espacio >= ANCHO_MINIMO ? 1 : 0
-    const ancho = Math.min(ANCHO_COLUMNA, columnas === 2 ? (espacio - SEPARACION) / 2 : espacio)
-    const mitadA = portadas.slice(0, MAX_PORTADAS / 2)
-    const mitadB = portadas.slice(MAX_PORTADAS / 2)
-    const estilo = {
-        width: hueco - SEPARACION,
-        display: columnas === 0 ? 'none' : undefined,
-        '--ml-columna': `${ancho}px`,
-    } as CSSProperties
+const DURACION_FADE_MS = 800
+const INTERVALO_ROTACION_MS = 5000
+const HUECO_MINIMO = 80
+
+const FALLBACK_ANIMES: LateralAnimeItem[] = [
+    ...SHOWCASE_ROW_1,
+    ...SHOWCASE_ROW_2,
+    ...SHOWCASE_ROW_3,
+].map((a) => ({ title: a.title, imageUrl: a.cover }))
+
+export function LateralesAnime({ filas = [], visibles = [], activeFila }: Props) {
+    const { ref, huecoIzq, huecoDer } = useHuecoLateral<HTMLDivElement>()
+
+    // Pool de animes derivados de la lista del usuario (o fallback)
+    const pool = useMemo<LateralAnimeItem[]>(() => {
+        const fuente = visibles.length > 0 ? visibles : filas
+        const items = fuente
+            .filter((f) => Boolean(f.anime?.imageUrl))
+            .map((f) => ({
+                title: f.anime.title,
+                imageUrl: f.anime.imageUrl,
+            }))
+        return items.length > 0 ? items : FALLBACK_ANIMES
+    }, [visibles, filas])
+
+    const [idleIndex, setIdleIndex] = useState(0)
+
+    // Al cambiar la lista o los filtros reseteamos el ciclo
+    useEffect(() => {
+        setIdleIndex(0)
+    }, [pool.length])
+
+    // Rotación automática cada 5 segundos cuando no hay selección activa
+    useEffect(() => {
+        if (activeFila) return // Pausar cuando el usuario está interactuando con un anime
+        if (pool.length <= 1) return
+
+        const timer = setInterval(() => {
+            setIdleIndex((prev) => (prev + 1) % pool.length)
+        }, INTERVALO_ROTACION_MS)
+
+        return () => clearInterval(timer)
+    }, [activeFila, pool.length])
+
+    const targetAnime = useMemo<LateralAnimeItem>(() => {
+        if (activeFila?.anime?.imageUrl) {
+            return {
+                title: activeFila.anime.title,
+                imageUrl: activeFila.anime.imageUrl,
+            }
+        }
+        return pool[idleIndex % pool.length] || FALLBACK_ANIMES[0]
+    }, [activeFila, pool, idleIndex])
+
+    const isVisible = huecoDer >= HUECO_MINIMO && huecoIzq >= HUECO_MINIMO
+    const isActive = Boolean(activeFila)
 
     return (
         <>
-            <div ref={ref} className="ml-lateral ml-lateral-izq" style={estilo} aria-hidden="true">
-                <Columna animes={mitadA} sentido="sube" duracion={70} />
-                {columnas === 2 && <Columna animes={mitadB} sentido="baja" duracion={85} />}
-            </div>
-            <div className="ml-lateral ml-lateral-der" style={estilo} aria-hidden="true">
-                <Columna animes={[...mitadB].reverse()} sentido="baja" duracion={78} />
-                {columnas === 2 && <Columna animes={[...mitadA].reverse()} sentido="sube" duracion={64} />}
-            </div>
+            <BannerLado
+                refEl={ref}
+                lado="izq"
+                anime={targetAnime}
+                ancho={huecoIzq}
+                visible={isVisible}
+                isActive={isActive}
+            />
+            <BannerLado
+                lado="der"
+                anime={targetAnime}
+                ancho={huecoDer}
+                visible={isVisible}
+                isActive={isActive}
+            />
         </>
     )
 }
 
-function Columna({ animes, sentido, duracion }: { animes: ShowcaseAnime[]; sentido: 'sube' | 'baja'; duracion: number }) {
-    // La lista va duplicada: al llegar a la mitad, la animación vuelve al inicio sin que se note el salto
+interface Capa {
+    clave: number
+    anime: LateralAnimeItem
+}
+
+function BannerLado({
+    refEl,
+    lado,
+    anime,
+    ancho,
+    visible,
+    isActive,
+}: {
+    refEl?: RefObject<HTMLDivElement | null>
+    lado: 'izq' | 'der'
+    anime: LateralAnimeItem
+    ancho: number
+    visible: boolean
+    isActive: boolean
+}) {
+    const [capas, setCapas] = useState<Capa[]>([{ clave: 0, anime }])
+
+    useEffect(() => {
+        if (!anime?.imageUrl) return
+        const ultimo = capas[capas.length - 1]
+        if (ultimo && ultimo.anime.imageUrl === anime.imageUrl) return
+
+        let cancelado = false
+        let timer: ReturnType<typeof setTimeout>
+
+        // Precarga para transición sin parpadeos
+        const img = new Image()
+        img.onload = img.onerror = () => {
+            if (cancelado) return
+            setCapas((prev) => {
+                const prevUltimo = prev[prev.length - 1]
+                const nuevaClave = (prevUltimo?.clave ?? 0) + 1
+                return [...prev.slice(-1), { clave: nuevaClave, anime }]
+            })
+            timer = setTimeout(() => {
+                if (!cancelado) {
+                    setCapas((prev) => prev.slice(-1))
+                }
+            }, DURACION_FADE_MS)
+        }
+        img.src = anime.imageUrl
+
+        return () => {
+            cancelado = true
+            clearTimeout(timer)
+        }
+    }, [anime])
+
     return (
-        <div className="ml-columna">
-            <div className={`ml-columna-pista ml-${sentido}`} style={{ animationDuration: `${duracion}s` }}>
-                {[...animes, ...animes].map((a, i) => (
-                    <figure key={i} className="ml-lateral-portada">
-                        <img src={a.cover} alt="" decoding="async" />
-                        <figcaption>{a.title}</figcaption>
-                    </figure>
-                ))}
+        <div
+            ref={refEl}
+            className={`ml-lateral ml-lateral-${lado} ${isActive ? 'is-active' : ''}`}
+            style={{
+                width: ancho,
+                display: visible ? undefined : 'none',
+            }}
+            aria-hidden="true"
+        >
+            <div className="ml-lateral-contenedor">
+                {capas.map((c, i) => {
+                    const esUltima = i === capas.length - 1 && capas.length > 1
+                    return (
+                        <div
+                            key={c.clave}
+                            className={`ml-lateral-capa ${esUltima ? 'ml-lateral-entra' : ''}`}
+                        >
+                            <img
+                                className="ml-lateral-img"
+                                src={c.anime.imageUrl}
+                                alt=""
+                                decoding="async"
+                            />
+                        </div>
+                    )
+                })}
             </div>
+            <div className="ml-lateral-overlay" />
         </div>
     )
 }

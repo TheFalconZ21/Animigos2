@@ -8,13 +8,27 @@ interface Props {
     fila: FilaLista
     posicion: number
     carpetas: Carpeta[]
+    isSelected?: boolean
+    onHover?: (hovered: boolean) => void
+    onSelect?: () => void
     onActualizar: (cambios: Partial<EntradaLista>) => void
     onQuitar: () => void
     onVerDetalle: () => void
     onRecomendar: () => void
 }
 
-export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, onVerDetalle, onRecomendar }: Props) {
+export function AnimeFila({
+    fila,
+    posicion,
+    carpetas,
+    isSelected = false,
+    onHover,
+    onSelect,
+    onActualizar,
+    onQuitar,
+    onVerDetalle,
+    onRecomendar,
+}: Props) {
     const { anime } = fila
     const { openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
     const [agregandoTag, setAgregandoTag] = useState(false)
@@ -64,7 +78,18 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
     }
 
     return (
-        <article className="ml-fila">
+        <article
+            className={`ml-fila ${isSelected ? 'is-selected' : ''}`}
+            onMouseEnter={() => onHover?.(true)}
+            onMouseLeave={() => onHover?.(false)}
+            onClick={(e) => {
+                const target = e.target as HTMLElement
+                if (target.closest('button, select, input, textarea, a, .ml-menu, .ml-sello')) {
+                    return
+                }
+                onSelect?.()
+            }}
+        >
             <span className="ml-posicion">{String(posicion).padStart(2, '0')}</span>
 
             <button type="button" className="ml-poster-btn" onClick={onVerDetalle} aria-label={`Ver detalle de ${anime.title}`}>
