@@ -107,7 +107,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
     const { isAuthenticated } = useAuth()
     const { filas, agregarAnime } = useMyList()
     const { acento } = useThemeAccent()
-    const { config: linksConfig, openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
+    const { openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
     const myListIds = useMemo(() => new Set(filas.map((f) => f.malId)), [filas])
 
     // --- Vista Perfil de Anime ---
@@ -905,10 +905,10 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                                 )}
                                             </button>
 
-                                            {isLinksEnabled && linksConfig.domain && (
+                                            {isLinksEnabled && (
                                                 <button
                                                     type="button"
-                                                    onClick={(e) => openAnimeLink(anime.title, e)}
+                                                    onClick={(e) => openAnimeLink({ title: anime.title, title_english: anime.title_english }, e)}
                                                     className="cat-btn-ver"
                                                     title={`Abrir enlace asociado a ${anime.title}`}
                                                 >

@@ -53,7 +53,7 @@ function Contenido({
     onEliminar?: () => void
 }) {
     const { anime } = fila
-    const { config: linksConfig, openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
+    const { openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
     const amigos = (anime.watchedByFriends ?? []).map((nombre: string) => ({ name: nombre, avatarUrl: '' }))
 
     const [localEp, setLocalEp] = useState<string>(String(fila.episodiosVistos ?? 0))
@@ -219,11 +219,11 @@ function Contenido({
                                     </button>
                                 )}
 
-                                {isLinksEnabled && linksConfig.domain && (
+                                {isLinksEnabled && (
                                     <button
                                         type="button"
                                         className="ml-btn-ver"
-                                        onClick={(e) => openAnimeLink(anime.titleEnglish || anime.title, e)}
+                                        onClick={(e) => openAnimeLink({ title: anime.title, titleEnglish: anime.titleEnglish }, e)}
                                         title={`Abrir enlace asociado a ${anime.title}`}
                                     >
                                         <Play size={12} fill="currentColor" />

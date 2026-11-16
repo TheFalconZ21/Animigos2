@@ -16,7 +16,7 @@ interface Props {
 
 export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, onVerDetalle, onRecomendar }: Props) {
     const { anime } = fila
-    const { config: linksConfig, openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
+    const { openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
     const [agregandoTag, setAgregandoTag] = useState(false)
     const [nuevoTag, setNuevoTag] = useState('')
     const [editandoComentario, setEditandoComentario] = useState(false)
@@ -104,11 +104,11 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
                         </span>
                     )}
 
-                    {isLinksEnabled && linksConfig.domain && (
+                    {isLinksEnabled && (
                         <button
                             type="button"
                             className="ml-btn-ver-fila"
-                            onClick={(e) => openAnimeLink(anime.title, e)}
+                            onClick={(e) => openAnimeLink({ title: anime.title, titleEnglish: anime.titleEnglish }, e)}
                             title={`Abrir enlace asociado a ${anime.title}`}
                         >
                             <Play size={10} fill="currentColor" />
@@ -244,12 +244,12 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
                         <button type="button" className="ml-menu-item" onClick={() => { onRecomendar(); cerrar() }}>
                             <Send size={15} /> Recomendar a un amigo
                         </button>
-                        {isLinksEnabled && linksConfig.domain && (
+                        {isLinksEnabled && (
                             <button
                                 type="button"
                                 className="ml-menu-item"
                                 onClick={() => {
-                                    openAnimeLink(anime.title)
+                                    openAnimeLink({ title: anime.title, titleEnglish: anime.titleEnglish })
                                     cerrar()
                                 }}
                             >

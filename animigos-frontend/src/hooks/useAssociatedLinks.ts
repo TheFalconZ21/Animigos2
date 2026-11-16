@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 
+export type TitleLanguage = 'japones' | 'ingles'
 export type NameSeparator = 'guion' | 'guion_bajo' | 'ninguna'
 export type SectionSeparator = 'barra' | 'guion' | 'ninguna'
 export type SuffixSeparator = 'guion' | 'barra' | 'punto' | 'ninguna'
@@ -14,6 +15,7 @@ export interface LinkSlotConfig {
     nameSeparator: NameSeparator
     suffixSeparator: SuffixSeparator
     suffix: string
+    titleLanguage?: TitleLanguage
 }
 
 export interface AssociatedLinksSettings {
@@ -37,6 +39,7 @@ export function createDefaultSlot(id: number, name?: string): LinkSlotConfig {
         nameSeparator: 'guion',
         suffixSeparator: 'barra',
         suffix: id === 1 ? 'chapter-6' : '',
+        titleLanguage: 'japones',
     }
 }
 
@@ -51,6 +54,22 @@ export function createDefaultSettings(): AssociatedLinksSettings {
 export const STORAGE_KEY_ASSOCIATED_SETTINGS = 'animigos_associated_links_settings'
 export const STORAGE_KEY_LEGACY_CONFIG = 'animigos_associated_links_config'
 export const EVENT_ASSOCIATED_LINKS_UPDATED = 'animigos_associated_links_updated'
+export const EVENT_OPEN_LINK_SELECTOR = 'animigos_open_link_selector'
+
+export interface OpenLinkSelectorPayload {
+    title: string
+    titleEnglish?: string
+    title_english?: string
+}
+
+export function requestOpenLinkSelector(anime: string | OpenLinkSelectorPayload) {
+    if (typeof window === 'undefined') return
+    const payload: OpenLinkSelectorPayload =
+        typeof anime === 'string'
+            ? { title: anime }
+            : anime
+    window.dispatchEvent(new CustomEvent(EVENT_OPEN_LINK_SELECTOR, { detail: payload }))
+}
 
 /**
  * Normaliza y formatea el nombre del anime según la separación configurada.
@@ -102,7 +121,7 @@ function getSuffixChar(sep: SuffixSeparator): string {
  * dominio + término intermedio + nombre anime + terminación
  */
 export function buildAssociatedAnimeUrl(
-    title: string,
+    anime: string | OpenLinkSelectorPayload,
     config?: Partial<LinkSlotConfig>
 ): string {
     if (!config) return '#'
@@ -116,8 +135,20 @@ export function buildAssociatedAnimeUrl(
 
     const sectionChar = getSectionChar(config.sectionSeparator || 'barra')
     const suffixChar = getSuffixChar(config.suffixSeparator || 'guion')
+    const lang = config.titleLanguage || 'japones'
 
-    const animeSlug = cleanAnimeTitleForSlug(title, config.nameSeparator || 'guion')
+    let rawTitle = ''
+    if (typeof anime === 'string') {
+        rawTitle = anime
+    } else if (anime && typeof anime === 'object') {
+        if (lang === 'ingles') {
+            rawTitle = anime.titleEnglish || anime.title_english || anime.title || ''
+        } else {
+            rawTitle = anime.title || anime.titleEnglish || anime.title_english || ''
+        }
+    }
+
+    const animeSlug = cleanAnimeTitleForSlug(rawTitle, config.nameSeparator || 'guion')
     const rawInter = (config.intermediateTerm || '').trim().replace(/^\/+|\/+$/g, '')
 
     let rawSuffix = (config.suffix || '').trim()
@@ -257,34 +288,48 @@ export function useAssociatedLinks() {
         settings.slots.find((s) => s.id === settings.activeSlotId) || settings.slots[0]
 
     const getAnimeUrl = useCallback(
-        (title: string, slotId?: number) => {
+        (anime: string | OpenLinkSelectorPayload, slotId?: number) => {
             const targetSlot = slotId ? settings.slots.find((s) => s.id === slotId) : activeSlot
-            return buildAssociatedAnimeUrl(title, targetSlot || activeSlot)
+            return buildAssociatedAnimeUrl(anime, targetSlot || activeSlot)
         },
         [settings.slots, activeSlot]
     )
 
     const openAnimeLink = useCallback(
-        (title: string, e?: React.MouseEvent, slotId?: number) => {
+        (anime: string | OpenLinkSelectorPayload, e?: React.MouseEvent, slotId?: number) => {
             if (e) {
                 e.stopPropagation()
                 e.preventDefault()
             }
-            const targetSlot = slotId ? settings.slots.find((s) => s.id === slotId) : activeSlot
-            const url = buildAssociatedAnimeUrl(title, targetSlot || activeSlot)
-            if (url && url !== '#') {
-                window.open(url, '_blank', 'noopener,noreferrer')
+            if (slotId !== undefined) {
+                const targetSlot = settings.slots.find((s) => s.id === slotId) || activeSlot
+                const url = buildAssociatedAnimeUrl(anime, targetSlot)
+                if (url && url !== '#') {
+                    window.open(url, '_blank', 'noopener,noreferrer')
+                }
+                return
             }
+            // Por defecto, abrir el modal de selección de los 8 slots
+            requestOpenLinkSelector(anime)
         },
         [settings.slots, activeSlot]
     )
+
+    const hasAnyConfiguredSlot = settings.slots.some(
+        (s) => s.enabled && Boolean(s.domain && s.domain.trim())
+    )
+
+    const isEnabled = settings.globalEnabled && hasAnyConfiguredSlot
 
     return {
         settings,
         slots: settings.slots,
         activeSlot,
         activeSlotId: settings.activeSlotId,
-        config: activeSlot,
+        config: {
+            ...activeSlot,
+            domain: activeSlot.domain || (hasAnyConfiguredSlot ? 'configured' : ''),
+        },
         updateSlot,
         setActiveSlotId,
         updateGlobalEnabled,
@@ -292,6 +337,6 @@ export function useAssociatedLinks() {
         persistSettings,
         getAnimeUrl,
         openAnimeLink,
-        isEnabled: settings.globalEnabled && activeSlot.enabled && !!activeSlot.domain,
+        isEnabled,
     }
 }

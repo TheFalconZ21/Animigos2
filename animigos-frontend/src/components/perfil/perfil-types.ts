@@ -95,6 +95,7 @@ export type ProfileSubView =
 export type ProfileTimeRange = '7d' | '30d' | '1y' | 'all'
 
 
+export type TitleLanguage = 'japones' | 'ingles'
 export type NameSeparator = 'guion' | 'guion_bajo' | 'ninguna'
 export type SectionSeparator = 'barra' | 'guion' | 'ninguna'
 export type SuffixSeparator = 'guion' | 'barra' | 'punto' | 'ninguna'
@@ -109,6 +110,7 @@ export interface LinkSlotConfig {
     nameSeparator: NameSeparator
     suffixSeparator: SuffixSeparator
     suffix: string
+    titleLanguage?: TitleLanguage
 }
 
 export interface AssociatedLinksSettings {

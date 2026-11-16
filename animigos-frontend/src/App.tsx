@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Navbar } from './components/Navbar'
 import { PlatformSidebar, type PlatformView } from './components/PlatformSidebar'
 import { LoginModal } from './components/LoginModal'
+import { AssociatedLinkSelectorModal } from './components/links/AssociatedLinkSelectorModal'
 import { HeroShowcaseBg } from './components/HeroShowcaseBg'
 import { AdminPortal } from './admin/AdminPortal'
 import { MiLista } from './components/mi-lista/MiLista'
@@ -374,6 +375,7 @@ function App() {
       </div>
 
       <LoginModal />
+      <AssociatedLinkSelectorModal />
     </div>
   )
 }

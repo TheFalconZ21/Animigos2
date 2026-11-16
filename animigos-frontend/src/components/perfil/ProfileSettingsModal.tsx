@@ -24,6 +24,7 @@ import {
     cleanAnimeTitleForSlug,
     type AssociatedLinksSettings,
     type LinkSlotConfig,
+    type TitleLanguage,
     type NameSeparator,
     type SectionSeparator,
     type SuffixSeparator,
@@ -128,14 +129,17 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     const { settings: storedSettings, persistSettings } = useAssociatedLinks()
     const [linksSettings, setLinksSettings] = useState<AssociatedLinksSettings>(storedSettings)
     const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null)
-    const [testAnime, setTestAnime] = useState('Sousou no Frieren')
     const [activeField, setActiveField] = useState<ActiveLinkField>(null)
+
+    const FIXED_TEST_ANIME = {
+        title: 'Sousou no Frieren',
+        titleEnglish: "Frieren: Beyond Journey's End",
+    }
 
     // Refs para enfocar inputs al interactuar con el enlace de ejemplo
     const domainInputRef = useRef<HTMLInputElement>(null)
     const intermediateInputRef = useRef<HTMLInputElement>(null)
     const suffixInputRef = useRef<HTMLInputElement>(null)
-    const testAnimeInputRef = useRef<HTMLInputElement>(null)
 
     const [isSaving, setIsSaving] = useState(false)
 
@@ -185,7 +189,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
         }))
     }
 
-    const livePreviewUrl = buildAssociatedAnimeUrl(testAnime, currentEditingSlot)
+    const livePreviewUrl = buildAssociatedAnimeUrl(FIXED_TEST_ANIME, currentEditingSlot)
 
     return (
         <Dialogo abierto={open} onCerrar={onClose} etiqueta="Configuración de Perfil y Plataforma" ancho={720}>
@@ -899,7 +903,8 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                 {(() => {
                                     const rawInter = (currentEditingSlot.intermediateTerm || '').trim().replace(/^\/+|\/+$/g, '')
                                     const rawSuffix = (currentEditingSlot.suffix || '').trim().replace(/^[-/.]+/, '')
-                                    const animeSlug = cleanAnimeTitleForSlug(testAnime || 'Sousou no Frieren', currentEditingSlot.nameSeparator || 'guion')
+                                    const testTitle = currentEditingSlot.titleLanguage === 'ingles' ? FIXED_TEST_ANIME.titleEnglish : FIXED_TEST_ANIME.title
+                                    const animeSlug = cleanAnimeTitleForSlug(testTitle, currentEditingSlot.nameSeparator || 'guion')
                                     const domainClean = currentEditingSlot.domain
                                         ? currentEditingSlot.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')
                                         : ''
@@ -1045,13 +1050,10 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                                     </span>
                                                     <span
                                                         style={getExampleSegmentStyle('name')}
-                                                        onClick={() => {
-                                                            setActiveField('name')
-                                                            testAnimeInputRef.current?.focus()
-                                                        }}
-                                                        title="Clic para cambiar Separación de Nombre del Anime"
+                                                        onClick={() => setActiveField('name')}
+                                                        title="Clic para configurar Título del Anime"
                                                     >
-                                                        sousou-no-frieren
+                                                        {currentEditingSlot.titleLanguage === 'ingles' ? 'frieren-beyond-journeys-end' : 'sousou-no-frieren'}
                                                     </span>
                                                     <span
                                                         style={getExampleSegmentStyle('suffixSeparator')}
@@ -1132,10 +1134,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
 
                                                         <span
                                                             style={getDynamicSegmentStyle('name', true)}
-                                                            onClick={() => {
-                                                                setActiveField('name')
-                                                                testAnimeInputRef.current?.focus()
-                                                            }}
+                                                            onClick={() => setActiveField('name')}
                                                         >
                                                             {animeSlug || 'nombre-del-anime'}
                                                         </span>
@@ -1304,7 +1303,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                     </div>
                                 </div>
 
-                                {/* 3. Separación de Nombre del Anime (Guión, Guión Bajo, Ninguna) */}
+                                {/* 3. Idioma del Título del Anime (Japonés o Inglés) */}
                                 <div>
                                     <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
                                         <span
@@ -1314,7 +1313,64 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                                 color: activeField === 'name' ? FIELD_COLORS.name.color : undefined,
                                             }}
                                         >
-                                            3. SEPARACIÓN DE NOMBRE DEL ANIME
+                                            3. IDIOMA DEL TÍTULO DEL ANIME
+                                        </span>
+                                    </label>
+                                    <div className="row g-2">
+                                        {[
+                                            {
+                                                id: 'japones' as TitleLanguage,
+                                                label: 'Japonés / Romaji (Por defecto)',
+                                                sub: 'Sousou no Frieren',
+                                            },
+                                            {
+                                                id: 'ingles' as TitleLanguage,
+                                                label: 'Inglés',
+                                                sub: "Frieren: Beyond Journey's End",
+                                            },
+                                        ].map((opt) => {
+                                            const isSel = (currentEditingSlot.titleLanguage || 'japones') === opt.id
+                                            return (
+                                                <div key={opt.id} className="col-6">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateEditingSlot({ titleLanguage: opt.id })}
+                                                        onMouseEnter={() => setActiveField('name')}
+                                                        onMouseLeave={() => setActiveField(null)}
+                                                        className={`w-100 p-2 text-center transition-all ${isSel ? 'border-primary' : ''}`}
+                                                        style={{
+                                                            borderRadius: 8,
+                                                            background: isSel ? FIELD_COLORS.name.bg : 'var(--perfil-card-2)',
+                                                            borderColor: isSel ? FIELD_COLORS.name.border : 'var(--perfil-border)',
+                                                            borderWidth: 1,
+                                                            borderStyle: 'solid',
+                                                            cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        <div className="fw-semibold small text-white" style={{ fontSize: '0.76rem' }}>
+                                                            {opt.label}
+                                                        </div>
+                                                        <div className="font-mono text-truncate mt-0.5" style={{ fontSize: '0.67rem', color: isSel ? '#ffffff' : 'var(--perfil-text-dim)' }}>
+                                                            {opt.sub}
+                                                        </div>
+                                                    </button>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* 4. Separación de Nombre del Anime (Guión, Guión Bajo, Ninguna) */}
+                                <div>
+                                    <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
+                                        <span
+                                            className="ml-eyebrow mb-0"
+                                            style={{
+                                                fontSize: '0.72rem',
+                                                color: activeField === 'name' ? FIELD_COLORS.name.color : undefined,
+                                            }}
+                                        >
+                                            4. SEPARACIÓN DE NOMBRE DEL ANIME
                                         </span>
                                     </label>
                                     <div className="row g-2">
@@ -1322,17 +1378,17 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                             {
                                                 id: 'guion' as NameSeparator,
                                                 label: 'Guión (-)',
-                                                sub: 'sousou-no-frieren',
+                                                sub: currentEditingSlot.titleLanguage === 'ingles' ? 'frieren-beyond-journeys-end' : 'sousou-no-frieren',
                                             },
                                             {
                                                 id: 'guion_bajo' as NameSeparator,
                                                 label: 'Guión Bajo (_)',
-                                                sub: 'sousou_no_frieren',
+                                                sub: currentEditingSlot.titleLanguage === 'ingles' ? 'frieren_beyond_journeys_end' : 'sousou_no_frieren',
                                             },
                                             {
                                                 id: 'ninguna' as NameSeparator,
                                                 label: 'Ninguna',
-                                                sub: 'sousounofrieren',
+                                                sub: currentEditingSlot.titleLanguage === 'ingles' ? 'frierenbeyondjourneysend' : 'sousounofrieren',
                                             },
                                         ].map((opt) => {
                                             const isSel = (currentEditingSlot.nameSeparator || 'guion') === opt.id
@@ -1366,7 +1422,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                     </div>
                                 </div>
 
-                                {/* 4. Terminación Única y Separador de Terminación */}
+                                {/* 5. Terminación Única y Separador de Terminación */}
                                 <div className="row g-3">
                                     <div className="col-12 col-md-7">
                                         <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
@@ -1377,7 +1433,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                                     color: activeField === 'suffix' ? FIELD_COLORS.suffix.color : undefined,
                                                 }}
                                             >
-                                                4. TERMINACIÓN ÚNICA DEL SITIO (OPCIONAL)
+                                                5. TERMINACIÓN ÚNICA DEL SITIO (OPCIONAL)
                                             </span>
                                         </label>
                                         <input
@@ -1443,38 +1499,6 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                             })}
                                         </div>
                                     </div>
-                                </div>
-
-                                {/* 5. Personalización de Anime de Prueba */}
-                                <div>
-                                    <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
-                                        <span
-                                            className="ml-eyebrow mb-0"
-                                            style={{
-                                                fontSize: '0.72rem',
-                                                color: activeField === 'name' ? FIELD_COLORS.name.color : undefined,
-                                            }}
-                                        >
-                                            5. ANIME DE PRUEBA PARA SIMULACIÓN
-                                        </span>
-                                    </label>
-                                    <input
-                                        ref={testAnimeInputRef}
-                                        type="text"
-                                        className="form-control form-control-sm text-white transition-all"
-                                        style={{
-                                            background: 'var(--perfil-card-2)',
-                                            borderColor: activeField === 'name' ? FIELD_COLORS.name.border : 'var(--perfil-border)',
-                                            boxShadow: activeField === 'name' ? `0 0 10px ${FIELD_COLORS.name.color}33` : 'none',
-                                            fontSize: '0.78rem',
-                                        }}
-                                        value={testAnime}
-                                        onFocus={() => setActiveField('name')}
-                                        onClick={() => setActiveField('name')}
-                                        onBlur={() => setActiveField(null)}
-                                        onChange={(e) => setTestAnime(e.target.value)}
-                                        placeholder="ej: Sousou no Frieren, Naruto, One Piece..."
-                                    />
                                 </div>
                             </div>
                         )}

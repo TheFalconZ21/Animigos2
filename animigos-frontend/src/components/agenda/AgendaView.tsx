@@ -79,7 +79,7 @@ export function AgendaView({ onOpenAnimeDetail }: AgendaViewProps) {
         isAdding,
     } = useAgenda()
 
-    const { config: linksConfig, openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
+    const { openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
 
     // Sub-vista activa seleccionada a través de los KPIs
     const [subvista, setSubvista] = useState<SubvistaAgenda>('atrasados')
@@ -413,11 +413,11 @@ export function AgendaView({ onOpenAnimeDetail }: AgendaViewProps) {
                                                 </div>
 
                                                 <div className="agenda-action-buttons-group">
-                                                    {isLinksEnabled && linksConfig.domain && (
+                                                    {isLinksEnabled && (
                                                         <button
                                                             type="button"
                                                             className="agenda-btn-ver"
-                                                            onClick={(e) => openAnimeLink(item.title_english || item.title, e)}
+                                                            onClick={(e) => openAnimeLink({ title: item.title, title_english: item.title_english }, e)}
                                                             title={`Abrir enlace asociado a ${item.title}`}
                                                         >
                                                             <Play size={11} fill="currentColor" />

@@ -48,7 +48,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
     const { isAuthenticated } = useAuth()
     const { acento } = useThemeAccent()
     const { filas, agregarAnime, actualizar, quitar } = useMyList()
-    const { config: linksConfig, openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
+    const { openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
 
     const { data: fetchedAnime, isLoading } = useAnimeDetailQuery(malId)
     const { data: recommendations = [], isLoading: loadingRecs } = useAnimeRecommendations(malId)
@@ -324,10 +324,10 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                         </button>
                                     </div>
 
-                                    {isLinksEnabled && linksConfig.domain && (
+                                    {isLinksEnabled && (
                                         <button
                                             type="button"
-                                            onClick={(e) => openAnimeLink(anime.title_english || anime.title, e)}
+                                            onClick={(e) => openAnimeLink({ title: anime.title, title_english: anime.title_english }, e)}
                                             className="anime-profile-btn-ver mt-1"
                                             title={`Abrir enlace asociado a ${anime.title}`}
                                         >
@@ -432,10 +432,10 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                         </span>
                                     </button>
 
-                                    {isLinksEnabled && linksConfig.domain && (
+                                    {isLinksEnabled && (
                                         <button
                                             type="button"
-                                            onClick={(e) => openAnimeLink(anime.title_english || anime.title, e)}
+                                            onClick={(e) => openAnimeLink({ title: anime.title, title_english: anime.title_english }, e)}
                                             className="anime-profile-btn-ver"
                                             title={`Abrir enlace asociado a ${anime.title}`}
                                         >
