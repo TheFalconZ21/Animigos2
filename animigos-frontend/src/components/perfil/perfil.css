@@ -1680,7 +1680,8 @@
     padding: 1.35rem 1.5rem;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 0.85rem;
 }
 
 .perfil-genre-table-wrap {
@@ -1777,7 +1778,7 @@
 }
 
 .perfil-genre-expand-btn {
-    margin-top: 0.75rem;
+    margin-top: auto;
     width: 100%;
     padding: 0.45rem;
     border-radius: 8px;
@@ -1797,6 +1798,196 @@
 .perfil-genre-expand-btn:hover {
     background: rgba(255, 255, 255, 0.07);
     color: #ffffff;
+}
+
+/* ---------- Donut Chart & Panel Dinámico (Subvista 2: Animes en Lista) ---------- */
+.perfil-donut-hub-layout {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 2rem;
+    align-items: center;
+}
+
+@media (max-width: 960px) {
+    .perfil-donut-hub-layout {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        gap: 1.5rem;
+    }
+}
+
+.perfil-donut-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.perfil-donut-wrapper {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.perfil-donut-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.perfil-donut-center-info {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    text-align: center;
+    padding: 0.5rem;
+}
+
+.perfil-donut-center-val {
+    font-family: var(--font-mono, monospace);
+    font-size: 1.65rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: #ffffff;
+}
+
+.perfil-donut-center-pct {
+    font-family: var(--font-mono, monospace);
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.perfil-donut-center-sub {
+    font-size: 0.72rem;
+    color: #a1a1aa;
+    font-weight: 600;
+    margin-top: 3px;
+    max-width: 110px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.perfil-donut-legend {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+    width: 100%;
+    max-width: 260px;
+    margin-top: 1rem;
+}
+
+.perfil-donut-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #d4d4d8;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    text-align: left;
+    width: 100%;
+}
+
+.perfil-donut-legend-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.perfil-donut-legend-item.is-selected {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.perfil-donut-legend-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.perfil-donut-legend-count {
+    font-weight: 700;
+    font-size: 0.73rem;
+}
+
+.perfil-donut-detail-panel {
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    border-radius: var(--perfil-radius-sm);
+    padding: 1.25rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 230px;
+    width: 100%;
+    transition: all 0.2s ease;
+}
+
+.perfil-donut-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+}
+
+.perfil-donut-stat-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.perfil-donut-stat-chip-label {
+    font-size: 0.7rem;
+    color: #a1a1aa;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.perfil-donut-stat-chip-val {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.perfil-thin-scrollbar::-webkit-scrollbar {
+    height: 5px;
+}
+
+.perfil-thin-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 4px;
+}
+
+.perfil-thin-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+.perfil-thin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
 }
 
 /* ---------- 8.3 Vitrina de Contrastes & Joyas Ocultas (Imágenes 2, 3 y 4) ---------- */

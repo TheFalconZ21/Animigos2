@@ -20,6 +20,10 @@ import {
     Tag,
     Search,
     Calendar,
+    PieChart,
+    Filter,
+    X,
+    MousePointerClick,
 } from 'lucide-react'
 import type { FilaLista } from '../mi-lista/mi-lista-data'
 import { ESCALA_NOTAS } from '../mi-lista/mi-lista-data'
@@ -88,6 +92,147 @@ function filterFilasByTimeRange(filas: FilaLista[], range: ProfileTimeRange): Fi
     return filtered
 }
 
+function calculateGenreStatsForFilas(
+    filasSubset: FilaLista[],
+    totalReference: number,
+    globalMeanRef: number
+) {
+    const genreMap = new Map<
+        string,
+        {
+            genre: string
+            count: number
+            scores: number[]
+            minutes: number
+            episodes: number
+            animes: Array<{ fila: FilaLista; minutes: number; episodes: number }>
+        }
+    >()
+
+    for (const f of filasSubset) {
+        const genresList = Array.isArray(f.anime.genres) && f.anime.genres.length > 0 ? f.anime.genres : ['General']
+        const entryMins = getEntryMinutes(f)
+        const entryEps = getEntryWatchedEpisodes(f)
+        const effectiveScore = typeof f.nota === 'number' && f.nota > 0 ? f.nota : f.anime.score || null
+
+        for (const rawG of genresList) {
+            const g = String(rawG).trim()
+            if (!g) continue
+            const prev = genreMap.get(g) || {
+                genre: g,
+                count: 0,
+                scores: [],
+                minutes: 0,
+                episodes: 0,
+                animes: [],
+            }
+            prev.count += 1
+            prev.minutes += entryMins
+            prev.episodes += entryEps
+            prev.animes.push({ fila: f, minutes: entryMins, episodes: entryEps })
+            if (typeof effectiveScore === 'number' && effectiveScore > 0) {
+                prev.scores.push(effectiveScore)
+            }
+            genreMap.set(g, prev)
+        }
+    }
+
+    const mWeight = 2
+    return Array.from(genreMap.values()).map((item) => {
+        const pctOfList = totalReference > 0 ? Math.round((item.count / totalReference) * 100) : 0
+        const gMean =
+            item.scores.length > 0
+                ? item.scores.reduce((a, b) => a + b, 0) / item.scores.length
+                : globalMeanRef
+        const v = item.scores.length
+        const weighted = (v / (v + mWeight)) * gMean + (mWeight / (v + mWeight)) * globalMeanRef
+        const days = item.minutes / (60 * 24)
+        const hours = item.minutes / 60
+
+        return {
+            genre: item.genre,
+            count: item.count,
+            pctOfList,
+            meanScore: gMean,
+            minutes: item.minutes,
+            episodes: item.episodes,
+            days,
+            hours,
+            weighted,
+            animes: item.animes.sort((a, b) => b.minutes - a.minutes),
+        }
+    })
+}
+
+function calculateTagStatsForFilas(
+    filasSubset: FilaLista[],
+    totalReference: number,
+    globalMeanRef: number
+) {
+    const tagMap = new Map<
+        string,
+        {
+            name: string
+            category: string
+            count: number
+            scores: number[]
+        }
+    >()
+
+    for (const f of filasSubset) {
+        const effectiveScore = typeof f.nota === 'number' && f.nota > 0 ? f.nota : f.anime.score || null
+        const seenInAnime = new Set<string>()
+
+        for (const td of f.anime.tagsData || []) {
+            if (!td?.name || td.spoiler) continue
+            const tName = td.name.trim()
+            if (!tName || seenInAnime.has(tName.toLowerCase())) continue
+            seenInAnime.add(tName.toLowerCase())
+            const prev = tagMap.get(tName) || {
+                name: tName,
+                category: td.category || 'Theme',
+                count: 0,
+                scores: [],
+            }
+            prev.count += 1
+            if (typeof effectiveScore === 'number' && effectiveScore > 0) {
+                prev.scores.push(effectiveScore)
+            }
+            tagMap.set(tName, prev)
+        }
+
+        for (const customTag of f.tags || []) {
+            const clean = customTag.replace(/^#/, '').trim()
+            if (!clean || seenInAnime.has(clean.toLowerCase())) continue
+            seenInAnime.add(clean.toLowerCase())
+            const prev = tagMap.get(clean) || {
+                name: clean,
+                category: 'Personal',
+                count: 0,
+                scores: [],
+            }
+            prev.count += 1
+            if (typeof effectiveScore === 'number' && effectiveScore > 0) {
+                prev.scores.push(effectiveScore)
+            }
+            tagMap.set(clean, prev)
+        }
+    }
+
+    return Array.from(tagMap.values())
+        .map((t) => ({
+            name: t.name,
+            category: t.category,
+            count: t.count,
+            pctOfList: totalReference > 0 ? Math.round((t.count / totalReference) * 100) : 0,
+            meanScore:
+                t.scores.length > 0
+                    ? t.scores.reduce((a, b) => a + b, 0) / t.scores.length
+                    : globalMeanRef,
+        }))
+        .sort((a, b) => b.count - a.count || b.meanScore - a.meanScore)
+}
+
 export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
     filas,
     activeSubView = null,
@@ -111,6 +256,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
 
     // Estado para Subvista 2: Cantidad de Animes en Lista (Estados, % Géneros, % Tags)
     const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'visto' | 'viendo' | 'pendiente' | 'dropeado'>('all')
+    const [hoveredStatus, setHoveredStatus] = useState<string | null>(null)
     const [genreSortBy, setGenreSortBy] = useState<GenreSortField>('count')
     const [genreSortDesc, setGenreSortDesc] = useState<boolean>(true)
     const [expandAllGenres, setExpandAllGenres] = useState<boolean>(false)
@@ -261,73 +407,10 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             })
             .slice(0, 12)
 
-        // Estadísticas por Género
-        const genreMap = new Map<
-            string,
-            {
-                genre: string
-                count: number
-                scores: number[]
-                minutes: number
-                episodes: number
-                animes: Array<{ fila: FilaLista; minutes: number; episodes: number }>
-            }
-        >()
-
-        for (const f of filas) {
-            const genresList = Array.isArray(f.anime.genres) && f.anime.genres.length > 0 ? f.anime.genres : ['General']
-            const entryMins = getEntryMinutes(f)
-            const entryEps = getEntryWatchedEpisodes(f)
-            const effectiveScore = typeof f.nota === 'number' && f.nota > 0 ? f.nota : f.anime.score || null
-
-            for (const rawG of genresList) {
-                const g = String(rawG).trim()
-                if (!g) continue
-                const prev = genreMap.get(g) || {
-                    genre: g,
-                    count: 0,
-                    scores: [],
-                    minutes: 0,
-                    episodes: 0,
-                    animes: [],
-                }
-                prev.count += 1
-                prev.minutes += entryMins
-                prev.episodes += entryEps
-                prev.animes.push({ fila: f, minutes: entryMins, episodes: entryEps })
-                if (typeof effectiveScore === 'number' && effectiveScore > 0) {
-                    prev.scores.push(effectiveScore)
-                }
-                genreMap.set(g, prev)
-            }
-        }
-
+        // Estadísticas por Género y Tags (Cálculo Global)
         const globalMeanRef = notaMedia > 0 ? notaMedia : 7.5
-        const mWeight = 2
-        const genreStats = Array.from(genreMap.values()).map((item) => {
-            const pctOfList = totalEntries > 0 ? Math.round((item.count / totalEntries) * 100) : 0
-            const gMean =
-                item.scores.length > 0
-                    ? item.scores.reduce((a, b) => a + b, 0) / item.scores.length
-                    : globalMeanRef
-            const v = item.scores.length
-            const weighted = (v / (v + mWeight)) * gMean + (mWeight / (v + mWeight)) * globalMeanRef
-            const days = item.minutes / (60 * 24)
-            const hours = item.minutes / 60
-
-            return {
-                genre: item.genre,
-                count: item.count,
-                pctOfList,
-                meanScore: gMean,
-                minutes: item.minutes,
-                episodes: item.episodes,
-                days,
-                hours,
-                weighted,
-                animes: item.animes.sort((a, b) => b.minutes - a.minutes),
-            }
-        })
+        const genreStats = calculateGenreStatsForFilas(filas, totalEntries, globalMeanRef)
+        const tagStats = calculateTagStatsForFilas(filas, totalEntries, globalMeanRef)
 
         // Género favorito (mayor presencia combinada con ponderación)
         const sortedByFavorite = [...genreStats].sort(
@@ -345,70 +428,6 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             weighted: 0,
             animes: [],
         }
-
-        // Estadísticas de Tags (% de la lista)
-        const tagMap = new Map<
-            string,
-            {
-                name: string
-                category: string
-                count: number
-                scores: number[]
-            }
-        >()
-
-        for (const f of filas) {
-            const effectiveScore = typeof f.nota === 'number' && f.nota > 0 ? f.nota : f.anime.score || null
-            const seenInAnime = new Set<string>()
-
-            for (const td of f.anime.tagsData || []) {
-                if (!td?.name || td.spoiler) continue
-                const tName = td.name.trim()
-                if (!tName || seenInAnime.has(tName.toLowerCase())) continue
-                seenInAnime.add(tName.toLowerCase())
-                const prev = tagMap.get(tName) || {
-                    name: tName,
-                    category: td.category || 'Theme',
-                    count: 0,
-                    scores: [],
-                }
-                prev.count += 1
-                if (typeof effectiveScore === 'number' && effectiveScore > 0) {
-                    prev.scores.push(effectiveScore)
-                }
-                tagMap.set(tName, prev)
-            }
-
-            for (const customTag of f.tags || []) {
-                const clean = customTag.replace(/^#/, '').trim()
-                if (!clean || seenInAnime.has(clean.toLowerCase())) continue
-                seenInAnime.add(clean.toLowerCase())
-                const prev = tagMap.get(clean) || {
-                    name: clean,
-                    category: 'Personal',
-                    count: 0,
-                    scores: [],
-                }
-                prev.count += 1
-                if (typeof effectiveScore === 'number' && effectiveScore > 0) {
-                    prev.scores.push(effectiveScore)
-                }
-                tagMap.set(clean, prev)
-            }
-        }
-
-        const tagStats = Array.from(tagMap.values())
-            .map((t) => ({
-                name: t.name,
-                category: t.category,
-                count: t.count,
-                pctOfList: totalEntries > 0 ? Math.round((t.count / totalEntries) * 100) : 0,
-                meanScore:
-                    t.scores.length > 0
-                        ? t.scores.reduce((a, b) => a + b, 0) / t.scores.length
-                        : globalMeanRef,
-            }))
-            .sort((a, b) => b.count - a.count || b.meanScore - a.meanScore)
 
         return {
             totalEntries,
@@ -607,8 +626,32 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         }
     }, [filas, stats.genreStats, trendTimeRange])
 
+    // Subconjuntos reactivos para Subvista 2: Cantidad de Animes en Lista
+    const listMetricsFilas = useMemo(() => {
+        if (selectedStatusFilter === 'all') return filas
+        return filas.filter((f) => f.estado === selectedStatusFilter)
+    }, [filas, selectedStatusFilter])
+
+    const listMetricsGenres = useMemo(() => {
+        if (selectedStatusFilter === 'all') return stats.genreStats
+        return calculateGenreStatsForFilas(
+            listMetricsFilas,
+            listMetricsFilas.length,
+            stats.notaMedia > 0 ? stats.notaMedia : 7.5
+        )
+    }, [selectedStatusFilter, listMetricsFilas, stats.genreStats, stats.notaMedia])
+
+    const listMetricsTags = useMemo(() => {
+        if (selectedStatusFilter === 'all') return stats.tagStats
+        return calculateTagStatsForFilas(
+            listMetricsFilas,
+            listMetricsFilas.length,
+            stats.notaMedia > 0 ? stats.notaMedia : 7.5
+        )
+    }, [selectedStatusFilter, listMetricsFilas, stats.tagStats, stats.notaMedia])
+
     const sortedGenres = useMemo(() => {
-        const list = [...stats.genreStats]
+        const list = [...listMetricsGenres]
         list.sort((a, b) => {
             const valA = a[genreSortBy]
             const valB = b[genreSortBy]
@@ -618,19 +661,19 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             return b.count - a.count
         })
         return list
-    }, [stats.genreStats, genreSortBy, genreSortDesc])
+    }, [listMetricsGenres, genreSortBy, genreSortDesc])
 
     const visibleGenres = expandAllGenres ? sortedGenres : sortedGenres.slice(0, 10)
 
     const filteredTags = useMemo(() => {
         const q = tagSearchQuery.trim().toLowerCase()
         const base = q
-            ? stats.tagStats.filter(
+            ? listMetricsTags.filter(
                   (t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
               )
-            : stats.tagStats
+            : listMetricsTags
         return expandAllTags ? base : base.slice(0, 10)
-    }, [stats.tagStats, tagSearchQuery, expandAllTags])
+    }, [listMetricsTags, tagSearchQuery, expandAllTags])
 
     const handleToggleGenreSort = (field: GenreSortField) => {
         if (genreSortBy === field) {
@@ -988,26 +1031,88 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
     // SUBVISTA 2: CANTIDAD DE ANIMES EN LISTA (ESTADOS + % GÉNEROS + % TAGS)
     // =========================================================================
     if (activeSubView === 'list-metrics') {
-        const statusCards = [
-            { id: 'visto' as const, label: 'Completados / Vistos', count: stats.vistos, pct: stats.pctVisto, color: '#22c55e', dotClass: 'perfil-seg-visto' },
-            { id: 'viendo' as const, label: 'Viendo Actualmente', count: stats.viendo, pct: stats.pctViendo, color: '#38bdf8', dotClass: 'perfil-seg-viendo' },
-            { id: 'pendiente' as const, label: 'Pendientes (Plan to Watch)', count: stats.pendientes, pct: stats.pctPendiente, color: '#fbbf24', dotClass: 'perfil-seg-pendiente' },
-            { id: 'dropeado' as const, label: 'Dropeados / Abandonados', count: stats.dropeados, pct: stats.pctDropeado, color: '#f43f5e', dotClass: 'perfil-seg-dropeado' },
+        const statusItems = [
+            {
+                id: 'visto' as const,
+                label: 'Completados / Vistos',
+                shortLabel: 'Completados',
+                count: stats.vistos,
+                pct: stats.pctVisto,
+                colorHex: '#a855f7',
+                colorVar: 'var(--perfil-acento)',
+                dotClass: 'perfil-seg-visto',
+            },
+            {
+                id: 'viendo' as const,
+                label: 'Viendo Actualmente',
+                shortLabel: 'Viendo',
+                count: stats.viendo,
+                pct: stats.pctViendo,
+                colorHex: '#38bdf8',
+                colorVar: 'var(--perfil-cyan)',
+                dotClass: 'perfil-seg-viendo',
+            },
+            {
+                id: 'pendiente' as const,
+                label: 'Pendientes (Plan to Watch)',
+                shortLabel: 'Pendientes',
+                count: stats.pendientes,
+                pct: stats.pctPendiente,
+                colorHex: '#fbbf24',
+                colorVar: '#fbbf24',
+                dotClass: 'perfil-seg-pendiente',
+            },
+            {
+                id: 'dropeado' as const,
+                label: 'Dropeados / Abandonados',
+                shortLabel: 'Dropeados',
+                count: stats.dropeados,
+                pct: stats.pctDropeado,
+                colorHex: '#f43f5e',
+                colorVar: 'var(--perfil-pink)',
+                dotClass: 'perfil-seg-dropeado',
+            },
         ]
+
         const statusFilteredFilas =
             selectedStatusFilter === 'all'
                 ? []
                 : filas.filter((f) => f.estado === selectedStatusFilter)
 
+        const activeStatusItem = hoveredStatus
+            ? statusItems.find((s) => s.id === hoveredStatus)
+            : selectedStatusFilter !== 'all'
+            ? statusItems.find((s) => s.id === selectedStatusFilter)
+            : null
+
+        const donutRadius = 64
+        const donutCircumference = 2 * Math.PI * donutRadius
+        let accumulatedDashOffset = 0
+        const donutSlices = statusItems
+            .filter((st) => st.count > 0)
+            .map((st) => {
+                const fraction = stats.totalEntries > 0 ? st.count / stats.totalEntries : 0
+                const strokeDash = fraction * donutCircumference
+                const strokeDasharray = `${strokeDash} ${donutCircumference - strokeDash}`
+                const strokeDashoffset = -accumulatedDashOffset
+                accumulatedDashOffset += strokeDash
+                return {
+                    ...st,
+                    fraction,
+                    strokeDasharray,
+                    strokeDashoffset,
+                }
+            })
+
         return (
             <div className="perfil-analytics-hub perfil-subview-enter">
-                {/* 1. Distribución de Estados de la Lista */}
+                {/* 1. Distribución de Estados de la Lista en Gráfico de Dona */}
                 <div className="perfil-breakdown-card mb-4">
                     <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                         <div>
                             <span className="ml-eyebrow">SUBVISTA DEDICADA · COMPOSICIÓN DE COLECCIÓN</span>
                             <h3 className="h5 fw-bold text-white mb-0 d-flex align-items-center gap-2">
-                                <TrendingUp size={18} style={{ color: 'var(--perfil-acento)' }} />
+                                <PieChart size={18} style={{ color: 'var(--perfil-acento)' }} />
                                 <span>Distribución de Estados de Visionado ({stats.totalEntries} Animes)</span>
                             </h3>
                         </div>
@@ -1024,92 +1129,332 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                         )}
                     </div>
 
-                    <div className="row g-3 mb-3">
-                        {statusCards.map((st) => {
-                            const isSel = selectedStatusFilter === st.id
-                            return (
-                                <div key={st.id} className="col-6 col-lg-3">
-                                    <div
-                                        onClick={() => setSelectedStatusFilter(isSel ? 'all' : st.id)}
-                                        className="p-3 rounded-3 border h-100"
-                                        style={{
-                                            background: isSel ? 'var(--perfil-acento-soft)' : 'var(--perfil-card-2)',
-                                            borderColor: isSel ? st.color : 'var(--perfil-border)',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.18s ease',
-                                        }}
-                                    >
-                                        <div className="d-flex align-items-center justify-content-between mb-1">
-                                            <span className="d-inline-flex align-items-center gap-1.5 small text-white fw-semibold">
-                                                <span className={`perfil-legend-dot ${st.dotClass}`} />
-                                                <span>{st.label}</span>
+                    <div className="perfil-donut-hub-layout">
+                        {/* Columna Izquierda: Gráfico de Dona SVG + Leyenda Interactiva */}
+                        <div className="perfil-donut-col">
+                            <div className="perfil-donut-wrapper">
+                                <svg
+                                    viewBox="0 0 180 180"
+                                    className="perfil-donut-svg"
+                                >
+                                    {/* Pista de fondo */}
+                                    <circle
+                                        cx="90"
+                                        cy="90"
+                                        r={donutRadius}
+                                        fill="transparent"
+                                        stroke="rgba(255, 255, 255, 0.05)"
+                                        strokeWidth="18"
+                                    />
+
+                                    {/* Segmentos interactivos */}
+                                    {donutSlices.map((slice) => {
+                                        const isSel = selectedStatusFilter === slice.id
+                                        const isHov = hoveredStatus === slice.id
+                                        const isHighlighted = isSel || isHov
+                                        const isDimmed =
+                                            (hoveredStatus && hoveredStatus !== slice.id) ||
+                                            (!hoveredStatus && selectedStatusFilter !== 'all' && selectedStatusFilter !== slice.id)
+
+                                        return (
+                                            <circle
+                                                key={slice.id}
+                                                cx="90"
+                                                cy="90"
+                                                r={donutRadius}
+                                                fill="transparent"
+                                                stroke={slice.colorHex}
+                                                strokeWidth={isHighlighted ? 22 : 18}
+                                                strokeDasharray={slice.strokeDasharray}
+                                                strokeDashoffset={slice.strokeDashoffset}
+                                                transform="rotate(-90 90 90)"
+                                                style={{
+                                                    cursor: 'pointer',
+                                                    transition: 'stroke-width 0.2s ease, opacity 0.2s ease, filter 0.2s ease',
+                                                    opacity: isDimmed ? 0.35 : 1,
+                                                    filter: isHighlighted ? `drop-shadow(0 0 8px ${slice.colorHex}99)` : 'none',
+                                                }}
+                                                onClick={() =>
+                                                    setSelectedStatusFilter((prev) => (prev === slice.id ? 'all' : slice.id))
+                                                }
+                                                onMouseEnter={() => setHoveredStatus(slice.id)}
+                                                onMouseLeave={() => setHoveredStatus(null)}
+                                            >
+                                                <title>{`${slice.label}: ${slice.count} (${slice.pct.toFixed(1)}%)`}</title>
+                                            </circle>
+                                        )
+                                    })}
+                                </svg>
+
+                                {/* Centro de la dona dinámico */}
+                                <div className="perfil-donut-center-info">
+                                    {activeStatusItem ? (
+                                        <>
+                                            <span
+                                                className="perfil-donut-center-pct"
+                                                style={{ color: activeStatusItem.colorHex }}
+                                            >
+                                                {activeStatusItem.pct.toFixed(0)}%
                                             </span>
-                                            <span className="small font-mono fw-bold" style={{ color: st.color }}>
+                                            <span className="perfil-donut-center-sub">
+                                                {activeStatusItem.count} {activeStatusItem.count === 1 ? 'anime' : 'animes'}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="perfil-donut-center-val">
+                                                {stats.totalEntries}
+                                            </span>
+                                            <span className="perfil-donut-center-sub">
+                                                Total Animes
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Leyenda interactiva debajo de la dona */}
+                            <div className="perfil-donut-legend">
+                                {statusItems.map((st) => {
+                                    const isSel = selectedStatusFilter === st.id
+                                    return (
+                                        <button
+                                            key={st.id}
+                                            type="button"
+                                            onClick={() =>
+                                                setSelectedStatusFilter((prev) => (prev === st.id ? 'all' : st.id))
+                                            }
+                                            onMouseEnter={() => setHoveredStatus(st.id)}
+                                            onMouseLeave={() => setHoveredStatus(null)}
+                                            className={`perfil-donut-legend-item ${isSel ? 'is-selected' : ''}`}
+                                            style={{
+                                                borderColor: isSel ? st.colorHex : undefined,
+                                                background: isSel ? 'rgba(255, 255, 255, 0.08)' : undefined,
+                                            }}
+                                        >
+                                            <span className={`perfil-legend-dot ${st.dotClass}`} />
+                                            <span className="perfil-donut-legend-label">{st.shortLabel}</span>
+                                            <span
+                                                className="perfil-donut-legend-count font-mono"
+                                                style={{ color: st.colorHex }}
+                                            >
                                                 {st.pct.toFixed(0)}%
                                             </span>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Columna Derecha: Panel Dinámico de Información y Filtros */}
+                        <div className="perfil-donut-detail-panel">
+                            {selectedStatusFilter === 'all' ? (
+                                <>
+                                    <div className="d-flex align-items-center justify-content-between mb-2">
+                                        <div className="d-flex align-items-center gap-2">
+                                            <TrendingUp size={16} style={{ color: 'var(--perfil-acento)' }} />
+                                            <span className="ml-eyebrow mb-0">RESUMEN GLOBAL DE COLECCIÓN</span>
                                         </div>
-                                        <div className="h4 fw-bold text-white mb-0 font-mono">{st.count}</div>
-                                        <span className="small text-secondary" style={{ fontSize: '0.7rem' }}>
-                                            {isSel ? 'Click para quitar filtro' : 'Click para ver títulos'}
+                                        <span
+                                            className="badge rounded-pill px-2 py-0.5"
+                                            style={{
+                                                background: 'rgba(168, 85, 247, 0.15)',
+                                                color: '#c084fc',
+                                                border: '1px solid rgba(168, 85, 247, 0.3)',
+                                                fontSize: '0.7rem',
+                                            }}
+                                        >
+                                            Catálogo Completo
                                         </span>
                                     </div>
-                                </div>
-                            )
-                        })}
-                    </div>
 
-                    {stats.totalEntries > 0 && (
-                        <div className="perfil-breakdown-bar">
-                            <div className="perfil-breakdown-seg perfil-seg-visto" style={{ width: `${stats.pctVisto}%` }} />
-                            <div className="perfil-breakdown-seg perfil-seg-viendo" style={{ width: `${stats.pctViendo}%` }} />
-                            <div className="perfil-breakdown-seg perfil-seg-pendiente" style={{ width: `${stats.pctPendiente}%` }} />
-                            {stats.pctDropeado > 0 && (
-                                <div className="perfil-breakdown-seg perfil-seg-dropeado" style={{ width: `${stats.pctDropeado}%` }} />
-                            )}
-                        </div>
-                    )}
-
-                    {/* Galería rápida si el usuario seleccionó un estado */}
-                    {selectedStatusFilter !== 'all' && (
-                        <div className="mt-3 pt-3 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
-                            <div className="d-flex align-items-center justify-content-between mb-2">
-                                <span className="small fw-bold text-white">
-                                    Títulos en estado «{selectedStatusFilter.toUpperCase()}» ({statusFilteredFilas.length})
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedStatusFilter('all')}
-                                    className="btn btn-sm p-0 text-secondary small"
-                                >
-                                    Cerrar vista rápida
-                                </button>
-                            </div>
-                            {statusFilteredFilas.length === 0 ? (
-                                <div className="small text-secondary">No hay títulos en este estado.</div>
-                            ) : (
-                                <div className="d-flex gap-2.5 overflow-auto pb-2">
-                                    {statusFilteredFilas.slice(0, 14).map((f) => (
-                                        <div
-                                            key={f.id}
-                                            onClick={() => setSelectedAnime(f)}
-                                            className="flex-shrink-0"
-                                            style={{ width: 86, cursor: 'pointer' }}
-                                            title={f.anime.title}
+                                    <div className="d-flex align-items-baseline gap-2 mb-2">
+                                        <span className="h2 fw-bold text-white mb-0 font-mono">{stats.totalEntries}</span>
+                                        <span className="text-white fw-semibold">Animes Registrados</span>
+                                        <span
+                                            className="badge rounded-pill px-2.5 py-0.5 ms-auto fw-bold"
+                                            style={{
+                                                background: 'rgba(168, 85, 247, 0.15)',
+                                                color: 'var(--perfil-acento)',
+                                                border: '1px solid var(--perfil-acento)',
+                                                fontSize: '0.74rem',
+                                            }}
                                         >
-                                            <img
-                                                src={f.anime.imageUrl}
-                                                alt={f.anime.title}
-                                                style={{ width: 86, height: 122, objectFit: 'cover', borderRadius: 8 }}
-                                            />
-                                            <div className="small text-white text-truncate mt-1" style={{ fontSize: '0.72rem' }}>
-                                                {f.anime.title}
-                                            </div>
+                                            {stats.vistos} Vistos ({stats.pctVisto.toFixed(0)}%)
+                                        </span>
+                                    </div>
+
+                                    <div className="perfil-donut-summary-grid">
+                                        <div className="perfil-donut-stat-chip">
+                                            <span className="perfil-donut-stat-chip-label">
+                                                <span className="perfil-legend-dot perfil-seg-viendo" />
+                                                <span>Viendo</span>
+                                            </span>
+                                            <span className="perfil-donut-stat-chip-val" style={{ color: '#38bdf8' }}>
+                                                {stats.viendo}{' '}
+                                                <span className="small text-secondary fw-normal">({stats.pctViendo.toFixed(0)}%)</span>
+                                            </span>
                                         </div>
-                                    ))}
-                                </div>
+                                        <div className="perfil-donut-stat-chip">
+                                            <span className="perfil-donut-stat-chip-label">
+                                                <span className="perfil-legend-dot perfil-seg-pendiente" />
+                                                <span>Pendientes</span>
+                                            </span>
+                                            <span className="perfil-donut-stat-chip-val" style={{ color: '#fbbf24' }}>
+                                                {stats.pendientes}{' '}
+                                                <span className="small text-secondary fw-normal">({stats.pctPendiente.toFixed(0)}%)</span>
+                                            </span>
+                                        </div>
+                                        <div className="perfil-donut-stat-chip">
+                                            <span className="perfil-donut-stat-chip-label">
+                                                <span className="perfil-legend-dot perfil-seg-dropeado" />
+                                                <span>Dropeados</span>
+                                            </span>
+                                            <span className="perfil-donut-stat-chip-val" style={{ color: '#f43f5e' }}>
+                                                {stats.dropeados}{' '}
+                                                <span className="small text-secondary fw-normal">({stats.pctDropeado.toFixed(0)}%)</span>
+                                            </span>
+                                        </div>
+                                        <div className="perfil-donut-stat-chip">
+                                            <span className="perfil-donut-stat-chip-label">
+                                                <Clock size={12} className="text-secondary" />
+                                                <span>Tiempo Visto</span>
+                                            </span>
+                                            <span className="perfil-donut-stat-chip-val text-white">
+                                                {stats.totalDias}d{' '}
+                                                <span className="small text-secondary fw-normal">({stats.totalHoras}h)</span>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        className="mt-3 p-2 rounded-2 d-flex align-items-center gap-2"
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.025)',
+                                            border: '1px dashed var(--perfil-border)',
+                                        }}
+                                    >
+                                        <MousePointerClick size={14} style={{ color: 'var(--perfil-acento)', flexShrink: 0 }} />
+                                        <span className="small text-secondary" style={{ fontSize: '0.73rem' }}>
+                                            Haz clic en cualquier segmento de la dona o en la leyenda para filtrar los títulos y recalcular los desgloses de géneros y media tags.
+                                        </span>
+                                    </div>
+                                </>
+                            ) : (
+                                (() => {
+                                    const curStatus = statusItems.find((s) => s.id === selectedStatusFilter)!
+                                    return (
+                                        <>
+                                            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                                                <div className="d-flex align-items-center gap-2">
+                                                    <span
+                                                        className="perfil-legend-dot"
+                                                        style={{ background: curStatus.colorHex, width: 10, height: 10 }}
+                                                    />
+                                                    <span className="fw-bold text-white h6 mb-0">{curStatus.label}</span>
+                                                    <span
+                                                        className="badge rounded-pill px-2 py-0.5"
+                                                        style={{
+                                                            background: `${curStatus.colorHex}22`,
+                                                            color: curStatus.colorHex,
+                                                            border: `1px solid ${curStatus.colorHex}55`,
+                                                            fontSize: '0.68rem',
+                                                        }}
+                                                    >
+                                                        Filtro Activo
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedStatusFilter('all')}
+                                                    className="ml-btn ml-btn-subtle ml-btn-sm d-inline-flex align-items-center gap-1.5"
+                                                    style={{ fontSize: '0.72rem', padding: '0.25rem 0.6rem' }}
+                                                >
+                                                    <X size={12} />
+                                                    <span>Limpiar filtro / Ver todos</span>
+                                                </button>
+                                            </div>
+
+                                            <div className="d-flex align-items-baseline gap-2 mb-2">
+                                                <span
+                                                    className="h2 fw-bold mb-0 font-mono"
+                                                    style={{ color: curStatus.colorHex }}
+                                                >
+                                                    {curStatus.count}
+                                                </span>
+                                                <span className="text-white fw-semibold">
+                                                    {curStatus.count === 1 ? 'Anime' : 'Animes'}
+                                                </span>
+                                                <span className="small text-secondary ms-1">
+                                                    ({curStatus.pct.toFixed(1)}% de tu colección)
+                                                </span>
+                                            </div>
+
+                                            {/* Títulos en este estado */}
+                                            {statusFilteredFilas.length > 0 ? (
+                                                <div className="mt-1">
+                                                    <div
+                                                        className="small text-secondary mb-1.5 d-flex align-items-center justify-content-between"
+                                                        style={{ fontSize: '0.71rem' }}
+                                                    >
+                                                        <span>Títulos en este estado ({statusFilteredFilas.length}):</span>
+                                                        <span className="opacity-75">Click para ver detalles</span>
+                                                    </div>
+                                                    <div className="d-flex gap-2 overflow-auto pb-1.5 perfil-thin-scrollbar">
+                                                        {statusFilteredFilas.map((f) => (
+                                                            <div
+                                                                key={f.id}
+                                                                onClick={() => setSelectedAnime(f)}
+                                                                className="flex-shrink-0 text-center"
+                                                                style={{ width: 68, cursor: 'pointer' }}
+                                                                title={f.anime.title}
+                                                            >
+                                                                <img
+                                                                    src={f.anime.imageUrl}
+                                                                    alt={f.anime.title}
+                                                                    style={{
+                                                                        width: 68,
+                                                                        height: 94,
+                                                                        objectFit: 'cover',
+                                                                        borderRadius: 6,
+                                                                        border: `1px solid rgba(255, 255, 255, 0.1)`,
+                                                                    }}
+                                                                />
+                                                                <div
+                                                                    className="small text-white text-truncate mt-1"
+                                                                    style={{ fontSize: '0.68rem' }}
+                                                                >
+                                                                    {f.anime.title}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="small text-secondary py-3">
+                                                    No hay títulos en este estado dentro de tu lista.
+                                                </div>
+                                            )}
+
+                                            <div
+                                                className="mt-2.5 pt-2 border-top d-flex align-items-center gap-1.5 small"
+                                                style={{
+                                                    borderColor: 'rgba(255, 255, 255, 0.06)',
+                                                    color: curStatus.colorHex,
+                                                    fontSize: '0.73rem',
+                                                }}
+                                            >
+                                                <Filter size={13} style={{ flexShrink: 0 }} />
+                                                <span>
+                                                    Desgloses inferiores de Géneros y Media Tags recalculados exclusivamente para estos {curStatus.count} animes.
+                                                </span>
+                                            </div>
+                                        </>
+                                    )
+                                })()
                             )}
                         </div>
-                    )}
+                    </div>
                 </div>
 
                 {/* 2. Desglose de la Lista en % de Géneros y % de Tags */}
@@ -1118,20 +1463,38 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                     <div className="perfil-genre-table-card">
                         <div className="perfil-section-header-line">
                             <div>
-                                <span className="ml-eyebrow">DESGLOSE POR GÉNEROS</span>
+                                <span className="ml-eyebrow d-flex align-items-center gap-1.5">
+                                    <span>DESGLOSE POR GÉNEROS</span>
+                                    {selectedStatusFilter !== 'all' && (
+                                        <span
+                                            className="badge rounded-pill px-1.5 py-0.5"
+                                            style={{
+                                                background: 'var(--perfil-acento-soft)',
+                                                color: 'var(--perfil-acento)',
+                                                fontSize: '0.62rem',
+                                            }}
+                                        >
+                                            Filtrado: {statusItems.find((s) => s.id === selectedStatusFilter)?.shortLabel}
+                                        </span>
+                                    )}
+                                </span>
                                 <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-2">
                                     <Layers size={16} style={{ color: 'var(--perfil-acento)' }} />
                                     <span>% de Géneros en la Lista</span>
                                 </h4>
                             </div>
                             <span className="small text-secondary" style={{ fontSize: '0.72rem' }}>
-                                {sortedGenres.length} géneros
+                                {sortedGenres.length} {sortedGenres.length === 1 ? 'género' : 'géneros'}
                             </span>
                         </div>
 
                         {sortedGenres.length === 0 ? (
                             <div className="perfil-contrast-empty my-3">
-                                <span>Agrega animes a tu lista para calcular el % de géneros.</span>
+                                <span>
+                                    {selectedStatusFilter !== 'all'
+                                        ? 'No hay títulos en este estado para calcular el % de géneros.'
+                                        : 'Agrega animes a tu lista para calcular el % de géneros.'}
+                                </span>
                             </div>
                         ) : (
                             <>
@@ -1209,7 +1572,21 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                     <div className="perfil-genre-table-card">
                         <div className="perfil-section-header-line">
                             <div>
-                                <span className="ml-eyebrow">DESGLOSE POR MEDIA TAGS</span>
+                                <span className="ml-eyebrow d-flex align-items-center gap-1.5">
+                                    <span>DESGLOSE POR MEDIA TAGS</span>
+                                    {selectedStatusFilter !== 'all' && (
+                                        <span
+                                            className="badge rounded-pill px-1.5 py-0.5"
+                                            style={{
+                                                background: 'rgba(56, 189, 248, 0.15)',
+                                                color: '#38bdf8',
+                                                fontSize: '0.62rem',
+                                            }}
+                                        >
+                                            Filtrado: {statusItems.find((s) => s.id === selectedStatusFilter)?.shortLabel}
+                                        </span>
+                                    )}
+                                </span>
                                 <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-2">
                                     <Tag size={16} style={{ color: 'var(--perfil-cyan)' }} />
                                     <span>% de Tags y Temáticas en la Lista</span>
@@ -1230,7 +1607,11 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
 
                         {filteredTags.length === 0 ? (
                             <div className="perfil-contrast-empty my-3">
-                                <span>No se encontraron tags registrados en los animes de esta lista.</span>
+                                <span>
+                                    {selectedStatusFilter !== 'all'
+                                        ? 'No se encontraron tags para los animes en este estado.'
+                                        : 'No se encontraron tags registrados en los animes de esta lista.'}
+                                </span>
                             </div>
                         ) : (
                             <>
@@ -1283,7 +1664,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                     </table>
                                 </div>
 
-                                {stats.tagStats.length > 10 && (
+                                {listMetricsTags.length > 10 && (
                                     <button
                                         type="button"
                                         className="perfil-genre-expand-btn"
@@ -1297,7 +1678,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                         ) : (
                                             <>
                                                 <ChevronDown size={14} />
-                                                <span>Ver los {stats.tagStats.length} tags detectados</span>
+                                                <span>Ver los {listMetricsTags.length} tags detectados</span>
                                             </>
                                         )}
                                     </button>
