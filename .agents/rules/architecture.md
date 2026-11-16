@@ -54,3 +54,9 @@ Al proponer, crear o refactorizar código:
 1. Identifica y elimina redundancias.
 2. Explica el porqué arquitectónico.
 3. Muestra código de producción completo, modular, con manejo explícito de errores y estados de carga/fallo.
+
+---
+
+### 6. Gestión de Versiones y Repositorio Git
+- **Prohibición Estricta de Push sin Autorización:** Queda terminantemente prohibido ejecutar `git push` a la rama `main` (o a cualquier rama remota) sin la autorización u orden explícita previa del usuario.
+- El agente nunca debe hacer push automáticamente sin que el usuario lo haya ordenado de forma directa.

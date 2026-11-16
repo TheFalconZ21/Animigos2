@@ -103,3 +103,11 @@ Cada propuesta, refactorización o adición de código debe:
 - **Fidelidad a Design Tokens y Variables CSS:**
   - Los nuevos controles deben consumir y respetar los design tokens locales del módulo: variables de acento (`var(--ml-acento)`, `var(--ml-acento-suave)`), superficies (`var(--ml-superficie)`, `var(--ml-superficie-2)`), bordes (`var(--ml-borde)`, `var(--ml-borde-fuerte)`) y curvaturas (`border-radius: 8px / 11px / 14px`).
   - La jerarquía tipográfica, el contraste de textos secundarios (`var(--ml-texto-2)`, `var(--ml-texto-3)`) y las microinteracciones (hover, focus, active con transiciones suaves) deben fusionarse orgánicamente con el resto de la interfaz.
+
+---
+
+## 7. Gestión de Versiones y Repositorio Git
+
+### 7.1 Prohibición Estricta de Push sin Autorización Explícita
+- **Regla Inquebrantable:** Queda terminantemente prohibido ejecutar `git push` a la rama `main` (o a cualquier rama remota) sin la autorización u orden explícita del usuario (ej: *"pushea a main"*, *"sube los cambios al repo"*).
+- Los commits en local pueden usarse para resguardar código completado y verificado, pero el push remoto **debe esperar siempre la instrucción directa del usuario**.
