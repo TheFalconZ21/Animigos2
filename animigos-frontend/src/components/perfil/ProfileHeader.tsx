@@ -10,7 +10,6 @@ import {
     Send,
     ArrowLeft,
     Users,
-    ChevronRight,
 } from 'lucide-react'
 import type { SocialLinks, PrivacyConfig } from './perfil-types'
 import { resolveMediaUrl } from '../../utils/mediaUrl'
@@ -160,18 +159,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                                     @{username}
                                 </span>
                                 <span>·</span>
-                                <button
-                                    type="button"
-                                    onClick={onOpenFriendsSubView}
-                                    className="perfil-friends-count-pill"
-                                    title="Haz clic para abrir la subvista de Amigos"
-                                >
-                                    <Users size={13} style={{ color: 'var(--perfil-acento)' }} />
-                                    <strong className="text-white font-mono">{friendsCount}</strong>
-                                    <span>{friendsCount === 1 ? 'Amigo' : 'Amigos'}</span>
-                                    <ChevronRight size={13} className="perfil-friends-count-chevron" />
-                                </button>
-                                <span>·</span>
                                 <span className="d-inline-flex align-items-center gap-1">
                                     <Calendar size={13} /> Miembro desde {memberSince}
                                 </span>
@@ -288,6 +275,18 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                     </div>
 
                     <div className="d-flex flex-wrap align-items-center gap-2 ms-auto">
+                        {onOpenFriendsSubView && (
+                            <button
+                                type="button"
+                                onClick={onOpenFriendsSubView}
+                                className="perfil-header-action-btn"
+                                title={isCurrentUser ? 'Ver mis amigos' : `Ver amigos de @${username}`}
+                            >
+                                <Users size={14} />
+                                <span>{friendsCount} {friendsCount === 1 ? 'amigo' : 'amigos'}</span>
+                            </button>
+                        )}
+
                         {(isCurrentUser || privacy.isListPublic) && onViewList && (
                             <button
                                 type="button"
