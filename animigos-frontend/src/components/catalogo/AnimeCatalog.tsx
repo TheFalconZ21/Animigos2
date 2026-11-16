@@ -1,7 +1,5 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
-    Search,
-    SlidersHorizontal,
     Star,
     Check,
     Plus,
@@ -11,19 +9,11 @@ import {
     Film,
     Building2,
     Award,
-    ChevronDown,
-    Tag,
-    X,
 } from 'lucide-react'
-import {
-    useCatalogQuery,
-    useGenresQuery,
-    useYearsQuery,
-    useStudios,
-    useTaxonomiesQuery,
-} from '../../hooks/useCatalog'
+import { useCatalogQuery } from '../../hooks/useCatalog'
 import { useMyList } from '../../hooks/useMyList'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
+import { useCatalogFilters } from '../../hooks/useCatalogFilters'
 import { useAuth } from '../../context/AuthContext'
 import type { ApiAnimeData } from '../../services/userListApi'
 import { AnimeProfileView } from './AnimeProfileView'
@@ -31,77 +21,9 @@ import './catalogo.css'
 
 interface AnimeCatalogProps {
     initialAnimeId?: number | null
-    initialSearch?: string
-    initialYear?: string | number | null
-    initialSeason?: string | null
-    initialGenre?: string | null
-    initialOrdering?: string | null
 }
 
-const GENRES_DEFAULT = [
-    'Action',
-    'Adventure',
-    'Comedy',
-    'Drama',
-    'Fantasy',
-    'Horror',
-    'Isekai',
-    'Mecha',
-    'Mystery',
-    'Psychological',
-    'Romance',
-    'Sci-Fi',
-    'Slice of Life',
-    'Sports',
-    'Supernatural',
-    'Thriller',
-]
-
-const SEASONS_LIST = [
-    { id: '', label: 'Todas las Temporadas' },
-    { id: 'fall', label: 'Otoño (Fall)' },
-    { id: 'spring', label: 'Primavera (Spring)' },
-    { id: 'summer', label: 'Verano (Summer)' },
-    { id: 'winter', label: 'Invierno (Winter)' },
-]
-
-const FORMATS_LIST = [
-    { id: '', label: 'Todos los Formatos' },
-    { id: 'TV', label: 'Serie (TV)' },
-    { id: 'Movie', label: 'Película (Movie)' },
-    { id: 'OVA', label: 'OVA' },
-    { id: 'ONA', label: 'ONA' },
-    { id: 'Special', label: 'Especial' },
-]
-
-const MIN_SCORES_LIST = [
-    { id: '', label: 'Todas las notas' },
-    { id: '9.0', label: '★ 9.0 o más' },
-    { id: '8.5', label: '★ 8.5 o más' },
-    { id: '8.0', label: '★ 8.0 o más' },
-    { id: '7.5', label: '★ 7.5 o más' },
-    { id: '7.0', label: '★ 7.0 o más' },
-]
-
-const ORDERING_LIST = [
-    { id: '-score', label: 'Puntuación MAL' },
-    { id: 'score', label: 'Puntuación MAL (Menor)' },
-    { id: '-popularity', label: 'Popularidad' },
-    { id: '-season_year', label: 'Año (Recientes)' },
-    { id: 'season_year', label: 'Fecha de emisión (Ascendente)' },
-    { id: 'title', label: 'Título (A–Z)' },
-]
-
-type TaxonomyTabId = 'all' | 'Genre' | 'Theme' | 'Cast' | 'Setting' | 'Demographic'
-
-export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
-    initialAnimeId = null,
-    initialSearch = '',
-    initialYear = null,
-    initialSeason = null,
-    initialGenre = null,
-    initialOrdering = null
-}) => {
+export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({ initialAnimeId = null }) => {
     const { isAuthenticated } = useAuth()
     const { filas, agregarAnime } = useMyList()
     const { acento } = useThemeAccent()
@@ -115,178 +37,31 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
         setActiveProfileMalId(initialAnimeId ?? null)
     }, [initialAnimeId])
 
-    // --- Filtros ---
-    const [studio, setStudio] = useState('')
-    // Lista combinada de Géneros y Taxonomías de AniList seleccionados (Intersección AND)
-    const [selectedTerms, setSelectedTerms] = useState<string[]>(initialGenre ? [initialGenre] : [])
-    const [season, setSeason] = useState(initialSeason ? String(initialSeason).toLowerCase() : '')
-    const [year, setYear] = useState(initialYear ? String(initialYear) : '')
-    const [minScore, setMinScore] = useState('')
-    const [format, setFormat] = useState('')
-    const [ordering, setOrdering] = useState(initialOrdering || '-score')
-
-    useEffect(() => {
-        if (initialYear !== undefined && initialYear !== null) {
-            setYear(String(initialYear))
-        }
-        if (initialSeason !== undefined && initialSeason !== null) {
-            setSeason(String(initialSeason).toLowerCase())
-        }
-        if (initialGenre) {
-            setSelectedTerms([initialGenre])
-        }
-        if (initialOrdering) {
-            setOrdering(initialOrdering)
-        }
-    }, [initialYear, initialSeason, initialGenre, initialOrdering])
-
-    // Selector desplegable de Géneros + Taxonomías de AniList
-    const [taxDropdownOpen, setTaxDropdownOpen] = useState(false)
-    const [taxSearch, setTaxSearch] = useState('')
-    const [taxCategoryTab, setTaxCategoryTab] = useState<TaxonomyTabId>('all')
-    const taxDropdownRef = useRef<HTMLDivElement | null>(null)
-
-    useEffect(() => {
-        const handleClickOutside = (ev: MouseEvent) => {
-            if (taxDropdownRef.current && !taxDropdownRef.current.contains(ev.target as Node)) {
-                setTaxDropdownOpen(false)
-            }
-        }
-        if (taxDropdownOpen) {
-            document.addEventListener('mousedown', handleClickOutside)
-        }
-        return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [taxDropdownOpen])
-
-    // Toggles rápidos
-    const [noSequels, setNoSequels] = useState(false)
-    const [notInMyList, setNotInMyList] = useState(false)
-
-    // Búsqueda por texto y paginación
-    const [searchInput, setSearchInput] = useState(initialSearch)
-    const [submittedSearch, setSubmittedSearch] = useState(initialSearch)
-    const [currentPage, setCurrentPage] = useState(1)
     const [addedAnimeId, setAddedAnimeId] = useState<number | null>(null)
-
-    useEffect(() => {
-        if (initialSearch) {
-            setSearchInput(initialSearch)
-            setSubmittedSearch(initialSearch)
-            setCurrentPage(1)
-        }
-    }, [initialSearch])
-
-    // Queries auxiliares
-    const { data: genresData } = useGenresQuery()
-    const { data: taxonomiesData } = useTaxonomiesQuery()
-    const { data: yearsData } = useYearsQuery()
-    const { data: studiosData } = useStudios()
-
-    const yearsList =
-        yearsData && yearsData.length
-            ? yearsData
-            : [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2010, 2005, 2000]
-
-    // Helper para sanitizar nombres de taxonomía y evitar corchetes o comillas residuales
-    const cleanTaxonomyToken = (raw: string): string => {
-        return raw.replace(/^[\["'\s]+|[\]"'\s]+$/g, '').trim()
-    }
-
-    // Unificar Géneros y Media Tags de AniList para el selector multi-taxonomía
-    const allTaxonomyOptions = useMemo(() => {
-        const map = new Map<string, { name: string; category: string; count: number }>()
-
-        const addOption = (rawName: string, category: string, count: number) => {
-            const cleanName = cleanTaxonomyToken(rawName)
-            if (!cleanName) return
-            const key = cleanName.toLowerCase()
-            const existing = map.get(key)
-            if (existing) {
-                existing.count = Math.max(existing.count, 0) + (count > 0 ? count : 0)
-                if (category === 'Genre') existing.category = 'Genre'
-            } else {
-                map.set(key, {
-                    name: cleanName,
-                    category: category || 'Theme',
-                    count: count > 0 ? count : 0
-                })
-            }
-        }
-
-        const baseGenres = genresData && genresData.length ? genresData : GENRES_DEFAULT
-        for (const g of baseGenres) {
-            addOption(g, 'Genre', 0)
-        }
-
-        if (taxonomiesData) {
-            for (const g of taxonomiesData.genres || []) {
-                addOption(g.name, 'Genre', g.count)
-            }
-            for (const t of taxonomiesData.tags || []) {
-                addOption(t.name, t.category || 'Theme', t.count)
-            }
-        }
-
-        return Array.from(map.values()).sort((a, b) => {
-            if (a.category === 'Genre' && b.category !== 'Genre') return -1
-            if (a.category !== 'Genre' && b.category === 'Genre') return 1
-            return b.count - a.count || a.name.localeCompare(b.name)
-        })
-    }, [genresData, taxonomiesData])
-
-    const filteredTaxonomyOptions = useMemo(() => {
-        const q = taxSearch.trim().toLowerCase()
-        return allTaxonomyOptions.filter((item) => {
-            if (taxCategoryTab !== 'all' && item.category !== taxCategoryTab) return false
-            if (q && !item.name.toLowerCase().includes(q)) return false
-            return true
-        })
-    }, [allTaxonomyOptions, taxSearch, taxCategoryTab])
-
-    const toggleTerm = (termName: string) => {
-        const clean = cleanTaxonomyToken(termName)
-        setSelectedTerms((prev) => {
-            const exists = prev.some((t) => t.toLowerCase() === clean.toLowerCase())
-            if (exists) {
-                return prev.filter((t) => t.toLowerCase() !== clean.toLowerCase())
-            }
-            return [...prev, clean]
-        })
-        setCurrentPage(1)
-    }
+    const { filters, setFilters, clearFilters } = useCatalogFilters()
 
     // Construcción de parámetros para el BFF
     const filterParams = useMemo(() => {
         return {
-            page: currentPage,
+            page: filters.currentPage,
             page_size: 50,
-            q: submittedSearch.trim() || undefined,
-            studio: studio || undefined,
-            tags: selectedTerms.length > 0 ? selectedTerms.join(',') : undefined,
-            season: season || undefined,
-            year: year || undefined,
-            min_score: minScore || undefined,
-            format: format || undefined,
-            ordering: ordering || '-score',
-            no_sequels: noSequels ? true : undefined,
-            not_in_my_list: isAuthenticated && notInMyList ? true : undefined,
+            q: filters.submittedSearch.trim() || undefined,
+            studio: filters.studio || undefined,
+            tags: filters.selectedTerms.length > 0 ? filters.selectedTerms.join(',') : undefined,
+            season: filters.season || undefined,
+            year: filters.year || undefined,
+            min_score: filters.minScore || undefined,
+            format: filters.format || undefined,
+            ordering: filters.ordering || '-score',
+            no_sequels: filters.noSequels ? true : undefined,
+            not_in_my_list: isAuthenticated && filters.notInMyList ? true : undefined,
             exclude_ids:
-                isAuthenticated && notInMyList && filas.length
+                isAuthenticated && filters.notInMyList && filas.length
                     ? Array.from(myListIds).join(',')
                     : undefined,
         }
     }, [
-        currentPage,
-        submittedSearch,
-        studio,
-        selectedTerms,
-        season,
-        year,
-        minScore,
-        format,
-        ordering,
-        noSequels,
-        notInMyList,
+        filters,
         filas.length,
         myListIds,
         isAuthenticated,
@@ -297,40 +72,6 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
     const animes = catalogData?.results || []
     const totalCount = catalogData?.count || 0
     const totalPages = Math.max(1, Math.ceil(totalCount / 50))
-
-    const handleSearchSubmit = (e: React.FormEvent) => {
-        e.preventDefault()
-        setSubmittedSearch(searchInput.trim())
-        setCurrentPage(1)
-    }
-
-    const handleClearFilters = () => {
-        setStudio('')
-        setSelectedTerms([])
-        setSeason('')
-        setYear('')
-        setMinScore('')
-        setFormat('')
-        setOrdering('-score')
-        setNoSequels(false)
-        setNotInMyList(false)
-        setSearchInput('')
-        setSubmittedSearch('')
-        setCurrentPage(1)
-    }
-
-    const hasActiveFilters = Boolean(
-        studio ||
-            selectedTerms.length > 0 ||
-            season ||
-            year ||
-            minScore ||
-            format ||
-            ordering !== '-score' ||
-            noSequels ||
-            (isAuthenticated && notInMyList) ||
-            submittedSearch
-    )
 
     const handleOpenAnimeProfile = (anime: ApiAnimeData) => {
         setActiveProfileAnime(anime)
@@ -391,13 +132,11 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                     window.scrollTo({ top: 0, behavior: 'smooth' })
                 }}
                 onFilterByGenreOrTag={(term) => {
-                    setSelectedTerms([term])
-                    setCurrentPage(1)
+                    setFilters((current) => ({ ...current, selectedTerms: [term], currentPage: 1 }))
                     handleCloseAnimeProfile()
                 }}
                 onFilterByStudio={(st) => {
-                    setStudio(st)
-                    setCurrentPage(1)
+                    setFilters((current) => ({ ...current, studio: st, currentPage: 1 }))
                     handleCloseAnimeProfile()
                 }}
             />
@@ -410,330 +149,6 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
             style={{ '--cat-acento': acento, '--ml-acento': acento } as React.CSSProperties}
         >
             <div className="container" style={{ maxWidth: '1240px' }}>
-                {/* ---------- Caja de Filtros de Catálogo ---------- */}
-                <div className="cat-filter-card mb-4">
-                    <div className="cat-filter-title">
-                        <SlidersHorizontal size={14} style={{ color: 'var(--cat-warning)' }} />
-                        <span>Filtros de Catálogo & Taxonomía de AniList</span>
-                    </div>
-
-                    {/* Grilla Horizontal de Filtros Desplegables */}
-                    <div className="cat-filter-grid">
-                        <div className="cat-filter-col">
-                            <label className="cat-filter-label">ESTUDIO</label>
-                            <select
-                                className="cat-select"
-                                value={studio}
-                                onChange={(e) => {
-                                    setStudio(e.target.value)
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                <option value="">Todos los Estudios</option>
-                                {studiosData?.map((s) => (
-                                    <option key={s.studio} value={s.studio}>
-                                        {s.studio}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Selector Multi-Género + Taxonomías de AniList */}
-                        <div className="cat-filter-col position-relative" ref={taxDropdownRef}>
-                            <label className="cat-filter-label">GÉNEROS & TAXONOMÍA</label>
-                            <button
-                                type="button"
-                                className={`cat-tax-trigger-btn ${taxDropdownOpen ? 'open' : ''}`}
-                                onClick={() => setTaxDropdownOpen((prev) => !prev)}
-                            >
-                                <span className="text-truncate">
-                                    {selectedTerms.length === 0
-                                        ? 'Géneros y Tags...'
-                                        : selectedTerms.length === 1
-                                          ? selectedTerms[0]
-                                          : `${selectedTerms.length} seleccionados`}
-                                </span>
-                                <ChevronDown size={13} className="text-secondary flex-shrink-0" />
-                            </button>
-
-                            {taxDropdownOpen && (
-                                <div className="cat-tax-popover">
-                                    <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
-                                        <span className="small fw-bold text-white" style={{ fontSize: '0.78rem' }}>
-                                            Selecciona uno o varios Géneros y Media Tags (Intersección AND)
-                                        </span>
-                                        {selectedTerms.length > 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedTerms([])
-                                                    setCurrentPage(1)
-                                                }}
-                                                className="btn btn-link p-0 text-secondary text-decoration-none"
-                                                style={{ fontSize: '0.72rem' }}
-                                            >
-                                                Limpiar ({selectedTerms.length})
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* Buscador interno de taxonomías */}
-                                    <div className="position-relative mb-2">
-                                        <Search
-                                            size={13}
-                                            className="position-absolute text-secondary"
-                                            style={{ left: 10, top: '50%', transform: 'translateY(-50%)' }}
-                                        />
-                                        <input
-                                            type="text"
-                                            placeholder="Buscar género o tag (ej: Isekai, Revenge, Vikings, Mecha, Seinen)..."
-                                            value={taxSearch}
-                                            onChange={(e) => setTaxSearch(e.target.value)}
-                                            className="cat-search-control py-1.5"
-                                            style={{ paddingLeft: '2rem', fontSize: '0.78rem' }}
-                                        />
-                                    </div>
-
-                                    {/* Pestañas por categoría de AniList */}
-                                    <div className="cat-tax-tabs">
-                                        {(
-                                            [
-                                                { id: 'all', label: 'Todos' },
-                                                { id: 'Genre', label: 'Géneros' },
-                                                { id: 'Theme', label: 'Temáticas / Tropos' },
-                                                { id: 'Cast', label: 'Elenco / Cast' },
-                                                { id: 'Setting', label: 'Ambientación' },
-                                                { id: 'Demographic', label: 'Demografía' },
-                                            ] as Array<{ id: TaxonomyTabId; label: string }>
-                                        ).map((tab) => (
-                                            <button
-                                                key={tab.id}
-                                                type="button"
-                                                className={`cat-tax-tab ${taxCategoryTab === tab.id ? 'active' : ''}`}
-                                                onClick={() => setTaxCategoryTab(tab.id)}
-                                            >
-                                                {tab.label}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {/* Lista de opciones multi-seleccionables */}
-                                    <div className="cat-tax-list">
-                                        {filteredTaxonomyOptions.length === 0 ? (
-                                            <div className="small text-secondary py-2">
-                                                No se encontraron etiquetas que coincidan con "{taxSearch}".
-                                            </div>
-                                        ) : (
-                                            filteredTaxonomyOptions.slice(0, 120).map((opt) => {
-                                                const isSel = selectedTerms.some(
-                                                    (t) => t.toLowerCase() === opt.name.toLowerCase()
-                                                )
-                                                return (
-                                                    <button
-                                                        key={opt.name}
-                                                        type="button"
-                                                        className={`cat-tax-option ${isSel ? 'selected' : ''}`}
-                                                        onClick={() => toggleTerm(opt.name)}
-                                                    >
-                                                        {isSel && <Check size={11} />}
-                                                        <span>{opt.name}</span>
-                                                        {opt.count > 0 && (
-                                                            <span className="cat-tax-option-count">
-                                                                {opt.count}
-                                                            </span>
-                                                        )}
-                                                    </button>
-                                                )
-                                            })
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="cat-filter-col">
-                            <label className="cat-filter-label">TEMPORADA</label>
-                            <select
-                                className="cat-select"
-                                value={season}
-                                onChange={(e) => {
-                                    setSeason(e.target.value)
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                {SEASONS_LIST.map((s) => (
-                                    <option key={s.id} value={s.id}>
-                                        {s.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="cat-filter-col">
-                            <label className="cat-filter-label">AÑO</label>
-                            <select
-                                className="cat-select"
-                                value={year}
-                                onChange={(e) => {
-                                    setYear(e.target.value)
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                <option value="">Todos los Años</option>
-                                {yearsList.map((y) => (
-                                    <option key={y} value={y}>
-                                        {y}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="cat-filter-col">
-                            <label className="cat-filter-label">NOTA MÍNIMA</label>
-                            <select
-                                className="cat-select"
-                                value={minScore}
-                                onChange={(e) => {
-                                    setMinScore(e.target.value)
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                {MIN_SCORES_LIST.map((m) => (
-                                    <option key={m.id} value={m.id}>
-                                        {m.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="cat-filter-col">
-                            <label className="cat-filter-label">FORMATO</label>
-                            <select
-                                className="cat-select"
-                                value={format}
-                                onChange={(e) => {
-                                    setFormat(e.target.value)
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                {FORMATS_LIST.map((f) => (
-                                    <option key={f.id} value={f.id}>
-                                        {f.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="cat-filter-col">
-                            <label className="cat-filter-label">ORDENAR POR</label>
-                            <select
-                                className="cat-select"
-                                value={ordering}
-                                onChange={(e) => {
-                                    setOrdering(e.target.value)
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                {ORDERING_LIST.map((o) => (
-                                    <option key={o.id} value={o.id}>
-                                        {o.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Fila de Buscador */}
-                    <form onSubmit={handleSearchSubmit} className="cat-search-row">
-                        <div className="cat-search-input-wrapper">
-                            <Search size={15} className="cat-search-icon" />
-                            <input
-                                type="text"
-                                placeholder="Buscar en Top Animes por título, título en inglés, estudio..."
-                                value={searchInput}
-                                onChange={(e) => setSearchInput(e.target.value)}
-                                className="cat-search-control"
-                            />
-                        </div>
-                        <button type="submit" className="cat-btn-search">
-                            Buscar
-                        </button>
-                    </form>
-
-                    {/* Chips de Géneros y Taxonomías seleccionadas (Intersección AND) */}
-                    {selectedTerms.length > 0 && (
-                        <div className="d-flex flex-wrap align-items-center gap-1.5 mt-3 pt-2 border-top border-dark">
-                            <span
-                                className="small text-secondary fw-semibold d-inline-flex align-items-center gap-1 me-1"
-                                style={{ fontSize: '0.72rem' }}
-                            >
-                                <Tag size={12} style={{ color: 'var(--cat-acento)' }} />
-                                Cumpliendo simultáneamente:
-                            </span>
-                            {selectedTerms.map((term, idx) => (
-                                <React.Fragment key={term}>
-                                    <span className="cat-active-term-chip">
-                                        <span>{term}</span>
-                                        <button
-                                            type="button"
-                                            className="cat-active-term-remove"
-                                            onClick={() => toggleTerm(term)}
-                                            aria-label={`Quitar ${term}`}
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    </span>
-                                    {idx < selectedTerms.length - 1 && (
-                                        <span className="small text-secondary fw-bold">+</span>
-                                    )}
-                                </React.Fragment>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Chips de Filtros Rápidos */}
-                    <div className="d-flex flex-wrap align-items-center gap-2 mt-3 pt-2">
-                        <span className="small text-secondary fw-semibold me-1" style={{ fontSize: '0.72rem' }}>
-                            Filtros rápidos:
-                        </span>
-
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setNoSequels(!noSequels)
-                                setCurrentPage(1)
-                            }}
-                            className={`cat-toggle-chip ${noSequels ? 'active' : ''}`}
-                        >
-                            <span>No secuelas</span>
-                        </button>
-
-                        {isAuthenticated && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setNotInMyList(!notInMyList)
-                                    setCurrentPage(1)
-                                }}
-                                className={`cat-toggle-chip ${notInMyList ? 'active' : ''}`}
-                            >
-                                <span>No en mi lista</span>
-                            </button>
-                        )}
-
-                        {hasActiveFilters && (
-                            <button
-                                type="button"
-                                onClick={handleClearFilters}
-                                className="btn btn-link text-secondary text-decoration-none p-0 ms-auto small"
-                                style={{ fontSize: '0.74rem' }}
-                            >
-                                ✕ Limpiar filtros
-                            </button>
-                        )}
-                    </div>
-                </div>
-
                 {/* ---------- Conteo de Animes y Paginación Rápida ---------- */}
                 <div className="d-flex justify-content-between align-items-center my-3">
                     <span className="small text-secondary" style={{ fontSize: '0.8rem' }}>
@@ -745,20 +160,20 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                         <div className="d-flex align-items-center gap-2">
                             <button
                                 type="button"
-                                disabled={currentPage <= 1 || isFetching}
-                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                disabled={filters.currentPage <= 1 || isFetching}
+                                onClick={() => setFilters((current) => ({ ...current, currentPage: Math.max(1, current.currentPage - 1) }))}
                                 className="cat-nav-btn"
                                 title="Página anterior"
                             >
                                 <ChevronLeft size={13} />
                             </button>
                             <span className="small font-mono text-white">
-                                {currentPage} / {totalPages}
+                                {filters.currentPage} / {totalPages}
                             </span>
                             <button
                                 type="button"
-                                disabled={currentPage >= totalPages || isFetching}
-                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                disabled={filters.currentPage >= totalPages || isFetching}
+                                onClick={() => setFilters((current) => ({ ...current, currentPage: Math.min(totalPages, current.currentPage + 1) }))}
                                 className="cat-nav-btn"
                                 title="Página siguiente"
                             >
@@ -790,7 +205,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                         </p>
                         <button
                             type="button"
-                            onClick={handleClearFilters}
+                            onClick={clearFilters}
                             className="cat-btn-search py-1.5 px-3"
                         >
                             Restablecer Filtros
@@ -810,7 +225,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                         </p>
                         <button
                             type="button"
-                            onClick={handleClearFilters}
+                            onClick={clearFilters}
                             className="cat-btn-search py-1.5 px-3"
                         >
                             Limpiar todos los filtros
@@ -819,7 +234,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                 ) : (
                     <div className="cat-grid">
                         {animes.map((anime, index) => {
-                            const globalRank = (currentPage - 1) * 50 + index + 1
+                            const globalRank = (filters.currentPage - 1) * 50 + index + 1
                             const inMyList = myListIds.has(anime.mal_id)
                             const justAdded = addedAnimeId === anime.mal_id
 
@@ -912,9 +327,9 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                     <div className="d-flex justify-content-between align-items-center py-4 mt-3 border-top border-dark">
                         <button
                             type="button"
-                            disabled={currentPage <= 1 || isFetching}
+                            disabled={filters.currentPage <= 1 || isFetching}
                             onClick={() => {
-                                setCurrentPage((p) => Math.max(1, p - 1))
+                                setFilters((current) => ({ ...current, currentPage: Math.max(1, current.currentPage - 1) }))
                                 window.scrollTo({ top: 0, behavior: 'smooth' })
                             }}
                             className="cat-mode-pill-btn"
@@ -930,16 +345,16 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                         <div className="d-flex align-items-center gap-1.5">
                             <span className="small text-secondary">Página</span>
                             <span className="small font-mono fw-bold text-white px-2 py-0.5 rounded bg-black border border-dark">
-                                {currentPage}
+                                {filters.currentPage}
                             </span>
                             <span className="small text-secondary">de {totalPages}</span>
                         </div>
 
                         <button
                             type="button"
-                            disabled={currentPage >= totalPages || isFetching}
+                            disabled={filters.currentPage >= totalPages || isFetching}
                             onClick={() => {
-                                setCurrentPage((p) => Math.min(totalPages, p + 1))
+                                setFilters((current) => ({ ...current, currentPage: Math.min(totalPages, current.currentPage + 1) }))
                                 window.scrollTo({ top: 0, behavior: 'smooth' })
                             }}
                             className="cat-mode-pill-btn"

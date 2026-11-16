@@ -8,7 +8,8 @@
    - Badges limpios en esquinas del póster (Ranking, Temporada, Score)
    ============================================================ */
 
-.cat-root {
+.cat-root,
+.cat-sidebar-filters {
     --cat-bg: #080808;
     --cat-surface: #111116;
     --cat-surface-2: #18181f;
@@ -18,10 +19,12 @@
     --cat-text: #f4f4f5;
     --cat-text-muted: #a1a1aa;
     --cat-text-dim: #71717a;
-    --cat-acento: var(--ml-acento, #e8508f);
+    --cat-acento: var(--ml-acento, var(--theme-acento, #e8508f));
     --cat-gold: #fcd34d;
     --cat-warning: #f59e0b;
+}
 
+.cat-root {
     background-color: var(--cat-bg);
     color: var(--cat-text-muted);
     min-height: 90vh;
@@ -65,47 +68,252 @@
     box-shadow: 0 2px 14px color-mix(in srgb, var(--cat-acento) 45%, transparent);
 }
 
-/* ---------- Caja de Filtros ---------- */
-.cat-filter-card {
+.cat-sidebar-filters {
+    margin: 0.45rem 0 0.65rem 2.45rem;
+    padding: 0.55rem;
     background: var(--cat-surface);
     border: 1px solid var(--cat-border);
-    border-radius: 18px;
-    padding: 1.25rem 1.4rem;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+    border-radius: 10px;
+    user-select: text;
 }
 
-.cat-filter-title {
+.cat-sidebar-search-row {
+    position: relative;
+    display: flex;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid var(--cat-border);
+}
+
+.cat-sidebar-collapse-toggle {
+    position: absolute;
+    top: 0;
+    left: -2.6rem;
     display: flex;
     align-items: center;
+    justify-content: center;
+    width: 25px;
+    height: 29px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--cat-border);
+    border-radius: 7px;
+    color: var(--cat-text-muted);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.cat-sidebar-collapse-toggle:hover,
+.cat-sidebar-collapse-toggle:focus-visible {
+    background: var(--cat-surface-2);
+    border-color: var(--cat-border-hover);
+    color: #ffffff;
+}
+
+.cat-sidebar-search {
+    display: flex;
+    flex: 1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 6px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #f4f4f5;
-    letter-spacing: 0.04em;
-    margin-bottom: 0.85rem;
+    min-width: 0;
 }
 
-.cat-filter-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+.cat-sidebar-search-field,
+.cat-sidebar-tax-search {
+    position: relative;
+    min-width: 0;
 }
 
-@media (min-width: 640px) {
-    .cat-filter-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
+.cat-sidebar-search-field {
+    flex: 1 1 0;
 }
 
-@media (min-width: 992px) {
-    .cat-filter-grid {
-        grid-template-columns: repeat(7, minmax(0, 1fr));
-    }
+.cat-sidebar-search-field .cat-search-icon,
+.cat-sidebar-tax-search .cat-search-icon {
+    left: 0.6rem;
 }
 
-.cat-filter-col {
+.cat-sidebar-search .cat-search-control,
+.cat-sidebar-tax-search .cat-search-control {
+    padding: 0.45rem 0.55rem 0.45rem 1.8rem;
+    border-radius: 8px;
+    font-size: 0.72rem;
+}
+
+.cat-sidebar-search .cat-btn-search {
+    display: flex;
+    flex: 0 0 29px;
+    align-items: center;
+    justify-content: center;
+    width: 29px;
+    height: 29px;
+    padding: 0;
+    border-radius: 8px;
+}
+
+.cat-sidebar-search .cat-sidebar-clear-filters {
+    flex-basis: 100%;
+}
+
+.cat-sidebar-clear-filters,
+.cat-sidebar-clear-terms {
+    padding: 0.15rem 0;
+    background: transparent;
+    border: 0;
+    color: var(--cat-text-muted);
+    font-size: 0.7rem;
+    cursor: pointer;
+    text-align: left;
+}
+
+.cat-sidebar-clear-filters:hover,
+.cat-sidebar-clear-terms:hover {
+    color: #ffffff;
+}
+
+.cat-sidebar-filter-list {
     display: flex;
     flex-direction: column;
+    gap: 2px;
+    padding-top: 0.45rem;
+}
+
+.cat-sidebar-filter-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding: 0.42rem 0.45rem;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: var(--cat-text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cat-sidebar-filter-trigger:hover,
+.cat-sidebar-filter-trigger.active {
+    background: var(--cat-surface-2);
+    border-color: var(--cat-border);
+    color: #ffffff;
+}
+
+.cat-sidebar-filter-trigger.active svg {
+    color: var(--cat-acento);
+    transform: rotate(180deg);
+}
+
+.cat-sidebar-filter-content {
+    margin: 0.15rem 0 0.3rem;
+    padding: 0.55rem 0.45rem;
+    background: var(--cat-surface-2);
+    border: 1px solid var(--cat-border);
+    border-radius: 8px;
+}
+
+.cat-sidebar-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.cat-sidebar-filter-field .cat-filter-label {
+    font-size: 0.62rem;
+}
+
+.cat-sidebar-filter-field .cat-select {
+    padding: 0.4rem 1.55rem 0.4rem 0.55rem;
+    border-radius: 8px;
+    font-size: 0.7rem;
+}
+
+.cat-sidebar-filter-options {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+}
+
+.cat-sidebar-filter-options .cat-toggle-chip {
+    max-width: 100%;
+    padding: 0.28rem 0.55rem;
+    font-size: 0.68rem;
+}
+
+.cat-sidebar-taxonomy-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.35rem;
+    margin-bottom: 0.45rem;
+    color: #f4f4f5;
+    font-size: 0.66rem;
+    font-weight: 600;
+}
+
+.cat-sidebar-tax-search {
+    margin-bottom: 0.45rem;
+}
+
+.cat-sidebar-tax-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-bottom: 0.45rem;
+}
+
+.cat-sidebar-tax-tabs .cat-tax-tab {
+    padding: 0.22rem 0.38rem;
+    font-size: 0.62rem;
+}
+
+.cat-sidebar-tax-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+    padding-right: 3px;
+}
+
+.cat-sidebar-tax-list .cat-tax-option {
+    gap: 3px;
+    padding: 0.22rem 0.38rem;
+    font-size: 0.64rem;
+}
+
+.cat-sidebar-active-terms {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-top: 0.55rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid var(--cat-border);
+}
+
+.cat-filter-active-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--cat-text-muted);
+    font-size: 0.64rem;
+    font-weight: 600;
+}
+
+.cat-filter-active-label svg {
+    color: var(--cat-acento);
+}
+
+.cat-sidebar-active-terms .cat-active-term-chip {
+    gap: 4px;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.64rem;
 }
 
 .cat-filter-label {
@@ -146,18 +354,6 @@
 }
 
 /* Buscador con Botón */
-.cat-search-row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-top: 0.9rem;
-}
-
-.cat-search-input-wrapper {
-    position: relative;
-    flex: 1;
-}
-
 .cat-search-icon {
     position: absolute;
     left: 1rem;
@@ -526,44 +722,6 @@
     box-shadow: 0 2px 10px color-mix(in srgb, var(--cat-acento) 35%, transparent);
 }
 
-/* ============================================================
-   BUSCADOR MULTI-GÉNERO Y MULTI-TAXONOMÍA DE ANILIST (INTERSECCIÓN AND)
-   ============================================================ */
-.cat-tax-trigger-btn {
-    background: var(--cat-surface-2);
-    border: 1px solid var(--cat-border);
-    color: #ffffff;
-    border-radius: 10px;
-    padding: 0.45rem 0.75rem;
-    font-size: 0.8rem;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    cursor: pointer;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-    text-align: left;
-}
-
-.cat-tax-trigger-btn:hover,
-.cat-tax-trigger-btn.open {
-    border-color: var(--cat-acento);
-}
-
-.cat-tax-popover {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    width: min(560px, 92vw);
-    background: #14141c;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 14px;
-    padding: 0.9rem 1rem;
-    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.85);
-    z-index: 60;
-}
-
 .cat-tax-tabs {
     display: flex;
     flex-wrap: wrap;
@@ -587,15 +745,6 @@
     background: var(--cat-acento);
     border-color: var(--cat-acento);
     color: #0b0b10;
-}
-
-.cat-tax-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    max-height: 230px;
-    overflow-y: auto;
-    padding-right: 4px;
 }
 
 .cat-tax-option {

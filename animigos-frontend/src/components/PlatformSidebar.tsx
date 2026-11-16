@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { AnimigosLogo } from './AnimigosLogo'
 import { useCatExpression } from '../hooks/useCatExpression'
+import { CatalogFiltersSidebar } from './catalogo/CatalogFiltersSidebar'
 import './platform-sidebar.css'
 
 export type PlatformView =
@@ -194,30 +195,34 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                             {sec.items.map((it) => {
                                 const isActive = currentView === it.id
                                 return (
-                                    <button
-                                        key={it.id}
-                                        type="button"
-                                        onClick={() => handleItemClick(it)}
-                                        className={`platform-sidebar-item ${isActive ? 'active' : ''}`}
-                                    >
-                                        <span className="platform-sidebar-icon">
-                                            {it.icon}
-                                        </span>
-                                        <span className="platform-sidebar-label">
-                                            {it.label}
-                                        </span>
-                                        {it.badge && (
-                                            <span
-                                                className="platform-sidebar-badge"
-                                                style={{
-                                                    backgroundColor: it.badgeColor || 'rgba(255, 255, 255, 0.1)',
-                                                    color: '#ffffff'
-                                                }}
-                                            >
-                                                {it.badge}
+                                    <React.Fragment key={it.id}>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleItemClick(it)}
+                                            className={`platform-sidebar-item ${isActive ? 'active' : ''}`}
+                                        >
+                                            <span className="platform-sidebar-icon">
+                                                {it.icon}
                                             </span>
+                                            <span className="platform-sidebar-label">
+                                                {it.label}
+                                            </span>
+                                            {it.badge && (
+                                                <span
+                                                    className="platform-sidebar-badge"
+                                                    style={{
+                                                        backgroundColor: it.badgeColor || 'rgba(255, 255, 255, 0.1)',
+                                                        color: '#ffffff'
+                                                    }}
+                                                >
+                                                    {it.badge}
+                                                </span>
+                                            )}
+                                        </button>
+                                        {it.id === 'catalogo' && currentView === 'catalogo' && (
+                                            <CatalogFiltersSidebar />
                                         )}
-                                    </button>
+                                    </React.Fragment>
                                 )
                             })}
                         </div>

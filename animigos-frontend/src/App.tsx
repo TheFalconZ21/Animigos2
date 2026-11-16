@@ -14,12 +14,14 @@ import { PerfilView } from './components/perfil/PerfilView'
 import { RecomendadorView } from './components/recomendador/RecomendadorView'
 import { TemporadasView } from './components/temporadas/TemporadasView'
 import { useThemeAccent } from './hooks/useThemeAccent'
+import { useCatalogFilters } from './hooks/useCatalogFilters'
 import { useAuth } from './context/AuthContext'
 import { useCatExpression } from './hooks/useCatExpression'
 
 function App() {
   useThemeAccent()
   const { user, isAuthenticated, loading } = useAuth()
+  const { setFilters } = useCatalogFilters()
   const { isHappy: isCatHappy, setExpression: setCatExpression } = useCatExpression()
   const [isHeroCatBouncing, setIsHeroCatBouncing] = useState(false)
 
@@ -32,19 +34,17 @@ function App() {
   const [currentView, setCurrentView] = useState<PlatformView>('landing')
   const [visitedUsername, setVisitedUsername] = useState<string | undefined>(undefined)
   const [selectedAnimeId, setSelectedAnimeId] = useState<number | null>(null)
-  const [catalogSearchQuery, setCatalogSearchQuery] = useState('')
-  const [catalogInitialFilters, setCatalogInitialFilters] = useState<{
-    year?: number | string | null
-    season?: string | null
-    genre?: string | null
-    ordering?: string | null
-  }>({})
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return typeof window !== 'undefined' && window.innerWidth < 768
   })
 
   const handleGlobalSearch = (query: string) => {
-    setCatalogSearchQuery(query)
+    setFilters((current) => ({
+      ...current,
+      searchInput: query,
+      submittedSearch: query,
+      currentPage: 1,
+    }))
     setSelectedAnimeId(null)
     window.location.hash = '#catalogo'
     setCurrentView('catalogo')
@@ -271,11 +271,6 @@ function App() {
           <div className="py-2">
             <AnimeCatalog
               initialAnimeId={selectedAnimeId}
-              initialSearch={catalogSearchQuery}
-              initialYear={catalogInitialFilters.year}
-              initialSeason={catalogInitialFilters.season}
-              initialGenre={catalogInitialFilters.genre}
-              initialOrdering={catalogInitialFilters.ordering}
             />
           </div>
         )
@@ -290,7 +285,14 @@ function App() {
           <div className="py-2">
             <TemporadasView
               onNavigateToCatalog={({ year, season, genre, ordering }) => {
-                setCatalogInitialFilters({ year, season, genre, ordering })
+                setFilters((current) => ({
+                  ...current,
+                  year: year !== null && year !== undefined ? String(year) : current.year,
+                  season: season ? season.toLowerCase() : current.season,
+                  selectedTerms: genre ? [genre] : current.selectedTerms,
+                  ordering: ordering || current.ordering,
+                  currentPage: 1,
+                }))
                 setSelectedAnimeId(null)
                 window.location.hash = '#catalogo'
                 setCurrentView('catalogo')

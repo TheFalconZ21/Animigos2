@@ -8,13 +8,16 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext'
+import { CatalogFiltersProvider } from './context/CatalogFiltersContext'
 import { queryClient } from './shared/queryClient'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <App />
+        <CatalogFiltersProvider>
+          <App />
+        </CatalogFiltersProvider>
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,
