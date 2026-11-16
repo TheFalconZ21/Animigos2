@@ -264,11 +264,7 @@ function App() {
           </section>
         )
       case 'sala':
-        return (
-          <div className="py-2">
-            <WatchPartyRoom />
-          </div>
-        )
+        return <WatchPartyRoom />
       case 'catalogo':
         return (
           <div className="py-2">

@@ -1,59 +1,53 @@
 /* ============================================================
    SALAS DE VOTACIÓN & COORDINACIÓN GRUPAL (ANIMIGOS)
    Estética de Usuario: Bordes redondeados, espacio para respirar,
-   descripciones amigables (cero jerga de admin/backend).
+   paleta unificada con la plataforma (#08080c / #111116), cero cards anidadas.
    ============================================================ */
 
 .wp-root {
-    --wp-bg: #090a0f;
-    --wp-surface: #12131a;
-    --wp-surface-2: #181a24;
-    --wp-surface-3: #1f2230;
-    --wp-surface-hover: #26293a;
+    --wp-bg: #08080c;
+    --wp-surface: #111116;
+    --wp-surface-2: #16161d;
+    --wp-surface-3: #1c1c24;
+    --wp-surface-hover: #22222d;
     --wp-border: rgba(255, 255, 255, 0.08);
     --wp-border-hover: rgba(255, 255, 255, 0.16);
     --wp-border-fuerte: rgba(255, 255, 255, 0.22);
     --wp-text: #f4f4f5;
-    --wp-text-muted: #9ca3af;
-    --wp-text-dim: #6b7280;
+    --wp-text-muted: #9b9aa5;
+    --wp-text-dim: #6b6a76;
     --wp-acento: var(--theme-acento, var(--ml-acento, #e8508f));
     --wp-acento-suave: color-mix(in srgb, var(--wp-acento) 14%, transparent);
+    --wp-acento-borde: color-mix(in srgb, var(--wp-acento) 35%, transparent);
     --wp-acento-glow: color-mix(in srgb, var(--wp-acento) 25%, transparent);
     --wp-warning: #fbbf24;
     --wp-success: #34d399;
     --wp-danger: #f87171;
     
-    /* Bordes redondeados amigables para usuario */
-    --wp-radio-lg: 22px;
-    --wp-radio: 18px;
-    --wp-radio-md: 14px;
-    --wp-radio-sm: 10px;
+    /* Curvaturas de diseño de Animigos */
+    --wp-radio-lg: 20px;
+    --wp-radio: 16px;
+    --wp-radio-md: 12px;
+    --wp-radio-sm: 8px;
     --wp-radio-pill: 9999px;
 
     background-color: var(--wp-bg);
     color: var(--wp-text-muted);
-    min-height: calc(100vh - 60px);
+    min-height: calc(100vh - 64px);
+    width: 100%;
 }
 
 /* ============================================================
-   CONTENEDOR DE SALA (FIT EN VIEWPORT CON ESPACIO PARA RESPIRAR)
+   CONTENEDOR DE SALA (FLUIDO, SIN SCROLL FORZADO INNECESARIO)
    ============================================================ */
 .wp-viewport-room {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 75px);
-    max-height: calc(100vh - 75px);
-    overflow: hidden;
-    padding-bottom: 0.75rem;
-    gap: 0.75rem;
-}
-
-@media (max-width: 768px) {
-    .wp-viewport-room {
-        height: auto;
-        max-height: none;
-        overflow: visible;
-    }
+    gap: 1.25rem;
+    padding-bottom: 3rem;
+    width: 100%;
+    max-width: 1320px;
+    margin: 0 auto;
 }
 
 /* ============================================================
@@ -64,8 +58,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 1.25rem;
-    padding: 0.5rem 0.25rem;
+    padding: 0.75rem 0.25rem 0.25rem;
     flex-shrink: 0;
+    flex-wrap: wrap;
 }
 
 .wp-room-header-left {
@@ -73,10 +68,11 @@
     align-items: center;
     gap: 0.85rem;
     min-width: 0;
+    flex-wrap: wrap;
 }
 
 .wp-room-title {
-    font-size: 1.35rem;
+    font-size: 1.4rem;
     font-weight: 800;
     color: var(--wp-text);
     margin: 0;
@@ -89,10 +85,10 @@
 .wp-pill-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.25rem 0.75rem;
+    gap: 0.5rem;
+    padding: 0.3rem 0.85rem;
     border-radius: var(--wp-radio-pill);
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     font-weight: 600;
     background: var(--wp-surface-2);
     border: 1px solid var(--wp-border);
@@ -109,21 +105,21 @@
 .wp-room-header-actions {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.65rem;
     flex-shrink: 0;
 }
 
 /* ============================================================
-   CINTA DE KPIS DESCRIPTIVOS (UNA SOLA LÍNEA, LENGUAJE HUMANO)
+   CINTA DE KPIS INTERACTIVOS (RESPONSIVOS Y CON FEEDBACK)
    ============================================================ */
 .wp-kpi-strip {
     display: flex;
     align-items: center;
-    gap: 0.85rem;
-    padding: 0.55rem 1.15rem;
+    gap: 0.65rem;
+    padding: 0.55rem 0.85rem;
     background: var(--wp-surface);
     border: 1px solid var(--wp-border);
-    border-radius: var(--wp-radio-md);
+    border-radius: var(--wp-radio);
     flex-shrink: 0;
     overflow-x: auto;
     scrollbar-width: none;
@@ -136,10 +132,27 @@
 .wp-kpi-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.55rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: var(--wp-radio-md);
+    background: transparent;
+    border: 1px solid transparent;
     font-size: 0.82rem;
     white-space: nowrap;
     color: var(--wp-text-muted);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wp-kpi-pill:hover {
+    background: var(--wp-surface-2);
+    border-color: var(--wp-border-hover);
+    color: var(--wp-text);
+    transform: translateY(-1px);
+}
+
+.wp-kpi-pill:active {
+    transform: scale(0.98);
 }
 
 .wp-kpi-pill strong {
@@ -178,31 +191,32 @@
     justify-content: space-between;
     gap: 1rem;
     flex-shrink: 0;
+    flex-wrap: wrap;
 }
 
 .wp-tabs {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem;
+    gap: 0.45rem;
+    padding: 0.35rem;
     background: var(--wp-surface);
     border: 1px solid var(--wp-border);
-    border-radius: var(--wp-radio-md);
+    border-radius: var(--wp-radio);
 }
 
 .wp-tab {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.45rem 1rem;
-    border-radius: var(--wp-radio-sm);
-    font-size: 0.84rem;
+    gap: 0.55rem;
+    padding: 0.5rem 1.15rem;
+    border-radius: var(--wp-radio-md);
+    font-size: 0.85rem;
     font-weight: 600;
     color: var(--wp-text-muted);
     background: transparent;
-    border: none;
+    border: 1px solid transparent;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.18s ease;
     white-space: nowrap;
 }
 
@@ -215,13 +229,13 @@
 .wp-tab.active {
     color: #ffffff;
     background: var(--wp-surface-2);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-    border: 1px solid var(--wp-border-hover);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+    border-color: var(--wp-border-hover);
 }
 
 .wp-tab-badge {
     font-size: 0.72rem;
-    padding: 0.15rem 0.5rem;
+    padding: 0.15rem 0.55rem;
     border-radius: var(--wp-radio-pill);
     background: var(--wp-surface-3);
     color: var(--wp-text);
@@ -234,772 +248,508 @@
 }
 
 /* ============================================================
-   PANEL CONTENEDOR DE LA SUB-VISTA ACTIVA
+   PANEL CONTENEDOR DE SUB-VISTAS
    ============================================================ */
 .wp-subview-pane {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-}
-
-/* ============================================================
-   SUB-VISTA 1: VOTACIÓN
-   ============================================================ */
-.wp-candidates-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding-right: 0.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-}
-
-.wp-candidates-scroll::-webkit-scrollbar {
-    width: 6px;
-}
-.wp-candidates-scroll::-webkit-scrollbar-thumb {
-    background: var(--wp-surface-3);
-    border-radius: var(--wp-radio-pill);
-}
-
-.wp-cand-card {
-    display: flex;
-    align-items: center;
-    gap: 1.15rem;
-    padding: 1rem 1.35rem;
-    background: var(--wp-surface);
-    border: 1px solid var(--wp-border);
-    border-radius: var(--wp-radio);
-    transition: transform 0.15s ease, border-color 0.15s ease;
-}
-
-.wp-cand-card:hover {
-    border-color: var(--wp-border-hover);
-    transform: translateY(-1px);
-}
-
-.wp-cand-rank {
-    width: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 1.05rem;
-    color: var(--wp-text-dim);
-    flex-shrink: 0;
-}
-
-.wp-cand-rank.is-top {
-    color: var(--wp-warning);
-}
-
-.wp-cand-poster {
-    width: 54px;
-    height: 76px;
-    object-fit: cover;
-    border-radius: var(--wp-radio-sm);
-    flex-shrink: 0;
-    background: var(--wp-surface-2);
-    border: 1px solid var(--wp-border);
-}
-
-.wp-cand-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.wp-cand-title-row {
-    display: flex;
-    align-items: baseline;
-    gap: 0.6rem;
-    margin-bottom: 0.25rem;
-}
-
-.wp-cand-title {
-    color: var(--wp-text);
-    font-size: 1rem;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.wp-cand-meta {
-    font-size: 0.78rem;
-    color: var(--wp-text-dim);
-    white-space: nowrap;
-}
-
-.wp-cand-consenso {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.2rem 0.65rem;
-    border-radius: var(--wp-radio-pill);
-    font-size: 0.74rem;
-    font-weight: 600;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--wp-border);
-    color: var(--wp-text-muted);
-    margin-bottom: 0.5rem;
-}
-
-.wp-cand-consenso.is-winner {
-    background: rgba(52, 211, 153, 0.12);
-    border-color: rgba(52, 211, 153, 0.35);
-    color: var(--wp-success);
-}
-
-.wp-cand-consenso.is-polar {
-    background: rgba(251, 191, 36, 0.12);
-    border-color: rgba(251, 191, 36, 0.35);
-    color: var(--wp-warning);
-}
-
-.wp-cand-slider-row {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-}
-
-.wp-slider {
-    -webkit-appearance: none;
-    appearance: none;
     width: 100%;
-    max-width: 320px;
-    height: 6px;
-    background: var(--wp-surface-3);
-    border-radius: var(--wp-radio-pill);
-    outline: none;
-    cursor: pointer;
-}
-
-.wp-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #ffffff;
-    cursor: pointer;
-    box-shadow: 0 0 6px rgba(0, 0, 0, 0.7);
-    transition: transform 0.1s ease, background 0.1s ease;
-}
-
-.wp-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.25);
-    background: var(--wp-acento);
-}
-
-.wp-vote-score-pill {
-    font-size: 0.8rem;
-    color: var(--wp-text);
-    background: var(--wp-surface-2);
-    border: 1px solid var(--wp-border);
-    padding: 0.25rem 0.65rem;
-    border-radius: var(--wp-radio-sm);
-    white-space: nowrap;
-}
-
-.wp-cand-happiness {
+    position: relative;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: rgba(251, 191, 36, 0.08);
-    border: 1px solid rgba(251, 191, 36, 0.25);
-    border-radius: var(--wp-radio-md);
-    padding: 0.6rem 1rem;
-    min-width: 115px;
-    flex-shrink: 0;
-    text-align: center;
-}
-
-.wp-cand-hap-label {
-    font-size: 0.66rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: #fbbf24;
-}
-
-.wp-cand-hap-val {
-    font-size: 1.35rem;
-    font-weight: 800;
-    font-family: var(--font-heading, sans-serif);
-    color: #ffffff;
-    line-height: 1.1;
-}
-
-.wp-cand-btn-win {
-    font-size: 0.72rem;
-    color: var(--wp-acento);
-    background: transparent;
-    border: none;
-    padding: 0;
-    margin-top: 0.25rem;
-    cursor: pointer;
-    font-weight: 600;
-    text-decoration: none;
-}
-.wp-cand-btn-win:hover {
-    text-decoration: underline;
 }
 
 /* ============================================================
-   SUB-VISTA 2: MATRIZ 2D & ANÁLISIS
+   SUB-VISTA 1: TABLA MATRIZ DE VOTACIÓN POR FILAS Y USUARIOS
    ============================================================ */
-.wp-matrix-pane {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    background: var(--wp-surface);
-    border: 1px solid var(--wp-border);
-    border-radius: var(--wp-radio-lg);
-    padding: 1.25rem;
-    gap: 1rem;
-    position: relative;
-    overflow: hidden;
-}
-
-.wp-matrix-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    flex-shrink: 0;
-}
-
-.wp-matrix-canvas {
-    flex: 1;
-    min-height: 0;
-    position: relative;
-    background: #080a11;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: var(--wp-radio);
-    overflow: hidden;
-}
-
-.wp-quad-badge {
-    position: absolute;
-    font-size: 0.72rem;
-    font-weight: 700;
-    padding: 0.35rem 0.75rem;
-    border-radius: var(--wp-radio-pill);
-    pointer-events: none;
-    z-index: 2;
-}
-
-.wp-quad-winner {
-    top: 14px;
-    right: 14px;
-    background: rgba(52, 211, 153, 0.12);
-    border: 1px solid rgba(52, 211, 153, 0.35);
-    color: #34d399;
-}
-
-.wp-quad-polar {
-    top: 14px;
-    left: 14px;
-    background: rgba(251, 191, 36, 0.12);
-    border: 1px solid rgba(251, 191, 36, 0.35);
-    color: #fbbf24;
-}
-
-.wp-quad-meh {
-    bottom: 14px;
-    left: 14px;
-    background: rgba(248, 113, 113, 0.1);
-    border: 1px solid rgba(248, 113, 113, 0.25);
-    color: #f87171;
-}
-
-.wp-quad-niche {
-    bottom: 14px;
-    right: 14px;
-    background: rgba(148, 163, 184, 0.12);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    color: #cbd5e1;
-}
-
-.wp-matrix-axis-x {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 50%;
-    height: 1px;
-    background: rgba(255, 255, 255, 0.07);
-}
-
-.wp-matrix-axis-y {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 1px;
-    background: rgba(255, 255, 255, 0.07);
-}
-
-.wp-matrix-pin {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    cursor: pointer;
-    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-    z-index: 3;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.wp-matrix-pin:hover {
-    transform: translate(-50%, -50%) scale(1.18);
-    z-index: 10;
-}
-
-.wp-pin-img {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    object-fit: cover;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
-}
-
-.wp-pin-badge {
-    position: absolute;
-    bottom: -3px;
-    right: -4px;
-    font-size: 0.65rem;
-    padding: 0.12rem 0.35rem;
-    border-radius: var(--wp-radio-pill);
-    font-weight: 700;
-}
-
-.wp-pin-label {
-    max-width: 110px;
-    font-size: 0.7rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: #ffffff;
-    background: rgba(0, 0, 0, 0.8);
-    padding: 0.15rem 0.45rem;
-    border-radius: 6px;
-    margin-top: 3px;
-}
-
-/* ============================================================
-   SUB-VISTA 3: SESIÓN & TRACKER (HERMOSO, CÁLIDO, PARA USUARIOS)
-   ============================================================ */
-.wp-tracker-container {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: 1.15fr 1fr;
-    gap: 1.25rem;
-}
-
-@media (max-width: 860px) {
-    .wp-tracker-container {
-        grid-template-columns: 1fr;
-        overflow-y: auto;
-    }
-}
-
-.wp-tracker-card {
+.wp-voting-matrix-card {
     background: var(--wp-surface);
     border: 1px solid var(--wp-border);
     border-radius: var(--wp-radio-lg);
     padding: 1.5rem;
     display: flex;
     flex-direction: column;
-    gap: 1.15rem;
-    min-height: 0;
+    gap: 1.25rem;
 }
 
-/* Hero del Anime en Maratón */
-.wp-marathon-hero {
+.wp-matrix-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: var(--wp-radio);
+    border: 1px solid var(--wp-border);
+    background: var(--wp-surface-2);
+}
+
+.wp-matrix-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    text-align: left;
+}
+
+.wp-matrix-table th {
+    padding: 0.85rem 1rem;
+    font-weight: 700;
+    color: var(--wp-text-muted);
+    background: var(--wp-surface-3);
+    border-bottom: 1px solid var(--wp-border-fuerte);
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.wp-matrix-table td {
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid var(--wp-border);
+    vertical-align: middle;
+    color: var(--wp-text);
+    transition: background-color 0.15s ease;
+}
+
+.wp-matrix-table tr:last-child td {
+    border-bottom: none;
+}
+
+.wp-matrix-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Encabezados interactivos de usuarios */
+.wp-user-th-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+    border-radius: var(--wp-radio-pill);
+    transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.wp-user-th-btn:hover {
+    background: var(--wp-surface-hover);
+    transform: scale(1.05);
+}
+
+.wp-user-avatar-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--wp-acento) 22%, var(--wp-surface-3));
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.76rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid var(--wp-border-fuerte);
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.wp-user-avatar-circle.is-owner {
+    border-color: #fbbf24;
+}
+
+/* Celda de Nota de Usuario */
+.wp-vote-score-cell {
+    text-align: center;
+}
+
+.wp-score-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    padding: 0.25rem 0.55rem;
+    border-radius: var(--wp-radio-pill);
+    font-size: 0.82rem;
+    font-weight: 700;
+    font-family: var(--font-heading), monospace;
+    border: 1px solid var(--wp-border);
+    transition: all 0.15s ease;
+}
+
+.wp-score-badge.high {
+    background: rgba(52, 211, 153, 0.14);
+    border-color: rgba(52, 211, 153, 0.4);
+    color: #34d399;
+}
+
+.wp-score-badge.mid {
+    background: rgba(167, 139, 250, 0.14);
+    border-color: rgba(167, 139, 250, 0.35);
+    color: #c4b5fd;
+}
+
+.wp-score-badge.low {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--wp-border);
+    color: var(--wp-text-dim);
+}
+
+.wp-score-badge.none {
+    background: transparent;
+    border-color: transparent;
+    color: var(--wp-text-dim);
+    opacity: 0.4;
+}
+
+/* Calificación interactiva para el usuario actual */
+.wp-my-vote-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--wp-radio-pill);
+    border: 1px dashed var(--wp-acento-borde);
+    background: var(--wp-acento-suave);
+    color: var(--wp-text);
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 700;
+    transition: all 0.15s ease;
+}
+
+.wp-my-vote-trigger:hover {
+    border-style: solid;
+    border-color: var(--wp-acento);
+    transform: scale(1.05);
+    box-shadow: 0 0 10px var(--wp-acento-glow);
+}
+
+/* ============================================================
+   SUB-VISTA 2: SESIÓN & TRACKER CON LÍNEA DE TIEMPO DE HITOS
+   ============================================================ */
+.wp-tracker-unified-card {
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radio-lg);
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Header del anime de maratón (sin anidamiento superfluo) */
+.wp-marathon-header-banner {
     display: flex;
     align-items: center;
-    gap: 1.25rem;
-    padding: 1.25rem;
-    background: linear-gradient(135deg, var(--wp-surface-2) 0%, color-mix(in srgb, var(--wp-acento) 10%, var(--wp-surface-2)) 100%);
+    gap: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    background: linear-gradient(135deg, var(--wp-surface-2) 0%, color-mix(in srgb, var(--wp-acento) 8%, var(--wp-surface-2)) 100%);
     border: 1px solid var(--wp-border-hover);
     border-radius: var(--wp-radio);
+    flex-wrap: wrap;
 }
 
-.wp-marathon-poster {
-    width: 72px;
-    height: 104px;
+.wp-marathon-poster-thumb {
+    width: 68px;
+    height: 98px;
     border-radius: var(--wp-radio-sm);
     object-fit: cover;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     flex-shrink: 0;
 }
 
-.wp-marathon-info {
-    flex: 1;
+.wp-marathon-meta-block {
+    flex: 1 1 260px;
     min-width: 0;
 }
 
-/* Control de Progreso Personal */
-.wp-progress-box {
+.wp-marathon-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* Riel y Contenedor de la Línea de Tiempo */
+.wp-timeline-box {
+    padding: 1.5rem 1.25rem;
+    background: var(--wp-surface-2);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radio);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.wp-timeline-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.wp-timeline-scroll {
+    width: 100%;
+    overflow-x: auto;
+    padding: 3rem 1rem 1.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--wp-surface-3) transparent;
+}
+
+.wp-timeline-track {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    min-width: 100%;
+    padding: 0 1.5rem;
+}
+
+/* Línea conectora entre nodos */
+.wp-timeline-line {
+    position: absolute;
+    left: 1.5rem;
+    right: 1.5rem;
+    top: 50%;
+    height: 4px;
+    background: var(--wp-surface-3);
+    border-radius: 9999px;
+    z-index: 0;
+    transform: translateY(-50%);
+}
+
+.wp-timeline-line-progress {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--wp-acento) 0%, #34d399 100%);
+    border-radius: 9999px;
+    transition: width 0.3s ease;
+}
+
+/* Hito individual de capítulo */
+.wp-timeline-milestone {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 1.25rem;
+    cursor: pointer;
+    transition: transform 0.18s ease;
+}
+
+.wp-timeline-milestone:hover {
+    transform: translateY(-2px);
+}
+
+/* Avatar stack sobre el hito */
+.wp-milestone-users-stack {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    animation: wp-fade-in 0.25s ease;
+}
+
+.wp-milestone-user-pin {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--wp-surface-3);
+    border: 2px solid var(--wp-surface-2);
+    color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: -6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    transition: transform 0.15s ease, z-index 0.15s ease;
+}
+
+.wp-milestone-user-pin:first-child {
+    margin-left: 0;
+}
+
+.wp-milestone-user-pin:hover {
+    transform: scale(1.25);
+    z-index: 10;
+}
+
+.wp-milestone-user-pin.is-mine {
+    background: var(--wp-acento);
+    border-color: #ffffff;
+    color: #0b0b0f;
+}
+
+.wp-milestone-user-pin.is-behind {
+    border-color: #fbbf24;
+}
+
+/* Nodo circular del hito */
+.wp-milestone-node {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--wp-surface-3);
+    border: 2px solid var(--wp-border);
+    color: var(--wp-text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wp-timeline-milestone:hover .wp-milestone-node {
+    border-color: var(--wp-acento);
+    color: #ffffff;
+    transform: scale(1.1);
+}
+
+.wp-milestone-node.is-watched {
+    background: color-mix(in srgb, var(--wp-acento) 25%, var(--wp-surface-3));
+    border-color: var(--wp-acento);
+    color: #ffffff;
+}
+
+.wp-milestone-node.is-target {
+    border-color: #fbbf24;
+    box-shadow: 0 0 14px rgba(251, 191, 36, 0.35);
+    background: #1f1a10;
+    color: #fbbf24;
+}
+
+.wp-milestone-node.is-future {
+    opacity: 0.4;
+    border-style: dashed;
+}
+
+.wp-milestone-label {
+    margin-top: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--wp-text-dim);
+    white-space: nowrap;
+}
+
+.wp-timeline-milestone:hover .wp-milestone-label,
+.wp-timeline-milestone.is-active .wp-milestone-label {
+    color: var(--wp-text);
+}
+
+/* ============================================================
+   CARD POPOVER DE USUARIO (CLICK EN EL AVATAR)
+   ============================================================ */
+.wp-user-popover-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
     padding: 1.25rem;
     background: var(--wp-surface-2);
-    border: 1px solid var(--wp-border);
-    border-radius: var(--wp-radio);
-}
-
-.wp-stepper-btn {
-    width: 38px;
-    height: 38px;
-    border-radius: var(--wp-radio-pill);
-    background: var(--wp-surface-3);
-    border: 1px solid var(--wp-border);
-    color: var(--wp-text);
-    font-size: 1.1rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.wp-stepper-btn:hover:not(:disabled) {
-    background: var(--wp-surface-hover);
-    color: #ffffff;
-    transform: scale(1.05);
-}
-
-.wp-stepper-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-}
-
-.wp-btn-catchup {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.65rem 1.25rem;
-    border-radius: var(--wp-radio-pill);
-    background: var(--wp-acento);
-    color: #0b0b0f !important;
-    font-weight: 700;
-    font-size: 0.86rem;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 2px 10px var(--wp-acento-glow);
-    transition: transform 0.15s ease, filter 0.15s ease;
-}
-
-.wp-btn-catchup:hover {
-    filter: brightness(1.12);
-    transform: translateY(-1px);
-}
-
-/* Barra de Sintonía Grupal */
-.wp-group-sync-card {
-    padding: 1rem 1.25rem;
-    border-radius: var(--wp-radio);
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-}
-
-.wp-group-sync-card.is-synced {
-    background: rgba(52, 211, 153, 0.08);
-    border: 1px solid rgba(52, 211, 153, 0.28);
-    color: #34d399;
-}
-
-.wp-group-sync-card.has-catchup {
-    background: rgba(251, 191, 36, 0.08);
-    border: 1px solid rgba(251, 191, 36, 0.28);
-    color: #fbbf24;
-}
-
-/* Lista de Integrantes */
-.wp-members-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    padding-right: 0.4rem;
-}
-
-.wp-member-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.85rem 1.15rem;
-    background: var(--wp-surface-2);
-    border: 1px solid var(--wp-border);
-    border-radius: var(--wp-radio-md);
-    transition: border-color 0.15s ease;
-}
-
-.wp-member-card:hover {
-    border-color: var(--wp-border-hover);
-}
-
-.wp-member-avatar {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--wp-surface-3) 0%, var(--wp-surface-hover) 100%);
     border: 1px solid var(--wp-border-hover);
-    color: #ffffff;
-    font-weight: 700;
-    font-size: 0.78rem;
+    border-radius: var(--wp-radio);
+}
+
+.wp-user-popover-header {
     display: flex;
     align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+    gap: 1rem;
 }
 
-/* ============================================================
-   SUB-VISTA 4: CHAT EN VIVO SOCIAL & MODERNO
-   ============================================================ */
-.wp-chat-container {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    background: var(--wp-surface);
-    border: 1px solid var(--wp-border);
-    border-radius: var(--wp-radio-lg);
-    position: relative;
-    overflow: hidden;
-}
-
-.wp-chat-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.85rem 1.35rem;
-    border-bottom: 1px solid var(--wp-border);
-    flex-shrink: 0;
-}
-
-.wp-chat-spoiler-capsule {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.35rem 0.85rem;
-    border-radius: var(--wp-radio-pill);
-    background: rgba(251, 191, 36, 0.08);
-    border: 1px solid rgba(251, 191, 36, 0.25);
-    font-size: 0.74rem;
-    color: #fbbf24;
-}
-
-.wp-chat-stream {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 1.15rem 1.35rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.wp-bubble-user {
-    align-self: flex-end;
-    max-width: 75%;
-    background: var(--wp-acento);
-    color: #08080c;
-    padding: 0.65rem 1.15rem;
-    border-radius: 20px 20px 4px 20px;
-    font-size: 0.86rem;
-    font-weight: 500;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-}
-
-.wp-bubble-user .wp-msg-author {
-    color: rgba(0, 0, 0, 0.65);
-}
-
-.wp-bubble-friend {
-    align-self: flex-start;
-    max-width: 75%;
-    background: var(--wp-surface-2);
-    border: 1px solid var(--wp-border);
-    color: #ffffff;
-    padding: 0.65rem 1.15rem;
-    border-radius: 20px 20px 20px 4px;
-    font-size: 0.86rem;
-}
-
-.wp-bubble-friend .wp-msg-author {
-    color: var(--wp-text-muted);
-}
-
-.wp-msg-author {
-    font-size: 0.7rem;
-    font-weight: 700;
-    margin-bottom: 0.2rem;
-}
-
-.wp-chat-emojis-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.5rem 1.35rem;
-    border-top: 1px solid var(--wp-border);
-    background: var(--wp-surface-2);
-    flex-shrink: 0;
-}
-
-.wp-emoji-btn {
-    background: transparent;
-    border: none;
-    font-size: 1.15rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: transform 0.12s ease;
-}
-
-.wp-emoji-btn:hover {
-    transform: scale(1.3);
-}
-
-.wp-chat-input-row {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.85rem 1.35rem;
-    border-top: 1px solid var(--wp-border);
-    background: var(--wp-surface);
-    flex-shrink: 0;
-}
-
-.wp-input-pill {
-    flex: 1;
-    background: var(--wp-surface-2);
-    border: 1px solid var(--wp-border);
-    border-radius: var(--wp-radio-pill);
-    padding: 0.6rem 1.15rem;
-    color: #ffffff;
-    font-size: 0.88rem;
-    outline: none;
-    transition: border-color 0.15s ease;
-}
-
-.wp-input-pill:focus {
-    border-color: var(--wp-acento);
-}
-
-.wp-send-circle-btn {
-    width: 40px;
-    height: 40px;
+.wp-user-popover-avatar-lg {
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
-    background: var(--wp-acento);
-    color: #0b0b0f;
-    border: none;
+    background: color-mix(in srgb, var(--wp-acento) 30%, var(--wp-surface-3));
+    color: #ffffff;
+    font-size: 1.1rem;
+    font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: transform 0.15s ease, filter 0.15s ease;
-    flex-shrink: 0;
-}
-
-.wp-send-circle-btn:hover {
-    transform: scale(1.06);
-    filter: brightness(1.12);
+    border: 2px solid var(--wp-border-fuerte);
 }
 
 /* ============================================================
-   LOBBY / DASHBOARD DE LISTAS GRUPALES
+   LOBBY: LISTA DE SALAS Y CREAR
    ============================================================ */
 .wp-lobby-header {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 1.5rem;
-    margin-bottom: 1.75rem;
+    margin-bottom: 2rem;
     flex-wrap: wrap;
 }
 
 .wp-join-bar {
     display: flex;
-    gap: 0.65rem;
-    padding: 0.65rem;
+    align-items: center;
     background: var(--wp-surface);
     border: 1px solid var(--wp-border);
-    border-radius: var(--wp-radio-md);
-    margin-bottom: 1.75rem;
+    border-radius: var(--wp-radio);
+    padding: 0.4rem 0.5rem 0.4rem 0.5rem;
+    margin-bottom: 2rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.wp-join-bar:focus-within {
+    border-color: var(--wp-acento-borde);
+    box-shadow: 0 0 14px var(--wp-acento-glow);
 }
 
 .wp-rooms-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 1.25rem;
-}
-
-@media (max-width: 768px) {
-    .wp-rooms-grid {
-        grid-template-columns: 1fr;
-    }
 }
 
 .wp-room-card {
     background: var(--wp-surface);
     border: 1px solid var(--wp-border);
     border-radius: var(--wp-radio-lg);
-    padding: 1.35rem 1.5rem;
+    padding: 1.5rem;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 180px;
-    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    min-height: 210px;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .wp-room-card:hover {
+    transform: translateY(-3px);
     border-color: var(--wp-border-hover);
-    background: var(--wp-surface-2);
-    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 /* ============================================================
-   REACCIONES FLOTANTES ANIMADAS
+   ANIMACIONES Y RESPONSIVE
    ============================================================ */
-@keyframes wpFloatUp {
-    0% {
+@keyframes wp-fade-in {
+    from {
         opacity: 0;
-        transform: translateY(0) scale(0.6);
+        transform: translateY(4px);
     }
-    15% {
+    to {
         opacity: 1;
-        transform: translateY(-20px) scale(1.15);
-    }
-    85% {
-        opacity: 0.9;
-        transform: translateY(-160px) scale(1);
-    }
-    100% {
-        opacity: 0;
-        transform: translateY(-230px) scale(0.8);
+        transform: translateY(0);
     }
 }
 
-.wp-float-reaction {
-    position: absolute;
-    bottom: 60px;
-    pointer-events: none;
-    font-size: 1.85rem;
-    animation: wpFloatUp 2.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
-    z-index: 20;
+@media (max-width: 768px) {
+    .wp-room-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .wp-subview-nav {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .wp-tabs {
+        overflow-x: auto;
+    }
 }
