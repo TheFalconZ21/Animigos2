@@ -95,11 +95,13 @@ export type ProfileSubView =
 export type ProfileTimeRange = '7d' | '30d' | '1y' | 'all'
 
 
-export type NameSeparator = 'guion' | 'ninguna'
+export type NameSeparator = 'guion' | 'guion_bajo' | 'ninguna'
 export type SectionSeparator = 'barra' | 'guion' | 'ninguna'
 export type SuffixSeparator = 'guion' | 'barra' | 'punto' | 'ninguna'
 
-export interface AssociatedLinksConfig {
+export interface LinkSlotConfig {
+    id: number
+    name: string
     enabled: boolean
     domain: string
     intermediateTerm: string
@@ -108,3 +110,11 @@ export interface AssociatedLinksConfig {
     suffixSeparator: SuffixSeparator
     suffix: string
 }
+
+export interface AssociatedLinksSettings {
+    globalEnabled: boolean
+    activeSlotId: number
+    slots: LinkSlotConfig[]
+}
+
+export type AssociatedLinksConfig = LinkSlotConfig
