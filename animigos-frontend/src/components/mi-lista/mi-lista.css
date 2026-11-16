@@ -7,6 +7,7 @@
    ============================================================ */
 
 .ml-root {
+    --ml-ancho-contenedor: 900px;
     --ml-acento: var(--theme-acento, #e8508f);
     --ml-acento-suave: color-mix(in srgb, var(--ml-acento) 14%, transparent);
     --ml-acento-borde: color-mix(in srgb, var(--ml-acento) 35%, transparent);
@@ -30,6 +31,8 @@
     --ml-radio: 14px;
     --ml-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
+    position: relative;
+    width: 100%;
     color: var(--ml-texto-2);
     font-family: var(--font-body);
 }
@@ -43,13 +46,13 @@
 /* Izquierda: título + pestañas. Derecha: la ficha ocupa toda esa altura */
 .ml-header {
     display: grid;
-    grid-template-columns: 1fr minmax(0, 520px);
+    grid-template-columns: 1fr minmax(0, 440px);
     grid-template-areas:
         "info ficha"
         "tabs ficha";
-    column-gap: 2rem;
-    padding: 2.25rem 0 0;
-    margin-bottom: 1.75rem;
+    column-gap: 1.5rem;
+    padding: 1.75rem 0 0;
+    margin-bottom: 1.5rem;
 }
 
 .ml-header-info { grid-area: info; }
@@ -1309,7 +1312,7 @@
 /* ---------- Diálogos ---------- */
 
 .ml-dialog {
-    width: min(720px, calc(100vw - 32px));
+    width: min(620px, calc(100vw - 32px));
     max-height: calc(100vh - 48px);
     padding: 0;
     border: 1px solid var(--ml-borde-fuerte);
@@ -1869,6 +1872,11 @@
 .ml-root > .container {
     position: relative;
     z-index: 1;
+    max-width: var(--ml-ancho-contenedor, 900px) !important;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
 }
 
 /* ---------- Banners laterales de afiches (Mi Lista) ---------- */
@@ -1878,17 +1886,14 @@
 }
 
 .ml-lateral {
-    position: fixed;
+    position: absolute;
     top: 0;
     bottom: 0;
     z-index: 0;
     overflow: hidden;
     pointer-events: none;
     opacity: 0.58;
-    transition: opacity 0.4s ease;
-    /* Difuminado vertical suave en extremos superior e inferior */
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.4) 6%, #000 16%, #000 84%, rgba(0, 0, 0, 0.4) 94%, transparent 100%);
-    mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.4) 6%, #000 16%, #000 84%, rgba(0, 0, 0, 0.4) 94%, transparent 100%);
+    transition: opacity 0.4s ease, width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ml-lateral.is-active {
@@ -1896,16 +1901,29 @@
 }
 
 /* 
-   Reglas clave de encuadre y recorte:
-   - Lateral DERECHO: muestra el extremo IZQUIERDO del afiche (object-position: left center)
-   - Lateral IZQUIERDO: muestra el extremo DERECHO del afiche (object-position: right center)
+   Ubicación confinada en los carriles laterales:
+   - Lateral IZQUIERDO: desde el borde izquierdo del lienzo hasta el inicio del contenedor
+   - Lateral DERECHO: desde el final del contenedor hasta el borde derecho del lienzo
 */
 .ml-lateral-izq {
     left: 0;
+    width: max(0px, calc((100% - var(--ml-ancho-contenedor, 900px)) / 2));
 }
 
 .ml-lateral-der {
     right: 0;
+    width: max(0px, calc((100% - var(--ml-ancho-contenedor, 900px)) / 2));
+}
+
+.ml-lateral-contenedor {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    /* Difuminado vertical suave en extremos superior e inferior */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.4) 6%, #000 16%, #000 84%, rgba(0, 0, 0, 0.4) 94%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.4) 6%, #000 16%, #000 84%, rgba(0, 0, 0, 0.4) 94%, transparent 100%);
 }
 
 /* 
@@ -1913,29 +1931,22 @@
    - Lateral IZQUIERDO: se difumina gradualmente hacia la derecha (hacia la lista)
    - Lateral DERECHO: se difumina gradualmente hacia la izquierda (hacia la lista)
 */
-.ml-lateral-izq .ml-lateral-contenedor {
+.ml-lateral-izq .ml-lateral-capa {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    -webkit-mask-image: linear-gradient(to right, #000 0%, #000 35%, rgba(0, 0, 0, 0.75) 60%, rgba(0, 0, 0, 0.25) 82%, transparent 100%);
-    mask-image: linear-gradient(to right, #000 0%, #000 35%, rgba(0, 0, 0, 0.75) 60%, rgba(0, 0, 0, 0.25) 82%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0%, #000 35%, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.2) 80%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 0%, #000 35%, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.2) 80%, transparent 100%);
 }
 
-.ml-lateral-der .ml-lateral-contenedor {
+.ml-lateral-der .ml-lateral-capa {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    -webkit-mask-image: linear-gradient(to left, #000 0%, #000 35%, rgba(0, 0, 0, 0.75) 60%, rgba(0, 0, 0, 0.25) 82%, transparent 100%);
-    mask-image: linear-gradient(to left, #000 0%, #000 35%, rgba(0, 0, 0, 0.75) 60%, rgba(0, 0, 0, 0.25) 82%, transparent 100%);
-}
-
-.ml-lateral-capa {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    -webkit-mask-image: linear-gradient(to left, #000 0%, #000 35%, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.2) 80%, transparent 100%);
+    mask-image: linear-gradient(to left, #000 0%, #000 35%, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.2) 80%, transparent 100%);
 }
 
 .ml-lateral-capa.ml-lateral-entra {
@@ -1991,6 +2002,10 @@
 /* ---------- Responsive ---------- */
 
 @media (max-width: 991.98px) {
+    .ml-lateral {
+        display: none !important;
+    }
+
     .ml-header {
         grid-template-columns: 1fr;
         grid-template-areas: "info" "ficha" "tabs";

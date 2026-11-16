@@ -33,7 +33,7 @@ export function VerTodosDialog({
     onVerDetalle: (malId: number) => void
 }) {
     return (
-        <Dialogo abierto={categoria !== null} onCerrar={onCerrar} etiqueta={`Todos: ${categoria ?? ''}`} ancho={980}>
+        <Dialogo abierto={categoria !== null} onCerrar={onCerrar} etiqueta={`Todos: ${categoria ?? ''}`} ancho={840}>
             {categoria && <Contenido categoria={categoria} filas={filas} onVerDetalle={onVerDetalle} />}
         </Dialogo>
     )
