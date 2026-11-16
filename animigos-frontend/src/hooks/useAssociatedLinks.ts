@@ -18,10 +18,22 @@ export interface LinkSlotConfig {
     titleLanguage?: TitleLanguage
 }
 
+export interface AnimeLinkOverride {
+    customSlug?: string
+    customSuffix?: string
+    customUrl?: string
+    intermediateTerm?: string
+    nameSeparator?: NameSeparator
+    sectionSeparator?: SectionSeparator
+    suffixSeparator?: SuffixSeparator
+    titleLanguage?: TitleLanguage
+}
+
 export interface AssociatedLinksSettings {
     globalEnabled: boolean
     activeSlotId: number // 1 al 8
     slots: LinkSlotConfig[]
+    animeOverrides?: Record<string, Record<number, AnimeLinkOverride>> // animeKey -> slotId -> override
 }
 
 export type AssociatedLinksConfig = LinkSlotConfig
@@ -48,6 +60,7 @@ export function createDefaultSettings(): AssociatedLinksSettings {
         globalEnabled: true,
         activeSlotId: 1,
         slots: Array.from({ length: TOTAL_SLOTS }, (_, i) => createDefaultSlot(i + 1)),
+        animeOverrides: {},
     }
 }
 
@@ -116,16 +129,44 @@ function getSuffixChar(sep: SuffixSeparator): string {
     }
 }
 
+export function getAnimeOverrideKey(anime: string | OpenLinkSelectorPayload | null | undefined): string {
+    if (!anime) return ''
+    const raw = typeof anime === 'string' ? anime : (anime.title || anime.titleEnglish || anime.title_english || '')
+    return cleanAnimeTitleForSlug(raw, 'guion')
+}
+
 /**
  * Construye la URL completa según la fórmula:
  * dominio + término intermedio + nombre anime + terminación
+ * Permite superponer personalizaciones específicas por anime (AnimeLinkOverride).
  */
 export function buildAssociatedAnimeUrl(
     anime: string | OpenLinkSelectorPayload,
-    config?: Partial<LinkSlotConfig>
+    config?: Partial<LinkSlotConfig>,
+    override?: AnimeLinkOverride | null
 ): string {
     if (!config) return '#'
-    const rawDomain = (config.domain || '').trim().replace(/\/+$/, '')
+
+    // Si hay una URL completa personalizada para este anime, usarla directamente
+    if (override?.customUrl && override.customUrl.trim()) {
+        const trimmed = override.customUrl.trim()
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+            return trimmed
+        }
+        return `https://${trimmed}`
+    }
+
+    const effectiveConfig: Partial<LinkSlotConfig> = {
+        ...config,
+        intermediateTerm: override?.intermediateTerm !== undefined ? override.intermediateTerm : config.intermediateTerm,
+        sectionSeparator: override?.sectionSeparator || config.sectionSeparator,
+        nameSeparator: override?.nameSeparator || config.nameSeparator,
+        suffixSeparator: override?.suffixSeparator || config.suffixSeparator,
+        suffix: override?.customSuffix !== undefined ? override.customSuffix : config.suffix,
+        titleLanguage: override?.titleLanguage || config.titleLanguage,
+    }
+
+    const rawDomain = (effectiveConfig.domain || '').trim().replace(/\/+$/, '')
     if (!rawDomain) return '#'
 
     let domainWithScheme = rawDomain
@@ -133,9 +174,9 @@ export function buildAssociatedAnimeUrl(
         domainWithScheme = `https://${domainWithScheme}`
     }
 
-    const sectionChar = getSectionChar(config.sectionSeparator || 'barra')
-    const suffixChar = getSuffixChar(config.suffixSeparator || 'guion')
-    const lang = config.titleLanguage || 'japones'
+    const sectionChar = getSectionChar(effectiveConfig.sectionSeparator || 'barra')
+    const suffixChar = getSuffixChar(effectiveConfig.suffixSeparator || 'guion')
+    const lang = effectiveConfig.titleLanguage || 'japones'
 
     let rawTitle = ''
     if (typeof anime === 'string') {
@@ -148,10 +189,14 @@ export function buildAssociatedAnimeUrl(
         }
     }
 
-    const animeSlug = cleanAnimeTitleForSlug(rawTitle, config.nameSeparator || 'guion')
-    const rawInter = (config.intermediateTerm || '').trim().replace(/^\/+|\/+$/g, '')
+    const animeSlug =
+        override?.customSlug !== undefined && override.customSlug.trim() !== ''
+            ? override.customSlug.trim()
+            : cleanAnimeTitleForSlug(rawTitle, effectiveConfig.nameSeparator || 'guion')
 
-    let rawSuffix = (config.suffix || '').trim()
+    const rawInter = (effectiveConfig.intermediateTerm || '').trim().replace(/^\/+|\/+$/g, '')
+
+    let rawSuffix = (effectiveConfig.suffix || '').trim()
     if (rawSuffix.startsWith('-') || rawSuffix.startsWith('/') || rawSuffix.startsWith('.')) {
         rawSuffix = rawSuffix.substring(1).trim()
     }
@@ -202,6 +247,7 @@ function loadPersistedSettings(): AssociatedLinksSettings {
                 globalEnabled: parsed.globalEnabled ?? defaults.globalEnabled,
                 activeSlotId: parsed.activeSlotId || defaults.activeSlotId,
                 slots,
+                animeOverrides: parsed.animeOverrides || {},
             }
         }
 
@@ -287,12 +333,48 @@ export function useAssociatedLinks() {
     const activeSlot: LinkSlotConfig =
         settings.slots.find((s) => s.id === settings.activeSlotId) || settings.slots[0]
 
+    const saveAnimeOverride = useCallback(
+        (anime: string | OpenLinkSelectorPayload, slotId: number, override: AnimeLinkOverride | null) => {
+            const animeKey = getAnimeOverrideKey(anime)
+            if (!animeKey || slotId < 1 || slotId > TOTAL_SLOTS) return
+
+            const nextOverrides = { ...(settings.animeOverrides || {}) }
+            if (!override || Object.keys(override).length === 0) {
+                if (nextOverrides[animeKey]) {
+                    delete nextOverrides[animeKey][slotId]
+                    if (Object.keys(nextOverrides[animeKey]).length === 0) {
+                        delete nextOverrides[animeKey]
+                    }
+                }
+            } else {
+                nextOverrides[animeKey] = {
+                    ...(nextOverrides[animeKey] || {}),
+                    [slotId]: override,
+                }
+            }
+            persistSettings({ ...settings, animeOverrides: nextOverrides })
+        },
+        [settings, persistSettings]
+    )
+
+    const getAnimeOverride = useCallback(
+        (anime: string | OpenLinkSelectorPayload, slotId: number): AnimeLinkOverride | undefined => {
+            const animeKey = getAnimeOverrideKey(anime)
+            if (!animeKey) return undefined
+            return settings.animeOverrides?.[animeKey]?.[slotId]
+        },
+        [settings.animeOverrides]
+    )
+
     const getAnimeUrl = useCallback(
         (anime: string | OpenLinkSelectorPayload, slotId?: number) => {
             const targetSlot = slotId ? settings.slots.find((s) => s.id === slotId) : activeSlot
-            return buildAssociatedAnimeUrl(anime, targetSlot || activeSlot)
+            const finalSlot = targetSlot || activeSlot
+            const animeKey = getAnimeOverrideKey(anime)
+            const override = settings.animeOverrides?.[animeKey]?.[finalSlot.id]
+            return buildAssociatedAnimeUrl(anime, finalSlot, override)
         },
-        [settings.slots, activeSlot]
+        [settings.slots, settings.animeOverrides, activeSlot]
     )
 
     const openAnimeLink = useCallback(
@@ -303,7 +385,9 @@ export function useAssociatedLinks() {
             }
             if (slotId !== undefined) {
                 const targetSlot = settings.slots.find((s) => s.id === slotId) || activeSlot
-                const url = buildAssociatedAnimeUrl(anime, targetSlot)
+                const animeKey = getAnimeOverrideKey(anime)
+                const override = settings.animeOverrides?.[animeKey]?.[targetSlot.id]
+                const url = buildAssociatedAnimeUrl(anime, targetSlot, override)
                 if (url && url !== '#') {
                     window.open(url, '_blank', 'noopener,noreferrer')
                 }
@@ -312,7 +396,7 @@ export function useAssociatedLinks() {
             // Por defecto, abrir el modal de selección de los 8 slots
             requestOpenLinkSelector(anime)
         },
-        [settings.slots, activeSlot]
+        [settings.slots, settings.animeOverrides, activeSlot]
     )
 
     const hasAnyConfiguredSlot = settings.slots.some(
@@ -335,6 +419,8 @@ export function useAssociatedLinks() {
         updateGlobalEnabled,
         updateConfig,
         persistSettings,
+        saveAnimeOverride,
+        getAnimeOverride,
         getAnimeUrl,
         openAnimeLink,
         isEnabled,
