@@ -1873,6 +1873,10 @@
 
 /* ---------- Banners laterales de afiches (Mi Lista) ---------- */
 
+.ml-laterales-wrap {
+    display: contents;
+}
+
 .ml-lateral {
     position: fixed;
     top: 0;
@@ -1880,14 +1884,14 @@
     z-index: 0;
     overflow: hidden;
     pointer-events: none;
-    opacity: 0.38;
-    transition: opacity 0.5s ease;
-    -webkit-mask-composite: source-in;
-    mask-composite: intersect;
+    opacity: 0.55;
+    transition: opacity 0.4s ease;
+    -webkit-mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent);
+    mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent);
 }
 
 .ml-lateral.is-active {
-    opacity: 0.72;
+    opacity: 0.85;
 }
 
 /* 
@@ -1897,18 +1901,10 @@
 */
 .ml-lateral-izq {
     left: 0;
-    -webkit-mask-image: linear-gradient(to right, #000 70%, transparent 100%),
-                        linear-gradient(transparent 0%, #000 12%, #000 88%, transparent 100%);
-    mask-image: linear-gradient(to right, #000 70%, transparent 100%),
-                linear-gradient(transparent 0%, #000 12%, #000 88%, transparent 100%);
 }
 
 .ml-lateral-der {
     right: 0;
-    -webkit-mask-image: linear-gradient(to left, #000 70%, transparent 100%),
-                        linear-gradient(transparent 0%, #000 12%, #000 88%, transparent 100%);
-    mask-image: linear-gradient(to left, #000 70%, transparent 100%),
-                linear-gradient(transparent 0%, #000 12%, #000 88%, transparent 100%);
 }
 
 .ml-lateral-contenedor {
@@ -1976,6 +1972,10 @@
 }
 
 @media (max-width: 767.98px) {
+    .ml-lateral {
+        display: none !important;
+    }
+
     .ml-tabs {
         display: flex;
         width: 100%;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type RefObject } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { SHOWCASE_ROW_1, SHOWCASE_ROW_2, SHOWCASE_ROW_3 } from '../../data/showcase-animes'
 import { useHuecoLateral } from '../../hooks/useHuecoLateral'
 import type { FilaLista } from './mi-lista-data'
@@ -24,7 +24,6 @@ interface Props {
 
 const DURACION_FADE_MS = 800
 const INTERVALO_ROTACION_MS = 5000
-const HUECO_MINIMO = 80
 
 const FALLBACK_ANIMES: LateralAnimeItem[] = [
     ...SHOWCASE_ROW_1,
@@ -33,7 +32,7 @@ const FALLBACK_ANIMES: LateralAnimeItem[] = [
 ].map((a) => ({ title: a.title, imageUrl: a.cover }))
 
 export function LateralesAnime({ filas = [], visibles = [], activeFila }: Props) {
-    const { ref, huecoIzq, huecoDer } = useHuecoLateral<HTMLDivElement>()
+    const { ref, hueco, huecoIzq, huecoDer, sidebarWidth } = useHuecoLateral<HTMLDivElement>()
 
     // Pool de animes derivados de la lista del usuario (o fallback)
     const pool = useMemo<LateralAnimeItem[]>(() => {
@@ -76,27 +75,28 @@ export function LateralesAnime({ filas = [], visibles = [], activeFila }: Props)
         return pool[idleIndex % pool.length] || FALLBACK_ANIMES[0]
     }, [activeFila, pool, idleIndex])
 
-    const isVisible = huecoDer >= HUECO_MINIMO && huecoIzq >= HUECO_MINIMO
     const isActive = Boolean(activeFila)
 
+    // Ancho visible garantizado en ambos lados (nunca colapsa a 0)
+    const anchoIzq = Math.max(160, huecoIzq + 16, hueco - sidebarWidth)
+    const anchoDer = Math.max(160, huecoDer + 16, anchoIzq)
+
     return (
-        <>
+        <div ref={ref} className="ml-laterales-wrap">
             <BannerLado
-                refEl={ref}
                 lado="izq"
                 anime={targetAnime}
-                ancho={huecoIzq}
-                visible={isVisible}
+                left={sidebarWidth}
+                ancho={anchoIzq}
                 isActive={isActive}
             />
             <BannerLado
                 lado="der"
                 anime={targetAnime}
-                ancho={huecoDer}
-                visible={isVisible}
+                ancho={anchoDer}
                 isActive={isActive}
             />
-        </>
+        </div>
     )
 }
 
@@ -106,18 +106,16 @@ interface Capa {
 }
 
 function BannerLado({
-    refEl,
     lado,
     anime,
+    left,
     ancho,
-    visible,
     isActive,
 }: {
-    refEl?: RefObject<HTMLDivElement | null>
     lado: 'izq' | 'der'
     anime: LateralAnimeItem
+    left?: number
     ancho: number
-    visible: boolean
     isActive: boolean
 }) {
     const [capas, setCapas] = useState<Capa[]>([{ clave: 0, anime }])
@@ -151,16 +149,17 @@ function BannerLado({
             cancelado = true
             clearTimeout(timer)
         }
-    }, [anime])
+    }, [anime.imageUrl])
+
+    const estilo: React.CSSProperties = {
+        width: ancho,
+        ...(lado === 'izq' && typeof left === 'number' ? { left } : {}),
+    }
 
     return (
         <div
-            ref={refEl}
             className={`ml-lateral ml-lateral-${lado} ${isActive ? 'is-active' : ''}`}
-            style={{
-                width: ancho,
-                display: visible ? undefined : 'none',
-            }}
+            style={estilo}
             aria-hidden="true"
         >
             <div className="ml-lateral-contenedor">
@@ -173,7 +172,7 @@ function BannerLado({
                         >
                             <img
                                 className="ml-lateral-img"
-                                src={c.anime.imageUrl}
+                                src={c.anime.imageUrl || FALLBACK_ANIMES[0].imageUrl}
                                 alt=""
                                 decoding="async"
                             />

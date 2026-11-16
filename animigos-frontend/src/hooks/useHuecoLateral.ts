@@ -7,21 +7,48 @@ import { useEffect, useRef, useState } from 'react'
  */
 export function useHuecoLateral<T extends HTMLElement>() {
     const ref = useRef<T>(null)
-    const [dimensiones, setDimensiones] = useState({ hueco: 0, huecoIzq: 0, huecoDer: 0 })
+    const [estado, setEstado] = useState({
+        hueco: 160,
+        huecoIzq: 120,
+        huecoDer: 120,
+        sidebarWidth: 76,
+    })
 
     useEffect(() => {
-        const contenedor = ref.current?.parentElement?.querySelector<HTMLElement>(':scope > .container')
-        if (!contenedor) return
         const medir = () => {
-            const rect = contenedor.getBoundingClientRect()
-            const izq = Math.max(0, rect.left)
-            const der = Math.max(0, window.innerWidth - rect.right)
-            setDimensiones({ hueco: izq, huecoIzq: izq, huecoDer: der })
+            const rootEl = ref.current?.closest('.ml-root') || document.querySelector('.ml-root') || ref.current?.parentElement
+            const contenedor = rootEl?.querySelector<HTMLElement>('.container') || document.querySelector<HTMLElement>('.ml-root .container')
+            const sidebar = document.querySelector<HTMLElement>('.platform-sidebar')
+            const sWidth = sidebar ? sidebar.getBoundingClientRect().width : 76
+
+            if (contenedor) {
+                const rect = contenedor.getBoundingClientRect()
+                const relleno = parseFloat(getComputedStyle(contenedor).paddingLeft) || 0
+                const izq = Math.max(0, rect.left + relleno - sWidth)
+                const der = Math.max(0, window.innerWidth - rect.right + relleno)
+                setEstado({
+                    hueco: Math.round(rect.left + relleno),
+                    huecoIzq: Math.round(izq),
+                    huecoDer: Math.round(der),
+                    sidebarWidth: Math.round(sWidth),
+                })
+            } else {
+                setEstado((prev) => ({ ...prev, sidebarWidth: Math.round(sWidth) }))
+            }
         }
+
         medir()
+
         const observador = new ResizeObserver(medir)
         observador.observe(document.documentElement)
-        observador.observe(contenedor)
+
+        const sidebar = document.querySelector('.platform-sidebar')
+        if (sidebar) observador.observe(sidebar)
+
+        const rootEl = ref.current?.closest('.ml-root') || document.querySelector('.ml-root') || ref.current?.parentElement
+        const contenedor = rootEl?.querySelector('.container') || document.querySelector('.ml-root .container')
+        if (contenedor) observador.observe(contenedor)
+
         window.addEventListener('resize', medir)
         return () => {
             observador.disconnect()
@@ -31,8 +58,9 @@ export function useHuecoLateral<T extends HTMLElement>() {
 
     return {
         ref,
-        hueco: dimensiones.hueco,
-        huecoIzq: dimensiones.huecoIzq,
-        huecoDer: dimensiones.huecoDer,
+        hueco: estado.hueco,
+        huecoIzq: estado.huecoIzq,
+        huecoDer: estado.huecoDer,
+        sidebarWidth: estado.sidebarWidth,
     }
 }
