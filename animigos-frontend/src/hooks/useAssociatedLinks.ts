@@ -366,6 +366,43 @@ export function useAssociatedLinks() {
         [settings.animeOverrides]
     )
 
+    const saveAnimeExactUrl = useCallback(
+        (anime: string | OpenLinkSelectorPayload, slotId: number, exactUrl: string | null) => {
+            const animeKey = getAnimeOverrideKey(anime)
+            if (!animeKey || slotId < 1 || slotId > TOTAL_SLOTS) return
+
+            const nextOverrides = { ...(settings.animeOverrides || {}) }
+            const trimmed = (exactUrl || '').trim()
+
+            if (!trimmed) {
+                if (nextOverrides[animeKey]) {
+                    delete nextOverrides[animeKey][slotId]
+                    if (Object.keys(nextOverrides[animeKey]).length === 0) {
+                        delete nextOverrides[animeKey]
+                    }
+                }
+            } else {
+                nextOverrides[animeKey] = {
+                    ...(nextOverrides[animeKey] || {}),
+                    [slotId]: {
+                        customUrl: trimmed,
+                    },
+                }
+            }
+            persistSettings({ ...settings, animeOverrides: nextOverrides })
+        },
+        [settings, persistSettings]
+    )
+
+    const getAnimeExactUrl = useCallback(
+        (anime: string | OpenLinkSelectorPayload, slotId: number): string | undefined => {
+            const animeKey = getAnimeOverrideKey(anime)
+            if (!animeKey) return undefined
+            return settings.animeOverrides?.[animeKey]?.[slotId]?.customUrl
+        },
+        [settings.animeOverrides]
+    )
+
     const getAnimeUrl = useCallback(
         (anime: string | OpenLinkSelectorPayload, slotId?: number) => {
             const targetSlot = slotId ? settings.slots.find((s) => s.id === slotId) : activeSlot
@@ -421,6 +458,8 @@ export function useAssociatedLinks() {
         persistSettings,
         saveAnimeOverride,
         getAnimeOverride,
+        saveAnimeExactUrl,
+        getAnimeExactUrl,
         getAnimeUrl,
         openAnimeLink,
         isEnabled,
