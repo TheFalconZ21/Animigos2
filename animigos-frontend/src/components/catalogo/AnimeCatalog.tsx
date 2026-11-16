@@ -905,16 +905,12 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                                 )}
                                             </button>
 
-                                            {isLinksEnabled && (
+                                            {isLinksEnabled && linksConfig.domain && (
                                                 <button
                                                     type="button"
-                                                    onClick={(e) => {
-                                                        const inList = filas.find((f) => f.malId === anime.mal_id)
-                                                        const ep = inList ? (inList.episodiosVistos || 0) + 1 : 1
-                                                        openAnimeLink(anime.title, ep, e)
-                                                    }}
+                                                    onClick={(e) => openAnimeLink(anime.title, e)}
                                                     className="cat-btn-ver"
-                                                    title={`Ver en ${linksConfig.domain}`}
+                                                    title={`Abrir enlace asociado a ${anime.title}`}
                                                 >
                                                     <Play size={10} fill="currentColor" />
                                                     <span>Ver</span>

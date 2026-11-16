@@ -324,15 +324,15 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                         </button>
                                     </div>
 
-                                    {isLinksEnabled && (
+                                    {isLinksEnabled && linksConfig.domain && (
                                         <button
                                             type="button"
-                                            onClick={(e) => openAnimeLink(anime.title_english || anime.title, 1, e)}
+                                            onClick={(e) => openAnimeLink(anime.title_english || anime.title, e)}
                                             className="anime-profile-btn-ver mt-1"
-                                            title={`Ver en ${linksConfig.domain}`}
+                                            title={`Abrir enlace asociado a ${anime.title}`}
                                         >
                                             <Play size={13} fill="currentColor" />
-                                            <span>Ver en {linksConfig.domain} (Cap. 1)</span>
+                                            <span>Ver en enlace asociado</span>
                                             <ExternalLink size={12} />
                                         </button>
                                     )}
@@ -432,20 +432,15 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                         </span>
                                     </button>
 
-                                    {isLinksEnabled && (
+                                    {isLinksEnabled && linksConfig.domain && (
                                         <button
                                             type="button"
-                                            onClick={(e) => {
-                                                const nextEp = (myEntry?.episodiosVistos || 0) + 1
-                                                openAnimeLink(anime.title_english || anime.title, nextEp, e)
-                                            }}
+                                            onClick={(e) => openAnimeLink(anime.title_english || anime.title, e)}
                                             className="anime-profile-btn-ver"
-                                            title={`Ver en ${linksConfig.domain}`}
+                                            title={`Abrir enlace asociado a ${anime.title}`}
                                         >
                                             <Play size={13} fill="currentColor" />
-                                            <span>
-                                                Ver en {linksConfig.domain} (Cap. {(myEntry?.episodiosVistos || 0) + 1})
-                                            </span>
+                                            <span>Ver en enlace asociado</span>
                                             <ExternalLink size={12} />
                                         </button>
                                     )}

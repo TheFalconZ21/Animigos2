@@ -219,22 +219,15 @@ function Contenido({
                                     </button>
                                 )}
 
-                                {isLinksEnabled && (
+                                {isLinksEnabled && linksConfig.domain && (
                                     <button
                                         type="button"
                                         className="ml-btn-ver"
-                                        onClick={(e) => {
-                                            const nextEp = (fila.episodiosVistos || 0) >= (anime.episodes || 9999)
-                                                ? (fila.episodiosVistos || 1)
-                                                : (fila.episodiosVistos || 0) + 1
-                                            openAnimeLink(anime.titleEnglish || anime.title, nextEp, e)
-                                        }}
-                                        title={`Ver capítulo en ${linksConfig.domain}`}
+                                        onClick={(e) => openAnimeLink(anime.titleEnglish || anime.title, e)}
+                                        title={`Abrir enlace asociado a ${anime.title}`}
                                     >
                                         <Play size={12} fill="currentColor" />
-                                        <span>
-                                            Ver Cap. {(fila.episodiosVistos || 0) >= (anime.episodes || 9999) ? fila.episodiosVistos || 1 : (fila.episodiosVistos || 0) + 1}
-                                        </span>
+                                        <span>Ver</span>
                                         <ExternalLink size={11} />
                                     </button>
                                 )}

@@ -17,11 +17,11 @@ import { Dialogo } from '../mi-lista/piezas'
 import { useThemeAccent, OPCIONES_ACENTO } from '../../hooks/useThemeAccent'
 import {
     useAssociatedLinks,
-    PRESET_DOMAINS,
     buildAssociatedAnimeUrl,
     type AssociatedLinksConfig,
     type NameSeparator,
-    type ChapterSeparator,
+    type SectionSeparator,
+    type SuffixSeparator,
 } from '../../hooks/useAssociatedLinks'
 import type { SocialLinks, PrivacyConfig } from './perfil-types'
 
@@ -82,7 +82,6 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     const { config: storedLinksConfig, updateConfig: updateLinksConfig } = useAssociatedLinks()
     const [linksConfig, setLinksConfig] = useState<AssociatedLinksConfig>(storedLinksConfig)
     const [testAnime, setTestAnime] = useState('Sousou no Frieren')
-    const [testChapter, setTestChapter] = useState(6)
 
     const [isSaving, setIsSaving] = useState(false)
 
@@ -118,7 +117,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
         }
     }
 
-    const livePreviewUrl = buildAssociatedAnimeUrl(testAnime, testChapter, linksConfig)
+    const livePreviewUrl = buildAssociatedAnimeUrl(testAnime, linksConfig)
 
     return (
         <Dialogo abierto={open} onCerrar={onClose} etiqueta="Configuración de Perfil y Plataforma" ancho={660}>
@@ -595,7 +594,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                     </div>
                 )}
 
-                {/* CONTENIDO TAB 4: Links Asociados (Nueva Sección) */}
+                {/* CONTENIDO TAB 4: Links Asociados (Estructura Modular Generalizada) */}
                 {activeTab === 'links' && (
                     <div className="d-flex flex-column gap-3 animate-fade-in">
                         {/* Toggle de activación general */}
@@ -616,9 +615,9 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                     <Play size={17} fill="currentColor" />
                                 </div>
                                 <div>
-                                    <div className="text-white fw-semibold small">Activar Botón de Reproducción ("Ver")</div>
+                                    <div className="text-white fw-semibold small">Activar Botón de Enlace Externo ("Ver")</div>
                                     <div className="small" style={{ color: 'var(--perfil-text-dim)', fontSize: '0.74rem' }}>
-                                        Muestra el botón "Ver" en cada anime para saltar al capítulo configurado
+                                        Muestra el botón "Ver" en cada anime para navegar a la estructura personalizada que configures
                                     </div>
                                 </div>
                             </div>
@@ -634,46 +633,10 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
 
                         {/* 1. Dominio General */}
                         <div>
-                            <div className="d-flex align-items-center justify-content-between mb-1.5">
-                                <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-0">
-                                    <Globe size={14} style={{ color: 'var(--perfil-acento)' }} />
-                                    <span>Dominio General / Plataforma</span>
-                                </label>
-                                <span className="small text-secondary" style={{ fontSize: '0.72rem' }}>
-                                    Presets rápidos:
-                                </span>
-                            </div>
-
-                            {/* Presets rápidos */}
-                            <div className="d-flex flex-wrap gap-1.5 mb-2">
-                                {PRESET_DOMAINS.map((preset) => {
-                                    const isMatch = linksConfig.domain.toLowerCase().includes(preset.domain.toLowerCase())
-                                    return (
-                                        <button
-                                            key={preset.id}
-                                            type="button"
-                                            onClick={() =>
-                                                setLinksConfig({
-                                                    ...linksConfig,
-                                                    domain: preset.domain,
-                                                    chapterSeparator: preset.chapterSep,
-                                                })
-                                            }
-                                            className="btn btn-sm py-1 px-2.5 rounded-pill border"
-                                            style={{
-                                                background: isMatch ? 'var(--perfil-acento)' : 'var(--perfil-card-2)',
-                                                color: isMatch ? '#080808' : 'var(--perfil-text-muted)',
-                                                borderColor: isMatch ? 'var(--perfil-acento)' : 'var(--perfil-border)',
-                                                fontSize: '0.72rem',
-                                                fontWeight: isMatch ? 700 : 500,
-                                            }}
-                                        >
-                                            {preset.label}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-
+                            <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
+                                <Globe size={14} style={{ color: 'var(--perfil-acento)' }} />
+                                <span>1. Dominio General</span>
+                            </label>
                             <div className="position-relative">
                                 <input
                                     type="text"
@@ -684,7 +647,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                         fontSize: '0.82rem',
                                         paddingLeft: '2.1rem',
                                     }}
-                                    placeholder="ej: crunchyroll.com, myanimelist.net, animeflv.net..."
+                                    placeholder="ej: www.monoschinos.st, tusitio.com, crunchyroll.com..."
                                     value={linksConfig.domain}
                                     onChange={(e) => setLinksConfig({ ...linksConfig, domain: e.target.value })}
                                 />
@@ -694,27 +657,103 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                     style={{ left: 10, top: '50%', transform: 'translateY(-50%)' }}
                                 />
                             </div>
+                            <div className="small mt-1" style={{ color: 'var(--perfil-text-dim)', fontSize: '0.7rem' }}>
+                                Dirección o servidor web principal al que apuntarán los enlaces.
+                            </div>
                         </div>
 
-                        {/* 2. Separación de Nombre del Anime */}
+                        {/* 2. Término Intermedio y Separador de Secciones */}
+                        <div className="row g-2">
+                            <div className="col-7">
+                                <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
+                                    <span className="ml-eyebrow mb-0" style={{ fontSize: '0.7rem' }}>2. TÉRMINO INTERMEDIO (OPCIONAL)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm text-white"
+                                    style={{
+                                        background: 'var(--perfil-card-2)',
+                                        borderColor: 'var(--perfil-border)',
+                                        fontSize: '0.82rem',
+                                    }}
+                                    placeholder="ej: anime, series, ver (o vacío)"
+                                    value={linksConfig.intermediateTerm || ''}
+                                    onChange={(e) => setLinksConfig({ ...linksConfig, intermediateTerm: e.target.value })}
+                                />
+                                <div className="small mt-1" style={{ color: 'var(--perfil-text-dim)', fontSize: '0.7rem' }}>
+                                    Ruta o categoría intermedia antes del nombre.
+                                </div>
+                            </div>
+
+                            <div className="col-5">
+                                <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
+                                    <span className="ml-eyebrow mb-0" style={{ fontSize: '0.7rem' }}>SEPARADOR DE SECCIONES</span>
+                                </label>
+                                <div className="d-flex gap-1.5">
+                                    {[
+                                        { id: 'barra' as SectionSeparator, label: 'Barra (/)', short: '/' },
+                                        { id: 'guion' as SectionSeparator, label: 'Guión (-)', short: '-' },
+                                        { id: 'ninguna' as SectionSeparator, label: 'Ninguna', short: 'Ø' },
+                                    ].map((opt) => {
+                                        const isSelected = (linksConfig.sectionSeparator || 'barra') === opt.id
+                                        return (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => setLinksConfig({ ...linksConfig, sectionSeparator: opt.id })}
+                                                className={`flex-grow-1 p-2 border text-center transition-all ${
+                                                    isSelected ? 'border-primary' : ''
+                                                }`}
+                                                style={{
+                                                    borderRadius: 8,
+                                                    background: isSelected
+                                                        ? 'var(--perfil-acento-soft)'
+                                                        : 'var(--perfil-card-2)',
+                                                    borderColor: isSelected
+                                                        ? 'var(--perfil-acento)'
+                                                        : 'var(--perfil-border)',
+                                                    cursor: 'pointer',
+                                                }}
+                                                title={opt.label}
+                                            >
+                                                <div
+                                                    className="small fw-bold"
+                                                    style={{ color: isSelected ? '#ffffff' : 'var(--perfil-text-muted)', fontSize: '0.75rem' }}
+                                                >
+                                                    {opt.short}
+                                                </div>
+                                                <div
+                                                    className="text-truncate"
+                                                    style={{ color: 'var(--perfil-text-dim)', fontSize: '0.62rem' }}
+                                                >
+                                                    {opt.id}
+                                                </div>
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3. Separación de Nombre del Anime */}
                         <div>
                             <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
-                                <span className="ml-eyebrow mb-0" style={{ fontSize: '0.7rem' }}>SEPARACIÓN DE NOMBRE</span>
+                                <span className="ml-eyebrow mb-0" style={{ fontSize: '0.7rem' }}>3. SEPARACIÓN DE NOMBRE DEL ANIME</span>
                             </label>
                             <div className="row g-2">
                                 {[
                                     {
                                         id: 'guion' as NameSeparator,
                                         label: 'Guión (-)',
-                                        example: 'ej: frieren-beyond-journeys-end',
+                                        example: 'ej: sousou-no-frieren',
                                     },
                                     {
                                         id: 'ninguna' as NameSeparator,
                                         label: 'Ninguna',
-                                        example: 'ej: frierenbeyondjourneysend',
+                                        example: 'ej: sousounofrieren',
                                     },
                                 ].map((opt) => {
-                                    const isSelected = linksConfig.nameSeparator === opt.id
+                                    const isSelected = (linksConfig.nameSeparator || 'guion') === opt.id
                                     return (
                                         <div key={opt.id} className="col-6">
                                             <button
@@ -753,40 +792,51 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                             </div>
                         </div>
 
-                        {/* 3. Separación de Capítulos */}
-                        <div>
-                            <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
-                                <span className="ml-eyebrow mb-0" style={{ fontSize: '0.7rem' }}>SEPARACIÓN DE CAPÍTULOS</span>
-                            </label>
-                            <div className="row g-2">
-                                {[
-                                    {
-                                        id: 'barra' as ChapterSeparator,
-                                        label: 'Barra (/)',
-                                        example: '.../frieren/6',
-                                    },
-                                    {
-                                        id: 'guion' as ChapterSeparator,
-                                        label: 'Guión (-)',
-                                        example: '.../frieren-6',
-                                    },
-                                    {
-                                        id: 'ninguna' as ChapterSeparator,
-                                        label: 'Ninguna',
-                                        example: '.../frieren6',
-                                    },
-                                ].map((opt) => {
-                                    const isSelected = linksConfig.chapterSeparator === opt.id
-                                    return (
-                                        <div key={opt.id} className="col-4">
+                        {/* 4. Terminación Única y su Separador */}
+                        <div className="row g-2">
+                            <div className="col-7">
+                                <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
+                                    <span className="ml-eyebrow mb-0" style={{ fontSize: '0.7rem' }}>4. TERMINACIÓN ÚNICA DEL SITIO (OPCIONAL)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm text-white"
+                                    style={{
+                                        background: 'var(--perfil-card-2)',
+                                        borderColor: 'var(--perfil-border)',
+                                        fontSize: '0.82rem',
+                                    }}
+                                    placeholder="ej: sub-espanol, hd, online (o vacío)"
+                                    value={linksConfig.suffix || ''}
+                                    onChange={(e) => setLinksConfig({ ...linksConfig, suffix: e.target.value })}
+                                />
+                                <div className="small mt-1" style={{ color: 'var(--perfil-text-dim)', fontSize: '0.68rem' }}>
+                                    Sufijo final. Si prefieres que la terminación sea el capítulo, puedes escribirlo aquí.
+                                </div>
+                            </div>
+
+                            <div className="col-5">
+                                <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
+                                    <span className="ml-eyebrow mb-0" style={{ fontSize: '0.7rem' }}>SEPARADOR DE TERMINACIÓN</span>
+                                </label>
+                                <div className="d-flex gap-1">
+                                    {[
+                                        { id: 'guion' as SuffixSeparator, label: 'Guión (-)', short: '-' },
+                                        { id: 'barra' as SuffixSeparator, label: 'Barra (/)', short: '/' },
+                                        { id: 'punto' as SuffixSeparator, label: 'Punto (.)', short: '.' },
+                                        { id: 'ninguna' as SuffixSeparator, label: 'Ninguno', short: 'Ø' },
+                                    ].map((opt) => {
+                                        const isSelected = (linksConfig.suffixSeparator || 'guion') === opt.id
+                                        return (
                                             <button
+                                                key={opt.id}
                                                 type="button"
-                                                onClick={() => setLinksConfig({ ...linksConfig, chapterSeparator: opt.id })}
-                                                className={`w-100 p-2.5 border text-start transition-all ${
+                                                onClick={() => setLinksConfig({ ...linksConfig, suffixSeparator: opt.id })}
+                                                className={`flex-grow-1 p-2 border text-center transition-all ${
                                                     isSelected ? 'border-primary' : ''
                                                 }`}
                                                 style={{
-                                                    borderRadius: 10,
+                                                    borderRadius: 8,
                                                     background: isSelected
                                                         ? 'var(--perfil-acento-soft)'
                                                         : 'var(--perfil-card-2)',
@@ -795,27 +845,28 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                                         : 'var(--perfil-border)',
                                                     cursor: 'pointer',
                                                 }}
+                                                title={opt.label}
                                             >
                                                 <div
                                                     className="small fw-bold"
-                                                    style={{ color: isSelected ? '#ffffff' : 'var(--perfil-text-muted)' }}
+                                                    style={{ color: isSelected ? '#ffffff' : 'var(--perfil-text-muted)', fontSize: '0.75rem' }}
                                                 >
-                                                    {opt.label}
+                                                    {opt.short}
                                                 </div>
                                                 <div
                                                     className="text-truncate"
-                                                    style={{ color: 'var(--perfil-text-dim)', fontSize: '0.68rem' }}
+                                                    style={{ color: 'var(--perfil-text-dim)', fontSize: '0.62rem' }}
                                                 >
-                                                    {opt.example}
+                                                    {opt.id}
                                                 </div>
                                             </button>
-                                        </div>
-                                    )
-                                })}
+                                        )
+                                    })}
+                                </div>
                             </div>
                         </div>
 
-                        {/* 4. Simulador / Live Preview en Tiempo Real */}
+                        {/* 5. Simulador / Live Preview en Tiempo Real */}
                         <div
                             className="p-3 rounded-3 border"
                             style={{
@@ -829,56 +880,23 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                     <span>Simulador en Vivo · Probar Enlace Generado</span>
                                 </span>
                                 <span className="small text-secondary" style={{ fontSize: '0.7rem' }}>
-                                    Ejemplo interactivo
+                                    dominio + intermedio + nombre + terminación
                                 </span>
                             </div>
 
-                            {/* Inputs de prueba */}
-                            <div className="row g-2 mb-2.5">
-                                <div className="col-8">
-                                    <label className="text-secondary small mb-1" style={{ fontSize: '0.68rem' }}>
-                                        Anime de prueba:
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="form-control form-control-sm text-white"
-                                        style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', fontSize: '0.76rem' }}
-                                        value={testAnime}
-                                        onChange={(e) => setTestAnime(e.target.value)}
-                                        placeholder="ej: Frieren"
-                                    />
-                                </div>
-                                <div className="col-4">
-                                    <label className="text-secondary small mb-1" style={{ fontSize: '0.68rem' }}>
-                                        Capítulo:
-                                    </label>
-                                    <div className="d-flex align-items-center gap-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => setTestChapter(Math.max(1, testChapter - 1))}
-                                            className="btn btn-sm btn-dark border px-2 py-0"
-                                            style={{ borderColor: 'var(--perfil-border)', fontSize: '0.8rem' }}
-                                        >
-                                            -
-                                        </button>
-                                        <input
-                                            type="number"
-                                            className="form-control form-control-sm text-center text-white"
-                                            style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', fontSize: '0.76rem' }}
-                                            value={testChapter}
-                                            onChange={(e) => setTestChapter(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                                            min={1}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setTestChapter(testChapter + 1)}
-                                            className="btn btn-sm btn-dark border px-2 py-0"
-                                            style={{ borderColor: 'var(--perfil-border)', fontSize: '0.8rem' }}
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                </div>
+                            {/* Input de prueba: solo anime */}
+                            <div className="mb-2.5">
+                                <label className="text-secondary small mb-1" style={{ fontSize: '0.68rem' }}>
+                                    Anime de prueba:
+                                </label>
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm text-white"
+                                    style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', fontSize: '0.76rem' }}
+                                    value={testAnime}
+                                    onChange={(e) => setTestAnime(e.target.value)}
+                                    placeholder="ej: Sousou no Frieren"
+                                />
                             </div>
 
                             {/* Caja de Enlace Generado */}
@@ -891,17 +909,18 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                             >
                                 <div className="text-truncate me-2">
                                     <div className="small font-mono text-truncate" style={{ color: 'var(--perfil-acento)', fontSize: '0.75rem' }}>
-                                        {livePreviewUrl}
+                                        {livePreviewUrl !== '#' ? livePreviewUrl : 'Configura un dominio arriba para generar la ruta'}
                                     </div>
                                 </div>
 
                                 <button
                                     type="button"
-                                    onClick={() => window.open(livePreviewUrl, '_blank', 'noopener,noreferrer')}
+                                    disabled={livePreviewUrl === '#'}
+                                    onClick={() => livePreviewUrl !== '#' && window.open(livePreviewUrl, '_blank', 'noopener,noreferrer')}
                                     className="btn btn-sm d-inline-flex align-items-center gap-1 flex-shrink-0"
                                     style={{
-                                        background: 'var(--perfil-acento)',
-                                        color: '#080808',
+                                        background: livePreviewUrl !== '#' ? 'var(--perfil-acento)' : 'rgba(255, 255, 255, 0.1)',
+                                        color: livePreviewUrl !== '#' ? '#080808' : 'rgba(255, 255, 255, 0.3)',
                                         fontSize: '0.72rem',
                                         fontWeight: 700,
                                         borderRadius: 6,

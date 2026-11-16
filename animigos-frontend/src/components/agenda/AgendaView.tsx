@@ -413,15 +413,15 @@ export function AgendaView({ onOpenAnimeDetail }: AgendaViewProps) {
                                                 </div>
 
                                                 <div className="agenda-action-buttons-group">
-                                                    {isLinksEnabled && (
+                                                    {isLinksEnabled && linksConfig.domain && (
                                                         <button
                                                             type="button"
                                                             className="agenda-btn-ver"
-                                                            onClick={(e) => openAnimeLink(item.title_english || item.title, siguienteCap, e)}
-                                                            title={`Ver capítulo ${siguienteCap} en ${linksConfig.domain}`}
+                                                            onClick={(e) => openAnimeLink(item.title_english || item.title, e)}
+                                                            title={`Abrir enlace asociado a ${item.title}`}
                                                         >
                                                             <Play size={11} fill="currentColor" />
-                                                            <span>Ver Cap. {siguienteCap}</span>
+                                                            <span>Ver</span>
                                                             <ExternalLink size={10} />
                                                         </button>
                                                     )}

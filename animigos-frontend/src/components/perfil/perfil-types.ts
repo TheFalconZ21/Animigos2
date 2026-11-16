@@ -96,11 +96,15 @@ export type ProfileTimeRange = '7d' | '30d' | '1y' | 'all'
 
 
 export type NameSeparator = 'guion' | 'ninguna'
-export type ChapterSeparator = 'barra' | 'guion' | 'ninguna'
+export type SectionSeparator = 'barra' | 'guion' | 'ninguna'
+export type SuffixSeparator = 'guion' | 'barra' | 'punto' | 'ninguna'
 
 export interface AssociatedLinksConfig {
     enabled: boolean
     domain: string
+    intermediateTerm: string
+    sectionSeparator: SectionSeparator
     nameSeparator: NameSeparator
-    chapterSeparator: ChapterSeparator
+    suffixSeparator: SuffixSeparator
+    suffix: string
 }

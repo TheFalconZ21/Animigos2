@@ -104,18 +104,15 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
                         </span>
                     )}
 
-                    {isLinksEnabled && (
+                    {isLinksEnabled && linksConfig.domain && (
                         <button
                             type="button"
                             className="ml-btn-ver-fila"
-                            onClick={(e) => {
-                                const ep = (fila.episodiosVistos || 0) + 1
-                                openAnimeLink(anime.title, ep, e)
-                            }}
-                            title={`Ver capítulo ${(fila.episodiosVistos || 0) + 1} en ${linksConfig.domain}`}
+                            onClick={(e) => openAnimeLink(anime.title, e)}
+                            title={`Abrir enlace asociado a ${anime.title}`}
                         >
                             <Play size={10} fill="currentColor" />
-                            <span>Ver Cap. {(fila.episodiosVistos || 0) + 1}</span>
+                            <span>Ver</span>
                         </button>
                     )}
                 </div>
@@ -247,16 +244,16 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
                         <button type="button" className="ml-menu-item" onClick={() => { onRecomendar(); cerrar() }}>
                             <Send size={15} /> Recomendar a un amigo
                         </button>
-                        {isLinksEnabled && (
+                        {isLinksEnabled && linksConfig.domain && (
                             <button
                                 type="button"
                                 className="ml-menu-item"
                                 onClick={() => {
-                                    openAnimeLink(anime.title, (fila.episodiosVistos || 0) + 1)
+                                    openAnimeLink(anime.title)
                                     cerrar()
                                 }}
                             >
-                                <ExternalLink size={15} /> Ver en {linksConfig.domain}
+                                <ExternalLink size={15} /> Ver en enlace asociado
                             </button>
                         )}
 
