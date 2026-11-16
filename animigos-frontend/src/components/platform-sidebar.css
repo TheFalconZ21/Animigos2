@@ -2,10 +2,18 @@
    PLATFORM SIDEBAR (LAYOUT PRINCIPAL ANIMIGOS — ESTILO PANEL ADMIN)
    ============================================================ */
 
-.platform-sidebar {
+:root {
+  --platform-sidebar-bg: #08080c;
+  --platform-sidebar-header-bg: transparent;
+  --platform-sidebar-footer-bg: #050508;
+  --platform-sidebar-border: rgba(255, 255, 255, 0.07);
+}
+
+.platform-sidebar,
+.platform-sidebar.admin-sidebar {
   width: 276px;
-  background-color: #0c0e14;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: var(--platform-sidebar-bg) !important;
+  border-right: 1px solid var(--platform-sidebar-border) !important;
   display: flex;
   flex-direction: column;
   transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
@@ -30,7 +38,8 @@
   min-height: 64px;
   max-height: 64px;
   padding: 0 1.25rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--platform-sidebar-border) !important;
+  background-color: var(--platform-sidebar-header-bg) !important;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -256,8 +265,8 @@
 /* Footer del Sidebar: Perfil de usuario o Login */
 .platform-sidebar-footer {
   padding: 0.85rem 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background-color: #090a0f;
+  border-top: 1px solid var(--platform-sidebar-border) !important;
+  background-color: var(--platform-sidebar-footer-bg) !important;
   flex-shrink: 0;
   box-sizing: border-box;
   width: 100%;
