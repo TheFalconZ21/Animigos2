@@ -9,6 +9,8 @@ import {
     BookOpen,
     Send,
     ArrowLeft,
+    Users,
+    ChevronRight,
 } from 'lucide-react'
 import type { SocialLinks, PrivacyConfig } from './perfil-types'
 import { resolveMediaUrl } from '../../utils/mediaUrl'
@@ -20,6 +22,8 @@ interface ProfileHeaderProps {
     flagUrl: string
     bio: string
     memberSince: string
+    friendsCount?: number
+    onOpenFriendsSubView?: () => void
     socials: SocialLinks
     privacy: PrivacyConfig
     onOpenConfigModal: () => void
@@ -40,6 +44,8 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     flagUrl,
     bio,
     memberSince,
+    friendsCount = 0,
+    onOpenFriendsSubView,
     socials,
     privacy,
     onOpenConfigModal,
@@ -154,6 +160,18 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                                     @{username}
                                 </span>
                                 <span>·</span>
+                                <button
+                                    type="button"
+                                    onClick={onOpenFriendsSubView}
+                                    className="perfil-friends-count-pill"
+                                    title="Haz clic para abrir la subvista de Amigos"
+                                >
+                                    <Users size={13} style={{ color: 'var(--perfil-acento)' }} />
+                                    <strong className="text-white font-mono">{friendsCount}</strong>
+                                    <span>{friendsCount === 1 ? 'Amigo' : 'Amigos'}</span>
+                                    <ChevronRight size={13} className="perfil-friends-count-chevron" />
+                                </button>
+                                <span>·</span>
                                 <span className="d-inline-flex align-items-center gap-1">
                                     <Calendar size={13} /> Miembro desde {memberSince}
                                 </span>
@@ -217,11 +235,22 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                     </div>
                 </div>
 
-                {/* Fila inferior de acciones en la cabecera (Izquierda: Editar/Config o Volver | Derecha: VER LISTA / RECOMENDAR ANIME) */}
+                {/* Fila inferior de acciones en la cabecera (Mi Perfil: Configuración + Editar Imágenes | Perfil de Terceros: Recomendar Anime) */}
                 <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 pt-1">
                     <div className="d-flex flex-wrap align-items-center gap-2">
                         {isCurrentUser ? (
                             <>
+                                <button
+                                    type="button"
+                                    onClick={onOpenConfigModal}
+                                    className="ml-btn ml-btn-fantasma ml-btn-sm d-inline-flex align-items-center gap-1.5 border"
+                                    style={{ borderColor: 'var(--perfil-border)', background: 'var(--perfil-card-2)' }}
+                                    title="Configuración de Cuenta, Paleta y Privacidad"
+                                >
+                                    <Settings size={14} />
+                                    <span>Configuración</span>
+                                </button>
+
                                 <button
                                     type="button"
                                     onClick={onToggleVisualEdit}
@@ -236,22 +265,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                                     title={
                                         isVisualEditOpen
                                             ? 'Finalizar personalización visual'
-                                            : 'Habilitar modificación de foto de perfil, imagen flag e imagen de los laterales'
+                                            : 'Habilitar modificación de foto de perfil, banner flag e imagen de los laterales'
                                     }
                                 >
                                     {isVisualEditOpen ? <Check size={14} /> : <Pencil size={14} />}
-                                    <span>{isVisualEditOpen ? 'Finalizar Edición' : 'Editar'}</span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={onOpenConfigModal}
-                                    className="ml-btn ml-btn-fantasma ml-btn-sm d-inline-flex align-items-center gap-1.5 border"
-                                    style={{ borderColor: 'var(--perfil-border)', background: 'var(--perfil-card-2)' }}
-                                    title="Configuración de Cuenta, Paleta y Privacidad"
-                                >
-                                    <Settings size={14} />
-                                    <span>Configuración</span>
+                                    <span>{isVisualEditOpen ? 'Finalizar Edición' : 'Editar Imágenes'}</span>
                                 </button>
                             </>
                         ) : (
@@ -282,7 +300,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                             </button>
                         )}
 
-                        {privacy.allowRecommendations !== false && onRecommendAnime && (
+                        {!isCurrentUser && privacy.allowRecommendations !== false && onRecommendAnime && (
                             <button
                                 type="button"
                                 onClick={onRecommendAnime}

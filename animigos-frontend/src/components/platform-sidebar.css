@@ -1,48 +1,91 @@
 /* ============================================================
-   PLATFORM SIDEBAR (LAYOUT PRINCIPAL ANIMIGOS)
+   PLATFORM SIDEBAR (LAYOUT PRINCIPAL ANIMIGOS — ESTILO PANEL ADMIN)
    ============================================================ */
 
 .platform-sidebar {
-  width: 250px;
-  background-color: #0c0d10;
+  width: 276px;
+  background-color: #0c0e14;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
-  transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, border-color 0.2s ease;
+  transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
   position: sticky;
   top: 0;
   height: 100vh;
   z-index: 1040;
   flex-shrink: 0;
   user-select: none;
-  overflow: hidden;
   box-sizing: border-box;
 }
 
-/* Estado Colapsado / Oculto: Desaparece completamente para dejar la pantalla completa */
+/* Estado Colapsado / Minimizado (Rail de Iconos - Sin perderla de vista) */
 .platform-sidebar.collapsed {
-  width: 0 !important;
-  min-width: 0 !important;
-  max-width: 0 !important;
-  border-right-width: 0 !important;
-  border-right-color: transparent !important;
-  padding: 0 !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
+  width: 76px;
 }
 
-/* Header del Sidebar (Visible cuando se abre) */
-.platform-sidebar-header {
-  padding: 1rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+/* Header del Sidebar - Sincronizado milimétricamente a 64px con la Headbar */
+.platform-sidebar-header,
+.platform-sidebar .admin-sidebar-header {
+  height: 64px;
+  min-height: 64px;
+  max-height: 64px;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  min-height: 64px;
-  width: 250px;
+  gap: 0.75rem;
   box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* Botón toggle de colapso/despliegue en la cabecera */
+.platform-sidebar .admin-sidebar-header button,
+.platform-sidebar .platform-sidebar-header button {
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  min-height: 26px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 7px !important;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.platform-sidebar .admin-sidebar-header button:hover,
+.platform-sidebar .platform-sidebar-header button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.platform-sidebar .admin-sidebar-header button svg,
+.platform-sidebar .platform-sidebar-header button svg {
+  display: block !important;
+  margin: 0 auto !important;
+  flex-shrink: 0 !important;
+  width: 15px !important;
+  height: 15px !important;
+  stroke: rgba(255, 255, 255, 0.85) !important;
+  transition: stroke 0.15s ease;
+}
+
+.platform-sidebar .admin-sidebar-header button:hover svg,
+.platform-sidebar .platform-sidebar-header button:hover svg {
+  stroke: #ffffff !important;
+}
+
+/* Desplazamiento ligero a la derecha cuando está colapsado */
+.platform-sidebar.collapsed .admin-sidebar-header button,
+.platform-sidebar.collapsed .platform-sidebar-header button {
+  transform: translateX(6px);
+  transition: transform 0.2s ease;
 }
 
 .platform-sidebar-logo-link {
@@ -56,92 +99,136 @@
 }
 
 .platform-sidebar-toggle-btn {
-  background: transparent;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.7);
-  border-radius: 6px;
-  width: 30px;
-  height: 30px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  padding: 0;
   flex-shrink: 0;
+  transition: all 0.16s ease;
 }
 
 .platform-sidebar-toggle-btn:hover {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.12);
   color: #ffffff;
   border-color: rgba(255, 255, 255, 0.22);
 }
 
 /* Lista de Navegación */
 .platform-sidebar-nav {
-  padding: 0.85rem 0.65rem;
+  padding: 0.9rem 0.75rem;
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  width: 250px;
+  gap: 0.3rem;
+  width: 100%;
   box-sizing: border-box;
+}
+
+.platform-sidebar.collapsed .platform-sidebar-nav {
+  padding: 0.9rem 0.5rem;
+  align-items: center;
 }
 
 .platform-sidebar-nav::-webkit-scrollbar {
   width: 4px;
 }
+
 .platform-sidebar-nav::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
 }
 
 .platform-sidebar-section-title {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.35);
-  padding: 0.6rem 0.65rem 0.25rem;
+  color: rgba(255, 255, 255, 0.38);
+  padding: 0.65rem 0.75rem 0.25rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Items individuales */
+.platform-sidebar.collapsed .platform-sidebar-section-title {
+  display: none;
+}
+
+.platform-sidebar.collapsed .platform-sidebar-section-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 0.4rem 0.2rem;
+  width: 36px;
+}
+
+/* Items individuales (Estilo Panel Admin) */
 .platform-sidebar-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  border-radius: 11px;
   color: rgba(255, 255, 255, 0.7);
-  font-size: 0.82rem;
+  font-size: 0.83rem;
   font-weight: 500;
   background: transparent;
   border: 1px solid transparent;
   width: 100%;
   text-align: left;
   cursor: pointer;
-  transition: all 0.16s ease;
+  transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
   text-decoration: none;
   position: relative;
   white-space: nowrap;
 }
 
+.platform-sidebar.collapsed .platform-sidebar-item {
+  padding: 0.65rem 0;
+  justify-content: center;
+  width: 44px;
+  height: 42px;
+  margin: 0 auto;
+}
+
 .platform-sidebar-item:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.06);
   color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .platform-sidebar-item.active {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--theme-acento, #e8508f) 18%, transparent) 0%, color-mix(in srgb, var(--theme-acento, #e8508f) 5%, transparent) 100%);
+  background-color: color-mix(in srgb, var(--theme-acento, #e8508f) 14%, #141722);
   color: #ffffff;
-  border-color: color-mix(in srgb, var(--theme-acento, #e8508f) 40%, transparent);
+  border-color: color-mix(in srgb, var(--theme-acento, #e8508f) 35%, transparent);
   font-weight: 600;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--theme-acento, #e8508f) 15%, transparent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.platform-sidebar-item.active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 20%;
+  bottom: 20%;
+  width: 3.5px;
+  border-radius: 0 4px 4px 0;
+  background-color: var(--theme-acento, #e8508f);
+  box-shadow: 0 0 10px var(--theme-acento, #e8508f);
+}
+
+.platform-sidebar.collapsed .platform-sidebar-item.active::before {
+  left: -6px;
 }
 
 .platform-sidebar-item.active .platform-sidebar-icon {
@@ -158,12 +245,109 @@
 }
 
 .platform-sidebar-badge {
-  font-size: 0.62rem;
+  font-size: 0.64rem;
   font-weight: 600;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 10px;
   letter-spacing: 0.02em;
   margin-left: auto;
+}
+
+/* Footer del Sidebar: Perfil de usuario o Login */
+.platform-sidebar-footer {
+  padding: 0.85rem 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: #090a0f;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.platform-sidebar.collapsed .platform-sidebar-footer {
+  padding: 0.85rem 0.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.platform-sidebar-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 11px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #ffffff;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  width: 100%;
+}
+
+.platform-sidebar-user-pill:hover,
+.platform-sidebar-user-pill.active {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.platform-sidebar-user-avatar-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: transform 0.16s ease;
+}
+
+.platform-sidebar-user-avatar-btn:hover {
+  transform: scale(1.08);
+}
+
+.platform-sidebar-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.platform-sidebar-login-btn:hover {
+  background: var(--theme-acento, #e8508f);
+  border-color: var(--theme-acento, #e8508f);
+  color: #080808;
+}
+
+.platform-sidebar-login-btn-mini {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.platform-sidebar-login-btn-mini:hover {
+  background: var(--theme-acento, #e8508f);
+  border-color: var(--theme-acento, #e8508f);
+  color: #080808;
 }
 
 /* Estilos de layout principal */
@@ -175,7 +359,41 @@
   min-height: 100vh;
 }
 
-/* Desaturación del navbar */
+/* Desaturación y alineación milimétrica del navbar con el sidebar */
+.glass-nav {
+  height: 64px !important;
+  min-height: 64px !important;
+  max-height: 64px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  box-sizing: border-box !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.navbar-subview-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.38rem 0.8rem;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  flex-shrink: 0;
+}
+
+.navbar-subview-back-btn:hover {
+  background: var(--theme-acento, var(--ml-acento, #a78bfa));
+  border-color: var(--theme-acento, var(--ml-acento, #a78bfa));
+  color: #080808;
+  transform: translateX(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
 .navbar-breadcrumb-title {
   font-size: 0.82rem;
   font-weight: 600;

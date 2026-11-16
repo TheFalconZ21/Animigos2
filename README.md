@@ -39,3 +39,4 @@ Visita en tu navegador: **`http://localhost:5173/`**
 - `animigos-frontend/`: Aplicación cliente desarrollada en React 19, TypeScript, Vite y TanStack Query.
 - `animigos-backend/`: API REST y servidor de WebSockets en Django 5, Django REST Framework y Daphne (ASGI).
 - `AGENTS.md`: Directivas de desarrollo, estándares de seguridad y reglas de arquitectura estética.
+

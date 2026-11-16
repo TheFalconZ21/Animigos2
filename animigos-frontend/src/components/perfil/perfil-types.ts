@@ -84,3 +84,13 @@ export interface ProfileCommentReply {
     content: string
     createdAt: string
 }
+
+export type ProfileSubView =
+    | 'friends'
+    | 'time-watched'
+    | 'list-metrics'
+    | 'mean-score'
+    | 'favorite-genre'
+
+export type ProfileTimeRange = '7d' | '30d' | '1y' | 'all'
+

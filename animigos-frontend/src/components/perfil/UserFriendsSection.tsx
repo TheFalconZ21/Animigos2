@@ -535,13 +535,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                             <div className="row g-2" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                                 {modalSearchResults.map((u) => (
                                     <div key={u.id} className="col-12 col-sm-6">
-                                        <div
-                                            className="p-2.5 rounded-3 border d-flex align-items-center justify-content-between gap-2"
-                                            style={{
-                                                background: 'var(--perfil-card-2)',
-                                                borderColor: 'var(--perfil-border)',
-                                            }}
-                                        >
+                                        <div className="perfil-modal-inner-card d-flex align-items-center justify-content-between gap-2">
                                             <div className="d-flex align-items-center gap-2 min-w-0">
                                                 <img
                                                     src={resolveMediaUrl(u.avatar_url) || DEFAULT_AVATAR}
@@ -623,10 +617,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                     <div className="row g-2 mt-1" style={{ maxHeight: '420px', overflowY: 'auto' }}>
                         {friends.map((f) => (
                             <div key={f.id} className="col-12 col-sm-6">
-                                <div
-                                    className="p-2.5 rounded-3 border d-flex align-items-center justify-content-between gap-2"
-                                    style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}
-                                >
+                                <div className="perfil-modal-inner-card d-flex align-items-center justify-content-between gap-2">
                                     <div
                                         className="d-flex align-items-center gap-2 min-w-0"
                                         style={{ cursor: 'pointer' }}
@@ -725,10 +716,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                     <div className="row g-2 mt-1" style={{ maxHeight: '420px', overflowY: 'auto' }}>
                         {suggested.map((sug) => (
                             <div key={sug.id} className="col-12 col-sm-6">
-                                <div
-                                    className="p-2.5 rounded-3 border d-flex align-items-center justify-content-between gap-2"
-                                    style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}
-                                >
+                                <div className="perfil-modal-inner-card d-flex align-items-center justify-content-between gap-2">
                                     <div
                                         className="d-flex align-items-center gap-2 min-w-0"
                                         style={{ cursor: 'pointer' }}

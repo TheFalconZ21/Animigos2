@@ -1,11 +1,23 @@
 import React, { useState, type CSSProperties } from 'react'
-import { Search, Send, Sparkles, Check, Loader2, Lock } from 'lucide-react'
+import {
+    Search,
+    Send,
+    Sparkles,
+    Check,
+    Loader2,
+    Users,
+    Clock,
+    Layers,
+    BarChart3,
+    Compass,
+} from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useMyList } from '../../hooks/useMyList'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
 import { updateUserProfile, getAuthHeaders } from '../../services/authApi'
 import {
     fetchPublicProfile,
+    fetchFriends,
     sendAnimeRecommendationToUser,
     type PublicUserProfileData,
 } from '../../services/friendsApi'
@@ -19,7 +31,6 @@ import { CommentsWall } from './CommentsWall'
 import { ProfileSettingsModal } from './ProfileSettingsModal'
 import { UserFriendsSection } from './UserFriendsSection'
 import { AvatarPickerModal } from './AvatarPickerModal'
-import { TasteCorrelationGraph } from '../recomendador/TasteCorrelationGraph'
 import {
     fetchTasteAnalytics,
     searchTestAnimes,
@@ -31,6 +42,7 @@ import type {
     PrivacyConfig,
     TasteTestAnswers,
     LateralWallpaperConfig,
+    ProfileSubView,
 } from './perfil-types'
 import '../mi-lista/mi-lista.css'
 import '../recomendador/recomendador.css'
@@ -44,9 +56,15 @@ const getStorageLateralKey = (uid?: number | string) => `animigos_user_lateral_w
 
 interface PerfilViewProps {
     visitedUsername?: string
+    activeSubView?: ProfileSubView | null
+    onChangeSubView?: (subView: ProfileSubView | null) => void
 }
 
-export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
+export const PerfilView: React.FC<PerfilViewProps> = ({
+    visitedUsername,
+    activeSubView: controlledSubView,
+    onChangeSubView,
+}) => {
     const { acento } = useThemeAccent()
     const { user, refreshUser } = useAuth()
     const { filas, actualizar } = useMyList()
@@ -56,6 +74,35 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
             visitedUsername.trim() !== '' &&
             visitedUsername.trim().toLowerCase() !== (user?.username || '').toLowerCase()
     )
+
+    // Subvista activa (modelo similar al panel de admin: null = vista principal del perfil)
+    const [internalSubView, setInternalSubView] = useState<ProfileSubView | null>(null)
+    const activeSubView = controlledSubView !== undefined ? controlledSubView : internalSubView
+    const [myFriendsCount, setMyFriendsCount] = useState<number>(0)
+
+    const handleOpenSubView = (subView: ProfileSubView | null) => {
+        if (onChangeSubView) {
+            onChangeSubView(subView)
+        } else {
+            setInternalSubView(subView)
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
+    React.useEffect(() => {
+        if (onChangeSubView) {
+            onChangeSubView(null)
+        } else {
+            setInternalSubView(null)
+        }
+    }, [visitedUsername])
+
+    React.useEffect(() => {
+        if (isVisitingOther) return
+        fetchFriends()
+            .then((list) => setMyFriendsCount(list.length))
+            .catch(() => setMyFriendsCount(0))
+    }, [isVisitingOther, user?.id])
 
     // Estado para perfil público visitado (#perfil/<username>)
     const [publicData, setPublicData] = useState<PublicUserProfileData | null>(null)
@@ -536,103 +583,161 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
                     </div>
                 ) : (
                     <>
-                        {/* 2. Cabecera de Perfil con Imagen tipo Flag */}
-                        <ProfileHeader
-                            displayName={activeDisplayName}
-                            username={activeUsername}
-                            avatarUrl={activeAvatarUrl}
-                            flagUrl={activeFlagUrl}
-                            bio={activeBio}
-                            memberSince={
-                                (isVisitingOther ? publicData?.user?.created_at : user?.created_at)
-                                    ? new Date(
-                                          (isVisitingOther ? publicData?.user?.created_at : user?.created_at) as string
-                                      ).toLocaleDateString('es-ES', {
-                                          month: 'long',
-                                          year: 'numeric',
-                                      })
-                                    : 'Reciente'
-                            }
-                            socials={activeSocials}
-                            privacy={activePrivacy}
-                            onOpenConfigModal={() => setConfigModalOpen(true)}
-                            onChangeAvatarClick={() => setAvatarModalOpen(true)}
-                            onOpenFlagModal={() => setFlagModalOpen(true)}
-                            isVisualEditOpen={!isVisitingOther && isVisualEditOpen}
-                            onToggleVisualEdit={() => setIsVisualEditOpen((prev) => !prev)}
-                            isCurrentUser={!isVisitingOther}
-                            onViewList={
-                                !isVisitingOther || activePrivacy.isListPublic ? handleNavigateToList : undefined
-                            }
-                            onRecommendAnime={
-                                activePrivacy.allowRecommendations !== false
-                                    ? () => {
-                                          setRecFeedback(null)
-                                          setRecommendModalOpen(true)
-                                      }
-                                    : undefined
-                            }
-                            onBackToOwnProfile={
-                                isVisitingOther
-                                    ? () => {
-                                          window.location.hash = '#perfil'
-                                      }
-                                    : undefined
-                            }
-                        />
+                        {activeSubView !== null ? (
+                            <div className="perfil-subview-enter">
+                                {/* Selectores de Subvista locales (El botón volver y ruta están en la Headbar) */}
+                                <div className="perfil-subview-bar">
+                                    <div className="perfil-subview-switcher w-100 justify-content-center justify-content-md-start">
+                                        {[
+                                            {
+                                                id: 'friends' as ProfileSubView,
+                                                label: `Amigos (${isVisitingOther ? publicData?.friends?.length || 0 : myFriendsCount})`,
+                                                icon: <Users size={13} />,
+                                            },
+                                            {
+                                                id: 'time-watched' as ProfileSubView,
+                                                label: 'Tiempo Visto',
+                                                icon: <Clock size={13} />,
+                                            },
+                                            {
+                                                id: 'list-metrics' as ProfileSubView,
+                                                label: 'Animes en Lista',
+                                                icon: <Layers size={13} />,
+                                            },
+                                            {
+                                                id: 'mean-score' as ProfileSubView,
+                                                label: 'Nota Media',
+                                                icon: <BarChart3 size={13} />,
+                                            },
+                                            {
+                                                id: 'favorite-genre' as ProfileSubView,
+                                                label: 'Género Favorito',
+                                                icon: <Compass size={13} />,
+                                            },
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => handleOpenSubView(opt.id)}
+                                                className={`perfil-subview-pill ${activeSubView === opt.id ? 'is-active' : ''}`}
+                                            >
+                                                {opt.icon}
+                                                <span>{opt.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
 
-                        {/* 3. Sección de Amigos del Usuario */}
-                        <UserFriendsSection
-                            currentUserUsername={activeUsername}
-                            readOnly={isVisitingOther}
-                            initialFriends={isVisitingOther ? publicData?.friends || [] : undefined}
-                        />
-
-                        {/* 4. Centro Analítico de Colección: Favoritos, KPIs, Distribución de Notas, Géneros y Contrastes */}
-                        <AnimeStatsDashboard
-                            filas={activeFilas}
-                            showStats={!isVisitingOther || activePrivacy.showStats}
-                            canViewList={!isVisitingOther || activePrivacy.isListPublic}
-                            onViewList={handleNavigateToList}
-                            readOnly={isVisitingOther}
-                            onUpdateFila={(id, cambios) => {
-                                if (isVisitingOther) return
-                                const targetFila = filas.find((f) => f.id === id)
-                                if (targetFila) {
-                                    actualizar(targetFila.malId, cambios)
-                                }
-                            }}
-                        />
-
-                        {/* 5. ADN & Correlación de Gustos del Usuario (Diagrama de Cuerdas y Matriz de Sinergia) */}
-                        {(!isVisitingOther || activePrivacy.showStats) ? (
-                            <div className="my-4">
-                                <TasteCorrelationGraph
-                                    analytics={activeTasteAnalytics}
-                                    filas={activeFilas.filter((f) => f.estado !== 'pendiente' && f.estado !== 'dropeado' && (f.estado === 'visto' || (f.estado === 'viendo' && f.episodiosVistos > 0)))}
-                                    loading={isVisitingOther ? publicLoading : isLoadingAnalytics}
-                                    accentColor={acento}
-                                />
+                                {activeSubView === 'friends' ? (
+                                    <UserFriendsSection
+                                        currentUserUsername={activeUsername}
+                                        readOnly={isVisitingOther}
+                                        initialFriends={isVisitingOther ? publicData?.friends || [] : undefined}
+                                    />
+                                ) : (
+                                    <AnimeStatsDashboard
+                                        filas={activeFilas}
+                                        activeSubView={activeSubView}
+                                        onSelectSubView={handleOpenSubView}
+                                        showStats={!isVisitingOther || activePrivacy.showStats}
+                                        canViewList={!isVisitingOther || activePrivacy.isListPublic}
+                                        onViewList={handleNavigateToList}
+                                        readOnly={isVisitingOther}
+                                        tasteAnalytics={activeTasteAnalytics}
+                                        loadingAnalytics={isVisitingOther ? publicLoading : isLoadingAnalytics}
+                                        accentColor={acento}
+                                        onUpdateFila={(id, cambios) => {
+                                            if (isVisitingOther) return
+                                            const targetFila = filas.find((f) => f.id === id)
+                                            if (targetFila) {
+                                                actualizar(targetFila.malId, cambios)
+                                            }
+                                        }}
+                                    />
+                                )}
                             </div>
                         ) : (
-                            <div className="perfil-breakdown-card text-center py-4 my-4">
-                                <Lock size={18} className="text-secondary mb-1" />
-                                <div className="small text-secondary">
-                                    La matriz de correlación de gustos de @{activeUsername} es privada.
-                                </div>
-                            </div>
-                        )}
+                            <>
+                                {/* 1º MAIN CARD: Nombre de usuario, foto de perfil, número de amigos (seleccionable -> subvista), descripción y botones */}
+                                <ProfileHeader
+                                    displayName={activeDisplayName}
+                                    username={activeUsername}
+                                    avatarUrl={activeAvatarUrl}
+                                    flagUrl={activeFlagUrl}
+                                    bio={activeBio}
+                                    friendsCount={isVisitingOther ? publicData?.friends?.length || 0 : myFriendsCount}
+                                    onOpenFriendsSubView={() => handleOpenSubView('friends')}
+                                    memberSince={
+                                        (isVisitingOther ? publicData?.user?.created_at : user?.created_at)
+                                            ? new Date(
+                                                  (isVisitingOther ? publicData?.user?.created_at : user?.created_at) as string
+                                              ).toLocaleDateString('es-ES', {
+                                                  month: 'long',
+                                                  year: 'numeric',
+                                              })
+                                            : 'Reciente'
+                                    }
+                                    socials={activeSocials}
+                                    privacy={activePrivacy}
+                                    onOpenConfigModal={() => setConfigModalOpen(true)}
+                                    onChangeAvatarClick={() => setAvatarModalOpen(true)}
+                                    onOpenFlagModal={() => setFlagModalOpen(true)}
+                                    isVisualEditOpen={!isVisitingOther && isVisualEditOpen}
+                                    onToggleVisualEdit={() => setIsVisualEditOpen((prev) => !prev)}
+                                    isCurrentUser={!isVisitingOther}
+                                    onViewList={
+                                        !isVisitingOther || activePrivacy.isListPublic ? handleNavigateToList : undefined
+                                    }
+                                    onRecommendAnime={
+                                        activePrivacy.allowRecommendations !== false
+                                            ? () => {
+                                                  setRecFeedback(null)
+                                                  setRecommendModalOpen(true)
+                                              }
+                                            : undefined
+                                    }
+                                    onBackToOwnProfile={
+                                        isVisitingOther
+                                            ? () => {
+                                                  window.location.hash = '#perfil'
+                                              }
+                                            : undefined
+                                    }
+                                />
 
-                        {/* 6. Muro de Comentarios y Actividad Social */}
-                        <CommentsWall
-                            currentUser={{
-                                id: String(user?.id || 'guest'),
-                                name: displayName,
-                                username: user?.username || '',
-                                avatar: avatarUrl,
-                            }}
-                            allowComments={activePrivacy.allowComments}
-                        />
+                                {/* 2º FILA DE 4 KPIs GENERALES CLICKEABLES + 3º HALL OF FAME DEL USUARIO */}
+                                <AnimeStatsDashboard
+                                    filas={activeFilas}
+                                    activeSubView={null}
+                                    onSelectSubView={handleOpenSubView}
+                                    showStats={!isVisitingOther || activePrivacy.showStats}
+                                    canViewList={!isVisitingOther || activePrivacy.isListPublic}
+                                    onViewList={handleNavigateToList}
+                                    readOnly={isVisitingOther}
+                                    tasteAnalytics={activeTasteAnalytics}
+                                    loadingAnalytics={isVisitingOther ? publicLoading : isLoadingAnalytics}
+                                    accentColor={acento}
+                                    onUpdateFila={(id, cambios) => {
+                                        if (isVisitingOther) return
+                                        const targetFila = filas.find((f) => f.id === id)
+                                        if (targetFila) {
+                                            actualizar(targetFila.malId, cambios)
+                                        }
+                                    }}
+                                />
+
+                                {/* 4º MURO DE LA COMUNIDAD */}
+                                <CommentsWall
+                                    currentUser={{
+                                        id: String(user?.id || 'guest'),
+                                        name: displayName,
+                                        username: user?.username || '',
+                                        avatar: avatarUrl,
+                                    }}
+                                    allowComments={activePrivacy.allowComments}
+                                />
+                            </>
+                        )}
                     </>
                 )}
             </div>
@@ -676,7 +781,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
                         {/* Anime seleccionado */}
                         {selectedRecAnime && (
                             <div
-                                className="mt-2 p-2.5 rounded-3 d-flex align-items-center justify-content-between gap-2"
+                                className="mt-2.5 p-3 rounded-4 d-flex align-items-center justify-content-between gap-2.5"
                                 style={{
                                     background: 'var(--perfil-acento-soft)',
                                     border: '1px solid var(--perfil-acento)',
@@ -687,10 +792,10 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
                                         src={selectedRecAnime.poster}
                                         alt=""
                                         style={{
-                                            width: 38,
-                                            height: 54,
+                                            width: 42,
+                                            height: 60,
                                             objectFit: 'cover',
-                                            borderRadius: 6,
+                                            borderRadius: 8,
                                             flexShrink: 0,
                                         }}
                                     />
@@ -727,7 +832,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
                                                 <button
                                                     type="button"
                                                     onClick={() => setSelectedRecAnime(item)}
-                                                    className="w-100 p-2 rounded-3 border text-start d-flex align-items-center gap-2"
+                                                    className="w-100 p-2.5 rounded-3 border text-start d-flex align-items-center gap-2.5"
                                                     style={{
                                                         background: isSel
                                                             ? 'var(--perfil-acento-soft)'
@@ -735,6 +840,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
                                                         borderColor: isSel
                                                             ? 'var(--perfil-acento)'
                                                             : 'var(--perfil-border)',
+                                                        borderRadius: 12,
                                                         cursor: 'pointer',
                                                     }}
                                                 >
@@ -742,10 +848,10 @@ export const PerfilView: React.FC<PerfilViewProps> = ({ visitedUsername }) => {
                                                         src={item.poster}
                                                         alt=""
                                                         style={{
-                                                            width: 34,
-                                                            height: 48,
+                                                            width: 38,
+                                                            height: 52,
                                                             objectFit: 'cover',
-                                                            borderRadius: 5,
+                                                            borderRadius: 7,
                                                             flexShrink: 0,
                                                         }}
                                                     />

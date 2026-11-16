@@ -16,6 +16,7 @@ import {
     Check,
     Plus,
     ExternalLink,
+    ArrowLeft,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
@@ -30,6 +31,7 @@ import { addAnimeToMyList } from '../services/userListApi'
 import { resolveMediaUrl } from '../utils/mediaUrl'
 import { NavbarSearch } from './NavbarSearch'
 import type { PlatformView } from './PlatformSidebar'
+import type { ProfileSubView } from './perfil/perfil-types'
 
 interface NavbarProps {
     currentView?: PlatformView
@@ -39,16 +41,22 @@ interface NavbarProps {
     showSidebarToggle?: boolean
     onSelectAnime?: (malId: number) => void
     onGlobalSearch?: (query: string) => void
+    profileSubView?: ProfileSubView | null
+    onBackFromProfileSubView?: () => void
+    profileUsername?: string
 }
 
 export function Navbar({
     currentView = 'catalogo',
     onSelectView,
-    isSidebarCollapsed = false,
-    onToggleSidebar,
+    isSidebarCollapsed: _isSidebarCollapsed = false,
+    onToggleSidebar: _onToggleSidebar,
     showSidebarToggle = false,
     onSelectAnime,
-    onGlobalSearch
+    onGlobalSearch,
+    profileSubView = null,
+    onBackFromProfileSubView,
+    profileUsername,
 }: NavbarProps) {
     const { user, isAuthenticated, logout } = useAuth()
     const { setExpression } = useCatExpression()
@@ -162,56 +170,78 @@ export function Navbar({
     }
 
     return (
-        <nav className="navbar navbar-expand border-bottom border-dark py-2 sticky-top glass-nav">
-            <div className="container-fluid px-3 px-md-4">
+        <nav
+            className="navbar navbar-expand sticky-top glass-nav"
+            style={{
+                height: 64,
+                minHeight: 64,
+                maxHeight: 64,
+                paddingTop: 0,
+                paddingBottom: 0,
+                boxSizing: 'border-box',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            }}
+        >
+            <div className="container-fluid px-3 px-md-4 h-100 d-flex align-items-center">
 
-                {/* Si estamos en modo plataforma con Sidebar, mostramos el botón toggle solo cuando la sidebar está colapsada */}
+                {/* Si estamos en modo plataforma con Sidebar */}
                 {showSidebarToggle ? (
                     <div className="d-flex align-items-center gap-2">
-                        {isSidebarCollapsed && (
-                            <button
-                                type="button"
-                                onClick={onToggleSidebar}
-                                className="btn btn-sm d-flex align-items-center justify-content-center p-1.5 rounded-2 text-white border-0 me-1"
-                                style={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                                    width: 32,
-                                    height: 32,
-                                    transition: 'background-color 0.15s ease'
-                                }}
-                                title="Expandir barra lateral"
-                                aria-label="Abrir barra lateral"
-                            >
-                                <Menu size={16} />
-                            </button>
-                        )}
+                        {currentView === 'perfil' && profileSubView ? (
+                            <div className="d-flex align-items-center gap-2.5">
+                                <button
+                                    type="button"
+                                    onClick={onBackFromProfileSubView}
+                                    className="navbar-subview-back-btn"
+                                    title="Volver al Perfil"
+                                    aria-label="Volver al Perfil"
+                                >
+                                    <ArrowLeft size={14} />
+                                    <span>Volver al Perfil</span>
+                                </button>
 
-                        <div className="d-flex flex-column d-none d-sm-flex">
-                            <span className="navbar-breadcrumb-title">
-                                {currentView === 'landing' && 'Animigos · Inicio'}
-                                {currentView === 'catalogo' && 'Catálogo de Animes'}
-                                {currentView === 'recomendador' && 'Recomendador Inteligente'}
-                                {currentView === 'temporadas' && 'Temporadas de Anime'}
-                                {currentView === 'tablon' && 'Tablón Social'}
-                                {currentView === 'calendario' && 'Calendario de Anime'}
-                                {currentView === 'agenda' && 'Agenda de Tareas'}
-                                {currentView === 'mi-lista' && 'Mi Lista Personal'}
-                                {currentView === 'sala' && 'Listas Grupales & Salas'}
-                                {currentView === 'perfil' && 'Perfil de Usuario'}
-                            </span>
-                            <span className="navbar-breadcrumb-subtitle d-none d-md-inline">
-                                {currentView === 'landing' && 'Descubre y vota anime en grupo'}
-                                {currentView === 'catalogo' && '26,878 series y películas indexadas'}
-                                {currentView === 'recomendador' && 'Recomendaciones por consenso y afinidad grupal'}
-                                {currentView === 'temporadas' && 'Línea de tiempo y estaciones del año'}
-                                {currentView === 'tablon' && 'Feed de amigos, noticias y watch parties en curso'}
-                                {currentView === 'calendario' && 'Horarios y emisiones de la semana'}
-                                {currentView === 'agenda' && 'Contador de capítulos pendientes en emisión'}
-                                {currentView === 'mi-lista' && 'Seguimiento personal y notas'}
-                                {currentView === 'sala' && 'Votación grupal y watch parties en vivo'}
-                                {currentView === 'perfil' && 'Estadísticas y configuración de cuenta'}
-                            </span>
-                        </div>
+                                <div className="d-flex align-items-center gap-1.5 small d-none d-sm-flex">
+                                    <span className="font-mono text-secondary" style={{ fontSize: '0.78rem' }}>
+                                        @{profileUsername || user?.username || 'usuario'}
+                                    </span>
+                                    <span className="text-secondary opacity-50" style={{ fontSize: '0.78rem' }}>›</span>
+                                    <strong className="text-white" style={{ fontSize: '0.82rem', letterSpacing: '0.01em' }}>
+                                        {profileSubView === 'friends' && 'Amigos & Comunidad'}
+                                        {profileSubView === 'time-watched' && 'Tiempo de Anime Visto'}
+                                        {profileSubView === 'list-metrics' && 'Métricas de la Lista'}
+                                        {profileSubView === 'mean-score' && 'Nota Media & Joyas Ocultas'}
+                                        {profileSubView === 'favorite-genre' && 'Género Favorito, Sinergia & Tendencias'}
+                                    </strong>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="d-flex flex-column d-none d-sm-flex">
+                                <span className="navbar-breadcrumb-title">
+                                    {currentView === 'landing' && 'Animigos · Inicio'}
+                                    {currentView === 'catalogo' && 'Catálogo de Animes'}
+                                    {currentView === 'recomendador' && 'Recomendador Inteligente'}
+                                    {currentView === 'temporadas' && 'Temporadas de Anime'}
+                                    {currentView === 'tablon' && 'Tablón Social'}
+                                    {currentView === 'calendario' && 'Calendario de Anime'}
+                                    {currentView === 'agenda' && 'Agenda de Tareas'}
+                                    {currentView === 'mi-lista' && 'Mi Lista Personal'}
+                                    {currentView === 'sala' && 'Listas Grupales & Salas'}
+                                    {currentView === 'perfil' && 'Perfil de Usuario'}
+                                </span>
+                                <span className="navbar-breadcrumb-subtitle d-none d-md-inline">
+                                    {currentView === 'landing' && 'Descubre y vota anime en grupo'}
+                                    {currentView === 'catalogo' && '26,878 series y películas indexadas'}
+                                    {currentView === 'recomendador' && 'Recomendaciones por consenso y afinidad grupal'}
+                                    {currentView === 'temporadas' && 'Línea de tiempo y estaciones del año'}
+                                    {currentView === 'tablon' && 'Feed de amigos, noticias y watch parties en curso'}
+                                    {currentView === 'calendario' && 'Horarios y emisiones de la semana'}
+                                    {currentView === 'agenda' && 'Contador de capítulos pendientes en emisión'}
+                                    {currentView === 'mi-lista' && 'Seguimiento personal y notas'}
+                                    {currentView === 'sala' && 'Votación grupal y watch parties en vivo'}
+                                    {currentView === 'perfil' && 'Estadísticas y configuración de cuenta'}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     /* Logo / Marca — Modo Landing o barra superior clásica */

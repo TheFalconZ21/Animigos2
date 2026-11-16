@@ -3,27 +3,16 @@ import {
     Tv,
     Clock,
     Users,
-        BellRing,
     RefreshCw,
     Search,
-    SlidersHorizontal,
     Trash2,
-    PauseCircle,
-    PlayCircle,
     CheckCircle2,
-    RotateCcw,
-    ShieldAlert,
-    Calendar,
-    Flame,
-    Zap,
-    X,
-    AlertTriangle,
-    Layers,
-    Vote,
-    ChevronDown,
-    ChevronUp,
+    ChevronRight,
+    Plus,
+    PlayCircle,
+    PauseCircle,
     Eye,
-    Plus
+    Sparkles
 } from 'lucide-react'
 import {
     getRooms,
@@ -33,1567 +22,922 @@ import {
     runRoomsCleanup,
     createAdminRoom
 } from '../services/adminApi'
-import type { RoomItem, RoomsCleanupPolicy, RoomsFilterParams } from '../services/adminApi'
-import { InteractiveDonutChart, type DonutSegment } from '../components/InteractiveDonutChart'
+import type { RoomItem, RoomsCleanupPolicy } from '../services/adminApi'
+import { AdminSubViewBar, useAdminSubView, type SubViewOption } from '../components/AdminSubViewBar'
+
+type RoomsSubView = 'directory' | 'room-inspector' | 'cleanup-policy' | 'create-room'
 
 export function RoomsPage() {
-    // -------------------------------------------------------------
-    // ESTADO: Datos de Salas y KPIs
-    // -------------------------------------------------------------
     const [rooms, setRooms] = useState<RoomItem[]>([])
     const [unfilteredTotal, setUnfilteredTotal] = useState<number>(0)
-    const [loading, setLoading] = useState<boolean>(true)
+    const [, setLoading] = useState<boolean>(true)
     const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
-    const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
-    const [isDetailPopupOpen, setIsDetailPopupOpen] = useState<boolean>(false)
 
-    // Estado del modal de creación de sala (CRUD Create)
-    const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState<boolean>(false)
-    const [newRoomData, setNewRoomData] = useState<{ name: string; description: string; host_name: string; status: string }>({
+    // Sub-vista activa (Nivel 2)
+    const [activeSubView, setActiveSubView] = useAdminSubView<RoomsSubView>()
+    const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
+    const [focusedSegmentId, setFocusedSegmentId] = useState<string | null>(null)
+
+    // Filtros del Directorio en Sub-Vista
+    const [searchQuery, setSearchQuery] = useState<string>('')
+    const [statusFilter, setStatusFilter] = useState<string>('')
+
+    // Estado de Creación de Sala en Sub-Vista
+    const [newRoomData, setNewRoomData] = useState({
         name: '',
-        description: '',
-        host_name: 'Admin',
+        host_name: 'Admin Host',
         status: 'voting'
     })
     const [isCreatingRoom, setIsCreatingRoom] = useState<boolean>(false)
-    const [createRoomError, setCreateRoomError] = useState<string | null>(null)
 
-    // -------------------------------------------------------------
-    // ESTADO: Búsquedas Específicas & Filtros
-    // -------------------------------------------------------------
-    const [searchQuery, setSearchQuery] = useState<string>('')
-    const [filterPhase, setFilterPhase] = useState<string>('all')
-    const [membersFilter, setMembersFilter] = useState<string>('all')
-    const [inactivityFilter, setInactivityFilter] = useState<string>('all')
-    const [createdFilter, setCreatedFilter] = useState<string>('all')
-    const [quorumFilter, setQuorumFilter] = useState<string>('all')
-    const [votesFilter, setVotesFilter] = useState<string>('all')
-    const [candidatesFilter, setCandidatesFilter] = useState<string>('all')
-    const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false)
-
-    // -------------------------------------------------------------
-    // ESTADO: Política de Limpieza Programada
-    // -------------------------------------------------------------
-    const [showCleanupConfig, setShowCleanupConfig] = useState<boolean>(false)
+    // Estado de Política de Limpieza en Sub-Vista
     const [cleanupPolicy, setCleanupPolicy] = useState<RoomsCleanupPolicy>({
-        enabled: true,
-        inactivity_threshold_days: 14,
-        target_status: 'all_inactive',
-        min_members_protected: 6,
-        frequency: 'Diaria automática (04:00 UTC)'
+        enabled: false,
+        inactivity_threshold_days: 7,
+        target_status: 'abandoned',
+        min_members_protected: 3,
+        frequency: 'daily'
     })
-    const [matchingRooms, setMatchingRooms] = useState<any[]>([])
+    const [matchingCleanupRooms, setMatchingCleanupRooms] = useState<RoomItem[]>([])
     const [isSavingPolicy, setIsSavingPolicy] = useState<boolean>(false)
     const [isRunningCleanup, setIsRunningCleanup] = useState<boolean>(false)
 
-    // -------------------------------------------------------------
-    // ESTADO: Moderación Directa y Notificaciones Toast
-    // -------------------------------------------------------------
-    const [moderatingRoomId, setModeratingRoomId] = useState<string | null>(null)
-    const [confirmModal, setConfirmModal] = useState<{
-        isOpen: boolean
-        room: RoomItem | null
-        action: 'pause' | 'resume' | 'force_select' | 'reset_votes' | 'delete' | 'ping'
-        reason: string
-    }>({
-        isOpen: false,
-        room: null,
-        action: 'pause',
-        reason: ''
-    })
-    const [toast, setToast] = useState<{
-        show: boolean
-        message: string
-        type: 'success' | 'warning' | 'danger'
-    }>({
+    // Toast ejecutivo
+    const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'warning' | 'danger' }>({
         show: false,
         message: '',
         type: 'success'
     })
 
-    const triggerToast = (message: string, type: 'success' | 'warning' | 'danger' = 'success') => {
+    const showFeedback = (message: string, type: 'success' | 'warning' | 'danger' = 'success') => {
         setToast({ show: true, message, type })
-        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000)
+        setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3800)
     }
 
-    // -------------------------------------------------------------
-    // CARGA DE DATOS: Salas con Filtros Específicos
-    // -------------------------------------------------------------
     const fetchRoomsData = async () => {
-        setLoading(true)
         try {
-            const params: RoomsFilterParams = {
-                q: searchQuery,
-                phase: filterPhase,
-                members: membersFilter,
-                inactivity: inactivityFilter,
-                created: createdFilter,
-                quorum: quorumFilter,
-                votes: votesFilter,
-                candidates: candidatesFilter
-            }
-            const data = await getRooms(params)
-            setRooms(data.rooms)
-            if (data.unfiltered_total !== undefined) {
-                setUnfilteredTotal(data.unfiltered_total)
-            }
-            if (data.cleanup_policy) {
-                setCleanupPolicy(data.cleanup_policy)
-            }
-            if (data.rooms.length > 0) {
-                if (selectedRoomId && !data.rooms.some(r => r.id === selectedRoomId)) {
-                    setSelectedRoomId(null)
-                    setIsDetailPopupOpen(false)
-                }
-            } else {
-                setSelectedRoomId(null)
-                setIsDetailPopupOpen(false)
-            }
+            const res = await getRooms()
+            setRooms(res.rooms)
+            setUnfilteredTotal(res.unfiltered_total ?? res.total)
         } catch (err) {
-            console.error('Error fetching rooms:', err)
+            console.error('Error loading rooms:', err)
         } finally {
             setLoading(false)
             setIsRefreshing(false)
         }
     }
 
-    // -------------------------------------------------------------
-    // CARGA DE DATOS: Política de Limpieza Programada
-    // -------------------------------------------------------------
     const fetchCleanupPolicyData = async () => {
         try {
-            const data = await getRoomsCleanupPolicy()
-            setCleanupPolicy(data.policy)
-            setMatchingRooms(data.matching_rooms || [])
+            const res = await getRoomsCleanupPolicy()
+            setCleanupPolicy(res.policy)
+            setMatchingCleanupRooms(res.matching_rooms || [])
         } catch (err) {
-            console.error('Error fetching cleanup policy:', err)
+            console.error('Error loading cleanup policy:', err)
         }
     }
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchRoomsData()
-        }, 150)
-        return () => clearTimeout(timer)
-    }, [
-        searchQuery,
-        filterPhase,
-        membersFilter,
-        inactivityFilter,
-        createdFilter,
-        quorumFilter,
-        votesFilter,
-        candidatesFilter
-    ])
-
-    useEffect(() => {
+        fetchRoomsData()
         fetchCleanupPolicyData()
     }, [])
 
-    // Contar filtros activos
-    const activeFiltersCount = useMemo(() => {
-        let count = 0
-        if (searchQuery.trim()) count++
-        if (filterPhase !== 'all') count++
-        if (membersFilter !== 'all') count++
-        if (inactivityFilter !== 'all') count++
-        if (createdFilter !== 'all') count++
-        if (quorumFilter !== 'all') count++
-        if (votesFilter !== 'all') count++
-        if (candidatesFilter !== 'all') count++
-        return count
-    }, [
-        searchQuery,
-        filterPhase,
-        membersFilter,
-        inactivityFilter,
-        createdFilter,
-        quorumFilter,
-        votesFilter,
-        candidatesFilter
-    ])
-
-    const handleResetFilters = () => {
-        setSearchQuery('')
-        setFilterPhase('all')
-        setMembersFilter('all')
-        setInactivityFilter('all')
-        setCreatedFilter('all')
-        setQuorumFilter('all')
-        setVotesFilter('all')
-        setCandidatesFilter('all')
-    }
-
-    // -------------------------------------------------------------
-    // ACCIONES DE MODERACIÓN DE SALA
-    // -------------------------------------------------------------
-    const handleOpenModerate = (room: RoomItem, action: 'pause' | 'resume' | 'force_select' | 'reset_votes' | 'delete' | 'ping') => {
-        let defaultReason = ''
-        if (action === 'pause') defaultReason = 'Pausa preventiva para revisión administrativa'
-        else if (action === 'resume') defaultReason = 'Reanudación tras verificación de quórum'
-        else if (action === 'force_select') defaultReason = 'Resolución forzada por consenso líder'
-        else if (action === 'reset_votes') defaultReason = 'Reinicio de votos para nueva ronda de votación'
-        else if (action === 'delete') defaultReason = 'Eliminación manual por solicitud o incumplimiento'
-        else if (action === 'ping') defaultReason = 'Pulso de quórum'
-
-        setConfirmModal({
-            isOpen: true,
-            room,
-            action,
-            reason: defaultReason
-        })
-    }
-
-    const handleExecuteModeration = async () => {
-        if (!confirmModal.room) return
-        const { room, action, reason } = confirmModal
-        setModeratingRoomId(room.id)
-        setConfirmModal(prev => ({ ...prev, isOpen: false }))
-
-        try {
-            const res = await moderateRoom(room.id, action, reason)
-            triggerToast(res.message, action === 'delete' ? 'danger' : action === 'pause' ? 'warning' : 'success')
-            if (action === 'delete') {
-                setIsDetailPopupOpen(false)
-                setSelectedRoomId(null)
-            }
-            fetchRoomsData()
-            fetchCleanupPolicyData()
-        } catch (err: any) {
-            triggerToast(`Error al ejecutar acción: ${err.message}`, 'danger')
-        } finally {
-            setModeratingRoomId(null)
-        }
-    }
-
-    // Cerrar modales con tecla Escape
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                if (confirmModal.isOpen) {
-                    setConfirmModal(prev => ({ ...prev, isOpen: false }))
-                } else if (isDetailPopupOpen) {
-                    setIsDetailPopupOpen(false)
-                }
-            }
-        }
-        window.addEventListener('keydown', handleKeyDown)
-        return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [confirmModal.isOpen, isDetailPopupOpen])
-
-    // Guardar Política de Limpieza Programada
-    const handleSaveCleanupPolicy = async (updated: Partial<RoomsCleanupPolicy>) => {
-        setIsSavingPolicy(true)
-        try {
-            const res = await saveRoomsCleanupPolicy(updated)
-            setCleanupPolicy(res.policy)
-            setMatchingRooms(res.matching_rooms || [])
-            triggerToast('Política de depuración programada actualizada en PostgreSQL.', 'success')
-        } catch (err: any) {
-            triggerToast(`Error al guardar política: ${err.message}`, 'danger')
-        } finally {
-            setIsSavingPolicy(false)
-        }
-    }
-
-    // Ejecutar Purga Manual Inmediata
-    const handleTriggerCleanupRun = async () => {
-        if (!window.confirm(`¿Confirmas la eliminación inmediata de todas las salas que superen ${cleanupPolicy.inactivity_threshold_days} días de inactividad?`)) {
-            return
-        }
-        setIsRunningCleanup(true)
-        try {
-            const res = await runRoomsCleanup()
-            triggerToast(res.message, res.purged_count > 0 ? 'warning' : 'info' as any)
-            fetchRoomsData()
-            fetchCleanupPolicyData()
-        } catch (err: any) {
-            triggerToast(`Error al ejecutar limpieza: ${err.message}`, 'danger')
-        } finally {
-            setIsRunningCleanup(false)
-        }
-    }
-
-    // Crear Nueva Sala (CRUD Create)
-    const handleCreateRoom = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!newRoomData.name.trim()) {
-            setCreateRoomError('El nombre de la sala es obligatorio')
-            return
-        }
-        setIsCreatingRoom(true)
-        setCreateRoomError(null)
-        try {
-            const res = await createAdminRoom(newRoomData)
-            setRooms(prev => [res.room, ...prev])
-            setUnfilteredTotal(t => t + 1)
-            setIsCreateRoomModalOpen(false)
-            setNewRoomData({ name: '', description: '', host_name: 'Admin', status: 'voting' })
-            triggerToast(res.message, 'success')
-        } catch (err: any) {
-            setCreateRoomError(err.message || 'Error al crear la sala')
-        } finally {
-            setIsCreatingRoom(false)
-        }
-    }
-
-    // KPIs calculados
-    const activeCount = rooms.filter(r => ['voting', 'candidates', 'watching'].includes(r.status)).length
-        const totalMembers = rooms.reduce((acc, r) => acc + r.members_count, 0)
-    const avgQuorum = rooms.length > 0 ? Math.round(rooms.reduce((acc, r) => acc + r.quorum_percentage, 0) / rooms.length) : 0
-
-        // Segmentos del Donut Protagonista Interactuable
-    const donutSegments: DonutSegment[] = useMemo(() => {
+    // Segmentos para el Donut Protagonista
+    const donutSegments = useMemo(() => {
         const total = rooms.length || 1
         const votingCount = rooms.filter(r => r.status === 'voting').length
         const candidatesCount = rooms.filter(r => r.status === 'candidates').length
         const selectedCount = rooms.filter(r => r.status === 'selected' || r.status === 'completed').length
         const otherCount = rooms.filter(r => !['voting', 'candidates', 'selected', 'completed'].includes(r.status)).length
 
-        return [
+        const size = 210
+        const strokeWidth = 26
+        const radius = (size - strokeWidth) / 2
+        const center = size / 2
+        const circumference = 2 * Math.PI * radius
+
+        const raw = [
             {
                 id: 'voting',
                 label: 'En Votación Activa',
                 count: votingCount,
+                pct: rooms.length > 0 ? Math.round((votingCount / total) * 100) : 0,
                 color: '#F59E0B',
-                percentage: Math.round((votingCount / total) * 100),
-                description: 'Miembros emitiendo quórum de votos'
+                desc: 'Miembros emitiendo votos en tiempo real',
+                agingNote: `${votingCount} salas en fase`
             },
             {
                 id: 'candidates',
-                label: 'Definiendo Candidatos',
+                label: 'Postulando Candidatos',
                 count: candidatesCount,
+                pct: rooms.length > 0 ? Math.round((candidatesCount / total) * 100) : 0,
                 color: '#38BDF8',
-                percentage: Math.round((candidatesCount / total) * 100),
-                description: 'Postulando opciones o invitando amigos'
+                desc: 'Configurando pool de animes o esperando amigos',
+                agingNote: `${candidatesCount} salas en fase`
             },
             {
                 id: 'selected',
                 label: 'Consenso Alcanzado',
                 count: selectedCount,
+                pct: rooms.length > 0 ? Math.round((selectedCount / total) * 100) : 0,
                 color: '#10B981',
-                percentage: Math.round((selectedCount / total) * 100),
-                description: 'Anime ganador seleccionado por el algoritmo'
+                desc: 'Anime ganador determinado por el algoritmo',
+                agingNote: `${selectedCount} salas resueltas`
             },
             {
                 id: 'empty',
-                label: 'Inactivas / Otras',
+                label: 'Inactivas / Candidatas a Purga',
                 count: otherCount,
-                color: '#71717A',
-                percentage: Math.round((otherCount / total) * 100),
-                description: 'Salas vacías o candidatas a purga'
+                pct: rooms.length > 0 ? Math.round((otherCount / total) * 100) : 0,
+                color: '#64748B',
+                desc: 'Salas abandonadas sin quórum reciente',
+                agingNote: `${matchingCleanupRooms.length} elegibles para purga`
             }
         ]
+
+        let acc = 0
+        const arcs = raw.map(seg => {
+            const frac = total > 0 ? seg.count / total : 0
+            const strokeDasharray = `${frac * circumference} ${circumference}`
+            const strokeDashoffset = -(acc * circumference)
+            acc += frac
+            return { ...seg, strokeDasharray, strokeDashoffset }
+        })
+
+        return { size, strokeWidth, radius, center, total: rooms.length, votingCount, candidatesCount, selectedCount, otherCount, arcs }
     }, [rooms])
 
-    const selectedRoom = rooms.find(r => r.id === selectedRoomId) || null
+    const filteredRooms = useMemo(() => {
+        return rooms.filter(r => {
+            if (statusFilter) {
+                if (statusFilter === 'selected' && r.status !== 'selected' && r.status !== 'completed') return false
+                if (statusFilter !== 'selected' && r.status !== statusFilter) return false
+            }
+            if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase()
+                const hostName = r.members?.[0]?.name || ''
+                if (!r.name.toLowerCase().includes(q) && !r.invite_code.toLowerCase().includes(q) && !hostName.toLowerCase().includes(q)) {
+                    return false
+                }
+            }
+            return true
+        })
+    }, [rooms, statusFilter, searchQuery])
+
+    const selectedRoom = rooms.find(r => r.id === selectedRoomId) || rooms[0] || null
+
+    const handleModerateAction = async (roomId: string, action: 'pause' | 'resume' | 'force_select' | 'reset_votes' | 'delete' | 'ping') => {
+        try {
+            const res = await moderateRoom(roomId, action)
+            showFeedback(res.message, action === 'delete' ? 'danger' : 'success')
+            await fetchRoomsData()
+            if (action === 'delete' && selectedRoomId === roomId) {
+                setActiveSubView('directory')
+            }
+        } catch (err: any) {
+            showFeedback(err.message || 'Error al moderar sala', 'danger')
+        }
+    }
+
+    const handleCreateRoomSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!newRoomData.name.trim()) return
+        setIsCreatingRoom(true)
+        try {
+            const res = await createAdminRoom(newRoomData)
+            showFeedback(res.message || `Sala "${newRoomData.name}" creada exitosamente`, 'success')
+            setNewRoomData({ name: '', host_name: 'Admin Host', status: 'voting' })
+            await fetchRoomsData()
+            setActiveSubView('directory')
+        } catch (err: any) {
+            showFeedback(err.message || 'Error al crear sala', 'danger')
+        } finally {
+            setIsCreatingRoom(false)
+        }
+    }
+
+    const handleSaveCleanup = async () => {
+        setIsSavingPolicy(true)
+        try {
+            const res = await saveRoomsCleanupPolicy(cleanupPolicy)
+            setCleanupPolicy(res.policy)
+            showFeedback('Política de limpieza actualizada en AWS PostgreSQL', 'success')
+            await fetchCleanupPolicyData()
+        } catch (err: any) {
+            showFeedback(err.message || 'Error al guardar política', 'danger')
+        } finally {
+            setIsSavingPolicy(false)
+        }
+    }
+
+    const handleExecuteCleanup = async () => {
+        setIsRunningCleanup(true)
+        try {
+            const res = await runRoomsCleanup()
+            showFeedback(res.message, 'warning')
+            await fetchRoomsData()
+            await fetchCleanupPolicyData()
+        } catch (err: any) {
+            showFeedback(err.message || 'Error al ejecutar purga', 'danger')
+        } finally {
+            setIsRunningCleanup(false)
+        }
+    }
+
+    const subViewOptions: SubViewOption<RoomsSubView>[] = [
+        { id: 'directory', label: 'Directorio de Salas', badge: `${rooms.length}` },
+        { id: 'room-inspector', label: 'Inspector de Sala' },
+        { id: 'cleanup-policy', label: 'Política de Purga', badge: `${matchingCleanupRooms.length}` },
+        { id: 'create-room', label: '+ Crear Sala' }
+    ]
+
+    // ============================================================
+    // NIVEL 2: SUB-VISTAS INTEGRADAS A PANTALLA COMPLETA
+    // ============================================================
+    if (activeSubView) {
+        return (
+            <div className="admin-viewport-shell admin-anim-subview">
+                <AdminSubViewBar
+                    sectionTitle="Salas & Votación"
+                    activeSubView={activeSubView}
+                    options={subViewOptions}
+                    onSelectSubView={setActiveSubView}
+                    onBack={() => setActiveSubView(null)}
+                />
+
+                {/* SUB-VISTA 1: DIRECTORIO OPERATIVO DE SALAS */}
+                {activeSubView === 'directory' && (
+                    <div className="admin-card flex-grow-1 d-flex flex-column justify-content-between">
+                        <div>
+                            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                                <div>
+                                    <h2 className="admin-title m-0" style={{ fontSize: '1.05rem' }}>
+                                        Explorador y Moderación de Salas ({filteredRooms.length})
+                                    </h2>
+                                    <span className="admin-subtitle">
+                                        Haz clic en cualquier sala para abrir su Inspector de Quórum o aplica acciones rápidas
+                                    </span>
+                                </div>
+
+                                <div className="d-flex flex-wrap align-items-center gap-2">
+                                    <div className="admin-input-wrapper d-flex align-items-center gap-2">
+                                        <Search size={14} style={{ color: 'var(--admin-text-muted)' }} />
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar sala, código o host..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="bg-transparent border-0 text-white"
+                                            style={{ fontSize: '0.8rem', outline: 'none', width: 200 }}
+                                        />
+                                    </div>
+
+                                    <div className="admin-subview-switcher">
+                                        {[
+                                            { id: '', label: 'Todas' },
+                                            { id: 'voting', label: 'En Votación' },
+                                            { id: 'candidates', label: 'Candidatos' },
+                                            { id: 'selected', label: 'Consenso' }
+                                        ].map(st => (
+                                            <button
+                                                key={st.id}
+                                                type="button"
+                                                onClick={() => setStatusFilter(st.id)}
+                                                className={`admin-subview-pill ${statusFilter === st.id ? 'active' : ''}`}
+                                            >
+                                                {st.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="table-responsive" style={{ maxHeight: 'calc(100vh - 300px)', overflowY: 'auto' }}>
+                                <table className="table table-dark table-hover m-0 align-middle" style={{ fontSize: '0.8125rem' }}>
+                                    <thead>
+                                        <tr className="border-bottom" style={{ borderColor: 'var(--admin-border-subtle)', color: 'var(--admin-text-secondary)' }}>
+                                            <th>SALA / PIN</th>
+                                            <th>ANFITRIÓN</th>
+                                            <th>FASE ACTUAL</th>
+                                            <th className="text-center">QUÓRUM & VOTOS</th>
+                                            <th>ANIME GANADOR / POOL</th>
+                                            <th className="text-end">ACCIONES</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredRooms.map(room => (
+                                            <tr key={room.id} className="border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                                <td>
+                                                    <div className="fw-semibold text-white">{room.name}</div>
+                                                    <span className="font-mono" style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>
+                                                        PIN: {room.invite_code} • {room.created_display || room.created_at}
+                                                    </span>
+                                                </td>
+                                                <td className="text-white">{room.members?.[0]?.name || 'Host'}</td>
+                                                <td>
+                                                    {room.status === 'voting' && <span className="admin-badge admin-badge-warning">En Votación</span>}
+                                                    {room.status === 'candidates' && <span className="admin-badge admin-badge-info">Candidatos</span>}
+                                                    {(room.status === 'selected' || room.status === 'completed') && <span className="admin-badge admin-badge-success">Consenso</span>}
+                                                    {!['voting', 'candidates', 'selected', 'completed'].includes(room.status) && <span className="admin-badge admin-badge-neutral">{room.status}</span>}
+                                                </td>
+                                                <td className="text-center font-mono">
+                                                    <span className="text-white fw-bold">{room.members_count}</span> miembros • <span style={{ color: 'var(--admin-focus)' }}>{room.votes_count} votos</span>
+                                                </td>
+                                                <td>
+                                                    {room.selected_anime?.title ? (
+                                                        <span style={{ color: 'var(--admin-emerald)', fontWeight: 600 }}>🏆 {room.selected_anime.title}</span>
+                                                    ) : (
+                                                        <span style={{ color: 'var(--admin-text-secondary)' }}>{room.candidates_count} animes propuestos</span>
+                                                    )}
+                                                </td>
+                                                <td className="text-end">
+                                                    <div className="d-inline-flex align-items-center gap-1.5">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSelectedRoomId(room.id)
+                                                                setActiveSubView('room-inspector')
+                                                            }}
+                                                            className="admin-btn admin-btn-secondary d-inline-flex align-items-center gap-1"
+                                                        >
+                                                            <Eye size={13} />
+                                                            <span>Inspeccionar</span>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleModerateAction(room.id, 'delete')}
+                                                            className="admin-btn admin-btn-secondary text-danger"
+                                                            title="Eliminar sala"
+                                                        >
+                                                            <Trash2 size={13} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div className="pt-3 border-top d-flex justify-content-between align-items-center" style={{ borderColor: 'var(--admin-border-subtle)', fontSize: '0.78rem', color: 'var(--admin-text-secondary)' }}>
+                            <span>Mostrando {filteredRooms.length} de {unfilteredTotal} salas totales</span>
+                            <button
+                                type="button"
+                                onClick={() => setActiveSubView('create-room')}
+                                className="admin-btn d-inline-flex align-items-center gap-1.5"
+                                style={{ backgroundColor: 'var(--admin-focus)', color: '#090B10', fontWeight: 600 }}
+                            >
+                                <Plus size={14} />
+                                <span>Nueva Sala</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* SUB-VISTA 2: INSPECTOR DETALLADO DE SALA */}
+                {activeSubView === 'room-inspector' && selectedRoom && (
+                    <div className="admin-protagonist-stage">
+                        <div className="admin-chart-stage">
+                            <div>
+                                <div className="d-flex justify-content-between align-items-start mb-3">
+                                    <div>
+                                        <span className="admin-badge admin-badge-info font-mono mb-2">PIN: {selectedRoom.invite_code}</span>
+                                        <h2 className="admin-title m-0" style={{ fontSize: '1.25rem' }}>{selectedRoom.name}</h2>
+                                        <p className="admin-subtitle m-0 mt-1">
+                                            Anfitrión: <strong className="text-white">{selectedRoom.members?.[0]?.name || 'Host'}</strong> • Creada: {selectedRoom.created_display || selectedRoom.created_at}
+                                        </p>
+                                    </div>
+                                    <span className="admin-badge admin-badge-success">{selectedRoom.status.toUpperCase()}</span>
+                                </div>
+
+                                <div className="row g-3 mb-4">
+                                    <div className="col-4">
+                                        <div className="p-3 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
+                                            <span className="admin-kpi-kicker">Miembros</span>
+                                            <div className="admin-kpi-value mt-1">{selectedRoom.members_count}</div>
+                                        </div>
+                                    </div>
+                                    <div className="col-4">
+                                        <div className="p-3 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
+                                            <span className="admin-kpi-kicker">Candidatos</span>
+                                            <div className="admin-kpi-value mt-1">{selectedRoom.candidates_count}</div>
+                                        </div>
+                                    </div>
+                                    <div className="col-4">
+                                        <div className="p-3 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
+                                            <span className="admin-kpi-kicker">Votos Emitidos</span>
+                                            <div className="admin-kpi-value mt-1" style={{ color: 'var(--admin-focus)' }}>{selectedRoom.votes_count}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h3 className="admin-title mb-2.5" style={{ fontSize: '0.95rem' }}>
+                                    Estado del Candidato Principal y Selección
+                                </h3>
+                                <div className="d-flex flex-column gap-2">
+                                    {selectedRoom.selected_anime?.title && (
+                                        <div className="p-3 rounded-2 d-flex justify-content-between align-items-center" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-emerald)' }}>
+                                            <span className="text-white fw-semibold">🏆 Ganador: {selectedRoom.selected_anime.title}</span>
+                                            <span className="admin-badge admin-badge-success font-mono">Score: {selectedRoom.selected_anime.score || 9.1}</span>
+                                        </div>
+                                    )}
+                                    {selectedRoom.top_candidate?.title && (
+                                        <div className="p-3 rounded-2 d-flex justify-content-between align-items-center" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
+                                            <span className="text-white fw-medium">Líder en Votación: {selectedRoom.top_candidate.title}</span>
+                                            <span className="font-mono" style={{ color: 'var(--admin-focus)' }}>Score: {selectedRoom.top_candidate.score}</span>
+                                        </div>
+                                    )}
+                                    <div className="p-3 rounded-2 d-flex justify-content-between align-items-center" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
+                                        <span style={{ color: 'var(--admin-text-secondary)' }}>Porcentaje de Quórum completado</span>
+                                        <strong className="font-mono text-white">{selectedRoom.quorum_percentage}%</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-3 border-top d-flex flex-wrap gap-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => handleModerateAction(selectedRoom.id, 'force_select')}
+                                    className="admin-btn admin-btn-secondary d-inline-flex align-items-center gap-1.5 text-white"
+                                >
+                                    <CheckCircle2 size={14} style={{ color: 'var(--admin-emerald)' }} />
+                                    <span>Forzar Consenso</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleModerateAction(selectedRoom.id, 'pause')}
+                                    className="admin-btn admin-btn-secondary d-inline-flex align-items-center gap-1.5"
+                                >
+                                    <PauseCircle size={14} />
+                                    <span>Pausar Sala</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleModerateAction(selectedRoom.id, 'resume')}
+                                    className="admin-btn admin-btn-secondary d-inline-flex align-items-center gap-1.5"
+                                >
+                                    <PlayCircle size={14} />
+                                    <span>Reanudar</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="admin-decision-panel">
+                            <div>
+                                <h3 className="admin-title mb-2" style={{ fontSize: '0.95rem' }}>
+                                    Participantes en Sala ({selectedRoom.members?.length || 0})
+                                </h3>
+                                <div className="d-flex flex-column gap-2">
+                                    {(selectedRoom.members || []).map((m, i) => (
+                                        <div key={i} className="admin-decision-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <div className="text-white fw-medium" style={{ fontSize: '0.84rem' }}>{m.name}</div>
+                                                <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem' }}>{m.role}</span>
+                                            </div>
+                                            <span className="admin-badge admin-badge-info">{m.channel}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* SUB-VISTA 3: POLÍTICA DE LIMPIEZA Y PURGA PROGRAMADA */}
+                {activeSubView === 'cleanup-policy' && (
+                    <div className="admin-protagonist-stage">
+                        <div className="admin-chart-stage">
+                            <div>
+                                <span className="admin-badge admin-badge-warning mb-2">MANTENIMIENTO DE BASE DE DATOS</span>
+                                <h2 className="admin-title mb-1" style={{ fontSize: '1.25rem' }}>
+                                    Política de Purga de Salas Inactivas
+                                </h2>
+                                <p className="admin-subtitle mb-4">
+                                    Automatiza la liberación de salas estancadas preservando siempre el historial de consensos logrados
+                                </p>
+
+                                <div className="row g-3">
+                                    <div className="col-12 col-md-6">
+                                        <div className="p-3 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
+                                            <label className="admin-kpi-kicker d-block mb-2">Días de Inactividad para Purga</label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={90}
+                                                value={cleanupPolicy.inactivity_threshold_days}
+                                                onChange={(e) => setCleanupPolicy({ ...cleanupPolicy, inactivity_threshold_days: Number(e.target.value) })}
+                                                className="form-control bg-dark text-white border-secondary font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="col-12 col-md-6">
+                                        <div className="p-3 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
+                                            <label className="admin-kpi-kicker d-block mb-2">Mínimo de Miembros Protegidos</label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={20}
+                                                value={cleanupPolicy.min_members_protected}
+                                                onChange={(e) => setCleanupPolicy({ ...cleanupPolicy, min_members_protected: Number(e.target.value) })}
+                                                className="form-control bg-dark text-white border-secondary font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-3 border-top d-flex justify-content-between align-items-center" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveCleanup}
+                                    disabled={isSavingPolicy}
+                                    className="admin-btn admin-btn-secondary text-white"
+                                >
+                                    {isSavingPolicy ? 'Guardando...' : 'Guardar Configuración'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleExecuteCleanup}
+                                    disabled={isRunningCleanup}
+                                    className="admin-btn d-inline-flex align-items-center gap-1.5"
+                                    style={{ backgroundColor: 'var(--admin-amber)', color: '#090B10', fontWeight: 600 }}
+                                >
+                                    <Trash2 size={14} />
+                                    <span>{isRunningCleanup ? 'Purgando...' : `Ejecutar Purga (${matchingCleanupRooms.length} elegibles)`}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="admin-decision-panel">
+                            <div>
+                                <h3 className="admin-title mb-2" style={{ fontSize: '0.95rem' }}>Protección de Datos</h3>
+                                <p className="admin-subtitle">
+                                    Las salas con anime ganador seleccionado quedan blindadas para preservar las métricas históricas del algoritmo.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* SUB-VISTA 4: CREACIÓN DE NUEVA SALA */}
+                {activeSubView === 'create-room' && (
+                    <div className="admin-card" style={{ maxWidth: 640, margin: '0 auto', width: '100%' }}>
+                        <h2 className="admin-title mb-1" style={{ fontSize: '1.2rem' }}>Crear Nueva Sala de Consenso</h2>
+                        <p className="admin-subtitle mb-4">Instancia una sala oficial directamente en PostgreSQL para pruebas o eventos de comunidad</p>
+
+                        <form onSubmit={handleCreateRoomSubmit} className="d-flex flex-column gap-3">
+                            <div>
+                                <label className="admin-kpi-kicker d-block mb-1.5">Nombre de la Sala</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Ej. Maratón Cyberpunk Viernes"
+                                    value={newRoomData.name}
+                                    onChange={(e) => setNewRoomData({ ...newRoomData, name: e.target.value })}
+                                    className="form-control bg-dark text-white border-secondary"
+                                />
+                            </div>
+                            <div>
+                                <label className="admin-kpi-kicker d-block mb-1.5">Anfitrión Asignado</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={newRoomData.host_name}
+                                    onChange={(e) => setNewRoomData({ ...newRoomData, host_name: e.target.value })}
+                                    className="form-control bg-dark text-white border-secondary"
+                                />
+                            </div>
+                            <div className="d-flex justify-content-end gap-2 pt-2">
+                                <button type="button" onClick={() => setActiveSubView(null)} className="admin-btn admin-btn-secondary">
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isCreatingRoom}
+                                    className="admin-btn"
+                                    style={{ backgroundColor: 'var(--admin-focus)', color: '#090B10', fontWeight: 600 }}
+                                >
+                                    {isCreatingRoom ? 'Creando...' : 'Instanciar Sala'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    // ============================================================
+    // NIVEL 1: VISTA PRINCIPAL CERO-SCROLL (PANORAMA VITAL)
+    // ============================================================
+    const activeArc = donutSegments.arcs.find(a => a.id === (focusedSegmentId || 'voting')) || donutSegments.arcs[0]
 
     return (
-        <div>
-            {/* ============================================================
-               HEADER DEL MÓDULO & CONTROLES SUPERIORES
-               ============================================================ */}
-            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div className="admin-viewport-shell">
+            {toast.show && (
+                <div className="admin-correlative-bridge">
+                    <span className="text-white">{toast.message}</span>
+                </div>
+            )}
+
+            {/* Header Ejecutivo */}
+            <div className="admin-section-header">
                 <div>
-                    <h1 className="admin-title m-0 d-flex align-items-center gap-2">
-                        Salas, Votaciones & Moderación
+                    <h1 className="admin-title m-0" style={{ fontSize: '1.3rem' }}>
+                        Salas de Consenso & Votación en Vivo
                     </h1>
-                    <p className="admin-subtitle mb-0 mt-0.5">
-                        Búsquedas multicriterio, moderación directa del ciclo de votación y política de eliminación por inactividad
+                    <p className="admin-subtitle m-0 mt-1">
+                        Distribución operativa de salas por etapa, detección de estancamiento y moderación de quórum
                     </p>
                 </div>
 
                 <div className="d-flex align-items-center gap-2">
                     <button
                         type="button"
+                        onClick={() => setActiveSubView('create-room')}
+                        className="admin-btn d-flex align-items-center gap-1.5"
+                        style={{ backgroundColor: 'var(--admin-focus)', color: '#090B10', fontWeight: 600 }}
+                    >
+                        <Plus size={14} />
+                        <span>Nueva Sala</span>
+                    </button>
+                    <button
+                        type="button"
                         onClick={() => {
                             setIsRefreshing(true)
                             fetchRoomsData()
-                            fetchCleanupPolicyData()
                         }}
-                        disabled={isRefreshing}
-                        className="admin-btn admin-btn-secondary d-flex align-items-center gap-1.5 font-mono"
-                        style={{ fontSize: '0.72rem' }}
+                        className="admin-btn admin-btn-secondary d-flex align-items-center gap-1.5"
                     >
-                        <RefreshCw size={12} className={isRefreshing ? 'spin-anim' : ''} style={{ color: 'var(--admin-text-muted)' }} />
+                        <RefreshCw size={13} className={isRefreshing ? 'spin' : ''} />
                         <span>Actualizar</span>
                     </button>
-
-                    <button
-                        type="button"
-                        onClick={() => setShowCleanupConfig(!showCleanupConfig)}
-                        className={`admin-btn font-mono d-flex align-items-center gap-1.5 ${showCleanupConfig ? 'text-white' : 'admin-btn-secondary'}`}
-                        style={{
-                            fontSize: '0.72rem',
-                            backgroundColor: showCleanupConfig ? 'var(--admin-surface-3)' : undefined,
-                            borderColor: showCleanupConfig ? 'var(--admin-amber-border)' : undefined,
-                            color: showCleanupConfig ? 'var(--admin-amber)' : undefined
-                        }}
-                    >
-                        <Trash2 size={12} style={{ color: 'var(--admin-amber)' }} />
-                        <span>Limpieza Programada</span>
-                        {matchingRooms.length > 0 && (
-                            <span className="admin-badge admin-badge-warning font-mono" style={{ fontSize: '0.6rem', padding: '0.05rem 0.3rem' }}>
-                                {matchingRooms.length}
-                            </span>
-                        )}
-                    </button>
-
-                    <span className="admin-badge admin-badge-success font-mono">
-                        {unfilteredTotal} salas registradas
-                    </span>
                 </div>
             </div>
 
-            {/* TOAST FLOTANTE */}
-            {toast.show && (
+            {/* 4 KPIs Vitales (Click para ir a Sub-Vista) */}
+            <div className="admin-kpis-inline-grid cols-4">
                 <div
-                    className="position-fixed bottom-0 end-0 m-4 p-3 rounded-2 shadow-lg d-flex align-items-center gap-2"
-                    style={{
-                        zIndex: 9999,
-                        backgroundColor: '#121214',
-                        border: `1px solid ${toast.type === 'danger' ? 'var(--admin-rose)' : toast.type === 'warning' ? 'var(--admin-amber)' : 'var(--admin-emerald)'}`,
-                        maxWidth: '460px'
+                    className="admin-card admin-kpi-clickable"
+                    onClick={() => {
+                        setStatusFilter('voting')
+                        setActiveSubView('directory')
                     }}
+                    role="button"
+                    tabIndex={0}
                 >
-                    {toast.type === 'danger' && <AlertTriangle size={16} style={{ color: 'var(--admin-rose)' }} />}
-                    {toast.type === 'warning' && <ShieldAlert size={16} style={{ color: 'var(--admin-amber)' }} />}
-                    {toast.type === 'success' && <CheckCircle2 size={16} style={{ color: 'var(--admin-emerald)' }} />}
-                    <span className="text-white" style={{ fontSize: '0.78rem' }}>{toast.message}</span>
+                    <div className="d-flex justify-content-between align-items-start">
+                        <span className="admin-kpi-kicker">En Votación Activa</span>
+                        <span className="admin-badge admin-badge-warning font-mono">En Vivo</span>
+                    </div>
+                    <div className="admin-kpi-value my-1">{donutSegments.votingCount}</div>
+                    <div className="d-flex justify-content-between align-items-center pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                        <span className="admin-kpi-drill-pill">
+                            <span>Ver salas votando</span>
+                            <ChevronRight size={13} />
+                        </span>
+                        <Tv size={15} style={{ color: 'var(--admin-amber)' }} />
+                    </div>
                 </div>
-            )}
 
-            {/* ============================================================
-               1. FILA DE KPIS PRINCIPALES (4 Columnas)
-               ============================================================ */}
-            {/* ============================================================
-               1. VISUALIZACIÓN PROTAGONISTA: DONUT INTERACTIVO DE FASES
-               ============================================================ */}
-            <div className="mb-4">
-                <InteractiveDonutChart
-                    title="Distribución de Salas por Fase Operativa"
-                    subtitle="Haz clic en cualquier segmento para filtrar automáticamente las salas en ese estado específico"
-                    segments={donutSegments}
-                    totalCount={rooms.length}
-                    selectedSegmentId={filterPhase === 'all' ? null : filterPhase}
-                    onSelectSegment={(segId) => setFilterPhase(segId || 'all')}
-                    centerLabel={String(rooms.length)}
-                    centerSublabel="SALAS EN AUDITORÍA"
-                />
+                <div
+                    className="admin-card admin-kpi-clickable"
+                    onClick={() => {
+                        setStatusFilter('selected')
+                        setActiveSubView('directory')
+                    }}
+                    role="button"
+                    tabIndex={0}
+                >
+                    <div className="d-flex justify-content-between align-items-start">
+                        <span className="admin-kpi-kicker">Consenso Alcanzado</span>
+                        <span className="admin-badge admin-badge-success font-mono">Resueltas</span>
+                    </div>
+                    <div className="admin-kpi-value my-1">{donutSegments.selectedCount}</div>
+                    <div className="d-flex justify-content-between align-items-center pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                        <span className="admin-kpi-drill-pill">
+                            <span>Auditar ganadores</span>
+                            <ChevronRight size={13} />
+                        </span>
+                        <CheckCircle2 size={15} style={{ color: 'var(--admin-emerald)' }} />
+                    </div>
+                </div>
+
+                <div
+                    className="admin-card admin-kpi-clickable"
+                    onClick={() => {
+                        setStatusFilter('')
+                        setActiveSubView('directory')
+                    }}
+                    role="button"
+                    tabIndex={0}
+                >
+                    <div className="d-flex justify-content-between align-items-start">
+                        <span className="admin-kpi-kicker">Total Salas Registradas</span>
+                        <span className="admin-badge admin-badge-info font-mono">PostgreSQL</span>
+                    </div>
+                    <div className="admin-kpi-value my-1">{unfilteredTotal || rooms.length}</div>
+                    <div className="d-flex justify-content-between align-items-center pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                        <span className="admin-kpi-drill-pill">
+                            <span>Abrir directorio completo</span>
+                            <ChevronRight size={13} />
+                        </span>
+                        <Users size={15} style={{ color: 'var(--admin-focus)' }} />
+                    </div>
+                </div>
+
+                <div
+                    className="admin-card admin-kpi-clickable"
+                    onClick={() => setActiveSubView('cleanup-policy')}
+                    role="button"
+                    tabIndex={0}
+                >
+                    <div className="d-flex justify-content-between align-items-start">
+                        <span className="admin-kpi-kicker">Candidatas a Purga</span>
+                        <span className="admin-badge admin-badge-neutral font-mono">{cleanupPolicy.inactivity_threshold_days}d inact.</span>
+                    </div>
+                    <div className="admin-kpi-value my-1">{matchingCleanupRooms.length}</div>
+                    <div className="d-flex justify-content-between align-items-center pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                        <span className="admin-kpi-drill-pill">
+                            <span>Configurar limpieza</span>
+                            <ChevronRight size={13} />
+                        </span>
+                        <Clock size={15} style={{ color: 'var(--admin-text-secondary)' }} />
+                    </div>
+                </div>
             </div>
 
-            {/* Micro-KPIs Curados */}
-            <div className="row g-3 mb-4">
-                <div className="col-12 col-md-4">
-                    <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
-                        <div>
-                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
-                                Quórum Promedio
-                            </span>
-                            <span className="fs-4 fw-bold text-white font-mono">{avgQuorum}%</span>
-                        </div>
-                        <span className="admin-badge admin-badge-success font-mono" style={{ fontSize: '0.68rem' }}>
-                            {activeCount} activas
-                        </span>
-                    </div>
-                </div>
-
-                <div className="col-12 col-md-4">
-                    <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
-                        <div>
-                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
-                                Integrantes Registrados
-                            </span>
-                            <span className="fs-4 fw-bold text-white font-mono">{totalMembers}</span>
-                        </div>
-                        <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.68rem' }}>
-                            ~{rooms.length > 0 ? (totalMembers / rooms.length).toFixed(1) : 0} por sala
-                        </span>
-                    </div>
-                </div>
-
-                <div className="col-12 col-md-4">
-                    <div className="admin-card d-flex align-items-center justify-content-between py-2.5">
-                        <div>
-                            <span className="admin-subtitle d-block text-uppercase" style={{ fontSize: '0.64rem', letterSpacing: '0.05em' }}>
-                                Purga de Inactividad
-                            </span>
-                            <span className="fs-4 fw-bold text-white font-mono">{matchingRooms.length}</span>
-                        </div>
-                        <span className={`admin-badge ${cleanupPolicy.enabled ? 'admin-badge-warning' : 'admin-badge-neutral'} font-mono`} style={{ fontSize: '0.68rem' }}>
-                            {cleanupPolicy.enabled ? 'Activa' : 'Pausada'}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            {/* ============================================================
-               2. PANEL DE CONFIGURACIÓN DE ELIMINACIÓN PROGRAMADA (Colapsable)
-               ============================================================ */}
-            {showCleanupConfig && (
-                <section className="admin-card mb-4" style={{ border: '1px solid var(--admin-amber-border)', backgroundColor: '#141416' }}>
-                    <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
-                        <div>
-                            <div className="d-flex align-items-center gap-2">
-                                <Trash2 size={16} style={{ color: 'var(--admin-amber)' }} />
-                                <h2 className="admin-title m-0" style={{ fontSize: '0.96rem' }}>
-                                    Configuración de Eliminación Programada de Salas Inactivas
-                                </h2>
-                                <span className={`admin-badge ${cleanupPolicy.enabled ? 'admin-badge-warning' : 'admin-badge-neutral'} font-mono`} style={{ fontSize: '0.66rem' }}>
-                                    {cleanupPolicy.enabled ? 'Automatización Activada' : 'Desactivada'}
-                                </span>
-                            </div>
-                            <span className="admin-subtitle">
-                                Establece el umbral de días sin votos ni actividad tras el cual las salas abandonadas son purgadas automáticamente
-                            </span>
+            {/* ESCENARIO PROTAGONISTA: Donut Maestro de Fases + Cruce de Envejecimiento */}
+            <div className="admin-protagonist-stage">
+                <div className="admin-chart-stage">
+                    <div>
+                        <div className="d-flex justify-content-between align-items-center mb-4">
+                            <h2 className="admin-title m-0" style={{ fontSize: '1.05rem' }}>
+                                Distribución de Salas por Fase Operativa
+                            </h2>
+                            <span className="admin-badge admin-badge-info">Donut Interactivo</span>
                         </div>
 
-                        <div className="d-flex align-items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={handleTriggerCleanupRun}
-                                disabled={isRunningCleanup || matchingRooms.length === 0}
-                                className="admin-btn font-mono d-flex align-items-center gap-1.5 text-white"
-                                style={{
-                                    fontSize: '0.72rem',
-                                    backgroundColor: 'var(--admin-rose)',
-                                    border: 'none',
-                                    opacity: matchingRooms.length === 0 ? 0.5 : 1
-                                }}
-                            >
-                                <Flame size={12} />
-                                <span>{isRunningCleanup ? 'Purgando...' : `Purgar ${matchingRooms.length} salas ahora`}</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="row g-3">
-                        {/* Configuración del Umbral */}
-                        <div className="col-12 col-md-4">
-                            <div className="p-3 rounded-1 h-100" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                                <label className="text-uppercase text-secondary fw-semibold d-block mb-1.5" style={{ fontSize: '0.68rem', letterSpacing: '0.05em' }}>
-                                    Umbral de Inactividad (Días)
-                                </label>
-                                <div className="d-flex align-items-center gap-2 mb-2">
-                                    <input
-                                        type="range"
-                                        min={1}
-                                        max={60}
-                                        value={cleanupPolicy.inactivity_threshold_days}
-                                        onChange={e => {
-                                            const val = parseInt(e.target.value) || 14
-                                            setCleanupPolicy(prev => ({ ...prev, inactivity_threshold_days: val }))
-                                        }}
-                                        className="w-100"
-                                        style={{ accentColor: 'var(--admin-amber)' }}
-                                    />
-                                    <span className="fs-5 fw-bold text-white font-mono" style={{ minWidth: 42 }}>
-                                        {cleanupPolicy.inactivity_threshold_days}d
-                                    </span>
-                                </div>
-                                <div className="d-flex flex-wrap gap-1 mb-3">
-                                    {[3, 7, 14, 30, 45].map(days => (
-                                        <button
-                                            key={days}
-                                            type="button"
-                                            onClick={() => {
-                                                setCleanupPolicy(prev => ({ ...prev, inactivity_threshold_days: days }))
-                                                handleSaveCleanupPolicy({ inactivity_threshold_days: days })
-                                            }}
-                                            className="admin-btn admin-btn-secondary font-mono"
-                                            style={{
-                                                fontSize: '0.64rem',
-                                                padding: '0.15rem 0.45rem',
-                                                borderColor: cleanupPolicy.inactivity_threshold_days === days ? 'var(--admin-amber)' : undefined,
-                                                color: cleanupPolicy.inactivity_threshold_days === days ? '#FFFFFF' : undefined
-                                            }}
-                                        >
-                                            {days} días
-                                        </button>
-                                    ))}
-                                </div>
-
-                                <div className="d-flex align-items-center justify-content-between pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                    <span style={{ fontSize: '0.72rem', color: 'var(--admin-text-muted)' }}>Purga Automática:</span>
-                                    <label className="d-flex align-items-center gap-1.5 cursor-pointer m-0">
-                                        <input
-                                            type="checkbox"
-                                            checked={cleanupPolicy.enabled}
-                                            onChange={e => {
-                                                const en = e.target.checked
-                                                setCleanupPolicy(prev => ({ ...prev, enabled: en }))
-                                                handleSaveCleanupPolicy({ enabled: en })
-                                            }}
-                                            style={{ accentColor: 'var(--admin-emerald)' }}
+                        <div className="row align-items-center g-4 my-1">
+                            <div className="col-12 col-md-5 d-flex justify-content-center">
+                                <div className="position-relative" style={{ width: donutSegments.size, height: donutSegments.size }}>
+                                    <svg
+                                        width={donutSegments.size}
+                                        height={donutSegments.size}
+                                        viewBox={`0 0 ${donutSegments.size} ${donutSegments.size}`}
+                                        style={{ transform: 'rotate(-90deg)' }}
+                                    >
+                                        <circle
+                                            cx={donutSegments.center}
+                                            cy={donutSegments.center}
+                                            r={donutSegments.radius}
+                                            fill="transparent"
+                                            stroke="var(--admin-surface-3)"
+                                            strokeWidth={donutSegments.strokeWidth}
                                         />
-                                        <span className="font-mono text-white" style={{ fontSize: '0.72rem' }}>
-                                            {cleanupPolicy.enabled ? 'Habilitada' : 'Deshabilitada'}
-                                        </span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Filtro Objetivo y Protección */}
-                        <div className="col-12 col-md-4">
-                            <div className="p-3 rounded-1 h-100" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                                <label className="text-uppercase text-secondary fw-semibold d-block mb-1.5" style={{ fontSize: '0.68rem', letterSpacing: '0.05em' }}>
-                                    Alcance de Salas a Purgar
-                                </label>
-                                <select
-                                    value={cleanupPolicy.target_status}
-                                    onChange={e => {
-                                        const val = e.target.value
-                                        setCleanupPolicy(prev => ({ ...prev, target_status: val }))
-                                        handleSaveCleanupPolicy({ target_status: val })
-                                    }}
-                                    className="admin-input-wrapper w-100 text-white font-mono mb-2"
-                                    style={{ fontSize: '0.74rem', cursor: 'pointer' }}
-                                >
-                                    <option value="all_inactive" style={{ backgroundColor: '#141416' }}>Cualquier sala sin actividad &gt; umbral</option>
-                                    <option value="abandoned_only" style={{ backgroundColor: '#141416' }}>Solo abandonadas en votación/postulación</option>
-                                    <option value="concluded_only" style={{ backgroundColor: '#141416' }}>Solo concluidas con anime ya elegido</option>
-                                </select>
-
-                                <label className="text-uppercase text-secondary fw-semibold d-block mb-1" style={{ fontSize: '0.68rem', letterSpacing: '0.05em' }}>
-                                    Protección de Salas Populares
-                                </label>
-                                <div className="text-secondary mb-2" style={{ fontSize: '0.7rem' }}>
-                                    Proteger y no eliminar salas con $\ge$ <strong>{cleanupPolicy.min_members_protected} miembros</strong> registrados.
-                                </div>
-                                <div className="font-mono text-secondary" style={{ fontSize: '0.68rem' }}>
-                                    Frecuencia: {cleanupPolicy.frequency} &middot; Última ejecución: {cleanupPolicy.last_run || 'Hoy 04:00'}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Previsualización de Impacto (Dry Run) */}
-                        <div className="col-12 col-md-4">
-                            <div className="p-3 rounded-1 h-100 d-flex flex-column justify-content-between" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                                <div>
-                                    <div className="d-flex justify-content-between align-items-center mb-1">
-                                        <label className="text-uppercase text-secondary fw-semibold m-0" style={{ fontSize: '0.68rem', letterSpacing: '0.05em' }}>
-                                            Previsualización (Dry-Run)
-                                        </label>
-                                        <span className="admin-badge admin-badge-warning font-mono" style={{ fontSize: '0.62rem' }}>
-                                            {matchingRooms.length} candidatas
+                                        {donutSegments.arcs.map(arc => {
+                                            const isHovered = focusedSegmentId === arc.id
+                                            return (
+                                                <circle
+                                                    key={arc.id}
+                                                    cx={donutSegments.center}
+                                                    cy={donutSegments.center}
+                                                    r={donutSegments.radius}
+                                                    fill="transparent"
+                                                    stroke={arc.color}
+                                                    strokeWidth={isHovered ? donutSegments.strokeWidth + 5 : donutSegments.strokeWidth}
+                                                    strokeDasharray={arc.strokeDasharray}
+                                                    strokeDashoffset={arc.strokeDashoffset}
+                                                    style={{
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.22s var(--admin-ease)',
+                                                        opacity: focusedSegmentId && !isHovered ? 0.35 : 1
+                                                    }}
+                                                    onMouseEnter={() => setFocusedSegmentId(arc.id)}
+                                                    onClick={() => {
+                                                        setStatusFilter(arc.id === 'empty' ? '' : arc.id)
+                                                        setActiveSubView('directory')
+                                                    }}
+                                                />
+                                            )
+                                        })}
+                                    </svg>
+                                    <div className="position-absolute top-50 start-50 translate-middle text-center pointer-events-none">
+                                        <span className="admin-kpi-value d-block">{activeArc.count}</span>
+                                        <span style={{ color: 'var(--admin-text-secondary)', fontSize: '0.72rem', fontWeight: 600 }}>
+                                            {activeArc.pct}% DEL TOTAL
                                         </span>
                                     </div>
-                                    <p className="text-secondary mb-2" style={{ fontSize: '0.7rem' }}>
-                                        Salas que cumplen los criterios de eliminación por inactividad:
-                                    </p>
-
-                                    {matchingRooms.length === 0 ? (
-                                        <div className="p-2 rounded-1 text-center font-mono" style={{ backgroundColor: 'var(--admin-surface-1)', color: 'var(--admin-emerald)', fontSize: '0.72rem' }}>
-                                            ✓ Ninguna sala supera los {cleanupPolicy.inactivity_threshold_days}d de inactividad
-                                        </div>
-                                    ) : (
-                                        <div className="d-flex flex-column gap-1 custom-scrollbar" style={{ maxHeight: '110px', overflowY: 'auto' }}>
-                                            {matchingRooms.map((mr, i) => (
-                                                <div key={i} className="d-flex justify-content-between align-items-center p-1.5 rounded-1 font-mono" style={{ backgroundColor: 'var(--admin-surface-1)', fontSize: '0.68rem' }}>
-                                                    <span className="text-white text-truncate" style={{ maxWidth: '140px' }}>{mr.name}</span>
-                                                    <span style={{ color: 'var(--admin-rose)' }}>Inactiva: {mr.inactive_days}d</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
                                 </div>
+                            </div>
 
-                                <div className="pt-2 border-top mt-2 d-flex justify-content-end" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleSaveCleanupPolicy({})}
-                                        disabled={isSavingPolicy}
-                                        className="admin-btn admin-btn-secondary font-mono"
-                                        style={{ fontSize: '0.7rem' }}
-                                    >
-                                        {isSavingPolicy ? 'Guardando...' : 'Guardar Política'}
-                                    </button>
+                            <div className="col-12 col-md-7">
+                                <div className="d-flex flex-column gap-2.5">
+                                    {donutSegments.arcs.map(seg => {
+                                        const isFocused = focusedSegmentId === seg.id
+                                        return (
+                                            <div
+                                                key={seg.id}
+                                                onMouseEnter={() => setFocusedSegmentId(seg.id)}
+                                                onClick={() => {
+                                                    setStatusFilter(seg.id === 'empty' ? '' : seg.id)
+                                                    setActiveSubView('directory')
+                                                }}
+                                                className="admin-decision-item clickable d-flex justify-content-between align-items-center"
+                                                style={{
+                                                    borderColor: isFocused ? seg.color : 'var(--admin-border-subtle)'
+                                                }}
+                                            >
+                                                <div className="d-flex align-items-center gap-2.5">
+                                                    <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: seg.color, flexShrink: 0 }} />
+                                                    <div>
+                                                        <div className="text-white fw-semibold" style={{ fontSize: '0.84rem' }}>{seg.label}</div>
+                                                        <div style={{ color: 'var(--admin-text-secondary)', fontSize: '0.75rem' }}>{seg.desc}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-end font-mono">
+                                                    <span className="text-white fw-bold" style={{ fontSize: '0.92rem' }}>{seg.count}</span>
+                                                    <div style={{ color: seg.color, fontSize: '0.75rem' }}>{seg.pct}%</div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         </div>
                     </div>
-                </section>
-            )}
 
-            {/* ============================================================
-               3. PANEL DE BÚSQUEDA ESPECÍFICA & FILTROS DE SALAS
-               ============================================================ */}
-            <section className="admin-card mb-4">
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                    <div className="pt-3 border-top d-flex justify-content-between align-items-center" style={{ borderColor: 'var(--admin-border-subtle)', fontSize: '0.78rem', color: 'var(--admin-text-secondary)' }}>
+                        <span>Cruce de Salud: <strong className="text-white">{donutSegments.selectedCount} salas</strong> alcanzaron acuerdo sin intervención</span>
+                        <span className="font-mono">Tiempo Real WebSockets</span>
+                    </div>
+                </div>
+
+                {/* Panel Derecho: Cruce de Decisiones (Fase x Aging) */}
+                <div className="admin-decision-panel">
                     <div>
-                        <div className="d-flex align-items-center gap-2">
-                            <h2 className="admin-title m-0" style={{ fontSize: '0.98rem' }}>
-                                Explorador & Filtros Específicos de Salas
-                            </h2>
-                            <span className="admin-badge admin-badge-info font-mono" style={{ fontSize: '0.68rem' }}>
-                                Mostrando {rooms.length} de {unfilteredTotal} salas
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                            <span className="admin-kpi-kicker" style={{ color: 'var(--admin-focus)' }}>
+                                CRUCE: FASE × ENVEJECIMIENTO
+                            </span>
+                            <span className="admin-badge admin-badge-neutral font-mono">{activeArc.agingNote}</span>
+                        </div>
+                        <h3 className="admin-title mb-2" style={{ fontSize: '1rem' }}>
+                            {activeArc.label}
+                        </h3>
+                        <p className="admin-subtitle mb-3">
+                            {activeArc.desc}. Audita las salas más recientes o interviene aquellas que superan el umbral de espera.
+                        </p>
+
+                        <div className="d-flex flex-column gap-2 mb-3">
+                            {rooms.slice(0, 3).map(r => (
+                                <div
+                                    key={r.id}
+                                    onClick={() => {
+                                        setSelectedRoomId(r.id)
+                                        setActiveSubView('room-inspector')
+                                    }}
+                                    className="admin-decision-item clickable d-flex justify-content-between align-items-center"
+                                >
+                                    <div>
+                                        <div className="text-white fw-semibold" style={{ fontSize: '0.82rem' }}>{r.name}</div>
+                                        <span style={{ color: 'var(--admin-text-secondary)', fontSize: '0.74rem' }}>
+                                            Host: {r.members?.[0]?.name || 'Host'} • {r.members_count} miembros
+                                        </span>
+                                    </div>
+                                    <span className="admin-kpi-drill-pill">
+                                        <span>Inspeccionar</span>
+                                        <ChevronRight size={13} />
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="p-2.5 rounded-2 d-flex align-items-start gap-2" style={{ backgroundColor: 'var(--admin-focus-bg)', border: '1px solid var(--admin-focus-border)' }}>
+                            <Sparkles size={15} style={{ color: 'var(--admin-focus)', flexShrink: 0, marginTop: 2 }} />
+                            <span style={{ color: 'var(--admin-text-primary)', fontSize: '0.78rem' }}>
+                                Haz clic en cualquier sala para abrir su <strong>Inspector de Quórum</strong> en Sub-Vista dedicada.
                             </span>
                         </div>
-                        <span className="admin-subtitle">
-                            Búsquedas paramétricas por miembros, inactividad, antigüedad, quórum, votos y candidatos
-                        </span>
                     </div>
 
-                    <div className="d-flex align-items-center gap-2">
-                        {activeFiltersCount > 0 && (
-                            <button
-                                type="button"
-                                onClick={handleResetFilters}
-                                className="admin-btn admin-btn-secondary d-flex align-items-center gap-1 font-mono text-secondary"
-                                style={{ fontSize: '0.7rem' }}
-                            >
-                                <X size={12} />
-                                <span>Limpiar filtros ({activeFiltersCount})</span>
-                            </button>
-                        )}
-
-                        <button
-                            type="button"
-                            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                            className="admin-btn admin-btn-secondary d-flex align-items-center gap-1.5 font-mono"
-                            style={{ fontSize: '0.72rem' }}
-                        >
-                            <SlidersHorizontal size={12} />
-                            <span>{showAdvancedFilters ? 'Ocultar Filtros' : 'Filtros Avanzados'}</span>
-                            {showAdvancedFilters ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                        </button>
-
+                    <div className="d-flex flex-column gap-2 pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
                         <button
                             type="button"
                             onClick={() => {
-                                setIsCreateRoomModalOpen(true)
-                                setCreateRoomError(null)
+                                setStatusFilter('')
+                                setActiveSubView('directory')
                             }}
-                            className="admin-btn admin-btn-primary d-inline-flex align-items-center gap-1 font-mono ms-1"
-                            style={{
-                                fontSize: '0.72rem',
-                                padding: '0.35rem 0.75rem',
-                                backgroundColor: 'var(--admin-emerald)',
-                                color: '#000000',
-                                fontWeight: 600
-                            }}
-                            title="Crear una nueva sala de watch party"
+                            className="admin-btn w-100 d-flex align-items-center justify-content-between py-2"
+                            style={{ backgroundColor: 'var(--admin-focus)', color: '#090B10', fontWeight: 600 }}
                         >
-                            <Plus size={13} />
-                            <span>Nueva Sala</span>
+                            <span>Abrir Directorio Completo de Salas</span>
+                            <ChevronRight size={15} />
                         </button>
                     </div>
                 </div>
-
-                {/* FILA 1: BÚSQUEDA GENERAL + FASE + MIEMBROS + INACTIVIDAD */}
-                <div className="row g-2 mb-2">
-                    {/* Búsqueda de Texto General */}
-                    <div className="col-12 col-md-4">
-                        <div className="admin-input-wrapper d-flex align-items-center gap-2">
-                            <Search size={14} style={{ color: 'var(--admin-text-muted)' }} />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                placeholder="Buscar por nombre, PIN, anime o miembro..."
-                                className="bg-transparent border-0 text-white w-100"
-                                style={{ outline: 'none', fontSize: '0.78rem' }}
-                            />
-                            {searchQuery && (
-                                <button
-                                    type="button"
-                                    onClick={() => setSearchQuery('')}
-                                    className="bg-transparent border-0 text-secondary p-0 font-mono"
-                                    style={{ fontSize: '0.7rem', cursor: 'pointer' }}
-                                >
-                                    &times;
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Filtro por Fase de Ciclo de Vida */}
-                    <div className="col-6 col-md-2">
-                        <div className="admin-input-wrapper d-flex align-items-center gap-1">
-                            <Tv size={12} style={{ color: 'var(--admin-text-muted)' }} />
-                            <select
-                                value={filterPhase}
-                                onChange={e => setFilterPhase(e.target.value)}
-                                className="bg-transparent border-0 text-white w-100 font-mono"
-                                style={{ outline: 'none', fontSize: '0.72rem', cursor: 'pointer' }}
-                            >
-                                <option value="all" style={{ backgroundColor: '#141416' }}>Fase: Todas</option>
-                                <option value="voting" style={{ backgroundColor: '#141416' }}>Votación Abierta</option>
-                                <option value="candidates" style={{ backgroundColor: '#141416' }}>Postulación Candidatos</option>
-                                <option value="selected" style={{ backgroundColor: '#141416' }}>Consenso Alcanzado</option>
-                                <option value="completed" style={{ backgroundColor: '#141416' }}>Completadas</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Filtro: Por Número de Miembros */}
-                    <div className="col-6 col-md-3">
-                        <div className="admin-input-wrapper d-flex align-items-center gap-1">
-                            <Users size={12} style={{ color: 'var(--admin-text-muted)' }} />
-                            <select
-                                value={membersFilter}
-                                onChange={e => setMembersFilter(e.target.value)}
-                                className="bg-transparent border-0 text-white w-100 font-mono"
-                                style={{ outline: 'none', fontSize: '0.72rem', cursor: 'pointer' }}
-                            >
-                                <option value="all" style={{ backgroundColor: '#141416' }}>Miembros: Cualquier cantidad</option>
-                                <option value="1-2" style={{ backgroundColor: '#141416' }}>1 a 2 miembros (Dúos)</option>
-                                <option value="3-5" style={{ backgroundColor: '#141416' }}>3 a 5 miembros (Medianos)</option>
-                                <option value="6+" style={{ backgroundColor: '#141416' }}>&ge; 6 miembros (Grupos grandes)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Filtro: Por Tiempo de Inactividad */}
-                    <div className="col-12 col-md-3">
-                        <div className="admin-input-wrapper d-flex align-items-center gap-1">
-                            <Clock size={12} style={{ color: 'var(--admin-text-muted)' }} />
-                            <select
-                                value={inactivityFilter}
-                                onChange={e => setInactivityFilter(e.target.value)}
-                                className="bg-transparent border-0 text-white w-100 font-mono"
-                                style={{ outline: 'none', fontSize: '0.72rem', cursor: 'pointer' }}
-                            >
-                                <option value="all" style={{ backgroundColor: '#141416' }}>Inactividad: Cualquier tiempo</option>
-                                <option value="1h" style={{ backgroundColor: '#141416' }}>Inactiva &gt; 1 hora</option>
-                                <option value="24h" style={{ backgroundColor: '#141416' }}>Inactiva &gt; 24 horas (1 día)</option>
-                                <option value="3d" style={{ backgroundColor: '#141416' }}>Inactiva &gt; 3 días</option>
-                                <option value="7d" style={{ backgroundColor: '#141416' }}>Inactiva &gt; 7 días (1 sem)</option>
-                                <option value="14d" style={{ backgroundColor: '#141416' }}>Inactiva &gt; 14 días (2 sem)</option>
-                                <option value="30d" style={{ backgroundColor: '#141416' }}>Inactiva &gt; 30 días (Crítica)</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                {/* FILA 2: FILTROS AVANZADOS (CREACIÓN, QUÓRUM, VOTOS, CANDIDATOS) */}
-                {showAdvancedFilters && (
-                    <div className="row g-2 pt-2 border-top mt-2" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                        {/* Filtro: Por Tiempo desde Creación */}
-                        <div className="col-6 col-md-3">
-                            <div className="admin-input-wrapper d-flex align-items-center gap-1">
-                                <Calendar size={12} style={{ color: 'var(--admin-text-muted)' }} />
-                                <select
-                                    value={createdFilter}
-                                    onChange={e => setCreatedFilter(e.target.value)}
-                                    className="bg-transparent border-0 text-white w-100 font-mono"
-                                    style={{ outline: 'none', fontSize: '0.72rem', cursor: 'pointer' }}
-                                >
-                                    <option value="all" style={{ backgroundColor: '#141416' }}>Creación: Cualquier fecha</option>
-                                    <option value="today" style={{ backgroundColor: '#141416' }}>Creada hoy (&lt; 24h)</option>
-                                    <option value="3d" style={{ backgroundColor: '#141416' }}>Últimos 3 días (&le; 3d)</option>
-                                    <option value="7d" style={{ backgroundColor: '#141416' }}>Última semana (&le; 7d)</option>
-                                    <option value="30d" style={{ backgroundColor: '#141416' }}>Último mes (&le; 30d)</option>
-                                    <option value="older_30d" style={{ backgroundColor: '#141416' }}>Antiguas (&gt; 30d)</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Filtro: Por % de Quórum */}
-                        <div className="col-6 col-md-3">
-                            <div className="admin-input-wrapper d-flex align-items-center gap-1">
-                                <Zap size={12} style={{ color: 'var(--admin-text-muted)' }} />
-                                <select
-                                    value={quorumFilter}
-                                    onChange={e => setQuorumFilter(e.target.value)}
-                                    className="bg-transparent border-0 text-white w-100 font-mono"
-                                    style={{ outline: 'none', fontSize: '0.72rem', cursor: 'pointer' }}
-                                >
-                                    <option value="all" style={{ backgroundColor: '#141416' }}>Quórum: Cualquier %</option>
-                                    <option value="0" style={{ backgroundColor: '#141416' }}>Sin quórum (0%)</option>
-                                    <option value="low" style={{ backgroundColor: '#141416' }}>Quórum bajo (&lt; 50%)</option>
-                                    <option value="mid" style={{ backgroundColor: '#141416' }}>Quórum medio (50% a 99%)</option>
-                                    <option value="full" style={{ backgroundColor: '#141416' }}>Quórum completo (100%)</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Filtro: Por Número de Votos */}
-                        <div className="col-6 col-md-3">
-                            <div className="admin-input-wrapper d-flex align-items-center gap-1">
-                                <Vote size={12} style={{ color: 'var(--admin-text-muted)' }} />
-                                <select
-                                    value={votesFilter}
-                                    onChange={e => setVotesFilter(e.target.value)}
-                                    className="bg-transparent border-0 text-white w-100 font-mono"
-                                    style={{ outline: 'none', fontSize: '0.72rem', cursor: 'pointer' }}
-                                >
-                                    <option value="all" style={{ backgroundColor: '#141416' }}>Votos: Cualquier total</option>
-                                    <option value="0" style={{ backgroundColor: '#141416' }}>0 votos (Sin participación)</option>
-                                    <option value="1-5" style={{ backgroundColor: '#141416' }}>1 a 5 votos emitidos</option>
-                                    <option value="6-15" style={{ backgroundColor: '#141416' }}>6 a 15 votos emitidos</option>
-                                    <option value="16+" style={{ backgroundColor: '#141416' }}>&ge; 16 votos (Alta actividad)</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Filtro: Por Número de Candidatos */}
-                        <div className="col-6 col-md-3">
-                            <div className="admin-input-wrapper d-flex align-items-center gap-1">
-                                <Layers size={12} style={{ color: 'var(--admin-text-muted)' }} />
-                                <select
-                                    value={candidatesFilter}
-                                    onChange={e => setCandidatesFilter(e.target.value)}
-                                    className="bg-transparent border-0 text-white w-100 font-mono"
-                                    style={{ outline: 'none', fontSize: '0.72rem', cursor: 'pointer' }}
-                                >
-                                    <option value="all" style={{ backgroundColor: '#141416' }}>Candidatos: Cualquier cantidad</option>
-                                    <option value="0" style={{ backgroundColor: '#141416' }}>0 candidatos (Vacía)</option>
-                                    <option value="1-2" style={{ backgroundColor: '#141416' }}>1 a 2 candidatos postulados</option>
-                                    <option value="3-5" style={{ backgroundColor: '#141416' }}>3 a 5 candidatos</option>
-                                    <option value="6+" style={{ backgroundColor: '#141416' }}>&ge; 6 candidatos (Catálogo amplio)</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </section>
-
-            {/* ============================================================
-               4. MONITOR DE SALAS EN VIVO Y PANEL DE MODERACIÓN DIRECTA
-               ============================================================ */}
-            <div className="row g-3 mb-4">
-                {/* LISTADO DE SALAS CON ACCIONES */}
-                <div className="col-12">
-                    <div className="admin-card">
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                            <div>
-                                <h2 className="admin-title m-0" style={{ fontSize: '0.94rem' }}>
-                                    Sesiones Activas & Moderación
-                                </h2>
-                                <span className="admin-subtitle">
-                                    Haz clic en una sala o en "Auditar" para abrir el panel de auditoría y moderación en un pop-up
-                                </span>
-                            </div>
-
-                            <span className="admin-badge admin-badge-neutral font-mono" style={{ fontSize: '0.68rem' }}>
-                                {rooms.length} resultados
-                            </span>
-                        </div>
-
-                        {loading ? (
-                            <div className="d-flex flex-column gap-2">
-                                <div className="admin-skeleton" style={{ height: 60, width: '100%' }}></div>
-                                <div className="admin-skeleton" style={{ height: 60, width: '100%' }}></div>
-                                <div className="admin-skeleton" style={{ height: 60, width: '100%' }}></div>
-                            </div>
-                        ) : rooms.length === 0 ? (
-                            <div className="text-center py-5 text-secondary font-mono" style={{ fontSize: '0.8rem' }}>
-                                <AlertTriangle size={24} className="mb-2 d-inline-block text-warning" />
-                                <div>No se encontraron salas que coincidan con los criterios de búsqueda.</div>
-                                <button
-                                    type="button"
-                                    onClick={handleResetFilters}
-                                    className="admin-btn admin-btn-secondary mt-2 font-mono"
-                                    style={{ fontSize: '0.72rem' }}
-                                >
-                                    Restablecer todos los filtros
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="d-flex flex-column gap-2">
-                                {rooms.map(room => {
-                                    const isSelected = room.id === selectedRoomId
-                                    const isProcessing = moderatingRoomId === room.id
-                                    const candidateTitle = room.selected_anime?.title || room.top_candidate?.title || 'Sin candidatos'
-                                    const scoreDisplay = room.selected_anime?.score || room.top_candidate?.score || 0
-
-                                    return (
-                                        <div
-                                            key={room.id}
-                                            onClick={() => {
-                                                setSelectedRoomId(room.id)
-                                                setIsDetailPopupOpen(true)
-                                            }}
-                                            className="d-flex flex-wrap justify-content-between align-items-center gap-2 p-2.5 rounded-1 cursor-pointer"
-                                            style={{
-                                                backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.05)' : 'var(--admin-surface-2)',
-                                                border: isSelected ? '1px solid #FFFFFF' : '1px solid var(--admin-border-subtle)',
-                                                cursor: 'pointer',
-                                                transition: 'all 150ms ease'
-                                            }}
-                                        >
-                                            {/* Info de Sala */}
-                                            <div style={{ minWidth: 220, flex: '1 1 220px' }}>
-                                                <div className="d-flex align-items-center gap-2">
-                                                    <span className="fw-semibold text-white" style={{ fontSize: '0.82rem' }}>
-                                                        {room.name}
-                                                    </span>
-                                                    <span className="admin-badge admin-badge-neutral font-mono" style={{ fontSize: '0.64rem' }}>
-                                                        {room.invite_code}
-                                                    </span>
-                                                    {room.is_locked && (
-                                                        <span className="admin-badge admin-badge-warning font-mono" style={{ fontSize: '0.6rem' }}>
-                                                            Pausada
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="text-secondary small font-mono mt-0.5 d-flex align-items-center gap-2" style={{ fontSize: '0.68rem' }}>
-                                                    <span><strong>{room.members_count}</strong> miembros</span>
-                                                    <span>&middot;</span>
-                                                    <span><strong>{room.candidates_count}</strong> candidatos</span>
-                                                    <span>&middot;</span>
-                                                    <span><strong>{room.votes_count}</strong> votos</span>
-                                                    <span>&middot;</span>
-                                                    <span style={{ color: room.inactivity_days && room.inactivity_days > 7 ? 'var(--admin-amber)' : 'var(--admin-text-muted)' }}>
-                                                        {room.last_activity_display}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* Candidato líder & Quórum */}
-                                            <div className="d-flex align-items-center gap-3">
-                                                <div className="d-none d-md-block" style={{ minWidth: 130 }}>
-                                                    <div className="text-white text-truncate" style={{ maxWidth: 130, fontSize: '0.74rem' }}>
-                                                        {candidateTitle}
-                                                    </div>
-                                                    <div className="font-mono text-secondary" style={{ fontSize: '0.66rem' }}>
-                                                        Score: {scoreDisplay ? `${scoreDisplay.toFixed(1)}/10` : '—'}
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ width: 75 }}>
-                                                    <div className="d-flex justify-content-between font-mono" style={{ fontSize: '0.64rem', color: 'var(--admin-text-muted)' }}>
-                                                        <span>Quórum</span>
-                                                        <span>{room.quorum_percentage}%</span>
-                                                    </div>
-                                                    <div className="admin-progress-track mt-0.5">
-                                                        <div
-                                                            className="admin-progress-bar"
-                                                            style={{
-                                                                width: `${room.quorum_percentage}%`,
-                                                                backgroundColor: room.quorum_percentage >= 80 ? 'var(--admin-emerald)' : 'var(--admin-blue)'
-                                                            }}
-                                                        ></div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Botones Rápidos de Moderación */}
-                                                <div className="d-flex align-items-center gap-1" onClick={e => e.stopPropagation()}>
-                                                    {/* Abrir Pop-up de Auditoría */}
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            setSelectedRoomId(room.id)
-                                                            setIsDetailPopupOpen(true)
-                                                        }}
-                                                        className="admin-btn admin-btn-secondary d-flex align-items-center gap-1 font-mono p-1 px-2"
-                                                        title="Abrir menú de auditoría y moderación en pop-up"
-                                                    >
-                                                        <Eye size={13} style={{ color: 'var(--admin-blue)' }} />
-                                                        <span style={{ fontSize: '0.68rem' }} className="d-none d-sm-inline">Auditar</span>
-                                                    </button>
-
-                                                    {/* Pausar / Reanudar */}
-                                                    {room.status === 'voting' && !room.is_locked ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleOpenModerate(room, 'pause')}
-                                                            disabled={isProcessing}
-                                                            className="admin-btn admin-btn-secondary p-1"
-                                                            title="Pausar votación en esta sala"
-                                                        >
-                                                            <PauseCircle size={13} style={{ color: 'var(--admin-amber)' }} />
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleOpenModerate(room, 'resume')}
-                                                            disabled={isProcessing}
-                                                            className="admin-btn admin-btn-secondary p-1"
-                                                            title="Reanudar votación abierta"
-                                                        >
-                                                            <PlayCircle size={13} style={{ color: 'var(--admin-emerald)' }} />
-                                                        </button>
-                                                    )}
-
-                                                    {/* Forzar Selección si hay candidatos */}
-                                                    {room.status !== 'selected' && room.status !== 'completed' && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleOpenModerate(room, 'force_select')}
-                                                            disabled={isProcessing || room.candidates_count === 0}
-                                                            className="admin-btn admin-btn-secondary p-1"
-                                                            title="Forzar selección del candidato líder"
-                                                        >
-                                                            <CheckCircle2 size={13} style={{ color: 'var(--admin-blue)' }} />
-                                                        </button>
-                                                    )}
-
-                                                    {/* Eliminar sala */}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleOpenModerate(room, 'delete')}
-                                                        disabled={isProcessing}
-                                                        className="admin-btn admin-btn-secondary p-1"
-                                                        title="Eliminar sala permanentemente"
-                                                    >
-                                                        <Trash2 size={13} style={{ color: 'var(--admin-rose)' }} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )}
-                    </div>
-                </div>
             </div>
-
-            {/* ============================================================
-               POP UP MODAL: AUDITORÍA & MODERACIÓN DE SALA / LISTA
-               ============================================================ */}
-            {isDetailPopupOpen && selectedRoom && (
-                <div
-                    className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3"
-                    style={{
-                        backgroundColor: 'rgba(0, 0, 0, 0.82)',
-                        zIndex: 9990,
-                        backdropFilter: 'blur(6px)'
-                    }}
-                    onClick={() => setIsDetailPopupOpen(false)}
-                >
-                    <div
-                        className="admin-card p-4 rounded-2 shadow-lg custom-scrollbar d-flex flex-column justify-content-between"
-                        style={{
-                            width: '100%',
-                            maxWidth: '580px',
-                            maxHeight: '90vh',
-                            overflowY: 'auto',
-                            backgroundColor: '#121214',
-                            border: '1px solid var(--admin-border-divider)',
-                            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.08)'
-                        }}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div>
-                            {/* Cabecera del Pop Up */}
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                                <div className="d-flex align-items-center gap-2">
-                                    <ShieldAlert size={14} style={{ color: 'var(--admin-blue)' }} />
-                                    <span className="text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-                                        Auditoría & Moderación de Sala
-                                    </span>
-                                </div>
-                                <div className="d-flex align-items-center gap-2">
-                                    <span className={`admin-badge ${selectedRoom.status === 'voting' ? 'admin-badge-success' : selectedRoom.status === 'selected' ? 'admin-badge-info' : 'admin-badge-neutral'} font-mono`} style={{ fontSize: '0.64rem' }}>
-                                        {selectedRoom.status}
-                                    </span>
-                                    {selectedRoom.is_locked && (
-                                        <span className="admin-badge admin-badge-warning font-mono" style={{ fontSize: '0.6rem' }}>
-                                            Pausada
-                                        </span>
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsDetailPopupOpen(false)}
-                                        className="bg-transparent border-0 text-secondary p-1 d-flex align-items-center justify-content-center rounded-circle"
-                                        style={{ cursor: 'pointer', width: 28, height: 28, backgroundColor: 'rgba(255,255,255,0.06)', transition: 'background-color 150ms ease' }}
-                                        title="Cerrar pop up (Esc)"
-                                    >
-                                        <X size={15} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            <h3 className="fw-bold text-white mb-1" style={{ fontSize: '1.05rem' }}>
-                                {selectedRoom.name}
-                            </h3>
-                            <p className="text-secondary mb-3" style={{ fontSize: '0.74rem' }}>
-                                {selectedRoom.description || 'Sala de votación grupal creada en Animigos.'}
-                            </p>
-
-                            {/* Métricas Técnicas */}
-                            <div className="p-2.5 mb-3 rounded-1 font-mono" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)', fontSize: '0.72rem' }}>
-                                <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                    <span style={{ color: 'var(--admin-text-muted)' }}>CÓDIGO DE ENLACE:</span>
-                                    <span className="text-white fw-bold">{selectedRoom.invite_code}</span>
-                                </div>
-                                <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                    <span style={{ color: 'var(--admin-text-muted)' }}>PARTICIPANTES:</span>
-                                    <span className="text-white">{selectedRoom.members_count} miembros</span>
-                                </div>
-                                <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                    <span style={{ color: 'var(--admin-text-muted)' }}>CANDIDATOS:</span>
-                                    <span className="text-white">{selectedRoom.candidates_count} postulados</span>
-                                </div>
-                                <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                    <span style={{ color: 'var(--admin-text-muted)' }}>VOTOS EMITIDOS:</span>
-                                    <span className="text-white">{selectedRoom.votes_count} votos ({selectedRoom.quorum_percentage}% quórum)</span>
-                                </div>
-                                <div className="d-flex justify-content-between py-1 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                    <span style={{ color: 'var(--admin-text-muted)' }}>ÚLTIMA ACTIVIDAD:</span>
-                                    <span style={{ color: selectedRoom.inactivity_days && selectedRoom.inactivity_days > 7 ? 'var(--admin-amber)' : 'var(--admin-emerald)' }}>
-                                        {selectedRoom.last_activity_display}
-                                    </span>
-                                </div>
-                                <div className="d-flex justify-content-between py-1" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                    <span style={{ color: 'var(--admin-text-muted)' }}>CREADA HACE:</span>
-                                    <span className="text-white">{selectedRoom.created_display || selectedRoom.created_at.slice(0, 10)}</span>
-                                </div>
-                            </div>
-
-                            {/* Candidato Ganador o Líder */}
-                            {selectedRoom.selected_anime ? (
-                                <div className="p-2.5 mb-3 rounded-1" style={{ backgroundColor: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                                    <span className="text-uppercase fw-semibold d-block mb-1" style={{ fontSize: '0.64rem', color: 'var(--admin-emerald)' }}>
-                                        Anime Ganador (Consenso)
-                                    </span>
-                                    <div className="fw-bold text-white" style={{ fontSize: '0.82rem' }}>
-                                        {selectedRoom.selected_anime.title}
-                                    </div>
-                                </div>
-                            ) : selectedRoom.top_candidate ? (
-                                <div className="p-2.5 mb-3 rounded-1" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                                    <span className="text-uppercase fw-semibold d-block mb-1 text-secondary" style={{ fontSize: '0.64rem' }}>
-                                        Candidato Líder Provisional
-                                    </span>
-                                    <div className="fw-semibold text-white" style={{ fontSize: '0.8rem' }}>
-                                        {selectedRoom.top_candidate.title}
-                                    </div>
-                                    <div className="font-mono text-secondary small" style={{ fontSize: '0.68rem' }}>
-                                        Score: {selectedRoom.top_candidate.score ? selectedRoom.top_candidate.score.toFixed(2) : 0}/10
-                                    </div>
-                                </div>
-                            ) : null}
-
-                            {/* Miembros */}
-                            <div className="mb-3">
-                                <span className="text-uppercase text-secondary fw-semibold d-block mb-1.5" style={{ fontSize: '0.66rem', letterSpacing: '0.04em' }}>
-                                    Miembros en la Sala ({selectedRoom.members.length})
-                                </span>
-                                <div className="d-flex flex-wrap gap-1">
-                                    {selectedRoom.members.map((m, i) => (
-                                        <span key={i} className="admin-badge admin-badge-neutral font-mono" style={{ fontSize: '0.66rem' }}>
-                                            {m.role === 'owner' ? '★ ' : ''}{m.name} ({m.channel})
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Barra de Acciones de Moderación */}
-                            <div>
-                                <span className="text-uppercase text-secondary fw-semibold d-block mb-1.5" style={{ fontSize: '0.66rem', letterSpacing: '0.04em' }}>
-                                    Acciones de Moderación de Sala
-                                </span>
-                                <div className="d-grid gap-1.5">
-                                    {/* Pausar / Reanudar Votación */}
-                                    {selectedRoom.status === 'voting' && !selectedRoom.is_locked ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleOpenModerate(selectedRoom, 'pause')}
-                                            className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
-                                            style={{ fontSize: '0.72rem' }}
-                                        >
-                                            <PauseCircle size={13} style={{ color: 'var(--admin-amber)' }} />
-                                            <span>Pausar Votación</span>
-                                        </button>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleOpenModerate(selectedRoom, 'resume')}
-                                            className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
-                                            style={{ fontSize: '0.72rem' }}
-                                        >
-                                            <PlayCircle size={13} style={{ color: 'var(--admin-emerald)' }} />
-                                            <span>Reanudar Votación</span>
-                                        </button>
-                                    )}
-
-                                    {/* Forzar Selección */}
-                                    {selectedRoom.status !== 'selected' && selectedRoom.status !== 'completed' && (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleOpenModerate(selectedRoom, 'force_select')}
-                                            disabled={selectedRoom.candidates_count === 0}
-                                            className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
-                                            style={{ fontSize: '0.72rem' }}
-                                        >
-                                            <CheckCircle2 size={13} style={{ color: 'var(--admin-blue)' }} />
-                                            <span>Forzar Consenso Ganador</span>
-                                        </button>
-                                    )}
-
-                                    {/* Reiniciar Votos */}
-                                    <button
-                                        type="button"
-                                        onClick={() => handleOpenModerate(selectedRoom, 'reset_votes')}
-                                        disabled={selectedRoom.votes_count === 0}
-                                        className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
-                                        style={{ fontSize: '0.72rem' }}
-                                    >
-                                        <RotateCcw size={13} style={{ color: 'var(--admin-text-muted)' }} />
-                                        <span>Reiniciar Votos de Sala</span>
-                                    </button>
-
-                                    {/* Pulso / Ping */}
-                                    <button
-                                        type="button"
-                                        onClick={() => handleOpenModerate(selectedRoom, 'ping')}
-                                        className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center gap-1.5 font-mono"
-                                        style={{ fontSize: '0.72rem' }}
-                                    >
-                                        <BellRing size={13} style={{ color: 'var(--admin-emerald)' }} />
-                                        <span>Emitir Pulso WebSocket / Ping</span>
-                                    </button>
-
-                                    {/* Eliminar Sala */}
-                                    <button
-                                        type="button"
-                                        onClick={() => handleOpenModerate(selectedRoom, 'delete')}
-                                        className="admin-btn font-mono d-flex align-items-center justify-content-center gap-1.5 text-white"
-                                        style={{ fontSize: '0.72rem', backgroundColor: 'var(--admin-rose-bg)', border: '1px solid var(--admin-rose-border)', color: 'var(--admin-rose)' }}
-                                    >
-                                        <Trash2 size={13} />
-                                        <span>Eliminar Sala Definitivamente</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="pt-2 border-top mt-3 font-mono d-flex justify-content-between align-items-center" style={{ fontSize: '0.68rem', borderColor: 'var(--admin-border-subtle)', color: 'var(--admin-text-muted)' }}>
-                            <span>UUID: {selectedRoom.id.slice(0, 18)}...</span>
-                            <span>PostgreSQL Live</span>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ============================================================
-               MODAL DE CONFIRMACIÓN DE MODERACIÓN
-               ============================================================ */}
-            {confirmModal.isOpen && confirmModal.room && (
-                <div
-                    className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-                    style={{ backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 10000, backdropFilter: 'blur(3px)' }}
-                    onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                >
-                    <div
-                        className="admin-card p-4 rounded-2 shadow-lg"
-                        style={{ width: '100%', maxWidth: '480px', backgroundColor: '#141416', border: '1px solid var(--admin-border-divider)' }}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="d-flex justify-content-between align-items-start mb-3">
-                            <div className="d-flex align-items-center gap-2">
-                                {confirmModal.action === 'pause' && <PauseCircle size={18} style={{ color: 'var(--admin-amber)' }} />}
-                                {confirmModal.action === 'resume' && <PlayCircle size={18} style={{ color: 'var(--admin-emerald)' }} />}
-                                {confirmModal.action === 'force_select' && <CheckCircle2 size={18} style={{ color: 'var(--admin-blue)' }} />}
-                                {confirmModal.action === 'reset_votes' && <RotateCcw size={18} style={{ color: 'var(--admin-amber)' }} />}
-                                {confirmModal.action === 'delete' && <Trash2 size={18} style={{ color: 'var(--admin-rose)' }} />}
-                                {confirmModal.action === 'ping' && <BellRing size={18} style={{ color: 'var(--admin-emerald)' }} />}
-                                <h3 className="admin-title m-0" style={{ fontSize: '1rem' }}>
-                                    {confirmModal.action === 'pause' && 'Pausar Votación de Sala'}
-                                    {confirmModal.action === 'resume' && 'Reanudar Votación'}
-                                    {confirmModal.action === 'force_select' && 'Forzar Consenso Ganador'}
-                                    {confirmModal.action === 'reset_votes' && 'Reiniciar Votos de Sala'}
-                                    {confirmModal.action === 'delete' && 'Eliminar Sala Permanentemente'}
-                                    {confirmModal.action === 'ping' && 'Emitir Pulso WebSocket'}
-                                </h3>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                                className="bg-transparent border-0 text-secondary font-mono"
-                                style={{ fontSize: '1.2rem', cursor: 'pointer' }}
-                            >
-                                &times;
-                            </button>
-                        </div>
-
-                        <div className="p-2.5 rounded-1 mb-3" style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border-subtle)' }}>
-                            <div className="fw-semibold text-white mb-0.5" style={{ fontSize: '0.84rem' }}>
-                                {confirmModal.room.name}
-                            </div>
-                            <div className="text-secondary font-mono" style={{ fontSize: '0.7rem' }}>
-                                PIN: {confirmModal.room.invite_code} &middot; {confirmModal.room.members_count} miembros &middot; {confirmModal.room.votes_count} votos
-                            </div>
-                        </div>
-
-                        <div className="mb-3">
-                            <label className="text-uppercase mb-1 d-block" style={{ fontSize: '0.66rem', letterSpacing: '0.05em', color: 'var(--admin-text-muted)' }}>
-                                Motivo de la Acción de Moderación
-                            </label>
-                            <input
-                                type="text"
-                                value={confirmModal.reason}
-                                onChange={e => setConfirmModal(prev => ({ ...prev, reason: e.target.value }))}
-                                placeholder="Especifique el motivo para auditoría..."
-                                className="w-100 p-2 rounded-1 text-white font-mono"
-                                style={{
-                                    backgroundColor: 'var(--admin-surface-2)',
-                                    border: '1px solid var(--admin-border-subtle)',
-                                    fontSize: '0.75rem',
-                                    outline: 'none'
-                                }}
-                            />
-                        </div>
-
-                        <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                            <button
-                                type="button"
-                                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                                className="admin-btn admin-btn-secondary font-mono"
-                                style={{ fontSize: '0.74rem' }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleExecuteModeration}
-                                className="admin-btn font-mono text-white"
-                                style={{
-                                    fontSize: '0.74rem',
-                                    backgroundColor: confirmModal.action === 'delete'
-                                        ? 'var(--admin-rose)'
-                                        : confirmModal.action === 'pause' || confirmModal.action === 'reset_votes'
-                                            ? 'var(--admin-amber)'
-                                            : 'var(--admin-emerald)',
-                                    border: 'none'
-                                }}
-                            >
-                                Confirmar {confirmModal.action.toUpperCase()}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ============================================================
-               MODAL DE CREACIÓN DE NUEVA SALA (CRUD CREATE)
-               ============================================================ */}
-            {isCreateRoomModalOpen && (
-                <div
-                    className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-                    style={{
-                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                        zIndex: 1050,
-                        backdropFilter: 'blur(5px)',
-                        padding: '1rem'
-                    }}
-                >
-                    <div
-                        className="admin-card p-4 text-white"
-                        style={{
-                            maxWidth: '480px',
-                            width: '100%',
-                            border: '1px solid var(--admin-emerald)',
-                            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7)'
-                        }}
-                    >
-                        <div className="d-flex justify-content-between align-items-start pb-2 mb-3 border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                            <div>
-                                <h3 className="fs-6 fw-bold m-0 text-white">Crear Nueva Sala de Watch Party</h3>
-                                <span className="text-secondary small font-mono">Inicia una sala con código de invitación único</span>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setIsCreateRoomModalOpen(false)}
-                                className="btn btn-link p-0 text-secondary"
-                            >
-                                <X size={16} />
-                            </button>
-                        </div>
-
-                        {createRoomError && (
-                            <div className="p-2 mb-3 bg-danger bg-opacity-10 border border-danger text-danger rounded font-mono small d-flex align-items-center gap-1.5" style={{ fontSize: '0.74rem' }}>
-                                <AlertTriangle size={14} />
-                                <span>{createRoomError}</span>
-                            </div>
-                        )}
-
-                        <form onSubmit={handleCreateRoom}>
-                            <div className="mb-2">
-                                <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
-                                    NOMBRE DE LA SALA *
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={newRoomData.name}
-                                    onChange={e => setNewRoomData(prev => ({ ...prev, name: e.target.value }))}
-                                    placeholder="ej: Viernes de Anime & Pizza"
-                                    className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
-                                    style={{ fontSize: '0.76rem' }}
-                                />
-                            </div>
-
-                            <div className="mb-2">
-                                <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
-                                    DESCRIPCIÓN O PROPÓSITO
-                                </label>
-                                <textarea
-                                    rows={2}
-                                    value={newRoomData.description}
-                                    onChange={e => setNewRoomData(prev => ({ ...prev, description: e.target.value }))}
-                                    placeholder="ej: Sesión semanal para votar shonen de temporada..."
-                                    className="form-control form-control-sm bg-dark text-white border-secondary"
-                                    style={{ fontSize: '0.75rem', resize: 'vertical' }}
-                                />
-                            </div>
-
-                            <div className="row g-2 mb-3">
-                                <div className="col-6">
-                                    <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
-                                        NOMBRE ANFITRIÓN
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={newRoomData.host_name}
-                                        onChange={e => setNewRoomData(prev => ({ ...prev, host_name: e.target.value }))}
-                                        placeholder="Admin"
-                                        className="form-control form-control-sm bg-dark text-white border-secondary font-mono"
-                                        style={{ fontSize: '0.75rem' }}
-                                    />
-                                </div>
-                                <div className="col-6">
-                                    <label className="form-label font-mono text-secondary small d-block mb-1" style={{ fontSize: '0.7rem' }}>
-                                        FASE INICIAL
-                                    </label>
-                                    <select
-                                        value={newRoomData.status}
-                                        onChange={e => setNewRoomData(prev => ({ ...prev, status: e.target.value }))}
-                                        className="form-select form-select-sm bg-dark text-white border-secondary font-mono"
-                                        style={{ fontSize: '0.75rem' }}
-                                    >
-                                        <option value="voting">Votación Abierta</option>
-                                        <option value="candidates">Candidaturas</option>
-                                        <option value="watching">En Emisión</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--admin-border-subtle)' }}>
-                                <button
-                                    type="button"
-                                    disabled={isCreatingRoom}
-                                    onClick={() => setIsCreateRoomModalOpen(false)}
-                                    className="admin-btn admin-btn-secondary px-3 py-1.5"
-                                    style={{ fontSize: '0.75rem' }}
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isCreatingRoom}
-                                    className="admin-btn d-flex align-items-center gap-1.5 px-3 py-1.5 fw-semibold"
-                                    style={{
-                                        fontSize: '0.75rem',
-                                        backgroundColor: 'var(--admin-emerald)',
-                                        color: '#000000',
-                                        border: '1px solid var(--admin-emerald)'
-                                    }}
-                                >
-                                    <Plus size={13} />
-                                    <span>{isCreatingRoom ? 'Creando...' : 'Crear Sala'}</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     )
 }

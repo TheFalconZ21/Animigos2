@@ -186,8 +186,9 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                             <button
                                                 type="button"
                                                 onClick={() => setAcentoModo(opcion.id)}
-                                                className={`w-100 p-2.5 rounded-3 border d-flex align-items-center justify-content-between text-start transition-all`}
+                                                className={`w-100 p-2.5 border d-flex align-items-center justify-content-between text-start transition-all`}
                                                 style={{
+                                                    borderRadius: 12,
                                                     background: isSelected
                                                         ? 'var(--perfil-acento-soft)'
                                                         : 'var(--perfil-card-2)',
@@ -568,10 +569,11 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                                         allowComments: opt.id as 'everyone' | 'friends' | 'none',
                                                     })
                                                 }
-                                                className={`w-100 p-2.5 rounded-3 border text-center transition-all ${
+                                                className={`w-100 p-2.5 border text-center transition-all ${
                                                     isSelected ? 'border-primary' : ''
                                                 }`}
                                                 style={{
+                                                    borderRadius: 12,
                                                     background: isSelected
                                                         ? 'var(--perfil-acento-soft)'
                                                         : 'var(--perfil-card-2)',

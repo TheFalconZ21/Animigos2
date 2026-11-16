@@ -1980,5 +1980,257 @@
     font-size: 0.78rem;
 }
 
+/* ============================================================
+   5. ARQUITECTURA DE SUB-VISTAS DE PERFIL (ESTILO ADMIN CONSOLE)
+   ============================================================ */
+
+/* Pill seleccionable de Número de Amigos en la Main Card */
+.perfil-friends-count-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    padding: 0.25rem 0.72rem;
+    border-radius: 999px;
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border-strong);
+    color: var(--perfil-text-muted);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.perfil-friends-count-pill:hover {
+    background: var(--perfil-acento-soft);
+    border-color: var(--perfil-acento);
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px var(--perfil-acento-glow);
+}
+
+.perfil-friends-count-chevron {
+    color: var(--perfil-text-dim);
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.perfil-friends-count-pill:hover .perfil-friends-count-chevron {
+    transform: translateX(2px);
+    color: var(--perfil-acento);
+}
+
+/* Barra de Navegación de Sub-Vista (Selectores de sub-vista en el cuerpo) */
+.perfil-subview-bar {
+    background: rgba(16, 16, 20, 0.94);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--perfil-border-strong);
+    border-radius: 14px;
+    padding: 0.6rem 0.85rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+
+.perfil-subview-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border-strong);
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.42rem 0.85rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.perfil-subview-back-btn:hover {
+    background: var(--perfil-acento);
+    border-color: var(--perfil-acento);
+    color: #080808;
+    transform: translateX(-2px);
+}
+
+.perfil-subview-switcher {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--perfil-bg);
+    border: 1px solid var(--perfil-border);
+    padding: 0.28rem;
+    border-radius: 11px;
+}
+
+.perfil-subview-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--perfil-text-muted);
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 0.36rem 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.perfil-subview-pill:hover {
+    color: #ffffff;
+    background: var(--perfil-card-2);
+}
+
+.perfil-subview-pill.is-active {
+    background: var(--perfil-acento);
+    color: #080808;
+    font-weight: 700;
+    box-shadow: 0 2px 10px var(--perfil-acento-glow);
+}
+
+/* Animación suave al abrir o cambiar de Sub-Vista */
+@keyframes perfilSubViewIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.perfil-subview-enter {
+    animation: perfilSubViewIn 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Tarjetas KPI Generales Clickeables en Vista Principal */
+.perfil-kpi-clickable {
+    position: relative;
+    cursor: pointer;
+    flex-direction: column;
+    align-items: stretch !important;
+    justify-content: space-between;
+    gap: 0.75rem !important;
+    padding: 1.25rem 1.35rem !important;
+    border-radius: 14px !important;
+    transition: all 0.22s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    overflow: hidden;
+}
+
+.perfil-kpi-clickable:hover {
+    border-color: var(--perfil-acento) !important;
+    background: var(--perfil-card-hover);
+    transform: translateY(-3px) !important;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55), 0 0 18px var(--perfil-acento-glow);
+}
+
+.perfil-kpi-drill-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.65rem;
+    border-top: 1px solid var(--perfil-border);
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--perfil-text-muted);
+    transition: color 0.18s ease;
+}
+
+.perfil-kpi-clickable:hover .perfil-kpi-drill-footer {
+    color: var(--perfil-acento);
+}
+
+/* Nodos interactivos para gráficas de Tiempo por Género y Estados */
+.perfil-interactive-genre-node {
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    border-radius: 12px;
+    padding: 0.9rem 1.15rem;
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.perfil-interactive-genre-node:hover {
+    background: var(--perfil-card-hover);
+    border-color: var(--perfil-border-strong);
+    transform: translateX(3px);
+}
+
+.perfil-interactive-genre-node.is-selected {
+    background: var(--perfil-acento-soft);
+    border-color: var(--perfil-acento);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Tarjeta de Inspector del Tramo Temporal Seleccionado (Sub-vista 4: Tendencias de Género) */
+.perfil-trend-inspector-card {
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border-strong);
+    border-radius: 16px;
+    padding: 1.35rem 1.5rem;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+}
+
+.perfil-trend-genre-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.75rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.16s ease;
+}
+
+.perfil-trend-genre-row:hover {
+    background: rgba(255, 255, 255, 0.055);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.perfil-trend-thumb {
+    width: 48px;
+    height: 68px;
+    object-fit: cover;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid var(--perfil-border-strong);
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.perfil-trend-thumb:hover {
+    transform: translateY(-3px) scale(1.05);
+    border-color: var(--perfil-acento);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+}
+
+/* Modales y Contenedores Suaves - Eliminar bordes rectos y dar padding amplio */
+.perfil-root .modal-anime,
+.perfil-root .ml-dialog {
+    border-radius: 18px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.perfil-modal-inner-card {
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    transition: all 0.18s ease;
+}
+
+.perfil-modal-inner-card:hover {
+    background: var(--perfil-card-hover);
+    border-color: var(--perfil-border-strong);
+}
+
+
 
 

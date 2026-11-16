@@ -19,6 +19,8 @@ export interface EntradaLista {
     tags: string[]
     comentario?: string
     carpetaId?: string
+    createdAt?: string
+    updatedAt?: string
 }
 
 export interface Carpeta {
@@ -79,6 +81,8 @@ export function apiEntryToFila(entry: ApiUserListEntry): FilaLista {
         tags: entry.tags || [],
         comentario: entry.notes || '',
         carpetaId: entry.folder_id || undefined,
+        createdAt: entry.created_at,
+        updatedAt: entry.updated_at,
         anime,
     }
 }

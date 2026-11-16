@@ -140,10 +140,44 @@ export interface RecommendationEvaluation {
   time_ago: string;
 }
 
+export interface IndividualRatingItem {
+  id: string;
+  userName: string;
+  userHandle: string;
+  userAvatar: string;
+  isVerified: boolean;
+  animeTitle: string;
+  animeGenre: string;
+  animePoster: string;
+  modality: 'personal' | 'group';
+  groupRoomName?: string;
+  criterion: string;
+  rating: number;
+  score10: number;
+  predictedAffinity: number;
+  actionTaken: string;
+  timeAgo: string;
+}
+
+export interface TopRatedAnimeRecItem {
+  id: string;
+  title: string;
+  genre: string;
+  poster: string;
+  avgRating: number;
+  satisfactionPct: number;
+  totalRecs: number;
+  preferredReason: string;
+  sourceType: 'similarity' | 'profile';
+}
+
 export interface RecommendationSatisfaction {
   overall_satisfaction_pct: number;
   avg_rating: number;
   total_evaluations: number;
+  personal_evaluations?: number;
+  group_evaluations?: number;
+  total_list_entries?: number;
   acceptance_rate: number;
   breakdown: {
     excellent_pct: number;
@@ -159,6 +193,17 @@ export interface RecommendationSatisfaction {
     conflict_rate_manual: string;
   };
   recent_feed: RecommendationEvaluation[];
+  individual_ratings?: IndividualRatingItem[];
+  top_rated_animes?: TopRatedAnimeRecItem[];
+}
+
+export interface GenreDispersionStat {
+  count: number;
+  percentage: number;
+  avg_score?: number;
+  top_anime?: string;
+  candidates_count?: number;
+  win_rate_pct?: number;
 }
 
 export interface AlgorithmResponse {
@@ -181,7 +226,7 @@ export interface AlgorithmResponse {
     happiness_trend_delta?: string;
     high_consensus_rooms_pct?: number;
   };
-  genre_dispersion: Record<string, { count: number; percentage: number }>;
+  genre_dispersion: Record<string, GenreDispersionStat>;
   rules: AlgorithmRule[];
   timeline?: HappinessTimelinePoint[];
   recommendation_satisfaction?: RecommendationSatisfaction;
@@ -259,6 +304,15 @@ export interface GrowthResponse {
     w2: number | null;
     w3: number | null;
     w4: number | null;
+  }>;
+  daily_timeline?: Array<{
+    date: string;
+    newUsers: number;
+    invitationsSent: number;
+    listAdditions: number;
+    ratingsPlaced: number;
+    roomsCreated: number;
+    roomsDeleted: number;
   }>;
   user_vs_guest?: UserVsGuestStats;
   activity_rate?: ActivityRateStats;

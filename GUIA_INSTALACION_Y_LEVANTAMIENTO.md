@@ -312,3 +312,4 @@ Los archivos optimizados y empaquetados se generarán en la carpeta `dist/`.
 ---
 
 *¡Todo listo! Con estos pasos tienes el ecosistema completo de Animigos listo para desarrollar, probar o presentar.* 🍿🎌
+

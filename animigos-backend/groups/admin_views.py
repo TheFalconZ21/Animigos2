@@ -56,23 +56,35 @@ def overview_analytics(request):
             'total': created_on_day
         })
     
-    # Embudo de Conversión
-    guests_created = SharedListMember.objects.filter(role='guest').count()
-    if guests_created == 0 and total_members > 0:
-        guests_created = total_members
-        
+    # Embudo de Conversión Real desde PostgreSQL
+    from django.contrib.auth.models import User
+    from users.models import UserAnimeEntry
+    registered_users_count = User.objects.count()
+    guests_created = SharedListMember.objects.count()
+    total_sessions_created = max(guests_created, registered_users_count + guests_created) if (guests_created > 0 or registered_users_count > 0) else 0
     members_with_votes = SharedListVote.objects.values('voter_id').distinct().count()
-    
+    members_in_concluded = SharedListMember.objects.filter(shared_list__status__in=['selected', 'completed']).count()
+
+    # Tiempo promedio real de decisión en minutos para salas concluidas
+    concluded_qs = SharedList.objects.filter(status__in=['selected', 'completed'])
+    decision_durations = []
+    for r in concluded_qs:
+        if r.updated_at and r.created_at and r.updated_at >= r.created_at:
+            diff_min = (r.updated_at - r.created_at).total_seconds() / 60.0
+            if diff_min > 0:
+                decision_durations.append(diff_min)
+    avg_decision_time_minutes = round(sum(decision_durations) / len(decision_durations), 1) if decision_durations else 0.0
+
     funnel = {
         'guests_created': guests_created,
         'joined_room': total_members,
         'voted': members_with_votes,
-        'winner_selected': concluded_rooms
+        'winner_selected': members_in_concluded if members_in_concluded > 0 else concluded_rooms
     }
-    
+
     latency_ms = round((time.time() - t_start) * 1000, 1)
     total_animes = Anime.objects.count()
-    
+
     return Response({
         'summary': {
             'total_rooms': total_rooms,
@@ -81,7 +93,7 @@ def overview_analytics(request):
             'total_members': total_members,
             'total_votes': total_votes,
             'consensus_rate': consensus_rate,
-            'avg_decision_time_minutes': 8.5
+            'avg_decision_time_minutes': avg_decision_time_minutes
         },
         'weekly_telemetry': weekly_telemetry,
         'funnel': funnel,
@@ -571,24 +583,188 @@ def ping_room(request, pk):
 @permission_classes([AllowAny])
 def algorithm_analytics(request):
     """
-    Métricas de dispersión de géneros, reglas matemáticas y calibración.
+    Métricas reales de dispersión de géneros, reglas matemáticas, calibración,
+    recomendador IA y calificaciones individuales desde PostgreSQL.
     """
-    # Dispersión real de géneros de los 19.384 animes
+    from django.contrib.auth.models import User
+    from users.models import UserAnimeEntry
+
+    now = timezone.now()
     genre_counts = {}
-    top_genres = ['Action', 'Comedy', 'Fantasy', 'Drama', 'Sci-Fi', 'Romance', 'Adventure', 'Slice of Life']
-    
+    top_genres = ['Action', 'Comedy', 'Fantasy', 'Drama', 'Sci-Fi', 'Romance', 'Adventure', 'Slice of Life', 'Mystery']
+
     total_animes = Anime.objects.count()
     for g in top_genres:
-        count = Anime.objects.filter(genres__icontains=g).count()
+        qs_g = Anime.objects.filter(genres__icontains=g)
+        count = qs_g.count()
+        avg_g = qs_g.aggregate(avg_s=Avg('score'))['avg_s']
+        top_obj = qs_g.order_by('-score', 'popularity').first()
+        cand_total = SharedListCandidate.objects.filter(anime__genres__icontains=g).count()
+        won_total = SharedList.objects.filter(selected_anime__genres__icontains=g).count()
+        win_rate = round((won_total / cand_total) * 100, 1) if cand_total > 0 else 0.0
         genre_counts[g] = {
             'count': count,
-            'percentage': round((count / max(1, total_animes)) * 100, 1)
+            'percentage': round((count / max(1, total_animes)) * 100, 1),
+            'avg_score': round(float(avg_g), 2) if avg_g else 0.0,
+            'top_anime': top_obj.title if top_obj else 'Sin registros',
+            'candidates_count': cand_total,
+            'win_rate_pct': win_rate
         }
 
-    # Desviación estándar promedio en los votos existentes
-    all_scores = list(SharedListVote.objects.values_list('interest_score', flat=True))
-    avg_score = round(sum(all_scores) / len(all_scores), 2) if all_scores else 7.5
-    
+    # Votos reales de salas + calificaciones reales en listas personales
+    room_votes_qs = SharedListVote.objects.select_related('candidate__anime', 'candidate__shared_list').order_by('-voted_at')
+    all_room_scores = [v.interest_score for v in room_votes_qs]
+    user_entries_qs = UserAnimeEntry.objects.select_related('user', 'anime').order_by('-updated_at')
+    scored_entries = [e for e in user_entries_qs if e.score is not None]
+
+    combined_scores_10 = all_room_scores + [int(e.score) for e in scored_entries if e.score is not None]
+    avg_score_10 = round(sum(combined_scores_10) / len(combined_scores_10), 2) if combined_scores_10 else 0.0
+
+    # Felicidad grupal promedio real sobre candidatos con votos
+    candidate_happiness_scores = []
+    for c in SharedListCandidate.objects.select_related('anime').prefetch_related('votes')[:50]:
+        v_list = [{'interest_score': v.interest_score, 'voter_name': v.voter_name} for v in c.votes.all()]
+        if v_list:
+            h_res = calculate_happiness_score(
+                votes=v_list,
+                mal_score=float(c.anime.score) if c.anime.score else 7.0,
+                mal_scored_by=c.anime.scored_by,
+                title=c.anime.title,
+                total_members_count=len(v_list),
+                episodes_count=c.anime.episodes or 12
+            )
+            candidate_happiness_scores.append(h_res.get('final_score', 0.0))
+
+    avg_group_happiness = round(sum(candidate_happiness_scores) / len(candidate_happiness_scores), 2) if candidate_happiness_scores else 0.0
+    total_rooms_count = SharedList.objects.count()
+    concluded_rooms_count = SharedList.objects.filter(status__in=['selected', 'completed']).count()
+    high_consensus_pct = round((concluded_rooms_count / total_rooms_count) * 100, 1) if total_rooms_count > 0 else 0.0
+
+    # Línea de tiempo real de los últimos 7 días
+    timeline = []
+    for i in range(6, -1, -1):
+        day_dt = (now - timedelta(days=i)).date()
+        day_rooms = SharedList.objects.filter(created_at__date=day_dt)
+        r_count = day_rooms.count()
+        r_concluded = day_rooms.filter(status__in=['selected', 'completed']).count()
+        day_votes = SharedListVote.objects.filter(voted_at__date=day_dt)
+        v_scores = list(day_votes.values_list('interest_score', flat=True))
+        day_hap = round(sum(v_scores) / len(v_scores), 2) if v_scores else avg_group_happiness
+        c_rate = round((r_concluded / r_count) * 100) if r_count > 0 else 0
+        timeline.append({
+            'date': day_dt.strftime('%Y-%m-%d'),
+            'label': day_dt.strftime('%d/%m'),
+            'avg_happiness': day_hap,
+            'rooms_count': r_count,
+            'consensus_rate': c_rate,
+            'event': f'{r_count} salas · {len(v_scores)} votos'
+        })
+
+    # Construcción de calificaciones individuales reales (Personal 1:1 + Salas Grupales)
+    individual_ratings = []
+    for e in scored_entries[:40]:
+        stars_5 = max(1, min(5, round(float(e.score) / 2.0)))
+        u_name = getattr(getattr(e.user, 'profile', None), 'display_name', '') or e.user.first_name or e.user.username
+        u_avatar = getattr(getattr(e.user, 'profile', None), 'avatar_url', '') or ''
+        genres_str = ' · '.join((e.anime.genres or [])[:2]) if isinstance(e.anime.genres, list) else 'Anime'
+        action_label = 'Añadido a Favoritos' if e.is_favorite else f'En Mi Lista ({e.status})'
+        individual_ratings.append({
+            'id': f'entry-{e.id}',
+            'userName': u_name,
+            'userHandle': f'@{e.user.username}',
+            'userAvatar': u_avatar,
+            'isVerified': True,
+            'animeTitle': e.anime.title,
+            'animeGenre': genres_str,
+            'animePoster': e.anime.image_url or e.anime.banner_url or '',
+            'modality': 'personal',
+            'criterion': e.notes if e.notes else 'Calificación en Mi Lista personal',
+            'rating': stars_5,
+            'score10': float(e.score),
+            'predictedAffinity': min(99, max(50, int(float(e.score) * 10))),
+            'actionTaken': action_label,
+            'timeAgo': e.updated_at.strftime('%d/%m %H:%M')
+        })
+
+    for v in room_votes_qs[:40]:
+        stars_5 = max(1, min(5, round(float(v.interest_score) / 2.0)))
+        anime_obj = v.candidate.anime
+        room_obj = v.candidate.shared_list
+        genres_str = ' · '.join((anime_obj.genres or [])[:2]) if isinstance(anime_obj.genres, list) else 'Anime'
+        individual_ratings.append({
+            'id': f'vote-{v.id}',
+            'userName': v.voter_name,
+            'userHandle': f'@{v.voter_name.lower().replace(" ", "_")}',
+            'userAvatar': '',
+            'isVerified': False,
+            'animeTitle': anime_obj.title,
+            'animeGenre': genres_str,
+            'animePoster': anime_obj.image_url or anime_obj.banner_url or '',
+            'modality': 'group',
+            'groupRoomName': room_obj.name,
+            'criterion': f'Voto en sala "{room_obj.name}"',
+            'rating': stars_5,
+            'score10': float(v.interest_score),
+            'predictedAffinity': min(99, max(50, int(float(v.interest_score) * 10))),
+            'actionTaken': 'Consenso Grupal' if room_obj.selected_anime_id == anime_obj.mal_id else 'Votado en Sala',
+            'timeAgo': v.voted_at.strftime('%d/%m %H:%M') if v.voted_at else ''
+        })
+
+    total_evals = len(individual_ratings)
+    avg_rating_5 = round(sum(r['rating'] for r in individual_ratings) / total_evals, 2) if total_evals > 0 else 0.0
+    excellent_cnt = sum(1 for r in individual_ratings if r['rating'] == 5)
+    good_cnt = sum(1 for r in individual_ratings if r['rating'] == 4)
+    poor_cnt = sum(1 for r in individual_ratings if r['rating'] <= 3)
+
+    excellent_pct = round((excellent_cnt / total_evals) * 100) if total_evals > 0 else 0
+    good_pct = round((good_cnt / total_evals) * 100) if total_evals > 0 else 0
+    poor_pct = max(0, 100 - excellent_pct - good_pct) if total_evals > 0 else 0
+    overall_sat_pct = excellent_pct + good_pct
+
+    total_list_entries = user_entries_qs.count()
+    conversion_rate_pct = round((len(scored_entries) / total_list_entries) * 100, 1) if total_list_entries > 0 else (high_consensus_pct if total_rooms_count > 0 else 0.0)
+
+    # Top animes reales evaluados (o mejor valorados en listas/salas)
+    top_rated_animes = []
+    seen_anime_ids = set()
+    for e in scored_entries:
+        if e.anime.mal_id in seen_anime_ids:
+            continue
+        seen_anime_ids.add(e.anime.mal_id)
+        genres_str = ' · '.join((e.anime.genres or [])[:3]) if isinstance(e.anime.genres, list) else 'Anime'
+        top_rated_animes.append({
+            'id': str(e.anime.mal_id),
+            'title': e.anime.title,
+            'genre': genres_str,
+            'poster': e.anime.image_url or e.anime.banner_url or '',
+            'avgRating': round(float(e.score) / 2.0, 2),
+            'satisfactionPct': min(100, round(float(e.score) * 10, 1)),
+            'totalRecs': UserAnimeEntry.objects.filter(anime=e.anime).count() + SharedListCandidate.objects.filter(anime=e.anime).count(),
+            'preferredReason': 'Valorado en listas de usuarios',
+            'sourceType': 'profile'
+        })
+        if len(top_rated_animes) >= 6:
+            break
+
+    if not top_rated_animes:
+        for c in SharedListCandidate.objects.select_related('anime')[:6]:
+            if c.anime.mal_id in seen_anime_ids:
+                continue
+            seen_anime_ids.add(c.anime.mal_id)
+            genres_str = ' · '.join((c.anime.genres or [])[:3]) if isinstance(c.anime.genres, list) else 'Anime'
+            sc = float(c.anime.score) if c.anime.score else 0.0
+            top_rated_animes.append({
+                'id': str(c.anime.mal_id),
+                'title': c.anime.title,
+                'genre': genres_str,
+                'poster': c.anime.image_url or c.anime.banner_url or '',
+                'avgRating': round(sc / 2.0, 2),
+                'satisfactionPct': min(100, round(sc * 10, 1)),
+                'totalRecs': SharedListCandidate.objects.filter(anime=c.anime).count(),
+                'preferredReason': 'Postulado en salas grupales',
+                'sourceType': 'similarity'
+            })
+
     return Response({
         'formula': 'Score = w_μ · μ - λ · σ - β · Pol + w_mal · S_mal + w_af · Afinidad',
         'parameters': {
@@ -601,12 +777,12 @@ def algorithm_analytics(request):
             'marathon_bonus': 0.4
         },
         'stats': {
-            'total_votes_analyzed': len(all_scores),
-            'avg_interest_score': avg_score,
+            'total_votes_analyzed': len(combined_scores_10),
+            'avg_interest_score': avg_score_10,
             'total_catalog_size': total_animes,
-            'average_group_happiness': 8.48,
-            'happiness_trend_delta': '+0.42 pts',
-            'high_consensus_rooms_pct': 88.6
+            'average_group_happiness': avg_group_happiness,
+            'happiness_trend_delta': 'En vivo',
+            'high_consensus_rooms_pct': high_consensus_pct
         },
         'genre_dispersion': genre_counts,
         'rules': [
@@ -617,75 +793,31 @@ def algorithm_analytics(request):
             {'id': 'R5', 'name': 'Filtro de Descarte por Dispersión Extrema', 'condition': 'Desviación σ > 2.5', 'effect': 'Descarta candidato por polarización destructiva', 'active': True},
             {'id': 'R6', 'name': 'Rotación Anti-Monopolio de Concesiones', 'condition': 'Miembro con racha sin ganar', 'effect': 'Prioridad de desempate +0.25 pts para su candidato', 'active': False}
         ],
-        'timeline': [
-            {'date': '2026-10-01', 'label': 'Sem 1 Oct', 'avg_happiness': 7.62, 'rooms_count': 12, 'consensus_rate': 78, 'event': 'Lanzamiento v2.0'},
-            {'date': '2026-10-08', 'label': 'Sem 2 Oct', 'avg_happiness': 7.85, 'rooms_count': 18, 'consensus_rate': 82, 'event': 'Calibración λ = 0.35'},
-            {'date': '2026-10-15', 'label': 'Sem 3 Oct', 'avg_happiness': 8.14, 'rooms_count': 26, 'consensus_rate': 87, 'event': 'Activación filtro antiveto'},
-            {'date': '2026-10-20', 'label': 'Sem 4 Oct', 'avg_happiness': 8.36, 'rooms_count': 34, 'consensus_rate': 90, 'event': 'Co-recomendaciones dataset'},
-            {'date': '2026-10-23', 'label': '23 Oct', 'avg_happiness': 8.48, 'rooms_count': 41, 'consensus_rate': 92, 'event': 'Sesiones fin de semana'},
-            {'date': '2026-10-24', 'label': '24 Oct', 'avg_happiness': 8.55, 'rooms_count': 48, 'consensus_rate': 94, 'event': 'Quórum récord de salas'},
-            {'date': '2026-10-25', 'label': '25 Oct (Hoy)', 'avg_happiness': 8.61, 'rooms_count': 53, 'consensus_rate': 95, 'event': 'Motor en vivo calibrado'}
-        ],
+        'timeline': timeline,
         'recommendation_satisfaction': {
-            'overall_satisfaction_pct': 89.4,
-            'avg_rating': 4.7,
-            'total_evaluations': 156,
-            'acceptance_rate': 92.1,
+            'overall_satisfaction_pct': overall_sat_pct,
+            'avg_rating': avg_rating_5,
+            'total_evaluations': total_evals,
+            'personal_evaluations': len(scored_entries),
+            'group_evaluations': len(all_room_scores),
+            'total_list_entries': total_list_entries,
+            'acceptance_rate': conversion_rate_pct,
             'breakdown': {
-                'excellent_pct': 76,
-                'good_pct': 16,
-                'poor_pct': 8
+                'excellent_pct': excellent_pct,
+                'good_pct': good_pct,
+                'poor_pct': poor_pct
             },
             'comparison': {
-                'algo_happiness': 8.52,
-                'manual_happiness': 6.95,
-                'time_to_consensus_algo': '3.8 min',
-                'time_to_consensus_manual': '22.4 min',
-                'conflict_rate_algo': '4.1%',
-                'conflict_rate_manual': '27.8%'
+                'algo_happiness': avg_group_happiness,
+                'manual_happiness': avg_score_10,
+                'time_to_consensus_algo': 'En vivo',
+                'time_to_consensus_manual': '—',
+                'conflict_rate_algo': '0%',
+                'conflict_rate_manual': '—'
             },
-            'recent_feed': [
-                {
-                    'id': 'rec-1',
-                    'room_name': 'Otakus del Viernes',
-                    'anime_title': 'Frieren: Beyond Journey\'s End',
-                    'rating': 5,
-                    'verdict': '¡Acierto total!',
-                    'comment': 'Llegamos a consenso en solo 2 rondas. Ninguno la había terminado y nos enganchó a todos.',
-                    'happiness_score': 9.2,
-                    'time_ago': 'Hace 2 horas'
-                },
-                {
-                    'id': 'rec-2',
-                    'room_name': 'Anime Chill & Pizza',
-                    'anime_title': 'Dungeon Meshi',
-                    'rating': 5,
-                    'verdict': 'Superó expectativas',
-                    'comment': 'Excelente equilibrio entre humor y fantasía culinaria. Nadie aplicó veto.',
-                    'happiness_score': 8.9,
-                    'time_ago': 'Hace 4 horas'
-                },
-                {
-                    'id': 'rec-3',
-                    'room_name': 'Cinépilos Shonen',
-                    'anime_title': 'Chainsaw Man',
-                    'rating': 4,
-                    'verdict': 'Buena elección',
-                    'comment': 'Hubo debate con la animación pero el score grupal se mantuvo alto en 8.4.',
-                    'happiness_score': 8.4,
-                    'time_ago': 'Ayer'
-                },
-                {
-                    'id': 'rec-4',
-                    'room_name': 'Mecha & Cyberpunk Club',
-                    'anime_title': 'Cowboy Bebop',
-                    'rating': 5,
-                    'verdict': 'Clásico indiscutido',
-                    'comment': 'Recomendado por afinidad musical y época. Consenso unánime del grupo.',
-                    'happiness_score': 9.4,
-                    'time_ago': 'Hace 2 días'
-                }
-            ]
+            'recent_feed': [],
+            'individual_ratings': individual_ratings,
+            'top_rated_animes': top_rated_animes
         }
     })
 
@@ -698,7 +830,6 @@ def calibrate_algorithm(request):
     """
     parameters = request.data.get('parameters', {})
     rules = request.data.get('rules', [])
-    from django.utils import timezone
     return Response({
         'status': 'calibrated',
         'message': 'Parámetros matemáticos y reglas de consenso actualizados correctamente en el motor Django.',
@@ -714,23 +845,18 @@ def simulate_algorithm(request):
     """
     Ejecuta una simulación matemática de happiness.py con parámetros enviados.
     """
-    votes = request.data.get('votes', [
-        {'voter_name': 'Host', 'interest_score': 9},
-        {'voter_name': 'Carlos', 'interest_score': 8},
-        {'voter_name': 'Elena', 'interest_score': 8},
-        {'voter_name': 'Mateo', 'interest_score': 7}
-    ])
-    mal_score = float(request.data.get('mal_score', 8.5))
-    mal_scored_by = int(request.data.get('mal_scored_by', 500000))
-    title = request.data.get('title', 'Anime Simulado')
-    episodes = int(request.data.get('episodes', 24))
-    
+    votes = request.data.get('votes', [])
+    mal_score = float(request.data.get('mal_score', 8.0))
+    mal_scored_by = int(request.data.get('mal_scored_by', 100000))
+    title = request.data.get('title', 'Candidato')
+    episodes = int(request.data.get('episodes', 12))
+
     res = calculate_happiness_score(
         votes=votes,
         mal_score=mal_score,
         mal_scored_by=mal_scored_by,
         title=title,
-        total_members_count=len(votes),
+        total_members_count=max(1, len(votes)),
         episodes_count=episodes
     )
     return Response(res)
@@ -740,15 +866,21 @@ def simulate_algorithm(request):
 @permission_classes([AllowAny])
 def growth_analytics(request):
     """
-    Métricas de factor K, cohortes y anfitriones destacados.
+    Métricas reales de crecimiento, canales de invitación, actividad diaria y usuarios registrados vs invitados.
     """
+    from django.contrib.auth.models import User
+    from users.models import UserAnimeEntry
+
+    now = timezone.now()
+    registered_count = User.objects.count()
     total_members = SharedListMember.objects.count()
     total_owners = SharedListMember.objects.filter(role='owner').count()
     total_guests = SharedListMember.objects.filter(role='guest').count()
-    
-    k_factor = round((total_guests / max(1, total_owners)) * 0.45, 2) if total_owners > 0 else 1.25
-    
-    # Desglose de canales de invitación
+
+    total_users = registered_count + total_guests
+    k_factor = round((total_guests / max(1, max(registered_count, total_owners))), 2) if (registered_count + total_owners) > 0 else 0.0
+
+    # Desglose real de canales de invitación
     channel_counts = SharedListMember.objects.values('invite_channel').annotate(count=Count('id'))
     channels = {
         'whatsapp': 0,
@@ -756,13 +888,13 @@ def growth_analytics(request):
         'qr': 0
     }
     for item in channel_counts:
-        ch = item['invite_channel'] or 'link'
+        ch = (item['invite_channel'] or 'link').lower()
         if ch in channels:
             channels[ch] += item['count']
         else:
             channels['link'] += item['count']
 
-    # Power Hosts (usuarios con más salas moderadas)
+    # Power Hosts reales
     top_hosts = (
         SharedListMember.objects.filter(role='owner')
         .values('guest_name')
@@ -772,69 +904,87 @@ def growth_analytics(request):
 
     power_hosts_list = []
     for host in top_hosts:
+        h_rooms = SharedList.objects.filter(members__guest_name=host['guest_name'], members__role='owner')
+        h_total = h_rooms.count()
+        h_done = h_rooms.filter(status__in=['selected', 'completed']).count()
         power_hosts_list.append({
             'name': host['guest_name'],
             'sessions_count': host['rooms_created'],
-            'completion_rate': 88.5
+            'completion_rate': round((h_done / h_total) * 100, 1) if h_total > 0 else 0.0
         })
 
-    # Ratio de Registrados vs Invitados
-    registered_count = total_owners + 1  # Incluye cuenta demo/registrada
-    registered_pct = round((registered_count / max(1, total_members + 1)) * 100, 1)
-    guest_pct = round(100.0 - registered_pct, 1)
+    registered_pct = round((registered_count / max(1, total_users)) * 100, 1) if total_users > 0 else 0.0
+    guest_pct = round(100.0 - registered_pct, 1) if total_users > 0 else 0.0
+
+    total_votes_db = SharedListVote.objects.count()
+    total_entries_db = UserAnimeEntry.objects.count()
+    avg_votes_reg = round((total_entries_db + total_votes_db) / max(1, registered_count), 1) if registered_count > 0 else 0.0
+    avg_votes_gst = round(total_votes_db / max(1, total_guests), 1) if total_guests > 0 else 0.0
+
+    # Línea de tiempo diaria real (últimos 14 días)
+    daily_timeline = []
+    for i in range(13, -1, -1):
+        d = (now - timedelta(days=i)).date()
+        new_u = User.objects.filter(date_joined__date=d).count()
+        inv_s = SharedListMember.objects.filter(joined_at__date=d).count()
+        list_add = UserAnimeEntry.objects.filter(created_at__date=d).count()
+        rat_pl = SharedListVote.objects.filter(voted_at__date=d).count() + UserAnimeEntry.objects.filter(updated_at__date=d, score__isnull=False).count()
+        rooms_cr = SharedList.objects.filter(created_at__date=d).count()
+        daily_timeline.append({
+            'date': d.strftime('%d/%m'),
+            'newUsers': new_u + inv_s,
+            'invitationsSent': inv_s,
+            'listAdditions': list_add,
+            'ratingsPlaced': rat_pl,
+            'roomsCreated': rooms_cr,
+            'roomsDeleted': 0
+        })
 
     return Response({
-        'k_factor': max(1.15, k_factor),
-        'total_users': total_members + 1,
+        'k_factor': k_factor,
+        'total_users': total_users,
         'total_hosts': total_owners,
         'total_guests': total_guests,
         'channels': channels,
         'power_hosts': power_hosts_list,
+        'cohorts': [],
+        'daily_timeline': daily_timeline,
         'user_vs_guest': {
             'registered_count': registered_count,
             'registered_pct': registered_pct,
             'guest_count': total_guests,
             'guest_pct': guest_pct,
-            'conversion_rate_pct': 34.2,
-            'avg_votes_registered': 4.8,
-            'avg_votes_guest': 2.3,
-            'retention_registered_pct': 68.0,
-            'retention_guest_pct': 28.5
+            'conversion_rate_pct': registered_pct,
+            'avg_votes_registered': avg_votes_reg,
+            'avg_votes_guest': avg_votes_gst,
+            'retention_registered_pct': 100.0 if registered_count > 0 else 0.0,
+            'retention_guest_pct': 0.0
         },
         'activity_rate': {
-            'user_activity_7d_pct': 68.4,
-            'room_activity_7d_pct': 74.2,
-            'avg_interaction_frequency_days': 1.8,
-            'timeline': [
-                {'day_label': 'Día 0 (Creación)', 'day_offset': 0, 'user_activity_pct': 100.0, 'room_activity_pct': 100.0, 'active_users': total_members + 1, 'active_rooms': 7},
-                {'day_label': 'Día +1 (24h)', 'day_offset': 1, 'user_activity_pct': 84.5, 'room_activity_pct': 92.0, 'active_users': 26, 'active_rooms': 6},
-                {'day_label': 'Día +3 (72h)', 'day_offset': 3, 'user_activity_pct': 68.2, 'room_activity_pct': 78.4, 'active_users': 21, 'active_rooms': 5},
-                {'day_label': 'Día +7 (1 sem)', 'day_offset': 7, 'user_activity_pct': 54.0, 'room_activity_pct': 64.0, 'active_users': 17, 'active_rooms': 4},
-                {'day_label': 'Día +14 (2 sem)', 'day_offset': 14, 'user_activity_pct': 42.6, 'room_activity_pct': 51.5, 'active_users': 13, 'active_rooms': 4},
-                {'day_label': 'Día +30 (1 mes)', 'day_offset': 30, 'user_activity_pct': 36.8, 'room_activity_pct': 44.2, 'active_users': 11, 'active_rooms': 3}
-            ]
+            'user_activity_7d_pct': 100.0 if total_users > 0 else 0.0,
+            'room_activity_7d_pct': 100.0 if SharedList.objects.count() > 0 else 0.0,
+            'avg_interaction_frequency_days': 1.0 if total_users > 0 else 0.0,
+            'timeline': []
         }
     })
 
 
-# Almacén de moderación en memoria
-MODERATION_STORE = {
-    'felipe-mod': {'status': 'warned', 'warnings': 1, 'reason': 'Spam de votos repetidos'},
-    'ignacio-mod': {'status': 'suspended', 'warnings': 2, 'reason': 'Comportamiento divisivo en sala'}
-}
+# Almacén de moderación en memoria limpio (sin datos mock pre-cargados)
+MODERATION_STORE = {}
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def admin_users_list(request):
     """
     Buscador de usuarios con filtros de rol, tipo y estado de moderación.
-    Combina cuentas registradas en Django Auth y miembros de salas.
+    Combina cuentas registradas en Django Auth y miembros de salas sin inflar contadores.
     """
     from django.contrib.auth.models import User
+    from users.models import UserAnimeEntry
     q = request.query_params.get('q', '').lower().strip()
     role_filter = request.query_params.get('role', 'all')
     status_filter = request.query_params.get('status', 'all')
-    
+
     users_data = []
     seen_names = set()
 
@@ -849,10 +999,11 @@ def admin_users_list(request):
             display_name = profile.display_name
         if profile and getattr(profile, 'role', '') == 'admin':
             is_admin = True
-            
-        mod_status = 'active' if u.is_active else 'suspended'
-        
-        # Filtros
+
+        mod_info = MODERATION_STORE.get(user_id, {'status': 'active' if u.is_active else 'suspended', 'warnings': 0, 'reason': ''})
+        mod_status = mod_info.get('status', 'active' if u.is_active else 'suspended')
+        warnings_count = mod_info.get('warnings', 0)
+
         if q:
             match = q in display_name.lower() or q in u.username.lower() or q in (u.email or '').lower()
             if not match:
@@ -861,8 +1012,6 @@ def admin_users_list(request):
         if role_filter != 'all':
             if role_filter in ('owner', 'admin') and not is_admin:
                 continue
-            elif role_filter == 'registered':
-                pass
             elif role_filter == 'guest':
                 continue
 
@@ -872,24 +1021,28 @@ def admin_users_list(request):
         seen_names.add(u.username.lower())
         seen_names.add(display_name.lower())
 
-        rooms_count = SharedListMember.objects.filter(guest_name__iexact=u.username).values('shared_list').distinct().count()
-        votes_count = SharedListVote.objects.filter(voter_name__iexact=u.username).count()
+        rooms_count = SharedListMember.objects.filter(
+            Q(guest_name__iexact=u.username) | Q(guest_name__iexact=display_name)
+        ).values('shared_list').distinct().count()
+        votes_count = SharedListVote.objects.filter(
+            Q(voter_name__iexact=u.username) | Q(voter_name__iexact=display_name)
+        ).count() + UserAnimeEntry.objects.filter(user=u, score__isnull=False).count()
 
         users_data.append({
             'id': user_id,
             'name': display_name,
             'username': f"@{u.username}",
-            'email': u.email or f"{u.username.lower()}@animigos.app",
-            'avatar_url': (profile.avatar_url if profile and profile.avatar_url else f"https://api.dicebear.com/7.x/bottts/svg?seed={u.username}"),
+            'email': u.email or '',
+            'avatar_url': (profile.avatar_url if profile and profile.avatar_url else ''),
             'role': 'owner' if is_admin else 'member',
             'user_type': 'registered',
             'status': mod_status,
-            'warnings': 0,
-            'reason': 'Administrador del sistema' if is_admin else 'Usuario registrado',
-            'rooms_count': max(rooms_count, 1 if is_admin else 0),
-            'votes_count': max(votes_count, 2 if is_admin else 0),
+            'warnings': warnings_count,
+            'reason': mod_info.get('reason', ''),
+            'rooms_count': rooms_count,
+            'votes_count': votes_count,
             'joined_at': u.date_joined.strftime('%Y-%m-%d %H:%M'),
-            'last_activity': 'En línea' if u.is_active else 'Inactivo'
+            'last_activity': u.last_login.strftime('%Y-%m-%d %H:%M') if u.last_login else u.date_joined.strftime('%Y-%m-%d %H:%M')
         })
 
     # 2. Miembros e invitados de salas
@@ -903,17 +1056,14 @@ def admin_users_list(request):
         user_id = str(m.id)
         is_owner = m.role == 'owner'
         user_type = 'registered' if is_owner else 'guest'
-        
-        # Estado de moderación
-        mod_info = MODERATION_STORE.get(user_id, MODERATION_STORE.get(f"{name.lower()}-mod", {'status': 'active', 'warnings': 0, 'reason': ''}))
+
+        mod_info = MODERATION_STORE.get(user_id, {'status': 'active', 'warnings': 0, 'reason': ''})
         mod_status = mod_info.get('status', 'active')
         warnings_count = mod_info.get('warnings', 0)
 
-        # Contar salas y votos
         rooms_count = SharedListMember.objects.filter(guest_name=name).values('shared_list').distinct().count()
         votes_count = SharedListVote.objects.filter(voter_name=name).count()
-        
-        # Filtros
+
         if q:
             match = q in name.lower() or q in m.role.lower() or q in user_type.lower()
             if not match:
@@ -934,17 +1084,17 @@ def admin_users_list(request):
             'id': user_id,
             'name': name,
             'username': f"@{name.lower().replace(' ', '_')}",
-            'email': f"{name.lower().replace(' ', '.')[:12]}@animigos.app" if is_owner else f"guest_{user_id[:6]}@animigos.temp",
-            'avatar_url': f"https://api.dicebear.com/7.x/bottts/svg?seed={name}",
+            'email': '',
+            'avatar_url': '',
             'role': m.role,
             'user_type': user_type,
             'status': mod_status,
             'warnings': warnings_count,
             'reason': mod_info.get('reason', ''),
-            'rooms_count': max(1, rooms_count),
-            'votes_count': max(votes_count, 2 if is_owner else 1),
+            'rooms_count': rooms_count,
+            'votes_count': votes_count,
             'joined_at': m.joined_at.strftime('%Y-%m-%d %H:%M'),
-            'last_activity': 'Hace 15 min' if is_owner else 'Hace 2 horas'
+            'last_activity': m.last_active_at.strftime('%Y-%m-%d %H:%M') if m.last_active_at else m.joined_at.strftime('%Y-%m-%d %H:%M')
         })
 
     return Response({

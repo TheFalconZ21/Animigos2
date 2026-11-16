@@ -13,6 +13,7 @@ import { Calendario } from './components/calendario/Calendario'
 import { PerfilView } from './components/perfil/PerfilView'
 import { RecomendadorView } from './components/recomendador/RecomendadorView'
 import { TemporadasView } from './components/temporadas/TemporadasView'
+import type { ProfileSubView } from './components/perfil/perfil-types'
 import { useThemeAccent } from './hooks/useThemeAccent'
 import { useAuth } from './context/AuthContext'
 import { useCatExpression } from './hooks/useCatExpression'
@@ -30,6 +31,7 @@ function App() {
 
   const isAdmin = Boolean(isAuthenticated && (user?.is_staff || user?.is_superuser))
   const [currentView, setCurrentView] = useState<PlatformView>('landing')
+  const [profileSubView, setProfileSubView] = useState<ProfileSubView | null>(null)
   const [visitedUsername, setVisitedUsername] = useState<string | undefined>(undefined)
   const [selectedAnimeId, setSelectedAnimeId] = useState<number | null>(null)
   const [catalogSearchQuery, setCatalogSearchQuery] = useState('')
@@ -320,7 +322,11 @@ function App() {
       case 'perfil':
         return (
           <div className="py-2">
-            <PerfilView visitedUsername={visitedUsername} />
+            <PerfilView
+              visitedUsername={visitedUsername}
+              activeSubView={profileSubView}
+              onChangeSubView={setProfileSubView}
+            />
           </div>
         )
       default:
@@ -333,6 +339,7 @@ function App() {
       <PlatformSidebar
         currentView={currentView}
         onSelectView={(v) => {
+          setProfileSubView(null)
           if (v === 'landing') {
             window.location.hash = ''
             setCurrentView('landing')
@@ -348,12 +355,18 @@ function App() {
       <div className="platform-main flex-grow-1 d-flex flex-column min-vh-100" style={{ minWidth: 0, width: '100%' }}>
         <Navbar
           currentView={currentView}
-          onSelectView={setCurrentView}
+          onSelectView={(v) => {
+            if (v !== 'perfil') setProfileSubView(null)
+            setCurrentView(v)
+          }}
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
           showSidebarToggle={true}
           onSelectAnime={handleSelectAnime}
           onGlobalSearch={handleGlobalSearch}
+          profileSubView={currentView === 'perfil' ? profileSubView : null}
+          onBackFromProfileSubView={() => setProfileSubView(null)}
+          profileUsername={visitedUsername || user?.username || 'usuario'}
         />
         <main className="flex-grow-1" style={{ minWidth: 0 }}>
           {renderPlatformContent()}

@@ -8,7 +8,8 @@ import {
     Bookmark,
     ChevronLeft,
     History,
-    CalendarCheck
+    CalendarCheck,
+    LogIn,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { AnimigosLogo } from './AnimigosLogo'
@@ -43,6 +44,7 @@ interface NavItemConfig {
     badge?: string
     badgeColor?: string
     requiresAuth?: boolean
+    description?: string
 }
 
 export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
@@ -76,7 +78,8 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     label: 'Tablón Social',
                     icon: <LayoutDashboard size={17} />,
                     hash: 'tablon',
-                    requiresAuth: true
+                    requiresAuth: true,
+                    description: 'Feed de amigos, noticias y watch parties'
                 },
                 {
                     id: 'calendario',
@@ -84,7 +87,8 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     icon: <Calendar size={17} />,
                     hash: 'calendario',
                     badge: 'Semanal',
-                    badgeColor: 'rgba(59, 130, 246, 0.2)'
+                    badgeColor: 'rgba(59, 130, 246, 0.25)',
+                    description: 'Horarios de emisión y estrenos semanales'
                 },
                 {
                     id: 'agenda' as PlatformView,
@@ -93,7 +97,8 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     hash: 'agenda',
                     badge: 'Pendientes',
                     badgeColor: 'rgba(245, 158, 11, 0.25)',
-                    requiresAuth: true
+                    requiresAuth: true,
+                    description: 'Seguimiento de capítulos pendientes'
                 },
                 {
                     id: 'sala',
@@ -101,18 +106,20 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     icon: <Users size={17} />,
                     hash: 'listas',
                     badge: 'En vivo',
-                    badgeColor: 'rgba(16, 185, 129, 0.2)'
+                    badgeColor: 'rgba(16, 185, 129, 0.25)',
+                    description: 'Votación por consenso y watch parties'
                 }
             ]
         },
         {
-            category: 'Repertorio de Animes',
+            category: 'Repertorio & Descubrimiento',
             items: [
                 {
                     id: 'catalogo',
                     label: 'Catálogo',
                     icon: <Film size={17} />,
-                    hash: 'catalogo'
+                    hash: 'catalogo',
+                    description: '26,878 series y películas indexadas'
                 },
                 {
                     id: 'recomendador',
@@ -120,7 +127,8 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     icon: <Sparkles size={17} />,
                     hash: 'recomendador',
                     badge: 'IA',
-                    badgeColor: 'rgba(168, 85, 247, 0.2)'
+                    badgeColor: 'rgba(168, 85, 247, 0.25)',
+                    description: 'Recomendaciones inteligentes y calibración'
                 },
                 {
                     id: 'temporadas',
@@ -128,7 +136,8 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     icon: <History size={17} />,
                     hash: 'temporadas',
                     badge: 'Timeline',
-                    badgeColor: 'color-mix(in srgb, var(--theme-acento, #e8508f) 22%, transparent)'
+                    badgeColor: 'color-mix(in srgb, var(--theme-acento, #e8508f) 22%, transparent)',
+                    description: 'Estaciones del año y línea temporal'
                 }
             ]
         },
@@ -142,7 +151,8 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                               label: 'Mi Lista',
                               icon: <Bookmark size={17} />,
                               hash: 'mi-lista',
-                              requiresAuth: true
+                              requiresAuth: true,
+                              description: 'Seguimiento personal y notas de animes'
                           }
                       ]
                   }
@@ -152,44 +162,72 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
 
     return (
         <aside
-            className={`platform-sidebar ${isCollapsed ? 'collapsed' : ''}`}
-            aria-hidden={isCollapsed}
+            className={`admin-sidebar platform-sidebar ${isCollapsed ? 'collapsed' : ''}`}
+            aria-label="Barra lateral de navegación"
         >
-            {/* Header: Marca Animigos completa y botón de cierre */}
-            <div className="platform-sidebar-header">
-                <a
-                    href="#landing"
-                    onClick={(e) => {
-                        e.preventDefault()
-                        window.location.hash = ''
-                        onSelectView('landing')
-                    }}
-                    onMouseEnter={() => setExpression('happy')}
-                    onMouseLeave={() => setExpression('normal')}
-                    className="platform-sidebar-logo-link"
-                    title="Animigos — Inicio"
-                >
-                    <AnimigosLogo size="sm" showText={true} />
-                </a>
+            {/* Header: Idéntico al del Panel Admin */}
+            <div className="admin-sidebar-header">
+                {!isCollapsed ? (
+                    <div className="d-flex align-items-center gap-2.5 overflow-hidden">
+                        <a
+                            href="#landing"
+                            onClick={(e) => {
+                                e.preventDefault()
+                                window.location.hash = ''
+                                onSelectView('landing')
+                            }}
+                            onMouseEnter={() => setExpression('happy')}
+                            onMouseLeave={() => setExpression('normal')}
+                            className="platform-sidebar-logo-link"
+                            title="Animigos — Inicio"
+                        >
+                            <AnimigosLogo size="sm" showText={true} />
+                        </a>
+                    </div>
+                ) : (
+                    <div className="mx-auto d-flex align-items-center justify-content-center">
+                        <a
+                            href="#landing"
+                            onClick={(e) => {
+                                e.preventDefault()
+                                window.location.hash = ''
+                                onSelectView('landing')
+                            }}
+                            onMouseEnter={() => setExpression('happy')}
+                            onMouseLeave={() => setExpression('normal')}
+                            className="platform-sidebar-logo-link"
+                            title="Animigos — Inicio"
+                        >
+                            <AnimigosLogo size="sm" showText={false} />
+                        </a>
+                    </div>
+                )}
 
                 <button
                     type="button"
                     onClick={onToggleCollapse}
-                    className="platform-sidebar-toggle-btn"
-                    title="Cerrar barra lateral"
-                    aria-label="Cerrar sidebar"
+                    className="admin-btn admin-btn-secondary d-flex align-items-center justify-content-center"
+                    style={{ width: 26, height: 26, padding: 0, flexShrink: 0 }}
+                    title={isCollapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
+                    aria-label={isCollapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
                 >
-                    <ChevronLeft size={16} />
+                    {!isCollapsed && (
+                        <ChevronLeft size={15} style={{ stroke: 'rgba(255, 255, 255, 0.85)' }} />
+                    )}
                 </button>
             </div>
 
             {/* Navegación Principal */}
             <nav className="platform-sidebar-nav custom-scrollbar">
-                {navSections.map((sec) => (
+                {navSections.map((sec, sIdx) => (
                     <div key={sec.category} className="mb-2">
-                        <div className="platform-sidebar-section-title">
-                            {sec.category}
-                        </div>
+                        {!isCollapsed ? (
+                            <div className="platform-sidebar-section-title">
+                                {sec.category}
+                            </div>
+                        ) : (
+                            sIdx > 0 && <div className="platform-sidebar-section-divider" />
+                        )}
                         <div className="d-flex flex-column gap-1">
                             {sec.items.map((it) => {
                                 const isActive = currentView === it.id
@@ -199,23 +237,28 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                                         type="button"
                                         onClick={() => handleItemClick(it)}
                                         className={`platform-sidebar-item ${isActive ? 'active' : ''}`}
+                                        title={isCollapsed ? `${it.label}${it.description ? ` — ${it.description}` : ''}` : undefined}
                                     >
                                         <span className="platform-sidebar-icon">
                                             {it.icon}
                                         </span>
-                                        <span className="platform-sidebar-label">
-                                            {it.label}
-                                        </span>
-                                        {it.badge && (
-                                            <span
-                                                className="platform-sidebar-badge"
-                                                style={{
-                                                    backgroundColor: it.badgeColor || 'rgba(255, 255, 255, 0.1)',
-                                                    color: '#ffffff'
-                                                }}
-                                            >
-                                                {it.badge}
-                                            </span>
+                                        {!isCollapsed && (
+                                            <div className="d-flex align-items-center justify-content-between w-100 overflow-hidden">
+                                                <span className="platform-sidebar-label text-truncate">
+                                                    {it.label}
+                                                </span>
+                                                {it.badge && (
+                                                    <span
+                                                        className="platform-sidebar-badge"
+                                                        style={{
+                                                            backgroundColor: it.badgeColor || 'rgba(255, 255, 255, 0.1)',
+                                                            color: '#ffffff'
+                                                        }}
+                                                    >
+                                                        {it.badge}
+                                                    </span>
+                                                )}
+                                            </div>
                                         )}
                                     </button>
                                 )
@@ -224,6 +267,38 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     </div>
                 ))}
             </nav>
+
+            {/* Footer del Sidebar: Solo visible para usuarios no autenticados */}
+            {!isAuthenticated && (
+                <div className="platform-sidebar-footer">
+                    {!isCollapsed ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                                dialog?.showModal()
+                            }}
+                            className="platform-sidebar-login-btn w-100"
+                            title="Iniciar Sesión en Animigos"
+                        >
+                            <LogIn size={15} />
+                            <span>Iniciar Sesión</span>
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                                dialog?.showModal()
+                            }}
+                            className="platform-sidebar-login-btn-mini"
+                            title="Iniciar Sesión en Animigos"
+                        >
+                            <LogIn size={16} />
+                        </button>
+                    )}
+                </div>
+            )}
         </aside>
     )
 }

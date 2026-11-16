@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
 import {
     Clock,
-    CheckCircle,
     Bookmark,
     Heart,
     Layers,
@@ -14,47 +13,119 @@ import {
     Gem,
     ChevronDown,
     ChevronUp,
+    ChevronRight,
     ArrowUpDown,
     LayoutGrid,
+    Compass,
+    Tag,
+    Search,
+    Calendar,
 } from 'lucide-react'
 import type { FilaLista } from '../mi-lista/mi-lista-data'
 import { ESCALA_NOTAS } from '../mi-lista/mi-lista-data'
 import { AnimeDetalleDialog } from '../mi-lista/AnimeDetalleDialog'
+import { TasteCorrelationGraph } from '../recomendador/TasteCorrelationGraph'
+import type { TasteAnalyticsResponse } from '../../services/recommenderApi'
+import type { ProfileSubView, ProfileTimeRange } from './perfil-types'
 
 interface AnimeStatsDashboardProps {
     filas: FilaLista[]
+    activeSubView?: ProfileSubView | null
+    onSelectSubView?: (view: ProfileSubView | null) => void
     showStats?: boolean
     canViewList?: boolean
     onViewList?: () => void
     readOnly?: boolean
     onUpdateFila?: (id: string, updates: any) => void
+    tasteAnalytics?: TasteAnalyticsResponse | null
+    loadingAnalytics?: boolean
+    accentColor?: string
 }
 
 type GenreSortField = 'count' | 'meanScore' | 'minutes' | 'weighted'
 type ContrastTab = 'hated_enjoyed' | 'loved_didnt' | 'hidden_gems' | 'all'
 
+const TREND_COLORS = ['#38bdf8', '#f43f5e', '#34d399', '#fbbf24', '#a78bfa']
+
+const TIME_RANGE_LABELS: Record<ProfileTimeRange, string> = {
+    '7d': 'Últimos 7 días',
+    '30d': 'Último mes',
+    '1y': 'Último año',
+    all: 'All time',
+}
+
+function getEntryMinutes(f: FilaLista): number {
+    const epDuration = f.anime.durationMinutes && f.anime.durationMinutes > 0 ? f.anime.durationMinutes : 24
+    const eps =
+        f.estado === 'visto'
+            ? f.anime.episodes || f.episodiosVistos || 12
+            : f.episodiosVistos || (f.estado === 'viendo' ? 1 : 0)
+    return eps * epDuration
+}
+
+function getEntryWatchedEpisodes(f: FilaLista): number {
+    if (f.estado === 'visto') {
+        return f.anime.episodes || f.episodiosVistos || 12
+    }
+    return f.episodiosVistos || (f.estado === 'viendo' ? 1 : 0)
+}
+
+function filterFilasByTimeRange(filas: FilaLista[], range: ProfileTimeRange): FilaLista[] {
+    if (range === 'all') return filas
+    const now = Date.now()
+    const daysMap: Record<Exclude<ProfileTimeRange, 'all'>, number> = {
+        '7d': 7,
+        '30d': 30,
+        '1y': 365,
+    }
+    const cutoff = now - daysMap[range] * 24 * 60 * 60 * 1000
+    const filtered = filas.filter((f) => {
+        const rawDate = f.updatedAt || f.createdAt
+        if (!rawDate) return true
+        const ts = new Date(rawDate).getTime()
+        return !isNaN(ts) && ts >= cutoff
+    })
+    return filtered
+}
+
 export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
     filas,
+    activeSubView = null,
+    onSelectSubView,
     showStats = true,
     canViewList = true,
     onViewList,
     readOnly = false,
     onUpdateFila,
+    tasteAnalytics = null,
+    loadingAnalytics = false,
+    accentColor = '#a78bfa',
 }) => {
     const [selectedAnime, setSelectedAnime] = useState<FilaLista | null>(null)
     const favGridRef = useRef<HTMLDivElement | null>(null)
     const [totalRowSlots, setTotalRowSlots] = useState<number>(8)
 
-    // Interacción para Distribución de Notas (tooltip hover en filas 10..1)
-    const [hoveredScoreRow, setHoveredScoreRow] = useState<number | null>(null)
+    // Estado para Subvista 1: Tiempo de Anime Visto
+    const [timeRangeWatched, setTimeRangeWatched] = useState<ProfileTimeRange>('all')
+    const [selectedTimeGenre, setSelectedTimeGenre] = useState<string | null>(null)
 
-    // Interacción para Tabla de Géneros (ordenamiento y expansión)
+    // Estado para Subvista 2: Cantidad de Animes en Lista (Estados, % Géneros, % Tags)
+    const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'visto' | 'viendo' | 'pendiente' | 'dropeado'>('all')
     const [genreSortBy, setGenreSortBy] = useState<GenreSortField>('count')
     const [genreSortDesc, setGenreSortDesc] = useState<boolean>(true)
     const [expandAllGenres, setExpandAllGenres] = useState<boolean>(false)
+    const [tagSearchQuery, setTagSearchQuery] = useState<string>('')
+    const [expandAllTags, setExpandAllTags] = useState<boolean>(false)
 
-    // Interacción para Vitrina de Contrastes y Joyas Ocultas
+    // Estado para Subvista 3: Nota Media (Histograma + Contrastes)
+    const [hoveredScoreRow, setHoveredScoreRow] = useState<number | null>(null)
+    const [selectedScoreFilter, setSelectedScoreFilter] = useState<number | null>(null)
     const [activeContrastTab, setActiveContrastTab] = useState<ContrastTab>('hated_enjoyed')
+
+    // Estado para Subvista 4: Género Favorito (Tendencias Temporales + Sinergia)
+    const [trendTimeRange, setTrendTimeRange] = useState<ProfileTimeRange>('all')
+    const [selectedTrendBucketIdx, setSelectedTrendBucketIdx] = useState<number | null>(null)
+    const [hiddenTrendGenres, setHiddenTrendGenres] = useState<string[]>([])
 
     useEffect(() => {
         const el = favGridRef.current
@@ -79,29 +150,22 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             observer.observe(el)
             return () => observer.disconnect()
         }
-    }, [showStats])
+    }, [showStats, activeSubView])
 
-    // 1. Cálculos integrales: Métricas, Distribución de Notas (10..1), Géneros y Contrastes
+    // =========================================================================
+    // 1. CÁLCULOS GENERALES E INTEGRALES DE LA COLECCIÓN
+    // =========================================================================
     const stats = useMemo(() => {
         const totalEntries = filas.length
         const vistos = filas.filter((f) => f.estado === 'visto').length
         const viendo = filas.filter((f) => f.estado === 'viendo').length
         const pendientes = filas.filter((f) => f.estado === 'pendiente').length
-        const dropeados = filas.filter((f) => (f as any).estado === 'dropeado').length
-
-        // Minutos calculados: usa duración real del anime si existe (default 24 min)
-        const getEntryMinutes = (f: FilaLista) => {
-            const epDuration = f.anime.durationMinutes && f.anime.durationMinutes > 0 ? f.anime.durationMinutes : 24
-            const eps =
-                f.estado === 'visto'
-                    ? f.anime.episodes || f.episodiosVistos || 12
-                    : f.episodiosVistos || (f.estado === 'viendo' ? 1 : 0)
-            return eps * epDuration
-        }
+        const dropeados = filas.filter((f) => f.estado === 'dropeado').length
 
         const totalMinutos = filas.reduce((acc, f) => acc + getEntryMinutes(f), 0)
         const totalHoras = Math.round(totalMinutos / 60)
         const totalDias = (totalMinutos / (60 * 24)).toFixed(1)
+        const totalEpisodesWatched = filas.reduce((acc, f) => acc + getEntryWatchedEpisodes(f), 0)
 
         // Notas personales otorgadas (1..10)
         const scoredEntries = filas.filter((f) => typeof f.nota === 'number' && f.nota >= 1 && f.nota <= 10)
@@ -113,7 +177,6 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                 ? ESCALA_NOTAS[Math.round(notaMedia)] || 'Sin calificación'
                 : 'Sin calificaciones'
 
-        // Desviación estándar de las notas (Std Dev)
         const variance =
             totalScored > 0
                 ? notas.reduce((acc, n) => acc + Math.pow(n - notaMedia, 2), 0) / totalScored
@@ -126,7 +189,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             const cVisto = matching.filter((f) => f.estado === 'visto').length
             const cViendo = matching.filter((f) => f.estado === 'viendo').length
             const cPendiente = matching.filter((f) => f.estado === 'pendiente').length
-            const cDropeado = matching.filter((f) => (f as any).estado === 'dropeado').length
+            const cDropeado = matching.filter((f) => f.estado === 'dropeado').length
             const count = matching.length
             const pctOfScored = totalScored > 0 ? Math.round((count / totalScored) * 100) : 0
             return {
@@ -138,25 +201,26 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                 viendo: cViendo,
                 pendiente: cPendiente,
                 dropeado: cDropeado,
+                items: matching,
             }
         })
         const maxScoreRowCount = Math.max(1, ...scoreRows.map((r) => r.count))
 
-        // Porcentajes para barra segmentada de estados
         const pctVisto = totalEntries > 0 ? (vistos / totalEntries) * 100 : 0
         const pctViendo = totalEntries > 0 ? (viendo / totalEntries) * 100 : 0
         const pctPendiente = totalEntries > 0 ? (pendientes / totalEntries) * 100 : 0
         const pctDropeado = totalEntries > 0 ? (dropeados / totalEntries) * 100 : 0
 
-        // Animes Favoritos
-        const favsMarcados = filas.filter((f) => f.favorito)
+        // Hall of Fame: Animes marcados como favoritos ordenados por la nota más alta
+        const favsMarcados = [...filas]
+            .filter((f) => f.favorito)
+            .sort((a, b) => (b.nota ?? b.anime.score ?? 0) - (a.nota ?? a.anime.score ?? 0))
         const restantes = [...filas]
             .filter((f) => !f.favorito)
             .sort((a, b) => (b.nota ?? b.anime.score ?? 0) - (a.nota ?? a.anime.score ?? 0))
         const top10 = [...favsMarcados, ...restantes].slice(0, 10)
 
-        // Contrastes con la Comunidad y Joyas Ocultas:
-        // 1) "Gustaron personalmente, pero a la mayoría no" (They hated it, I enjoyed it)
+        // Contrastes con la Comunidad y Joyas Ocultas
         const theyHatedIEnjoyed = [...filas]
             .filter((f) => {
                 const uScore = f.nota ?? (f.favorito ? 8.5 : null)
@@ -171,7 +235,6 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             })
             .slice(0, 12)
 
-        // 2) "A la mayoría les gustó, pero personalmente no" (They loved it, I didn't)
         const theyLovedIDidnt = [...filas]
             .filter((f) => {
                 if (typeof f.nota !== 'number' || f.nota <= 0) return false
@@ -185,7 +248,6 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             })
             .slice(0, 12)
 
-        // 3) "Animes poco populares que personalmente gustaron" (Hidden Gems)
         const hiddenGems = [...filas]
             .filter((f) => {
                 const uScore = f.nota ?? (f.favorito ? 9 : null)
@@ -199,7 +261,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             })
             .slice(0, 12)
 
-        // 4) Estadísticas por Género (Cantidad, % del total, Nota Media, Tiempo Visto, Ponderada)
+        // Estadísticas por Género
         const genreMap = new Map<
             string,
             {
@@ -207,20 +269,32 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                 count: number
                 scores: number[]
                 minutes: number
+                episodes: number
+                animes: Array<{ fila: FilaLista; minutes: number; episodes: number }>
             }
         >()
 
         for (const f of filas) {
             const genresList = Array.isArray(f.anime.genres) && f.anime.genres.length > 0 ? f.anime.genres : ['General']
             const entryMins = getEntryMinutes(f)
+            const entryEps = getEntryWatchedEpisodes(f)
             const effectiveScore = typeof f.nota === 'number' && f.nota > 0 ? f.nota : f.anime.score || null
 
             for (const rawG of genresList) {
                 const g = String(rawG).trim()
                 if (!g) continue
-                const prev = genreMap.get(g) || { genre: g, count: 0, scores: [], minutes: 0 }
+                const prev = genreMap.get(g) || {
+                    genre: g,
+                    count: 0,
+                    scores: [],
+                    minutes: 0,
+                    episodes: 0,
+                    animes: [],
+                }
                 prev.count += 1
                 prev.minutes += entryMins
+                prev.episodes += entryEps
+                prev.animes.push({ fila: f, minutes: entryMins, episodes: entryEps })
                 if (typeof effectiveScore === 'number' && effectiveScore > 0) {
                     prev.scores.push(effectiveScore)
                 }
@@ -247,11 +321,94 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                 pctOfList,
                 meanScore: gMean,
                 minutes: item.minutes,
+                episodes: item.episodes,
                 days,
                 hours,
                 weighted,
+                animes: item.animes.sort((a, b) => b.minutes - a.minutes),
             }
         })
+
+        // Género favorito (mayor presencia combinada con ponderación)
+        const sortedByFavorite = [...genreStats].sort(
+            (a, b) => b.count * b.weighted - a.count * a.weighted
+        )
+        const favoriteGenre = sortedByFavorite[0] || {
+            genre: 'Sin definir',
+            count: 0,
+            pctOfList: 0,
+            meanScore: 0,
+            minutes: 0,
+            episodes: 0,
+            days: 0,
+            hours: 0,
+            weighted: 0,
+            animes: [],
+        }
+
+        // Estadísticas de Tags (% de la lista)
+        const tagMap = new Map<
+            string,
+            {
+                name: string
+                category: string
+                count: number
+                scores: number[]
+            }
+        >()
+
+        for (const f of filas) {
+            const effectiveScore = typeof f.nota === 'number' && f.nota > 0 ? f.nota : f.anime.score || null
+            const seenInAnime = new Set<string>()
+
+            for (const td of f.anime.tagsData || []) {
+                if (!td?.name || td.spoiler) continue
+                const tName = td.name.trim()
+                if (!tName || seenInAnime.has(tName.toLowerCase())) continue
+                seenInAnime.add(tName.toLowerCase())
+                const prev = tagMap.get(tName) || {
+                    name: tName,
+                    category: td.category || 'Theme',
+                    count: 0,
+                    scores: [],
+                }
+                prev.count += 1
+                if (typeof effectiveScore === 'number' && effectiveScore > 0) {
+                    prev.scores.push(effectiveScore)
+                }
+                tagMap.set(tName, prev)
+            }
+
+            for (const customTag of f.tags || []) {
+                const clean = customTag.replace(/^#/, '').trim()
+                if (!clean || seenInAnime.has(clean.toLowerCase())) continue
+                seenInAnime.add(clean.toLowerCase())
+                const prev = tagMap.get(clean) || {
+                    name: clean,
+                    category: 'Personal',
+                    count: 0,
+                    scores: [],
+                }
+                prev.count += 1
+                if (typeof effectiveScore === 'number' && effectiveScore > 0) {
+                    prev.scores.push(effectiveScore)
+                }
+                tagMap.set(clean, prev)
+            }
+        }
+
+        const tagStats = Array.from(tagMap.values())
+            .map((t) => ({
+                name: t.name,
+                category: t.category,
+                count: t.count,
+                pctOfList: totalEntries > 0 ? Math.round((t.count / totalEntries) * 100) : 0,
+                meanScore:
+                    t.scores.length > 0
+                        ? t.scores.reduce((a, b) => a + b, 0) / t.scores.length
+                        : globalMeanRef,
+            }))
+            .sort((a, b) => b.count - a.count || b.meanScore - a.meanScore)
 
         return {
             totalEntries,
@@ -262,6 +419,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             totalMinutos,
             totalHoras,
             totalDias,
+            totalEpisodesWatched,
             totalScored,
             notaMedia,
             notaEscala,
@@ -277,8 +435,177 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             theyLovedIDidnt,
             hiddenGems,
             genreStats,
+            favoriteGenre,
+            tagStats,
         }
     }, [filas])
+
+    // =========================================================================
+    // 2. CÁLCULO DE TIEMPO CONSUMIDO POR GÉNERO SEGÚN VENTANA TEMPORAL (SUBVISTA 1)
+    // =========================================================================
+    const timeWatchedByGenreData = useMemo(() => {
+        const rangeFilas = filterFilasByTimeRange(
+            filas.filter((f) => f.estado === 'visto' || f.estado === 'viendo' || f.episodiosVistos > 0),
+            timeRangeWatched
+        )
+        const totalMins = rangeFilas.reduce((acc, f) => acc + getEntryMinutes(f), 0)
+        const totalEps = rangeFilas.reduce((acc, f) => acc + getEntryWatchedEpisodes(f), 0)
+
+        const gMap = new Map<
+            string,
+            {
+                genre: string
+                minutes: number
+                episodes: number
+                count: number
+                animes: Array<{ fila: FilaLista; minutes: number; episodes: number }>
+            }
+        >()
+
+        for (const f of rangeFilas) {
+            const mins = getEntryMinutes(f)
+            if (mins <= 0) continue
+            const eps = getEntryWatchedEpisodes(f)
+            const gList = Array.isArray(f.anime.genres) && f.anime.genres.length > 0 ? f.anime.genres : ['General']
+
+            for (const rawG of gList) {
+                const g = String(rawG).trim()
+                if (!g) continue
+                const prev = gMap.get(g) || { genre: g, minutes: 0, episodes: 0, count: 0, animes: [] }
+                prev.minutes += mins
+                prev.episodes += eps
+                prev.count += 1
+                prev.animes.push({ fila: f, minutes: mins, episodes: eps })
+                gMap.set(g, prev)
+            }
+        }
+
+        const genres = Array.from(gMap.values())
+            .sort((a, b) => b.minutes - a.minutes)
+            .map((item) => ({
+                ...item,
+                hours: Number((item.minutes / 60).toFixed(1)),
+                days: Number((item.minutes / (60 * 24)).toFixed(1)),
+                pctOfTime: totalMins > 0 ? Math.min(100, Math.round((item.minutes / totalMins) * 100)) : 0,
+                animes: item.animes.sort((a, b) => b.minutes - a.minutes),
+            }))
+
+        const maxGenreMinutes = Math.max(1, ...genres.map((g) => g.minutes))
+
+        return {
+            totalMinutes: totalMins,
+            totalHours: Math.round(totalMins / 60),
+            totalDays: (totalMins / (60 * 24)).toFixed(1),
+            totalEpisodes: totalEps,
+            totalAnimes: rangeFilas.length,
+            genres,
+            maxGenreMinutes,
+        }
+    }, [filas, timeRangeWatched])
+
+    const activeTimeGenreObj = useMemo(() => {
+        if (timeWatchedByGenreData.genres.length === 0) return null
+        if (selectedTimeGenre) {
+            const found = timeWatchedByGenreData.genres.find((g) => g.genre === selectedTimeGenre)
+            if (found) return found
+        }
+        return timeWatchedByGenreData.genres[0]
+    }, [timeWatchedByGenreData.genres, selectedTimeGenre])
+
+    // =========================================================================
+    // 3. CÁLCULO DE TENDENCIAS TEMPORALES DE GÉNEROS (SUBVISTA 4)
+    // =========================================================================
+    const genreTrendsData = useMemo(() => {
+        const rangeFilas = filterFilasByTimeRange(
+            filas.filter((f) => f.estado !== 'pendiente'),
+            trendTimeRange
+        )
+        const baseList = rangeFilas.length > 0 ? rangeFilas : filas
+
+        // Determinar los Top 4 géneros o temáticas principales del usuario
+        const topGenreNames = [...stats.genreStats]
+            .sort((a, b) => b.minutes - a.minutes || b.count - a.count)
+            .slice(0, 4)
+            .map((g) => g.genre)
+
+        // Ordenar entradas cronológicamente por fecha de creación/actualización o año de estreno
+        const sortedEntries = [...baseList].sort((a, b) => {
+            const tA = a.createdAt || a.updatedAt ? new Date(a.createdAt || a.updatedAt || '').getTime() : 0
+            const tB = b.createdAt || b.updatedAt ? new Date(b.createdAt || b.updatedAt || '').getTime() : 0
+            if (tA && tB && Math.abs(tA - tB) > 60000) return tA - tB
+            return (a.anime.year || 2015) - (b.anime.year || 2015)
+        })
+
+        const bucketLabelsByRange: Record<ProfileTimeRange, string[]> = {
+            '7d': ['Día -6', 'Día -4', 'Día -2', 'Ayer', 'Hoy'],
+            '30d': ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Actual'],
+            '1y': ['Trimestre 1', 'Trimestre 2', 'Trimestre 3', 'Trimestre 4', 'Actual'],
+            all: ['Etapa Inicial', 'Consolidación', 'Exploración', 'Etapa Reciente', 'Actualidad'],
+        }
+        const labels = bucketLabelsByRange[trendTimeRange]
+        const numBuckets = labels.length
+
+        const buckets = labels.map((label, bIdx) => {
+            const startIdx = Math.floor((bIdx / numBuckets) * sortedEntries.length)
+            const endIdx = Math.max(startIdx + 1, Math.floor(((bIdx + 1) / numBuckets) * sortedEntries.length))
+            const slice = sortedEntries.length > 0 ? sortedEntries.slice(startIdx, endIdx) : []
+
+            const scoresByGenre: Record<string, number> = {}
+            const sliceMinutes = slice.reduce((acc, f) => acc + getEntryMinutes(f), 0)
+            const totalSliceMins = Math.max(1, sliceMinutes)
+
+            for (const gName of topGenreNames) {
+                const targetLower = gName.trim().toLowerCase()
+                const matching = slice.filter((f) => {
+                    const rawGenres = (f.anime.genres || []).map((g: any) =>
+                        typeof g === 'string' ? g : g?.name || ''
+                    )
+                    const rawTags = (f.anime.tagsData || []).map((t: any) =>
+                        typeof t === 'string' ? t : t?.name || ''
+                    )
+                    return (
+                        rawGenres.some((g: string) => g.trim().toLowerCase() === targetLower) ||
+                        rawTags.some((t: string) => t.trim().toLowerCase() === targetLower)
+                    )
+                })
+                const gMins = matching.reduce((acc, f) => acc + getEntryMinutes(f), 0)
+                // Si hay minutos medidos en el slice, usamos % de minutos; si no (ej. títulos recién añadidos), proporción por títulos
+                const sharePct =
+                    sliceMinutes > 0
+                        ? Math.min(100, Math.round((gMins / totalSliceMins) * 100))
+                        : slice.length > 0
+                        ? Math.min(100, Math.round((matching.length / slice.length) * 100))
+                        : 0
+                scoresByGenre[gName] = sharePct
+            }
+
+            return {
+                label,
+                animesInPeriod: slice,
+                scoresByGenre,
+            }
+        })
+
+        // Detectar evolución / transición entre el primer tramo y el tramo actual
+        let shiftSummary = 'Afinidad estable en los géneros principales del usuario.'
+        if (topGenreNames.length >= 2 && buckets.length >= 2) {
+            const firstB = buckets[0].scoresByGenre
+            const lastB = buckets[buckets.length - 1].scoresByGenre
+            const initialLeader = [...topGenreNames].sort((a, b) => (firstB[b] || 0) - (firstB[a] || 0))[0]
+            const currentLeader = [...topGenreNames].sort((a, b) => (lastB[b] || 0) - (lastB[a] || 0))[0]
+            if (initialLeader && currentLeader && initialLeader !== currentLeader) {
+                shiftSummary = `Transición detectada: históricamente lideraba ${initialLeader}, evolucionando recientemente hacia ${currentLeader}.`
+            } else if (currentLeader) {
+                shiftSummary = `Preferencia dominante sostenida en ${currentLeader} a lo largo del periodo seleccionado.`
+            }
+        }
+
+        return {
+            topGenreNames,
+            buckets,
+            shiftSummary,
+        }
+    }, [filas, stats.genreStats, trendTimeRange])
 
     const sortedGenres = useMemo(() => {
         const list = [...stats.genreStats]
@@ -295,6 +622,16 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
 
     const visibleGenres = expandAllGenres ? sortedGenres : sortedGenres.slice(0, 10)
 
+    const filteredTags = useMemo(() => {
+        const q = tagSearchQuery.trim().toLowerCase()
+        const base = q
+            ? stats.tagStats.filter(
+                  (t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
+              )
+            : stats.tagStats
+        return expandAllTags ? base : base.slice(0, 10)
+    }, [stats.tagStats, tagSearchQuery, expandAllTags])
+
     const handleToggleGenreSort = (field: GenreSortField) => {
         if (genreSortBy === field) {
             setGenreSortDesc((prev) => !prev)
@@ -304,8 +641,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         }
     }
 
-    // Gauge circular SVG (Radio 32, Circunferencia ~201)
-    const gaugeRadius = 32
+    const gaugeRadius = 28
     const circumference = 2 * Math.PI * gaugeRadius
     const gaugeOffset = circumference - (stats.notaMedia / 10) * circumference
 
@@ -371,7 +707,6 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                 )}
                             </div>
 
-                            {/* Pie de tarjeta idéntico a las referencias (Imágenes 2, 3 y 4) */}
                             <div className="perfil-contrast-meta-bar">
                                 {mode === 'hidden_gems' ? (
                                     <span
@@ -403,18 +738,1283 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         )
     }
 
+    const renderTimeRangeSwitcher = (
+        current: ProfileTimeRange,
+        onChange: (r: ProfileTimeRange) => void
+    ) => (
+        <div className="perfil-subview-switcher">
+            {(['7d', '30d', '1y', 'all'] as ProfileTimeRange[]).map((rk) => (
+                <button
+                    key={rk}
+                    type="button"
+                    onClick={() => onChange(rk)}
+                    className={`perfil-subview-pill ${current === rk ? 'is-active' : ''}`}
+                >
+                    <Calendar size={12} />
+                    <span>{TIME_RANGE_LABELS[rk]}</span>
+                </button>
+            ))}
+        </div>
+    )
+
+    // =========================================================================
+    // SUBVISTA 1: TIEMPO DE ANIME VISTO (GÉNEROS VS TIEMPO + PROFUNDIZACIÓN)
+    // =========================================================================
+    if (activeSubView === 'time-watched') {
+        return (
+            <div className="perfil-analytics-hub perfil-subview-enter">
+                <div className="perfil-breakdown-card mb-3">
+                    <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                        <div>
+                            <span className="ml-eyebrow">SUBVISTA DEDICADA · TIEMPO CONSUMIDO</span>
+                            <h3 className="h5 fw-bold text-white mb-0 d-flex align-items-center gap-2">
+                                <Clock size={18} style={{ color: 'var(--perfil-acento)' }} />
+                                <span>Tiempo de Anime Visto por Género</span>
+                            </h3>
+                            <p className="small text-secondary mb-0 mt-1">
+                                Haz clic en cualquier género de la gráfica para inspeccionar los animes que más tiempo te han consumido
+                            </p>
+                        </div>
+
+                        {renderTimeRangeSwitcher(timeRangeWatched, setTimeRangeWatched)}
+                    </div>
+
+                    {/* Resumen rápido del periodo seleccionado */}
+                    <div className="row g-3 mb-4">
+                        <div className="col-6 col-md-3">
+                            <div className="p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
+                                <div className="small text-secondary">Tiempo en Días</div>
+                                <div className="h4 fw-bold text-white mb-0 mt-1 font-mono" style={{ color: 'var(--perfil-acento)' }}>
+                                    {timeWatchedByGenreData.totalDays} d
+                                </div>
+                            </div>
+                        </div>
+                        <div className="col-6 col-md-3">
+                            <div className="p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
+                                <div className="small text-secondary">Horas Totales</div>
+                                <div className="h4 fw-bold text-white mb-0 mt-1 font-mono">
+                                    {timeWatchedByGenreData.totalHours.toLocaleString()} h
+                                </div>
+                            </div>
+                        </div>
+                        <div className="col-6 col-md-3">
+                            <div className="p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
+                                <div className="small text-secondary">Episodios Vistos</div>
+                                <div className="h4 fw-bold text-white mb-0 mt-1 font-mono" style={{ color: 'var(--perfil-cyan)' }}>
+                                    {timeWatchedByGenreData.totalEpisodes.toLocaleString()} eps
+                                </div>
+                            </div>
+                        </div>
+                        <div className="col-6 col-md-3">
+                            <div className="p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
+                                <div className="small text-secondary">Género con Más Horas</div>
+                                <div className="h5 fw-bold text-white mb-0 mt-1 text-truncate" style={{ color: 'var(--perfil-green)' }}>
+                                    {timeWatchedByGenreData.genres[0]?.genre || '—'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {timeWatchedByGenreData.genres.length === 0 ? (
+                        <div className="perfil-contrast-empty">
+                            <span>No hay registros de tiempo visto en el rango seleccionado ({TIME_RANGE_LABELS[timeRangeWatched]}).</span>
+                        </div>
+                    ) : (
+                        <div className="row g-4">
+                            {/* Columna Izquierda: Gráfica Comparativa de Géneros vs Tiempo Consumido */}
+                            <div className="col-12 col-lg-7">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <span className="small fw-bold text-white text-uppercase" style={{ letterSpacing: '0.05em', fontSize: '0.75rem' }}>
+                                        Comparativa de Géneros por Horas Consumidas
+                                    </span>
+                                    <span className="small text-secondary" style={{ fontSize: '0.73rem' }}>
+                                        Click en un género para profundizar →
+                                    </span>
+                                </div>
+
+                                <div className="d-flex flex-column gap-2.5">
+                                    {timeWatchedByGenreData.genres.slice(0, 10).map((g) => {
+                                        const isSelected = activeTimeGenreObj?.genre === g.genre
+                                        const barWidth = Math.max(6, Math.round((g.minutes / timeWatchedByGenreData.maxGenreMinutes) * 100))
+
+                                        return (
+                                            <div
+                                                key={g.genre}
+                                                onClick={() => setSelectedTimeGenre(g.genre)}
+                                                className={`perfil-interactive-genre-node ${isSelected ? 'is-selected' : ''}`}
+                                                role="button"
+                                                tabIndex={0}
+                                            >
+                                                <div className="d-flex align-items-center justify-content-between mb-1.5">
+                                                    <div className="d-flex align-items-center gap-2">
+                                                        <span className="fw-bold text-white" style={{ fontSize: '0.88rem' }}>
+                                                            {g.genre}
+                                                        </span>
+                                                        <span className="badge rounded-pill px-2 py-0.5 font-mono" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--perfil-text-muted)', fontSize: '0.68rem' }}>
+                                                            {g.count} {g.count === 1 ? 'anime' : 'animes'} · {g.episodes} eps
+                                                        </span>
+                                                    </div>
+                                                    <div className="d-flex align-items-center gap-2 font-mono">
+                                                        <strong className="text-white" style={{ fontSize: '0.9rem' }}>
+                                                            {g.hours} h
+                                                        </strong>
+                                                        <span style={{ color: 'var(--perfil-acento)', fontSize: '0.76rem' }}>
+                                                            ({g.days} d)
+                                                        </span>
+                                                        <ChevronRight size={14} style={{ color: isSelected ? 'var(--perfil-acento)' : 'var(--perfil-text-dim)' }} />
+                                                    </div>
+                                                </div>
+
+                                                <div className="w-100 rounded-pill overflow-hidden" style={{ height: 8, background: 'rgba(255,255,255,0.06)' }}>
+                                                    <div
+                                                        style={{
+                                                            width: `${barWidth}%`,
+                                                            height: '100%',
+                                                            background: isSelected
+                                                                ? 'linear-gradient(90deg, var(--perfil-acento), var(--perfil-cyan))'
+                                                                : 'var(--perfil-acento)',
+                                                            borderRadius: 999,
+                                                            transition: 'width 0.35s ease',
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Columna Derecha: Profundización en los Animes del Género Seleccionado */}
+                            <div className="col-12 col-lg-5">
+                                {activeTimeGenreObj && (
+                                    <div
+                                        className="p-3.5 rounded-4 h-100 d-flex flex-column justify-content-between"
+                                        style={{
+                                            background: 'var(--perfil-card-2)',
+                                            border: '1px solid var(--perfil-acento-border)',
+                                        }}
+                                    >
+                                        <div>
+                                            <div className="d-flex align-items-center justify-content-between mb-2">
+                                                <span className="ml-eyebrow" style={{ color: 'var(--perfil-acento)' }}>
+                                                    DESGLOSE POR OBRA
+                                                </span>
+                                                <span className="badge rounded-pill font-mono" style={{ background: 'var(--perfil-acento-soft)', color: 'var(--perfil-acento)' }}>
+                                                    {activeTimeGenreObj.hours} h totales
+                                                </span>
+                                            </div>
+                                            <h4 className="h6 fw-bold text-white mb-1">
+                                                Animes de {activeTimeGenreObj.genre} y Tiempo Consumido
+                                            </h4>
+                                            <p className="small text-secondary mb-3" style={{ fontSize: '0.76rem' }}>
+                                                Ordenados por horas invertidas. Haz clic en cualquier anime para abrir su ficha.
+                                            </p>
+
+                                            <div className="d-flex flex-column gap-2.5" style={{ maxHeight: 420, overflowY: 'auto' }}>
+                                                {activeTimeGenreObj.animes.map(({ fila, minutes, episodes }) => {
+                                                    const hours = (minutes / 60).toFixed(1)
+                                                    const shareInGenre =
+                                                        activeTimeGenreObj.minutes > 0
+                                                            ? Math.max(4, Math.round((minutes / activeTimeGenreObj.minutes) * 100))
+                                                            : 0
+                                                    return (
+                                                        <div
+                                                            key={fila.id}
+                                                            onClick={() => setSelectedAnime(fila)}
+                                                            className="p-2.5 rounded-3 d-flex align-items-center gap-2.5 border"
+                                                            style={{
+                                                                background: 'var(--perfil-card)',
+                                                                borderColor: 'var(--perfil-border)',
+                                                                cursor: 'pointer',
+                                                            }}
+                                                        >
+                                                            <img
+                                                                src={fila.anime.imageUrl}
+                                                                alt={fila.anime.title}
+                                                                style={{ width: 38, height: 54, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
+                                                            />
+                                                            <div className="flex-grow-1 min-w-0">
+                                                                <div className="d-flex align-items-center justify-content-between gap-2">
+                                                                    <span className="small fw-bold text-white text-truncate">
+                                                                        {fila.anime.title}
+                                                                    </span>
+                                                                    <span className="small font-mono fw-bold flex-shrink-0" style={{ color: 'var(--perfil-acento)' }}>
+                                                                        {hours} h
+                                                                    </span>
+                                                                </div>
+                                                                <div className="d-flex align-items-center justify-content-between small text-secondary mt-0.5" style={{ fontSize: '0.72rem' }}>
+                                                                    <span>{episodes} eps vistos · {fila.anime.durationMinutes || 24} min/ep</span>
+                                                                    <span className="font-mono">{shareInGenre}% del género</span>
+                                                                </div>
+                                                                <div className="w-100 rounded-pill overflow-hidden mt-1.5" style={{ height: 5, background: 'rgba(255,255,255,0.06)' }}>
+                                                                    <div
+                                                                        style={{
+                                                                            width: `${shareInGenre}%`,
+                                                                            height: '100%',
+                                                                            background: 'var(--perfil-acento)',
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {selectedAnime && (
+                    <AnimeDetalleDialog
+                        fila={selectedAnime}
+                        onCerrar={() => setSelectedAnime(null)}
+                        onActualizar={(cambios) => {
+                            if (readOnly) return
+                            onUpdateFila?.(selectedAnime.id, cambios)
+                            setSelectedAnime((prev) => (prev ? { ...prev, ...cambios } : null))
+                        }}
+                        onRecomendar={() => {}}
+                    />
+                )}
+            </div>
+        )
+    }
+
+    // =========================================================================
+    // SUBVISTA 2: CANTIDAD DE ANIMES EN LISTA (ESTADOS + % GÉNEROS + % TAGS)
+    // =========================================================================
+    if (activeSubView === 'list-metrics') {
+        const statusCards = [
+            { id: 'visto' as const, label: 'Completados / Vistos', count: stats.vistos, pct: stats.pctVisto, color: '#22c55e', dotClass: 'perfil-seg-visto' },
+            { id: 'viendo' as const, label: 'Viendo Actualmente', count: stats.viendo, pct: stats.pctViendo, color: '#38bdf8', dotClass: 'perfil-seg-viendo' },
+            { id: 'pendiente' as const, label: 'Pendientes (Plan to Watch)', count: stats.pendientes, pct: stats.pctPendiente, color: '#fbbf24', dotClass: 'perfil-seg-pendiente' },
+            { id: 'dropeado' as const, label: 'Dropeados / Abandonados', count: stats.dropeados, pct: stats.pctDropeado, color: '#f43f5e', dotClass: 'perfil-seg-dropeado' },
+        ]
+        const statusFilteredFilas =
+            selectedStatusFilter === 'all'
+                ? []
+                : filas.filter((f) => f.estado === selectedStatusFilter)
+
+        return (
+            <div className="perfil-analytics-hub perfil-subview-enter">
+                {/* 1. Distribución de Estados de la Lista */}
+                <div className="perfil-breakdown-card mb-4">
+                    <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                        <div>
+                            <span className="ml-eyebrow">SUBVISTA DEDICADA · COMPOSICIÓN DE COLECCIÓN</span>
+                            <h3 className="h5 fw-bold text-white mb-0 d-flex align-items-center gap-2">
+                                <TrendingUp size={18} style={{ color: 'var(--perfil-acento)' }} />
+                                <span>Distribución de Estados de Visionado ({stats.totalEntries} Animes)</span>
+                            </h3>
+                        </div>
+
+                        {canViewList && onViewList && (
+                            <button
+                                type="button"
+                                onClick={onViewList}
+                                className="ml-btn ml-btn-acento ml-btn-sm d-inline-flex align-items-center gap-1.5"
+                            >
+                                <BookOpen size={14} />
+                                <span>Abrir Lista Completa</span>
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="row g-3 mb-3">
+                        {statusCards.map((st) => {
+                            const isSel = selectedStatusFilter === st.id
+                            return (
+                                <div key={st.id} className="col-6 col-lg-3">
+                                    <div
+                                        onClick={() => setSelectedStatusFilter(isSel ? 'all' : st.id)}
+                                        className="p-3 rounded-3 border h-100"
+                                        style={{
+                                            background: isSel ? 'var(--perfil-acento-soft)' : 'var(--perfil-card-2)',
+                                            borderColor: isSel ? st.color : 'var(--perfil-border)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.18s ease',
+                                        }}
+                                    >
+                                        <div className="d-flex align-items-center justify-content-between mb-1">
+                                            <span className="d-inline-flex align-items-center gap-1.5 small text-white fw-semibold">
+                                                <span className={`perfil-legend-dot ${st.dotClass}`} />
+                                                <span>{st.label}</span>
+                                            </span>
+                                            <span className="small font-mono fw-bold" style={{ color: st.color }}>
+                                                {st.pct.toFixed(0)}%
+                                            </span>
+                                        </div>
+                                        <div className="h4 fw-bold text-white mb-0 font-mono">{st.count}</div>
+                                        <span className="small text-secondary" style={{ fontSize: '0.7rem' }}>
+                                            {isSel ? 'Click para quitar filtro' : 'Click para ver títulos'}
+                                        </span>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+
+                    {stats.totalEntries > 0 && (
+                        <div className="perfil-breakdown-bar">
+                            <div className="perfil-breakdown-seg perfil-seg-visto" style={{ width: `${stats.pctVisto}%` }} />
+                            <div className="perfil-breakdown-seg perfil-seg-viendo" style={{ width: `${stats.pctViendo}%` }} />
+                            <div className="perfil-breakdown-seg perfil-seg-pendiente" style={{ width: `${stats.pctPendiente}%` }} />
+                            {stats.pctDropeado > 0 && (
+                                <div className="perfil-breakdown-seg perfil-seg-dropeado" style={{ width: `${stats.pctDropeado}%` }} />
+                            )}
+                        </div>
+                    )}
+
+                    {/* Galería rápida si el usuario seleccionó un estado */}
+                    {selectedStatusFilter !== 'all' && (
+                        <div className="mt-3 pt-3 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
+                            <div className="d-flex align-items-center justify-content-between mb-2">
+                                <span className="small fw-bold text-white">
+                                    Títulos en estado «{selectedStatusFilter.toUpperCase()}» ({statusFilteredFilas.length})
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedStatusFilter('all')}
+                                    className="btn btn-sm p-0 text-secondary small"
+                                >
+                                    Cerrar vista rápida
+                                </button>
+                            </div>
+                            {statusFilteredFilas.length === 0 ? (
+                                <div className="small text-secondary">No hay títulos en este estado.</div>
+                            ) : (
+                                <div className="d-flex gap-2.5 overflow-auto pb-2">
+                                    {statusFilteredFilas.slice(0, 14).map((f) => (
+                                        <div
+                                            key={f.id}
+                                            onClick={() => setSelectedAnime(f)}
+                                            className="flex-shrink-0"
+                                            style={{ width: 86, cursor: 'pointer' }}
+                                            title={f.anime.title}
+                                        >
+                                            <img
+                                                src={f.anime.imageUrl}
+                                                alt={f.anime.title}
+                                                style={{ width: 86, height: 122, objectFit: 'cover', borderRadius: 8 }}
+                                            />
+                                            <div className="small text-white text-truncate mt-1" style={{ fontSize: '0.72rem' }}>
+                                                {f.anime.title}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* 2. Desglose de la Lista en % de Géneros y % de Tags */}
+                <div className="perfil-analytics-two-col">
+                    {/* Columna Izquierda: % de Géneros */}
+                    <div className="perfil-genre-table-card">
+                        <div className="perfil-section-header-line">
+                            <div>
+                                <span className="ml-eyebrow">DESGLOSE POR GÉNEROS</span>
+                                <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-2">
+                                    <Layers size={16} style={{ color: 'var(--perfil-acento)' }} />
+                                    <span>% de Géneros en la Lista</span>
+                                </h4>
+                            </div>
+                            <span className="small text-secondary" style={{ fontSize: '0.72rem' }}>
+                                {sortedGenres.length} géneros
+                            </span>
+                        </div>
+
+                        {sortedGenres.length === 0 ? (
+                            <div className="perfil-contrast-empty my-3">
+                                <span>Agrega animes a tu lista para calcular el % de géneros.</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="perfil-genre-table-wrap">
+                                    <table className="perfil-genre-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: '32px' }}>#</th>
+                                                <th>Género</th>
+                                                <th className="is-sortable text-end" onClick={() => handleToggleGenreSort('count')}>
+                                                    <span>Cant.</span>
+                                                    <ArrowUpDown size={11} className="ms-1 opacity-75" />
+                                                </th>
+                                                <th style={{ minWidth: '130px' }}>% de Lista</th>
+                                                <th className="is-sortable text-center" onClick={() => handleToggleGenreSort('meanScore')}>
+                                                    <span>Nota Media</span>
+                                                    <ArrowUpDown size={11} className="ms-1 opacity-75" />
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {visibleGenres.map((g, idx) => (
+                                                <tr key={g.genre}>
+                                                    <td className="text-secondary font-mono">{idx + 1}</td>
+                                                    <td>
+                                                        <span className="perfil-genre-name">{g.genre}</span>
+                                                    </td>
+                                                    <td className="text-end">
+                                                        <span className="perfil-genre-count">{g.count}</span>
+                                                    </td>
+                                                    <td>
+                                                        <div className="perfil-genre-pct-cell">
+                                                            <div className="perfil-genre-pct-bar">
+                                                                <div
+                                                                    className="perfil-genre-pct-fill"
+                                                                    style={{ width: `${Math.min(100, g.pctOfList)}%` }}
+                                                                />
+                                                            </div>
+                                                            <span className="perfil-genre-pct-num">{g.pctOfList}%</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="text-center">
+                                                        <strong className="text-white">★ {g.meanScore.toFixed(2)}</strong>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {sortedGenres.length > 10 && (
+                                    <button
+                                        type="button"
+                                        className="perfil-genre-expand-btn"
+                                        onClick={() => setExpandAllGenres((prev) => !prev)}
+                                    >
+                                        {expandAllGenres ? (
+                                            <>
+                                                <ChevronUp size={14} />
+                                                <span>Contraer a Top 10 géneros</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ChevronDown size={14} />
+                                                <span>Ver los {sortedGenres.length} géneros</span>
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </div>
+
+                    {/* Columna Derecha: % de Tags */}
+                    <div className="perfil-genre-table-card">
+                        <div className="perfil-section-header-line">
+                            <div>
+                                <span className="ml-eyebrow">DESGLOSE POR MEDIA TAGS</span>
+                                <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-2">
+                                    <Tag size={16} style={{ color: 'var(--perfil-cyan)' }} />
+                                    <span>% de Tags y Temáticas en la Lista</span>
+                                </h4>
+                            </div>
+
+                            <div className="perfil-friends-filter-input-wrap" style={{ maxWidth: 180 }}>
+                                <Search size={13} className="perfil-friends-filter-icon" />
+                                <input
+                                    type="text"
+                                    placeholder="Filtrar tag..."
+                                    value={tagSearchQuery}
+                                    onChange={(e) => setTagSearchQuery(e.target.value)}
+                                    className="perfil-friends-filter-input"
+                                />
+                            </div>
+                        </div>
+
+                        {filteredTags.length === 0 ? (
+                            <div className="perfil-contrast-empty my-3">
+                                <span>No se encontraron tags registrados en los animes de esta lista.</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="perfil-genre-table-wrap">
+                                    <table className="perfil-genre-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: '32px' }}>#</th>
+                                                <th>Tag / Tropo</th>
+                                                <th className="text-end">Cant.</th>
+                                                <th style={{ minWidth: '130px' }}>% de Lista</th>
+                                                <th className="text-center">Nota Media</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredTags.map((t, idx) => (
+                                                <tr key={t.name}>
+                                                    <td className="text-secondary font-mono">{idx + 1}</td>
+                                                    <td>
+                                                        <div className="d-flex align-items-center gap-1.5">
+                                                            <span className="perfil-genre-name">{t.name}</span>
+                                                            <span className="badge rounded-pill px-1.5 py-0" style={{ fontSize: '0.62rem', background: 'rgba(255,255,255,0.06)', color: 'var(--perfil-text-dim)' }}>
+                                                                {t.category}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="text-end">
+                                                        <span className="perfil-genre-count">{t.count}</span>
+                                                    </td>
+                                                    <td>
+                                                        <div className="perfil-genre-pct-cell">
+                                                            <div className="perfil-genre-pct-bar">
+                                                                <div
+                                                                    className="perfil-genre-pct-fill"
+                                                                    style={{
+                                                                        width: `${Math.min(100, t.pctOfList)}%`,
+                                                                        background: 'linear-gradient(90deg, var(--perfil-cyan), var(--perfil-acento))',
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <span className="perfil-genre-pct-num">{t.pctOfList}%</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="text-center">
+                                                        <strong className="text-white">★ {t.meanScore.toFixed(2)}</strong>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {stats.tagStats.length > 10 && (
+                                    <button
+                                        type="button"
+                                        className="perfil-genre-expand-btn"
+                                        onClick={() => setExpandAllTags((prev) => !prev)}
+                                    >
+                                        {expandAllTags ? (
+                                            <>
+                                                <ChevronUp size={14} />
+                                                <span>Contraer a Top 10 tags</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ChevronDown size={14} />
+                                                <span>Ver los {stats.tagStats.length} tags detectados</span>
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {selectedAnime && (
+                    <AnimeDetalleDialog
+                        fila={selectedAnime}
+                        onCerrar={() => setSelectedAnime(null)}
+                        onActualizar={(cambios) => {
+                            if (readOnly) return
+                            onUpdateFila?.(selectedAnime.id, cambios)
+                            setSelectedAnime((prev) => (prev ? { ...prev, ...cambios } : null))
+                        }}
+                        onRecomendar={() => {}}
+                    />
+                )}
+            </div>
+        )
+    }
+
+    // =========================================================================
+    // SUBVISTA 3: NOTA MEDIA (DISTRIBUCIÓN DE NOTAS + CONTRASTES & JOYAS OCULTAS)
+    // =========================================================================
+    if (activeSubView === 'mean-score') {
+        const selectedScoreRowObj = stats.scoreRows.find((r) => r.score === selectedScoreFilter)
+
+        return (
+            <div className="perfil-analytics-hub perfil-subview-enter">
+                {/* 1. Histograma Interactivo de Notas Dadas por el Usuario */}
+                <div className="perfil-score-dist-card mb-4">
+                    <div className="perfil-section-header-line">
+                        <div>
+                            <span className="ml-eyebrow">SUBVISTA DEDICADA · HISTOGRAMA DE CALIFICACIONES</span>
+                            <h3 className="h5 fw-bold text-white mb-0 d-flex align-items-center gap-2">
+                                <BarChart3 size={18} style={{ color: 'var(--perfil-acento)' }} />
+                                <span>Distribución de Notas Dadas por el Usuario</span>
+                            </h3>
+                        </div>
+                        <span className="small text-secondary" style={{ fontSize: '0.74rem' }}>
+                            Haz clic en cualquier nota (10 a 1) para ver los animes con esa puntuación
+                        </span>
+                    </div>
+
+                    <div className="perfil-score-rows-wrap">
+                        {stats.scoreRows.map((row) => {
+                            const widthPct =
+                                row.count > 0 ? Math.max(4, (row.count / stats.maxScoreRowCount) * 100) : 0
+                            const vistoShare = row.count > 0 ? (row.visto / row.count) * 100 : 0
+                            const viendoShare = row.count > 0 ? (row.viendo / row.count) * 100 : 0
+                            const pendienteShare = row.count > 0 ? (row.pendiente / row.count) * 100 : 0
+                            const dropeadoShare = row.count > 0 ? (row.dropeado / row.count) * 100 : 0
+                            const isHovered = hoveredScoreRow === row.score
+                            const isSelected = selectedScoreFilter === row.score
+
+                            return (
+                                <div
+                                    key={row.score}
+                                    className={`perfil-score-row ${isHovered || isSelected ? 'is-hovered' : ''}`}
+                                    style={{ cursor: row.count > 0 ? 'pointer' : 'default' }}
+                                    onMouseEnter={() => setHoveredScoreRow(row.score)}
+                                    onMouseLeave={() => setHoveredScoreRow(null)}
+                                    onClick={() => {
+                                        if (row.count > 0) {
+                                            setSelectedScoreFilter(isSelected ? null : row.score)
+                                        }
+                                    }}
+                                >
+                                    <span className="perfil-score-num">{row.score}</span>
+
+                                    <div className="perfil-score-bar-track">
+                                        {row.count > 0 && (
+                                            <div
+                                                className="perfil-score-bar-fill"
+                                                style={{ width: `${widthPct}%` }}
+                                            >
+                                                {vistoShare > 0 && (
+                                                    <span className="perfil-score-seg is-visto" style={{ width: `${vistoShare}%` }} />
+                                                )}
+                                                {viendoShare > 0 && (
+                                                    <span className="perfil-score-seg is-viendo" style={{ width: `${viendoShare}%` }} />
+                                                )}
+                                                {pendienteShare > 0 && (
+                                                    <span className="perfil-score-seg is-pendiente" style={{ width: `${pendienteShare}%` }} />
+                                                )}
+                                                {dropeadoShare > 0 && (
+                                                    <span className="perfil-score-seg is-dropeado" style={{ width: `${dropeadoShare}%` }} />
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {isHovered && (
+                                            <div className="perfil-score-tooltip">
+                                                <div className="perfil-score-tooltip-title">
+                                                    Nota: {row.score} - {row.label}
+                                                </div>
+                                                <div className="perfil-score-tooltip-item">
+                                                    <span className="dot is-visto" />
+                                                    <span>Completados : {row.visto}</span>
+                                                </div>
+                                                <div className="perfil-score-tooltip-item">
+                                                    <span className="dot is-viendo" />
+                                                    <span>Viendo : {row.viendo}</span>
+                                                </div>
+                                                <div className="perfil-score-tooltip-item">
+                                                    <span className="dot is-pendiente" />
+                                                    <span>Pendientes : {row.pendiente}</span>
+                                                </div>
+                                                {row.dropeado > 0 && (
+                                                    <div className="perfil-score-tooltip-item">
+                                                        <span className="dot is-dropeado" />
+                                                        <span>Dropeados : {row.dropeado}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="perfil-score-right-stats">
+                                        <span className="perfil-score-count">{row.count}</span>
+                                        <span className="perfil-score-pct">({row.pctOfScored}%)</span>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+
+                    {selectedScoreRowObj && selectedScoreRowObj.items.length > 0 && (
+                        <div className="mt-3 pt-3 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
+                            <div className="d-flex align-items-center justify-content-between mb-2">
+                                <span className="small fw-bold text-white">
+                                    Animes calificados con ★ {selectedScoreRowObj.score} ({selectedScoreRowObj.label})
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedScoreFilter(null)}
+                                    className="btn btn-sm p-0 text-secondary small"
+                                >
+                                    Limpiar selección
+                                </button>
+                            </div>
+                            <div className="d-flex gap-2.5 overflow-auto pb-2">
+                                {selectedScoreRowObj.items.map((f) => (
+                                    <div
+                                        key={f.id}
+                                        onClick={() => setSelectedAnime(f)}
+                                        className="flex-shrink-0"
+                                        style={{ width: 86, cursor: 'pointer' }}
+                                    >
+                                        <img
+                                            src={f.anime.imageUrl}
+                                            alt={f.anime.title}
+                                            style={{ width: 86, height: 122, objectFit: 'cover', borderRadius: 8 }}
+                                        />
+                                        <div className="small text-white text-truncate mt-1" style={{ fontSize: '0.72rem' }}>
+                                            {f.anime.title}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="perfil-score-dist-footer">
+                        <div>
+                            <span className="text-secondary">Nota Media:</span>{' '}
+                            <strong className="text-white">{stats.notaMedia.toFixed(2)}</strong>
+                        </div>
+                        <div>
+                            <span className="text-secondary">Desv. Estándar:</span>{' '}
+                            <strong className="text-white">{stats.stdDev.toFixed(2)}</strong>
+                        </div>
+                        <div>
+                            <span className="text-secondary">Total Notas:</span>{' '}
+                            <strong className="text-white">{stats.totalScored}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 2. Selección de Animes que Generan Interés: Contraste con la Comunidad & Joyas Ocultas */}
+                <div className="perfil-contrasts-card">
+                    <div className="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-3">
+                        <div>
+                            <span className="ml-eyebrow">CONTRASTE PERSONAL VS. COMUNIDAD GLOBAL</span>
+                            <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-2">
+                                <Sparkles size={16} style={{ color: 'var(--perfil-acento)' }} />
+                                <span>Selección de Animes de Interés y Joyas Ocultas</span>
+                            </h4>
+                        </div>
+
+                        <div className="perfil-contrast-tabs" role="tablist">
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={activeContrastTab === 'hated_enjoyed'}
+                                className={`perfil-contrast-tab ${activeContrastTab === 'hated_enjoyed' ? 'is-active' : ''}`}
+                                onClick={() => setActiveContrastTab('hated_enjoyed')}
+                            >
+                                <Heart size={13} />
+                                <span>Me gustaron y a la mayoría no</span>
+                                <span className="count">{stats.theyHatedIEnjoyed.length}</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={activeContrastTab === 'loved_didnt'}
+                                className={`perfil-contrast-tab ${activeContrastTab === 'loved_didnt' ? 'is-active' : ''}`}
+                                onClick={() => setActiveContrastTab('loved_didnt')}
+                            >
+                                <HeartCrack size={13} />
+                                <span>No me gustaron y a la mayoría sí</span>
+                                <span className="count">{stats.theyLovedIDidnt.length}</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={activeContrastTab === 'hidden_gems'}
+                                className={`perfil-contrast-tab ${activeContrastTab === 'hidden_gems' ? 'is-active' : ''}`}
+                                onClick={() => setActiveContrastTab('hidden_gems')}
+                            >
+                                <Gem size={13} />
+                                <span>Joyas Ocultas</span>
+                                <span className="count">{stats.hiddenGems.length}</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={activeContrastTab === 'all'}
+                                className={`perfil-contrast-tab ${activeContrastTab === 'all' ? 'is-active' : ''}`}
+                                onClick={() => setActiveContrastTab('all')}
+                            >
+                                <LayoutGrid size={13} />
+                                <span>Ver las 3</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {(activeContrastTab === 'hated_enjoyed' || activeContrastTab === 'all') && (
+                        <div className="perfil-contrast-block">
+                            <div className="perfil-contrast-subhead">
+                                <span className="title">Me gustaron y a la mayoría no 🤍</span>
+                                <span className="legend">☆ Media Comunidad vs. ★ Tu Nota</span>
+                            </div>
+                            {renderContrastRow(
+                                stats.theyHatedIEnjoyed,
+                                'hated_enjoyed',
+                                'Aún no hay animes donde tu calificación supere a la media global de la comunidad (☆ MAL < ★ Tu Nota).'
+                            )}
+                        </div>
+                    )}
+
+                    {(activeContrastTab === 'loved_didnt' || activeContrastTab === 'all') && (
+                        <div className="perfil-contrast-block">
+                            <div className="perfil-contrast-subhead">
+                                <span className="title">No me gustaron y a la mayoría sí 💔</span>
+                                <span className="legend">☆ Media Comunidad vs. ★ Tu Nota</span>
+                            </div>
+                            {renderContrastRow(
+                                stats.theyLovedIDidnt,
+                                'loved_didnt',
+                                'No tienes animes calificados por debajo del consenso de la comunidad (☆ MAL > ★ Tu Nota).'
+                            )}
+                        </div>
+                    )}
+
+                    {(activeContrastTab === 'hidden_gems' || activeContrastTab === 'all') && (
+                        <div className="perfil-contrast-block">
+                            <div className="perfil-contrast-subhead">
+                                <span className="title">Joyas Ocultas: Animes poco populares con alta valoración 💎</span>
+                                <span className="legend"># Ranking / Popularidad vs. ★ Tu Nota</span>
+                            </div>
+                            {renderContrastRow(
+                                stats.hiddenGems,
+                                'hidden_gems',
+                                'Califica con ★ 7 o más tus animes favoritos para descubrir tus joyas ocultas aquí.'
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {selectedAnime && (
+                    <AnimeDetalleDialog
+                        fila={selectedAnime}
+                        onCerrar={() => setSelectedAnime(null)}
+                        onActualizar={(cambios) => {
+                            if (readOnly) return
+                            onUpdateFila?.(selectedAnime.id, cambios)
+                            setSelectedAnime((prev) => (prev ? { ...prev, ...cambios } : null))
+                        }}
+                        onRecomendar={() => {}}
+                    />
+                )}
+            </div>
+        )
+    }
+
+    // =========================================================================
+    // SUBVISTA 4: GÉNERO FAVORITO (TENDENCIAS TEMPORALES + SINERGIA DE TAGS)
+    // =========================================================================
+    if (activeSubView === 'favorite-genre') {
+        const svgW = 760
+        const svgH = 240
+        const pad = { top: 24, right: 32, bottom: 36, left: 44 }
+        const chartW = svgW - pad.left - pad.right
+        const chartH = svgH - pad.top - pad.bottom
+        const buckets = genreTrendsData.buckets
+        const activeBucketIdx =
+            selectedTrendBucketIdx !== null && selectedTrendBucketIdx < buckets.length
+                ? selectedTrendBucketIdx
+                : buckets.length - 1
+        const focusedBucket = buckets[activeBucketIdx]
+
+        return (
+            <div className="perfil-analytics-hub perfil-subview-enter">
+                {/* 1. Línea Temporal Interactiva de Tendencias de Géneros del Usuario */}
+                <div className="perfil-breakdown-card mb-4">
+                    <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                        <div>
+                            <span className="ml-eyebrow">SUBVISTA DEDICADA · EVOLUCIÓN DE GUSTOS</span>
+                            <h3 className="h5 fw-bold text-white mb-0 d-flex align-items-center gap-2">
+                                <Compass size={18} style={{ color: 'var(--perfil-acento)' }} />
+                                <span>Línea Temporal de Tendencias de Géneros del Usuario</span>
+                            </h3>
+                            <p className="small text-secondary mb-0 mt-1">
+                                {genreTrendsData.shiftSummary}
+                            </p>
+                        </div>
+
+                        {renderTimeRangeSwitcher(trendTimeRange, setTrendTimeRange)}
+                    </div>
+
+                    {/* Leyenda interactiva de géneros */}
+                    <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+                        {genreTrendsData.topGenreNames.map((gName, idx) => {
+                            const color = TREND_COLORS[idx % TREND_COLORS.length]
+                            const isHidden = hiddenTrendGenres.includes(gName)
+                            return (
+                                <button
+                                    key={gName}
+                                    type="button"
+                                    onClick={() =>
+                                        setHiddenTrendGenres((prev) =>
+                                            prev.includes(gName) ? prev.filter((x) => x !== gName) : [...prev, gName]
+                                        )
+                                    }
+                                    className="px-3 py-1 rounded-pill border d-inline-flex align-items-center gap-2 small"
+                                    style={{
+                                        background: isHidden ? 'transparent' : 'var(--perfil-card-2)',
+                                        borderColor: isHidden ? 'var(--perfil-border)' : color,
+                                        color: isHidden ? 'var(--perfil-text-dim)' : '#ffffff',
+                                        opacity: isHidden ? 0.5 : 1,
+                                        cursor: 'pointer',
+                                        fontSize: '0.76rem',
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, display: 'inline-block' }} />
+                                    <span>{gName}</span>
+                                </button>
+                            )
+                        })}
+                    </div>
+
+                    {genreTrendsData.topGenreNames.length === 0 ? (
+                        <div className="perfil-contrast-empty">
+                            <span>Agrega animes a tu lista para visualizar la evolución temporal de tus géneros favoritos.</span>
+                        </div>
+                    ) : (
+                        <div className="row g-4 align-items-stretch">
+                            <div className="col-12 col-lg-8">
+                                <div className="p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
+                                    <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-100" style={{ height: 235, overflow: 'visible' }}>
+                                        {[0, 25, 50, 75, 100].map((pctVal) => {
+                                            const y = pad.top + chartH - (pctVal / 100) * chartH
+                                            return (
+                                                <g key={pctVal}>
+                                                    <line
+                                                        x1={pad.left}
+                                                        y1={y}
+                                                        x2={svgW - pad.right}
+                                                        y2={y}
+                                                        stroke="rgba(255,255,255,0.06)"
+                                                        strokeDasharray="3 3"
+                                                    />
+                                                    <text
+                                                        x={pad.left - 8}
+                                                        y={y + 4}
+                                                        fill="#71717a"
+                                                        fontSize="10"
+                                                        fontFamily="monospace"
+                                                        textAnchor="end"
+                                                    >
+                                                        {pctVal}%
+                                                    </text>
+                                                </g>
+                                            )
+                                        })}
+
+                                        {/* Líneas de tendencia por cada género */}
+                                        {genreTrendsData.topGenreNames.map((gName, gIdx) => {
+                                            if (hiddenTrendGenres.includes(gName)) return null
+                                            const color = TREND_COLORS[gIdx % TREND_COLORS.length]
+                                            const pts = buckets.map((b, bIdx) => {
+                                                const x =
+                                                    pad.left +
+                                                    (buckets.length > 1 ? (bIdx / (buckets.length - 1)) * chartW : chartW / 2)
+                                                const val = b.scoresByGenre[gName] || 0
+                                                const y = pad.top + chartH - (val / 100) * chartH
+                                                return { x, y, val, label: b.label, bIdx }
+                                            })
+                                            const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+
+                                            return (
+                                                <g key={gName}>
+                                                    <path
+                                                        d={pathD}
+                                                        fill="none"
+                                                        stroke={color}
+                                                        strokeWidth="2.8"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    />
+                                                    {pts.map((p) => (
+                                                        <circle
+                                                            key={`${gName}-${p.bIdx}`}
+                                                            cx={p.x}
+                                                            cy={p.y}
+                                                            r={activeBucketIdx === p.bIdx ? 6 : 4}
+                                                            fill={activeBucketIdx === p.bIdx ? '#ffffff' : color}
+                                                            stroke="#080808"
+                                                            strokeWidth="2"
+                                                            style={{ cursor: 'pointer' }}
+                                                            onClick={() => setSelectedTrendBucketIdx(p.bIdx)}
+                                                            onMouseEnter={() => setSelectedTrendBucketIdx(p.bIdx)}
+                                                        />
+                                                    ))}
+                                                </g>
+                                            )
+                                        })}
+
+                                        {/* Etiquetas del eje X */}
+                                        {buckets.map((b, bIdx) => {
+                                            const x =
+                                                pad.left +
+                                                (buckets.length > 1 ? (bIdx / (buckets.length - 1)) * chartW : chartW / 2)
+                                            const isSel = activeBucketIdx === bIdx
+                                            return (
+                                                <g
+                                                    key={b.label}
+                                                    style={{ cursor: 'pointer' }}
+                                                    onClick={() => setSelectedTrendBucketIdx(bIdx)}
+                                                >
+                                                    {isSel && (
+                                                        <line
+                                                            x1={x}
+                                                            y1={pad.top}
+                                                            x2={x}
+                                                            y2={pad.top + chartH}
+                                                            stroke="var(--perfil-acento)"
+                                                            strokeDasharray="3 3"
+                                                            strokeOpacity="0.45"
+                                                        />
+                                                    )}
+                                                    <text
+                                                        x={x}
+                                                        y={svgH - 8}
+                                                        fill={isSel ? '#ffffff' : '#9ca3af'}
+                                                        fontSize="11"
+                                                        fontWeight={isSel ? '700' : '500'}
+                                                        textAnchor="middle"
+                                                    >
+                                                        {b.label}
+                                                    </text>
+                                                </g>
+                                            )
+                                        })}
+                                    </svg>
+                                </div>
+                            </div>
+
+                            {/* Inspector del Tramo Temporal Seleccionado */}
+                            <div className="col-12 col-lg-4">
+                                <div className="perfil-trend-inspector-card">
+                                    <div>
+                                        <div className="d-flex align-items-center justify-content-between mb-2">
+                                            <span className="ml-eyebrow" style={{ color: 'var(--perfil-acento)', letterSpacing: '0.07em' }}>
+                                                ETAPA INSPECCIONADA · {focusedBucket?.label}
+                                            </span>
+                                            {focusedBucket && (
+                                                <span className="badge rounded-pill font-mono px-2 py-0.5" style={{ background: 'var(--perfil-acento-soft)', color: 'var(--perfil-acento)', fontSize: '0.68rem' }}>
+                                                    {focusedBucket.animesInPeriod.length} animes
+                                                </span>
+                                            )}
+                                        </div>
+                                        <h4 className="h6 fw-bold text-white mb-3">
+                                            Afinidad por Género en este Periodo
+                                        </h4>
+                                        <div className="d-flex flex-column gap-2 mb-3.5">
+                                            {genreTrendsData.topGenreNames.map((gName, idx) => {
+                                                const color = TREND_COLORS[idx % TREND_COLORS.length]
+                                                const pct = focusedBucket?.scoresByGenre[gName] || 0
+                                                return (
+                                                    <div key={gName} className="perfil-trend-genre-row">
+                                                        <span className="d-inline-flex align-items-center gap-2 text-white small">
+                                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                                                            <span>{gName}</span>
+                                                        </span>
+                                                        <strong className="font-mono small" style={{ color }}>{pct}%</strong>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+
+                                        {focusedBucket && focusedBucket.animesInPeriod.length > 0 && (
+                                            <div className="pt-2.5 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
+                                                <div className="small text-secondary mb-2" style={{ fontSize: '0.72rem' }}>
+                                                    Animes representativos de esta etapa:
+                                                </div>
+                                                <div className="d-flex gap-2 overflow-auto pb-1">
+                                                    {focusedBucket.animesInPeriod.slice(0, 4).map((f) => (
+                                                        <img
+                                                            key={f.id}
+                                                            src={f.anime.imageUrl}
+                                                            alt={f.anime.title}
+                                                            title={f.anime.title}
+                                                            onClick={() => setSelectedAnime(f)}
+                                                            className="perfil-trend-thumb"
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* 2. Gráfico de "Conexiones de Media Tags & Sinergia" */}
+                <TasteCorrelationGraph
+                    analytics={tasteAnalytics}
+                    filas={filas.filter(
+                        (f) =>
+                            f.estado !== 'pendiente' &&
+                            f.estado !== 'dropeado' &&
+                            (f.estado === 'visto' || (f.estado === 'viendo' && f.episodiosVistos > 0))
+                    )}
+                    loading={loadingAnalytics}
+                    accentColor={accentColor}
+                />
+
+                {selectedAnime && (
+                    <AnimeDetalleDialog
+                        fila={selectedAnime}
+                        onCerrar={() => setSelectedAnime(null)}
+                        onActualizar={(cambios) => {
+                            if (readOnly) return
+                            onUpdateFila?.(selectedAnime.id, cambios)
+                            setSelectedAnime((prev) => (prev ? { ...prev, ...cambios } : null))
+                        }}
+                        onRecomendar={() => {}}
+                    />
+                )}
+            </div>
+        )
+    }
+
+    // =========================================================================
+    // VISTA PRINCIPAL DEL PERFIL (ORDEN ESTRICTO: 2º FILA DE 4 KPIs + 3º HALL OF FAME)
+    // =========================================================================
     return (
         <div className="perfil-analytics-hub">
             {/* =======================================================================
-                BLOQUE 1: VITRINA PERSONAL — ANIMES FAVORITOS (1 FILA RESPONSIVA + VER LISTA)
+                2º FILA DE 4 KPIs GENERALES CLICKEABLES (ACCESO A SUBVISTAS DEDICADAS)
+               ======================================================================= */}
+            <div className="perfil-metric-grid">
+                {/* KPI 1: Tiempo de anime visto */}
+                <div
+                    className="perfil-metric-card perfil-kpi-clickable"
+                    onClick={() => onSelectSubView?.('time-watched')}
+                    role="button"
+                    tabIndex={0}
+                    title="Haz clic para abrir la subvista de Tiempo de Anime Visto por Género"
+                >
+                    <div className="d-flex align-items-center gap-3">
+                        <div className="perfil-metric-icon" style={{ color: 'var(--perfil-acento)' }}>
+                            <Clock size={20} />
+                        </div>
+                        <div>
+                            <div className="perfil-metric-value">
+                                {stats.totalDias}{' '}
+                                <span style={{ fontSize: '0.9rem', color: 'var(--perfil-text-dim)', fontWeight: 600 }}>
+                                    días
+                                </span>
+                            </div>
+                            <div className="perfil-metric-label">
+                                ~{stats.totalHoras} Horas de Anime Visto
+                            </div>
+                        </div>
+                    </div>
+                    <div className="perfil-kpi-drill-footer">
+                        <span>Géneros vs. Tiempo consumido</span>
+                        <ChevronRight size={14} />
+                    </div>
+                </div>
+
+                {/* KPI 2: Cantidad de animes en lista */}
+                <div
+                    className="perfil-metric-card perfil-kpi-clickable"
+                    onClick={() => onSelectSubView?.('list-metrics')}
+                    role="button"
+                    tabIndex={0}
+                    title="Haz clic para abrir la subvista de Métricas de Lista (Estados, % Géneros y % Tags)"
+                >
+                    <div className="d-flex align-items-center gap-3">
+                        <div className="perfil-metric-icon" style={{ color: 'var(--perfil-cyan)' }}>
+                            <Layers size={20} />
+                        </div>
+                        <div>
+                            <div className="perfil-metric-value">{stats.totalEntries}</div>
+                            <div className="perfil-metric-label">
+                                Animes en Lista ({stats.vistos} vistos)
+                            </div>
+                        </div>
+                    </div>
+                    <div className="perfil-kpi-drill-footer">
+                        <span>Estados, % géneros y % tags</span>
+                        <ChevronRight size={14} />
+                    </div>
+                </div>
+
+                {/* KPI 3: Nota media */}
+                <div
+                    className="perfil-metric-card perfil-kpi-clickable"
+                    onClick={() => onSelectSubView?.('mean-score')}
+                    role="button"
+                    tabIndex={0}
+                    title="Haz clic para abrir la subvista de Nota Media, Distribución y Joyas Ocultas"
+                >
+                    <div className="d-flex align-items-center gap-3">
+                        <div className="perfil-gauge-wrap" style={{ width: 64, height: 64 }}>
+                            <svg width="64" height="64" className="perfil-gauge-svg">
+                                <circle cx="32" cy="32" r={gaugeRadius} className="perfil-gauge-bg" />
+                                <circle
+                                    cx="32"
+                                    cy="32"
+                                    r={gaugeRadius}
+                                    className="perfil-gauge-meter"
+                                    strokeDasharray={circumference}
+                                    strokeDashoffset={gaugeOffset}
+                                />
+                            </svg>
+                            <span className="perfil-gauge-number" style={{ fontSize: '0.98rem' }}>
+                                {stats.notaMedia.toFixed(1)}
+                            </span>
+                        </div>
+                        <div>
+                            <div className="perfil-metric-value" style={{ fontSize: '1.2rem' }}>
+                                {stats.notaEscala}
+                            </div>
+                            <div className="perfil-metric-label">
+                                Nota Media ({stats.totalScored} calif.)
+                            </div>
+                        </div>
+                    </div>
+                    <div className="perfil-kpi-drill-footer">
+                        <span>Notas y joyas ocultas</span>
+                        <ChevronRight size={14} />
+                    </div>
+                </div>
+
+                {/* KPI 4: Género favorito */}
+                <div
+                    className="perfil-metric-card perfil-kpi-clickable"
+                    onClick={() => onSelectSubView?.('favorite-genre')}
+                    role="button"
+                    tabIndex={0}
+                    title="Haz clic para abrir la subvista de Género Favorito, Sinergia de Tags y Tendencias"
+                >
+                    <div className="d-flex align-items-center gap-3">
+                        <div className="perfil-metric-icon" style={{ color: 'var(--perfil-green)' }}>
+                            <Compass size={20} />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="perfil-metric-value text-truncate" style={{ fontSize: '1.25rem' }}>
+                                {stats.favoriteGenre.genre}
+                            </div>
+                            <div className="perfil-metric-label">
+                                Género Favorito ({stats.favoriteGenre.count} títulos)
+                            </div>
+                        </div>
+                    </div>
+                    <div className="perfil-kpi-drill-footer">
+                        <span>Sinergia y línea temporal</span>
+                        <ChevronRight size={14} />
+                    </div>
+                </div>
+            </div>
+
+            {/* =======================================================================
+                3º HALL OF FAME DEL USUARIO (ANIMES FAVORITOS CON LA NOTA MÁS ALTA)
                ======================================================================= */}
             <div className="perfil-fav-card">
                 <div className="d-flex align-items-center justify-content-between mb-3">
                     <div>
-                        <span className="ml-eyebrow">HALL DE LA FAMA · VITRINA PERSONAL</span>
+                        <span className="ml-eyebrow">HALL OF FAME · VITRINA PERSONAL</span>
                         <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-1.5">
                             <Heart size={15} style={{ color: 'var(--perfil-pink)' }} />
-                            <span>Animes Favoritos</span>
+                            <span>Animes Favoritos Mejor Calificados</span>
                         </h4>
                     </div>
                     <span className="small text-secondary" style={{ fontSize: '0.74rem' }}>
@@ -484,519 +2084,6 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                 })()}
             </div>
 
-            {/* =======================================================================
-                BLOQUE 2: RESUMEN EJECUTIVO DE COLECCIÓN (4 KPIs + ESTADOS DE VISIONADO)
-               ======================================================================= */}
-            <div className="perfil-metric-grid">
-                <div className="perfil-metric-card">
-                    <div className="perfil-metric-icon" style={{ color: 'var(--perfil-acento)' }}>
-                        <Clock size={20} />
-                    </div>
-                    <div>
-                        <div className="perfil-metric-value">
-                            {stats.totalDias}{' '}
-                            <span style={{ fontSize: '0.9rem', color: 'var(--perfil-text-dim)', fontWeight: 600 }}>
-                                días
-                            </span>
-                        </div>
-                        <div className="perfil-metric-label">~{stats.totalHoras} Horas de Anime</div>
-                    </div>
-                </div>
-
-                <div className="perfil-metric-card">
-                    <div className="perfil-gauge-wrap">
-                        <svg width="74" height="74" className="perfil-gauge-svg">
-                            <circle cx="37" cy="37" r={gaugeRadius} className="perfil-gauge-bg" />
-                            <circle
-                                cx="37"
-                                cy="37"
-                                r={gaugeRadius}
-                                className="perfil-gauge-meter"
-                                strokeDasharray={circumference}
-                                strokeDashoffset={gaugeOffset}
-                            />
-                        </svg>
-                        <span className="perfil-gauge-number">{stats.notaMedia.toFixed(1)}</span>
-                    </div>
-                    <div>
-                        <div className="perfil-metric-value" style={{ fontSize: '1.25rem' }}>
-                            {stats.notaEscala}
-                        </div>
-                        <div className="perfil-metric-label">Nota Media ({stats.totalScored} calif.)</div>
-                    </div>
-                </div>
-
-                <div className="perfil-metric-card">
-                    <div className="perfil-metric-icon" style={{ color: 'var(--perfil-cyan)' }}>
-                        <Layers size={20} />
-                    </div>
-                    <div>
-                        <div className="perfil-metric-value">{stats.totalEntries}</div>
-                        <div className="perfil-metric-label">Animes en Colección</div>
-                    </div>
-                </div>
-
-                <div className="perfil-metric-card">
-                    <div className="perfil-metric-icon" style={{ color: 'var(--perfil-green)' }}>
-                        <CheckCircle size={20} />
-                    </div>
-                    <div>
-                        <div className="perfil-metric-value">{stats.vistos}</div>
-                        <div className="perfil-metric-label">Completados / Vistos</div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="perfil-breakdown-card">
-                <div className="d-flex align-items-center justify-content-between mb-1">
-                    <span className="small fw-semibold text-white d-flex align-items-center gap-2">
-                        <TrendingUp size={15} style={{ color: 'var(--perfil-acento)' }} />
-                        <span>Distribución de Estados de Visionado</span>
-                    </span>
-                    <span className="small font-mono text-secondary" style={{ fontSize: '0.75rem' }}>
-                        {stats.totalEntries} títulos
-                    </span>
-                </div>
-
-                {stats.totalEntries > 0 ? (
-                    <div className="perfil-breakdown-bar">
-                        <div
-                            className="perfil-breakdown-seg perfil-seg-visto"
-                            style={{ width: `${stats.pctVisto}%` }}
-                            title={`Vistos: ${stats.vistos} (${stats.pctVisto.toFixed(0)}%)`}
-                        />
-                        <div
-                            className="perfil-breakdown-seg perfil-seg-viendo"
-                            style={{ width: `${stats.pctViendo}%` }}
-                            title={`Viendo: ${stats.viendo} (${stats.pctViendo.toFixed(0)}%)`}
-                        />
-                        <div
-                            className="perfil-breakdown-seg perfil-seg-pendiente"
-                            style={{ width: `${stats.pctPendiente}%` }}
-                            title={`Pendientes: ${stats.pendientes} (${stats.pctPendiente.toFixed(0)}%)`}
-                        />
-                        {stats.pctDropeado > 0 && (
-                            <div
-                                className="perfil-breakdown-seg perfil-seg-dropeado"
-                                style={{ width: `${stats.pctDropeado}%` }}
-                                title={`Dropeados: ${stats.dropeados} (${stats.pctDropeado.toFixed(0)}%)`}
-                            />
-                        )}
-                    </div>
-                ) : (
-                    <div className="py-2 text-center text-secondary small">
-                        Colección vacía. Agrega animes en «Mi Lista» para ver la distribución aquí.
-                    </div>
-                )}
-
-                <div className="d-flex flex-wrap align-items-center gap-3 pt-1">
-                    <div className="perfil-legend-item">
-                        <span className="perfil-legend-dot perfil-seg-visto" />
-                        <span>
-                            Vistos: <strong>{stats.vistos}</strong> ({stats.pctVisto.toFixed(0)}%)
-                        </span>
-                    </div>
-                    <div className="perfil-legend-item">
-                        <span className="perfil-legend-dot perfil-seg-viendo" />
-                        <span>
-                            Viendo: <strong>{stats.viendo}</strong> ({stats.pctViendo.toFixed(0)}%)
-                        </span>
-                    </div>
-                    <div className="perfil-legend-item">
-                        <span className="perfil-legend-dot perfil-seg-pendiente" />
-                        <span>
-                            Pendientes: <strong>{stats.pendientes}</strong> ({stats.pctPendiente.toFixed(0)}%)
-                        </span>
-                    </div>
-                    {stats.dropeados > 0 && (
-                        <div className="perfil-legend-item">
-                            <span className="perfil-legend-dot perfil-seg-dropeado" />
-                            <span>
-                                Dropeados: <strong>{stats.dropeados}</strong>
-                            </span>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* =======================================================================
-                BLOQUE 3: RADIOGRAFÍA ANALÍTICA EN 2 COLUMNAS (NOTAS DADAS + GÉNEROS)
-               ======================================================================= */}
-            <div className="perfil-analytics-two-col">
-                {/* COLUMNA IZQUIERDA: Desglose de Distribución de Notas Dadas (Imagen 1) */}
-                <div className="perfil-score-dist-card">
-                    <div className="perfil-section-header-line">
-                        <div>
-                            <span className="ml-eyebrow">HISTOGRAMA DE CALIFICACIONES</span>
-                            <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-2">
-                                <BarChart3 size={16} style={{ color: 'var(--perfil-acento)' }} />
-                                <span>Distribución de Notas Dadas</span>
-                            </h4>
-                        </div>
-                        <span className="small text-secondary" style={{ fontSize: '0.72rem' }}>
-                            Pasa el cursor por una barra
-                        </span>
-                    </div>
-
-                    <div className="perfil-score-rows-wrap">
-                        {stats.scoreRows.map((row) => {
-                            const widthPct =
-                                row.count > 0 ? Math.max(4, (row.count / stats.maxScoreRowCount) * 100) : 0
-                            const vistoShare = row.count > 0 ? (row.visto / row.count) * 100 : 0
-                            const viendoShare = row.count > 0 ? (row.viendo / row.count) * 100 : 0
-                            const pendienteShare = row.count > 0 ? (row.pendiente / row.count) * 100 : 0
-                            const dropeadoShare = row.count > 0 ? (row.dropeado / row.count) * 100 : 0
-                            const isHovered = hoveredScoreRow === row.score
-
-                            return (
-                                <div
-                                    key={row.score}
-                                    className={`perfil-score-row ${isHovered ? 'is-hovered' : ''}`}
-                                    onMouseEnter={() => setHoveredScoreRow(row.score)}
-                                    onMouseLeave={() => setHoveredScoreRow(null)}
-                                >
-                                    <span className="perfil-score-num">{row.score}</span>
-
-                                    <div className="perfil-score-bar-track">
-                                        {row.count > 0 && (
-                                            <div
-                                                className="perfil-score-bar-fill"
-                                                style={{ width: `${widthPct}%` }}
-                                            >
-                                                {vistoShare > 0 && (
-                                                    <span
-                                                        className="perfil-score-seg is-visto"
-                                                        style={{ width: `${vistoShare}%` }}
-                                                    />
-                                                )}
-                                                {viendoShare > 0 && (
-                                                    <span
-                                                        className="perfil-score-seg is-viendo"
-                                                        style={{ width: `${viendoShare}%` }}
-                                                    />
-                                                )}
-                                                {pendienteShare > 0 && (
-                                                    <span
-                                                        className="perfil-score-seg is-pendiente"
-                                                        style={{ width: `${pendienteShare}%` }}
-                                                    />
-                                                )}
-                                                {dropeadoShare > 0 && (
-                                                    <span
-                                                        className="perfil-score-seg is-dropeado"
-                                                        style={{ width: `${dropeadoShare}%` }}
-                                                    />
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Tooltip interactivo estilo MAL (Imagen 1) */}
-                                        {isHovered && (
-                                            <div className="perfil-score-tooltip">
-                                                <div className="perfil-score-tooltip-title">
-                                                    Nota: {row.score} - {row.label}
-                                                </div>
-                                                <div className="perfil-score-tooltip-item">
-                                                    <span className="dot is-visto" />
-                                                    <span>Completados : {row.visto}</span>
-                                                </div>
-                                                <div className="perfil-score-tooltip-item">
-                                                    <span className="dot is-viendo" />
-                                                    <span>Viendo : {row.viendo}</span>
-                                                </div>
-                                                <div className="perfil-score-tooltip-item">
-                                                    <span className="dot is-pendiente" />
-                                                    <span>Pendientes : {row.pendiente}</span>
-                                                </div>
-                                                {row.dropeado > 0 && (
-                                                    <div className="perfil-score-tooltip-item">
-                                                        <span className="dot is-dropeado" />
-                                                        <span>Dropeados : {row.dropeado}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="perfil-score-right-stats">
-                                        <span className="perfil-score-count">{row.count}</span>
-                                        <span className="perfil-score-pct">({row.pctOfScored}%)</span>
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-
-                    <div className="perfil-score-dist-footer">
-                        <div>
-                            <span className="text-secondary">Nota Media:</span>{' '}
-                            <strong className="text-white">{stats.notaMedia.toFixed(2)}</strong>
-                        </div>
-                        <div>
-                            <span className="text-secondary">Desv. Estándar:</span>{' '}
-                            <strong className="text-white">{stats.stdDev.toFixed(2)}</strong>
-                        </div>
-                        <div>
-                            <span className="text-secondary">Total Notas:</span>{' '}
-                            <strong className="text-white">{stats.totalScored}</strong>
-                        </div>
-                    </div>
-                </div>
-
-                {/* COLUMNA DERECHA: Desglose de Lista por Género (Imagen 5) */}
-                <div className="perfil-genre-table-card">
-                    <div className="perfil-section-header-line">
-                        <div>
-                            <span className="ml-eyebrow">ESTADÍSTICAS POR GÉNERO</span>
-                            <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-2">
-                                <Layers size={16} style={{ color: 'var(--perfil-acento)' }} />
-                                <span>Cantidad, % del Total, Nota Media y Tiempo por Género</span>
-                            </h4>
-                        </div>
-                        <span className="small text-secondary" style={{ fontSize: '0.72rem' }}>
-                            {sortedGenres.length} géneros registrados
-                        </span>
-                    </div>
-
-                    {sortedGenres.length === 0 ? (
-                        <div className="perfil-contrast-empty my-3">
-                            <span>Agrega animes a tu lista para calcular tus métricas por género.</span>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="perfil-genre-table-wrap">
-                                <table className="perfil-genre-table">
-                                    <thead>
-                                        <tr>
-                                            <th style={{ width: '36px' }}>#</th>
-                                            <th>Género / Temática</th>
-                                            <th
-                                                className="is-sortable text-end"
-                                                onClick={() => handleToggleGenreSort('count')}
-                                            >
-                                                <span>Cant.</span>
-                                                <ArrowUpDown size={11} className="ms-1 opacity-75" />
-                                            </th>
-                                            <th style={{ minWidth: '130px' }}>% de tu Lista</th>
-                                            <th
-                                                className="is-sortable text-center"
-                                                onClick={() => handleToggleGenreSort('meanScore')}
-                                            >
-                                                <span>Nota Media</span>
-                                                <ArrowUpDown size={11} className="ms-1 opacity-75" />
-                                            </th>
-                                            <th
-                                                className="is-sortable text-center"
-                                                onClick={() => handleToggleGenreSort('minutes')}
-                                            >
-                                                <span>Tiempo Visto</span>
-                                                <ArrowUpDown size={11} className="ms-1 opacity-75" />
-                                            </th>
-                                            <th
-                                                className="is-sortable text-end"
-                                                onClick={() => handleToggleGenreSort('weighted')}
-                                                title="Puntuación ponderada bayesiana según volumen de títulos"
-                                            >
-                                                <span>Ponderada</span>
-                                                <ArrowUpDown size={11} className="ms-1 opacity-75" />
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {visibleGenres.map((g, idx) => (
-                                            <tr key={g.genre}>
-                                                <td className="text-secondary font-mono">{idx + 1}</td>
-                                                <td>
-                                                    <span className="perfil-genre-name">{g.genre}</span>
-                                                </td>
-                                                <td className="text-end">
-                                                    <span className="perfil-genre-count">{g.count}</span>
-                                                </td>
-                                                <td>
-                                                    <div className="perfil-genre-pct-cell">
-                                                        <div className="perfil-genre-pct-bar">
-                                                            <div
-                                                                className="perfil-genre-pct-fill"
-                                                                style={{
-                                                                    width: `${Math.min(100, g.pctOfList)}%`,
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        <span className="perfil-genre-pct-num">
-                                                            {g.pctOfList}%
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td className="text-center">
-                                                    <strong className="text-white">
-                                                        {g.meanScore.toFixed(2)}
-                                                    </strong>
-                                                </td>
-                                                <td className="text-center">
-                                                    <span
-                                                        className="perfil-genre-time"
-                                                        title={`${Math.round(g.hours)} horas totales (${g.days.toFixed(1)} días)`}
-                                                    >
-                                                        {g.days >= 1
-                                                            ? `${g.days.toFixed(1)} d`
-                                                            : `${Math.max(0.5, g.hours).toFixed(1)} h`}
-                                                    </span>
-                                                </td>
-                                                <td className="text-end text-secondary font-mono">
-                                                    {g.weighted.toFixed(2)}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {sortedGenres.length > 10 && (
-                                <button
-                                    type="button"
-                                    className="perfil-genre-expand-btn"
-                                    onClick={() => setExpandAllGenres((prev) => !prev)}
-                                >
-                                    {expandAllGenres ? (
-                                        <>
-                                            <ChevronUp size={14} />
-                                            <span>Contraer a Top 10 géneros</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <ChevronDown size={14} />
-                                            <span>Expandir los {sortedGenres.length} géneros</span>
-                                        </>
-                                    )}
-                                </button>
-                            )}
-                        </>
-                    )}
-                </div>
-            </div>
-
-            {/* =======================================================================
-                BLOQUE 4: CONTRASTES CON LA COMUNIDAD & JOYAS OCULTAS (IMÁGENES 2, 3 Y 4)
-               ======================================================================= */}
-            <div className="perfil-contrasts-card">
-                <div className="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-3">
-                    <div>
-                        <span className="ml-eyebrow">CONTRASTE PERSONAL VS. COMUNIDAD GLOBAL</span>
-                        <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-2">
-                            <Sparkles size={16} style={{ color: 'var(--perfil-acento)' }} />
-                            <span>Opiniones a Contramano y Joyas Ocultas</span>
-                        </h4>
-                    </div>
-
-                    {/* Selector de pestañas para mantener el perfil ordenado */}
-                    <div className="perfil-contrast-tabs" role="tablist">
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={activeContrastTab === 'hated_enjoyed'}
-                            className={`perfil-contrast-tab ${
-                                activeContrastTab === 'hated_enjoyed' ? 'is-active' : ''
-                            }`}
-                            onClick={() => setActiveContrastTab('hated_enjoyed')}
-                        >
-                            <Heart size={13} />
-                            <span>Me gustaron, a la mayoría no</span>
-                            <span className="count">{stats.theyHatedIEnjoyed.length}</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={activeContrastTab === 'loved_didnt'}
-                            className={`perfil-contrast-tab ${
-                                activeContrastTab === 'loved_didnt' ? 'is-active' : ''
-                            }`}
-                            onClick={() => setActiveContrastTab('loved_didnt')}
-                        >
-                            <HeartCrack size={13} />
-                            <span>Gustaron a la mayoría, a mí no</span>
-                            <span className="count">{stats.theyLovedIDidnt.length}</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={activeContrastTab === 'hidden_gems'}
-                            className={`perfil-contrast-tab ${
-                                activeContrastTab === 'hidden_gems' ? 'is-active' : ''
-                            }`}
-                            onClick={() => setActiveContrastTab('hidden_gems')}
-                        >
-                            <Gem size={13} />
-                            <span>Joyas Ocultas (Poco populares)</span>
-                            <span className="count">{stats.hiddenGems.length}</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={activeContrastTab === 'all'}
-                            className={`perfil-contrast-tab ${activeContrastTab === 'all' ? 'is-active' : ''}`}
-                            onClick={() => setActiveContrastTab('all')}
-                            title="Ver las 3 categorías desplegadas al mismo tiempo"
-                        >
-                            <LayoutGrid size={13} />
-                            <span>Ver las 3</span>
-                        </button>
-                    </div>
-                </div>
-
-                {/* Vista según pestaña activa */}
-                {(activeContrastTab === 'hated_enjoyed' || activeContrastTab === 'all') && (
-                    <div className="perfil-contrast-block">
-                        <div className="perfil-contrast-subhead">
-                            <span className="title">
-                                Animes que personalmente gustaron pero a la mayoría no 🤍
-                            </span>
-                            <span className="legend">☆ Media Comunidad vs. ★ Tu Nota</span>
-                        </div>
-                        {renderContrastRow(
-                            stats.theyHatedIEnjoyed,
-                            'hated_enjoyed',
-                            'Aún no hay animes donde tu calificación supere a la media global de la comunidad (☆ MAL < ★ Tu Nota).'
-                        )}
-                    </div>
-                )}
-
-                {(activeContrastTab === 'loved_didnt' || activeContrastTab === 'all') && (
-                    <div className="perfil-contrast-block">
-                        <div className="perfil-contrast-subhead">
-                            <span className="title">
-                                Animes que a la mayoría les gustó pero personalmente no 💔
-                            </span>
-                            <span className="legend">☆ Media Comunidad vs. ★ Tu Nota</span>
-                        </div>
-                        {renderContrastRow(
-                            stats.theyLovedIDidnt,
-                            'loved_didnt',
-                            'No tienes animes calificados por debajo del consenso de la comunidad (☆ MAL > ★ Tu Nota).'
-                        )}
-                    </div>
-                )}
-
-                {(activeContrastTab === 'hidden_gems' || activeContrastTab === 'all') && (
-                    <div className="perfil-contrast-block">
-                        <div className="perfil-contrast-subhead">
-                            <span className="title">
-                                Joyas Ocultas: Animes poco populares que personalmente gustaron 💎
-                            </span>
-                            <span className="legend"># Ranking / Popularidad vs. ★ Tu Nota</span>
-                        </div>
-                        {renderContrastRow(
-                            stats.hiddenGems,
-                            'hidden_gems',
-                            'Califica con ★ 7 o más tus animes favoritos para descubrir tus joyas ocultas aquí.'
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* Modal de Detalle al hacer clic en cualquier portada */}
             {selectedAnime && (
                 <AnimeDetalleDialog
                     fila={selectedAnime}
@@ -1006,9 +2093,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                         onUpdateFila?.(selectedAnime.id, cambios)
                         setSelectedAnime((prev) => (prev ? { ...prev, ...cambios } : null))
                     }}
-                    onRecomendar={() => {
-                        // feedback
-                    }}
+                    onRecomendar={() => {}}
                 />
             )}
         </div>

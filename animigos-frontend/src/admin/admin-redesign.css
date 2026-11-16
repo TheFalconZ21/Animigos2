@@ -1,14 +1,16 @@
 /* ============================================================
-   ADMIN V2: SIDEBAR Y DRAWER DE DRILL-DOWN INTERACTIVO
+   ADMIN V3.1: PIZARRA CARBONO EJECUTIVA — PULIDO VISUAL & ESPACIAL
+   Regla Cromática 70 / 20 / 10 | Inter + JetBrains Mono
    ============================================================ */
 
+/* 1. SIDEBAR CON HOLGURA Y CERO TRUNCAMIENTO FORZADO */
 .admin-sidebar {
-  width: 250px;
+  width: 276px;
   background-color: var(--admin-surface-1);
   border-right: 1px solid var(--admin-border-subtle);
   display: flex;
   flex-direction: column;
-  transition: width 0.22s var(--admin-ease);
+  transition: width 0.24s var(--admin-ease);
   position: sticky;
   top: 0;
   height: 100vh;
@@ -17,52 +19,98 @@
 }
 
 .admin-sidebar.collapsed {
-  width: 68px;
+  width: 76px;
 }
 
 .admin-sidebar-header {
-  padding: 1rem 1.15rem;
+  height: 68px;
+  min-height: 68px;
+  max-height: 68px;
+  padding: 0 1.25rem;
   border-bottom: 1px solid var(--admin-border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* Logo Gato de Animigos rodeado de Tuerca (Admin Brand) */
+.admin-cat-gear-logo {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.admin-cat-gear-svg {
+  width: 38px;
+  height: 38px;
+  color: var(--admin-focus);
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.22));
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
+}
+
+.admin-cat-gear-logo:hover .admin-cat-gear-svg {
+  transform: rotate(35deg);
+  color: #7DD3FC;
+}
+
+.admin-cat-gear-img {
+  position: absolute;
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+  pointer-events: none;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.admin-cat-gear-logo:hover .admin-cat-gear-img {
+  transform: scale(1.08);
 }
 
 .admin-sidebar-nav {
-  padding: 0.85rem 0.5rem;
+  padding: 1.1rem 0.85rem;
   overflow-y: auto;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .admin-sidebar-section-title {
-  font-size: 0.65rem;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--admin-text-muted);
-  padding: 0.5rem 0.65rem 0.25rem;
+  padding: 0.75rem 0.75rem 0.35rem;
 }
 
 .admin-sidebar-item {
+  font-family: var(--font-sans);
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.55rem 0.75rem;
-  border-radius: var(--radius-sm);
+  gap: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 11px;
   color: var(--admin-text-secondary);
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 500;
   background: transparent;
   border: 1px solid transparent;
   width: 100%;
   text-align: left;
   cursor: pointer;
-  transition: all 0.15s var(--admin-ease);
+  transition: all 0.16s var(--admin-ease);
   text-decoration: none;
+  position: relative;
 }
 
 .admin-sidebar-item:hover {
@@ -73,50 +121,391 @@
 
 .admin-sidebar-item.active {
   background-color: var(--admin-surface-3);
-  color: #FFFFFF;
-  border-color: var(--admin-border-divider);
+  color: var(--admin-text-primary);
+  border-color: rgba(56, 189, 248, 0.28);
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.admin-sidebar-item.active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 22%;
+  bottom: 22%;
+  width: 3.5px;
+  border-radius: 0 4px 4px 0;
+  background-color: var(--admin-focus);
+  box-shadow: 0 0 10px var(--admin-focus);
 }
 
 .admin-sidebar-footer {
-  padding: 0.85rem 0.75rem;
+  padding: 1.1rem 1rem;
   border-top: 1px solid var(--admin-border-subtle);
   background-color: var(--admin-surface-1);
 }
 
-/* Drawer / Inspector Contextual de Drill-down */
-.admin-drawer-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
-  z-index: 1050;
+/* 1.5 HEADBAR ESTÁTICA (STICKY CON EL SCROLL) + BUSCADOR GLOBAL DE SECCIONES Y SUB-VISTAS */
+.admin-sticky-headbar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  height: 68px;
+  min-height: 68px;
+  background-color: rgba(17, 20, 29, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--admin-border-subtle);
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.45);
   display: flex;
-  justify-content: flex-end;
-  animation: admin-fade-in 0.2s var(--admin-ease);
+  align-items: center;
+  box-sizing: border-box;
 }
 
-.admin-drawer-content {
+.admin-sticky-headbar-inner {
   width: 100%;
-  max-width: 540px;
-  background-color: var(--admin-surface-1);
-  border-left: 1px solid var(--admin-border-divider);
-  height: 100vh;
+  height: 100%;
+  max-width: 1540px;
+  margin: 0 auto;
+  padding: 0 2.75rem;
   display: flex;
-  flex-direction: column;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.75);
-  animation: admin-slide-left 0.24s var(--admin-ease);
-  overflow: hidden;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  box-sizing: border-box;
 }
 
-@keyframes admin-slide-left {
-  from {
-    transform: translateX(100%);
+@media (max-width: 1200px) {
+  .admin-sticky-headbar-inner {
+    padding: 0 1.75rem;
   }
-  to {
-    transform: translateX(0);
+}
+
+@media (max-width: 768px) {
+  .admin-sticky-headbar {
+    height: auto;
+    min-height: 68px;
+    padding: 0.65rem 0;
   }
+  .admin-sticky-headbar-inner {
+    padding: 0 1rem;
+    flex-wrap: wrap;
+  }
+}
+
+.admin-headbar-search-box {
+  background-color: var(--admin-surface-2);
+  border: 1px solid var(--admin-border-divider);
+  border-radius: 11px;
+  padding: 0.48rem 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  transition: all 0.16s var(--admin-ease);
+}
+
+.admin-headbar-search-box.focused,
+.admin-headbar-search-box:focus-within {
+  background-color: var(--admin-surface-3);
+  border-color: var(--admin-focus);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16);
+}
+
+.admin-headbar-search-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  background-color: var(--admin-surface-1);
+  border: 1px solid var(--admin-border-divider);
+  border-top: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 14px;
+  max-height: 360px;
+  overflow-y: auto;
+  z-index: 120;
+  box-shadow: 0 20px 44px -8px rgba(0, 0, 0, 0.75);
+  animation: admin-deep-dive-in 0.18s var(--admin-ease);
+}
+
+.admin-headbar-search-item {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 0.55rem 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.admin-headbar-search-item:hover,
+.admin-headbar-search-item.active {
+  background-color: var(--admin-surface-3);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+/* 2. ESPACIO DE DESCANSO ENTRE SIDEBAR Y CONTENEDORES PRINCIPALES */
+.admin-main-workspace {
+  flex: 1;
+  width: 100%;
+  max-width: 1540px;
+  margin: 0 auto;
+  padding: 1.75rem 2.75rem 2.5rem 2.75rem;
+}
+
+@media (max-width: 1200px) {
+  .admin-main-workspace {
+    padding: 1.5rem 1.75rem 2rem 1.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-main-workspace {
+    padding: 1.25rem 1rem;
+  }
+}
+
+/* 3. CORRECCIÓN GLOBAL DE SEPARACIÓN ICONO-TEXTO Y UTILIDADES FRACCIONALES */
+.admin-root [class*="gap-1.5"] {
+  gap: 0.5rem !important; /* 8px reales */
+}
+
+.admin-root [class*="gap-2.5"] {
+  gap: 0.75rem !important; /* 12px reales */
+}
+
+.admin-root [class*="p-2.5"] {
+  padding: 0.85rem 1rem !important;
+}
+
+.admin-root [class*="p-3.5"] {
+  padding: 1.25rem 1.35rem !important;
+}
+
+.admin-root [class*="py-1.5"] {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+.admin-root [class*="py-2.5"] {
+  padding-top: 0.8rem !important;
+  padding-bottom: 0.8rem !important;
+}
+
+.admin-root [class*="px-2.5"] {
+  padding-left: 0.85rem !important;
+  padding-right: 0.85rem !important;
+}
+
+.admin-root [class*="px-3.5"] {
+  padding-left: 1.25rem !important;
+  padding-right: 1.25rem !important;
+}
+
+.admin-root [class*="mb-1.5"] {
+  margin-bottom: 0.5rem !important;
+}
+
+.admin-root [class*="mb-2.5"] {
+  margin-bottom: 0.85rem !important;
+}
+
+.admin-root [class*="mt-0.5"] {
+  margin-top: 0.25rem !important;
+}
+
+.admin-root [class*="mt-1.5"] {
+  margin-top: 0.5rem !important;
+}
+
+.admin-root [class*="ms-1.5"] {
+  margin-left: 0.5rem !important;
+}
+
+.admin-root [class*="me-1.5"] {
+  margin-right: 0.5rem !important;
+}
+
+/* Garantiza que ningún icono SVG quede pegado al texto en contenedores flex */
+.admin-root .d-flex > svg + span,
+.admin-root .d-flex > svg + strong,
+.admin-root .d-flex > svg + div,
+.admin-root .d-inline-flex > svg + span,
+.admin-root .admin-btn > svg + span {
+  margin-left: 0.15rem;
+}
+
+/* 4. ARMONIZACIÓN DE CURVATURAS (ADIÓS A BORDES AFILADOS) */
+.admin-root .admin-card {
+  border-radius: 16px;
+  padding: 1.4rem 1.55rem;
+}
+
+.admin-root .rounded,
+.admin-root .rounded-1,
+.admin-root .rounded-2,
+.admin-root .rounded-3 {
+  border-radius: 12px !important;
+}
+
+.admin-root .admin-badge {
+  white-space: nowrap;
+  flex-shrink: 0;
+  border-radius: 8px;
+  padding: 0.26rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  gap: 0.4rem;
+}
+
+.admin-root .admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 10px;
+  padding: 0.48rem 0.95rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Sub-contenedores y Cajas de Estadísticas suaves */
+.admin-subcard {
+  background-color: var(--admin-surface-2);
+  border: 1px solid var(--admin-border-subtle);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+}
+
+.admin-stat-pill-box {
+  background-color: var(--admin-surface-1);
+  border: 1px solid var(--admin-border-subtle);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  text-align: center;
+  transition: border-color 0.16s ease, transform 0.16s ease;
+}
+
+.admin-stat-pill-box:hover {
+  border-color: var(--admin-border-divider);
+}
+
+.admin-callout-box {
+  border-radius: 13px;
+  padding: 0.95rem 1.15rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  line-height: 1.45;
+}
+
+/* 5. MODERNIZACIÓN DE TABLAS E INPUTS (ELIMINACIÓN DEL ESTILO ANTERIOR .table-dark / .bg-dark) */
+.admin-root .table,
+.admin-root .table-dark {
+  --bs-table-bg: transparent !important;
+  --bs-table-striped-bg: transparent !important;
+  --bs-table-hover-bg: rgba(255, 255, 255, 0.035) !important;
+  --bs-table-color: var(--admin-text-primary) !important;
+  --bs-table-border-color: var(--admin-border-subtle) !important;
+  background-color: transparent !important;
+  margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0 0.35rem;
+}
+
+.admin-root .table thead th {
+  background-color: transparent !important;
+  color: var(--admin-text-muted) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.65rem 1rem !important;
+  border-bottom: 1px solid var(--admin-border-subtle) !important;
+}
+
+.admin-root .table tbody tr {
+  background-color: var(--admin-surface-2) !important;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.admin-root .table tbody tr:hover {
+  background-color: var(--admin-surface-3) !important;
+}
+
+.admin-root .table tbody td {
+  background-color: transparent !important;
+  padding: 0.85rem 1rem !important;
+  border-top: 1px solid var(--admin-border-subtle) !important;
+  border-bottom: 1px solid var(--admin-border-subtle) !important;
+}
+
+.admin-root .table tbody td:first-child {
+  border-left: 1px solid var(--admin-border-subtle) !important;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+
+.admin-root .table tbody td:last-child {
+  border-right: 1px solid var(--admin-border-subtle) !important;
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+/* Inputs modernos coherentes con Pizarra Carbono */
+.admin-root .form-control,
+.admin-root .form-control.bg-dark {
+  background-color: var(--admin-surface-2) !important;
+  border: 1px solid var(--admin-border-divider) !important;
+  border-radius: 10px !important;
+  color: var(--admin-text-primary) !important;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.84rem;
+}
+
+.admin-root .form-control:focus {
+  border-color: var(--admin-focus) !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15) !important;
+}
+
+/* ============================================================
+   ANIMACIONES DE RECORRIDO: CORRELATIVO VS NO CORRELATIVO
+   ============================================================ */
+
+@keyframes admin-section-switch {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-anim-section {
+  animation: admin-section-switch 0.26s var(--admin-ease) forwards;
+}
+
+@keyframes admin-deep-dive-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.985) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.admin-anim-subview {
+  animation: admin-deep-dive-in 0.28s var(--admin-ease) forwards;
 }
 
 @keyframes admin-fade-in {
@@ -128,52 +517,273 @@
   }
 }
 
-.admin-drawer-header {
-  padding: 1.15rem 1.35rem;
+/* ============================================================
+   ARQUITECTURA CERO-SCROLL (VIEWPORT-FIT SHELL)
+   ============================================================ */
+
+.admin-viewport-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  min-height: calc(100vh - 4.5rem);
+}
+
+.admin-section-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.25rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--admin-border-subtle);
+}
+
+.admin-subview-bar {
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.12) 0%, var(--admin-surface-2) 45%, var(--admin-surface-1) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  border-left: 4px solid var(--admin-focus);
+  border-radius: 16px;
+  padding: 1rem 1.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  box-shadow: 0 10px 28px -6px rgba(0, 0, 0, 0.45);
+}
+
+.admin-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  background-color: var(--admin-surface-3);
+  border: 1px solid var(--admin-border-divider);
+  color: var(--admin-text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.16s var(--admin-ease);
+}
+
+.admin-back-btn:hover {
+  background-color: var(--admin-focus);
+  border-color: var(--admin-focus);
+  color: #090B10;
+  transform: translateX(-2px);
+}
+
+.admin-correlative-bridge {
+  background-color: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.26);
+  border-radius: 13px;
+  padding: 0.7rem 1.15rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: var(--admin-surface-2);
+  gap: 1rem;
+  font-size: 0.82rem;
+  animation: admin-deep-dive-in 0.24s var(--admin-ease);
 }
 
-.admin-drawer-body {
-  padding: 1.35rem;
-  overflow-y: auto;
+/* ============================================================
+   KPI CARDS INTERACTIVAS CON HOLGURA Y JERARQUÍA CLARA
+   ============================================================ */
+.admin-kpis-inline-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.35rem;
+}
+
+.admin-kpis-inline-grid.cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1150px) {
+  .admin-kpis-inline-grid.cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-kpis-inline-grid,
+  .admin-kpis-inline-grid.cols-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-kpi-clickable {
+  cursor: pointer;
+  position: relative;
+  transition: all 0.22s var(--admin-ease);
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 1.35rem 1.5rem;
+  border-radius: 16px;
+}
+
+.admin-kpi-clickable:hover {
+  transform: translateY(-3px);
+  border-color: rgba(56, 189, 248, 0.42);
+  background-color: var(--admin-surface-2);
+  box-shadow: 0 14px 30px -6px rgba(0, 0, 0, 0.5);
+}
+
+.admin-kpi-clickable:active {
+  transform: translateY(-1px);
+}
+
+.admin-kpi-kicker {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--admin-text-secondary);
+}
+
+.admin-kpi-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--admin-text-primary);
+  line-height: 1.1;
+}
+
+.admin-kpi-drill-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--admin-text-muted);
+  transition: color 0.16s ease, transform 0.16s ease;
+}
+
+.admin-kpi-clickable:hover .admin-kpi-drill-pill {
+  color: var(--admin-focus);
+  transform: translateX(3px);
+}
+
+/* ============================================================
+   ESCENARIO PROTAGONISTA (GRÁFICO + CRUCE DE DECISIONES)
+   ============================================================ */
+.admin-protagonist-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 1.35rem;
   flex: 1;
+  align-items: stretch;
 }
 
-.admin-drawer-footer {
-  padding: 1rem 1.35rem;
-  border-top: 1px solid var(--admin-border-subtle);
-  background-color: var(--admin-surface-2);
+@media (max-width: 1080px) {
+  .admin-protagonist-stage {
+    grid-template-columns: 1fr;
+  }
 }
 
-/* Gráficos interactivos protagonitas */
 .admin-chart-stage {
-  background: radial-gradient(circle at top center, var(--admin-surface-2) 0%, var(--admin-surface-1) 85%);
-  border: 1px solid var(--admin-border-divider);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
+  background: radial-gradient(circle at top left, var(--admin-surface-2) 0%, var(--admin-surface-1) 85%);
+  border: 1px solid var(--admin-border-subtle);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 1.6rem 1.75rem;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 12px 32px -6px rgba(0, 0, 0, 0.42);
+}
+
+.admin-decision-panel {
+  background-color: var(--admin-surface-1);
+  border: 1px solid var(--admin-border-subtle);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 1.6rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.25rem;
+  box-shadow: 0 12px 32px -6px rgba(0, 0, 0, 0.42);
+}
+
+.admin-decision-item {
+  background-color: var(--admin-surface-2);
+  border: 1px solid var(--admin-border-subtle);
+  border-radius: 13px;
+  padding: 1rem 1.15rem;
+  transition: all 0.16s var(--admin-ease);
+}
+
+.admin-decision-item.clickable {
+  cursor: pointer;
+}
+
+.admin-decision-item.clickable:hover {
+  background-color: var(--admin-surface-3);
+  border-color: rgba(56, 189, 248, 0.38);
+  transform: translateX(3px);
 }
 
 .admin-chart-interactive-node {
   cursor: pointer;
-  transition: transform 0.2s var(--admin-ease), filter 0.2s var(--admin-ease), opacity 0.2s var(--admin-ease);
+  border-radius: 13px !important;
+  transition: transform 0.2s var(--admin-ease), filter 0.2s var(--admin-ease), opacity 0.2s var(--admin-ease), border-color 0.2s var(--admin-ease);
 }
 
 .admin-chart-interactive-node:hover {
-  filter: brightness(1.15) drop-shadow(0 4px 12px rgba(255, 255, 255, 0.15));
+  filter: brightness(1.12) drop-shadow(0 4px 12px rgba(56, 189, 248, 0.2));
 }
 
 .admin-chart-interactive-node.dimmed {
   opacity: 0.35;
-  filter: grayscale(0.5);
+  filter: grayscale(0.4);
 }
 
 .admin-chart-interactive-node.active-focus {
-  filter: brightness(1.25) drop-shadow(0 0 16px rgba(56, 189, 248, 0.5));
+  filter: brightness(1.18) drop-shadow(0 0 16px rgba(56, 189, 248, 0.45));
 }
 
+/* Píldoras de cambio rápido entre Sub-Vistas hermanas */
+.admin-subview-switcher {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  background-color: var(--admin-surface-1);
+  padding: 0.35rem;
+  border-radius: 11px;
+  border: 1px solid var(--admin-border-subtle);
+}
+
+.admin-subview-pill {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--admin-text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.38rem 0.85rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-subview-pill:hover {
+  color: var(--admin-text-primary);
+  background-color: var(--admin-surface-2);
+}
+
+.admin-subview-pill.active {
+  color: #090B10;
+  background-color: var(--admin-focus);
+  font-weight: 600;
+}
