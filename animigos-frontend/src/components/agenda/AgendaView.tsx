@@ -23,8 +23,11 @@ import {
     PieChart as PieChartIcon,
     Tv,
     Calendar,
+    Play,
+    ExternalLink,
 } from 'lucide-react'
 import { useAgenda } from '../../hooks/useAgenda'
+import { useAssociatedLinks } from '../../hooks/useAssociatedLinks'
 import { alFallarPoster } from '../mi-lista/mi-lista-data'
 import { dentroDe, aFecha, fechaLarga, horaLocal } from '../../shared/tiempo'
 import type { AgendaItem, SuggestedAiringAnime } from '../../services/agendaApi'
@@ -75,6 +78,8 @@ export function AgendaView({ onOpenAnimeDetail }: AgendaViewProps) {
         addAnimeToAgenda,
         isAdding,
     } = useAgenda()
+
+    const { config: linksConfig, openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
 
     // Sub-vista activa seleccionada a través de los KPIs
     const [subvista, setSubvista] = useState<SubvistaAgenda>('atrasados')
@@ -408,6 +413,19 @@ export function AgendaView({ onOpenAnimeDetail }: AgendaViewProps) {
                                                 </div>
 
                                                 <div className="agenda-action-buttons-group">
+                                                    {isLinksEnabled && (
+                                                        <button
+                                                            type="button"
+                                                            className="agenda-btn-ver"
+                                                            onClick={(e) => openAnimeLink(item.title_english || item.title, siguienteCap, e)}
+                                                            title={`Ver capítulo ${siguienteCap} en ${linksConfig.domain}`}
+                                                        >
+                                                            <Play size={11} fill="currentColor" />
+                                                            <span>Ver Cap. {siguienteCap}</span>
+                                                            <ExternalLink size={10} />
+                                                        </button>
+                                                    )}
+
                                                     <div className="agenda-counter-controls">
                                                         <button
                                                             type="button"

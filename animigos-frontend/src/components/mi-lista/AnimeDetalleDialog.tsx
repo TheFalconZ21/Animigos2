@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Award, Heart, Send, Star, Trash2, Users } from 'lucide-react'
+import { Award, Heart, Send, Star, Trash2, Users, Play, ExternalLink } from 'lucide-react'
 import { ESTADOS, type EntradaLista, type FilaLista, alFallarPoster } from './mi-lista-data'
 import { Dialogo, ProgresoEpisodios, SelloNota } from './piezas'
+import { useAssociatedLinks } from '../../hooks/useAssociatedLinks'
 
 function cleanHtmlEntities(str?: string): string {
     if (!str) return ''
@@ -52,6 +53,7 @@ function Contenido({
     onEliminar?: () => void
 }) {
     const { anime } = fila
+    const { config: linksConfig, openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
     const amigos = (anime.watchedByFriends ?? []).map((nombre: string) => ({ name: nombre, avatarUrl: '' }))
 
     const [localEp, setLocalEp] = useState<string>(String(fila.episodiosVistos ?? 0))
@@ -214,6 +216,26 @@ function Contenido({
                                         title="Marcar todos los episodios como vistos"
                                     >
                                         Todo visto
+                                    </button>
+                                )}
+
+                                {isLinksEnabled && (
+                                    <button
+                                        type="button"
+                                        className="ml-btn-ver"
+                                        onClick={(e) => {
+                                            const nextEp = (fila.episodiosVistos || 0) >= (anime.episodes || 9999)
+                                                ? (fila.episodiosVistos || 1)
+                                                : (fila.episodiosVistos || 0) + 1
+                                            openAnimeLink(anime.titleEnglish || anime.title, nextEp, e)
+                                        }}
+                                        title={`Ver capítulo en ${linksConfig.domain}`}
+                                    >
+                                        <Play size={12} fill="currentColor" />
+                                        <span>
+                                            Ver Cap. {(fila.episodiosVistos || 0) >= (anime.episodes || 9999) ? fila.episodiosVistos || 1 : (fila.episodiosVistos || 0) + 1}
+                                        </span>
+                                        <ExternalLink size={11} />
                                     </button>
                                 )}
                             </div>

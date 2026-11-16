@@ -8,11 +8,21 @@ import {
     Sparkles,
     ShieldCheck,
     Eye,
-    Lock,
     MessageSquare,
+    Globe,
+    Play,
+    ExternalLink,
 } from 'lucide-react'
 import { Dialogo } from '../mi-lista/piezas'
 import { useThemeAccent, OPCIONES_ACENTO } from '../../hooks/useThemeAccent'
+import {
+    useAssociatedLinks,
+    PRESET_DOMAINS,
+    buildAssociatedAnimeUrl,
+    type AssociatedLinksConfig,
+    type NameSeparator,
+    type ChapterSeparator,
+} from '../../hooks/useAssociatedLinks'
 import type { SocialLinks, PrivacyConfig } from './perfil-types'
 
 const PRESET_AVATARS = [
@@ -40,7 +50,7 @@ export interface ProfileSettingsModalProps {
     }) => Promise<void>
     onSavePrivacy: (config: PrivacyConfig) => Promise<void>
     onOpenAvatarPicker?: () => void
-    defaultTab?: 'general' | 'perfil' | 'privacidad'
+    defaultTab?: 'general' | 'perfil' | 'privacidad' | 'links'
 }
 
 export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
@@ -57,7 +67,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     defaultTab = 'general',
 }) => {
     const { acentoModo, setAcentoModo } = useThemeAccent()
-    const [activeTab, setActiveTab] = useState<'general' | 'perfil' | 'privacidad'>(defaultTab)
+    const [activeTab, setActiveTab] = useState<'general' | 'perfil' | 'privacidad' | 'links'>(defaultTab)
 
     // Estado Perfil
     const [name, setName] = useState(initialName || '')
@@ -68,6 +78,12 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     // Estado Privacidad
     const [privacy, setPrivacy] = useState<PrivacyConfig>(initialPrivacy)
 
+    // Estado Links Asociados
+    const { config: storedLinksConfig, updateConfig: updateLinksConfig } = useAssociatedLinks()
+    const [linksConfig, setLinksConfig] = useState<AssociatedLinksConfig>(storedLinksConfig)
+    const [testAnime, setTestAnime] = useState('Sousou no Frieren')
+    const [testChapter, setTestChapter] = useState(6)
+
     const [isSaving, setIsSaving] = useState(false)
 
     useEffect(() => {
@@ -76,8 +92,9 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
         setAvatarUrl(initialAvatar || '')
         setSocials(initialSocials || {})
         setPrivacy(initialPrivacy)
+        setLinksConfig(storedLinksConfig)
         setActiveTab(defaultTab)
-    }, [initialName, initialBio, initialAvatar, initialSocials, initialPrivacy, defaultTab, open])
+    }, [initialName, initialBio, initialAvatar, initialSocials, initialPrivacy, storedLinksConfig, defaultTab, open])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -92,6 +109,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 }),
                 onSavePrivacy(privacy),
             ])
+            updateLinksConfig(linksConfig)
             onClose()
         } catch (err) {
             console.error('Error guardando configuración:', err)
@@ -100,15 +118,17 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
         }
     }
 
+    const livePreviewUrl = buildAssociatedAnimeUrl(testAnime, testChapter, linksConfig)
+
     return (
-        <Dialogo abierto={open} onCerrar={onClose} etiqueta="Configuración de Perfil y Plataforma" ancho={620}>
+        <Dialogo abierto={open} onCerrar={onClose} etiqueta="Configuración de Perfil y Plataforma" ancho={660}>
             <form onSubmit={handleSubmit} className="p-4 d-flex flex-column gap-3.5">
                 {/* Cabecera del modal */}
                 <div>
                     <span className="ml-eyebrow">CONFIGURACIÓN GENERAL · ANIMIGOS</span>
                     <h3 className="h5 fw-bold text-white mb-1">Configuración de Usuario</h3>
                     <p className="small mb-0" style={{ color: 'var(--perfil-text-muted)' }}>
-                        Administra el color de acento de la plataforma, tus datos de perfil y la privacidad de tu cuenta.
+                        Personaliza tu tema, datos de perfil, privacidad y los links asociados para reproducción directa de animes.
                     </p>
                 </div>
 
@@ -120,49 +140,65 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                     <button
                         type="button"
                         onClick={() => setActiveTab('general')}
-                        className={`flex-grow-1 py-1.5 px-3 rounded-2 btn btn-sm border-0 d-inline-flex align-items-center justify-content-center gap-2 fw-semibold transition-all ${
+                        className={`flex-grow-1 py-1.5 px-2 rounded-2 btn btn-sm border-0 d-inline-flex align-items-center justify-content-center gap-1.5 fw-semibold transition-all ${
                             activeTab === 'general' ? 'text-white shadow-sm' : 'text-secondary'
                         }`}
                         style={{
                             background: activeTab === 'general' ? 'var(--perfil-acento)' : 'transparent',
                             color: activeTab === 'general' ? '#080808' : undefined,
-                            fontSize: '0.8rem',
+                            fontSize: '0.78rem',
                         }}
                     >
-                        <Palette size={14} />
+                        <Palette size={13} />
                         <span>Paleta y Tema</span>
                     </button>
 
                     <button
                         type="button"
                         onClick={() => setActiveTab('perfil')}
-                        className={`flex-grow-1 py-1.5 px-3 rounded-2 btn btn-sm border-0 d-inline-flex align-items-center justify-content-center gap-2 fw-semibold transition-all ${
+                        className={`flex-grow-1 py-1.5 px-2 rounded-2 btn btn-sm border-0 d-inline-flex align-items-center justify-content-center gap-1.5 fw-semibold transition-all ${
                             activeTab === 'perfil' ? 'text-white shadow-sm' : 'text-secondary'
                         }`}
                         style={{
                             background: activeTab === 'perfil' ? 'var(--perfil-acento)' : 'transparent',
                             color: activeTab === 'perfil' ? '#080808' : undefined,
-                            fontSize: '0.8rem',
+                            fontSize: '0.78rem',
                         }}
                     >
-                        <User size={14} />
+                        <User size={13} />
                         <span>Datos de Perfil</span>
                     </button>
 
                     <button
                         type="button"
                         onClick={() => setActiveTab('privacidad')}
-                        className={`flex-grow-1 py-1.5 px-3 rounded-2 btn btn-sm border-0 d-inline-flex align-items-center justify-content-center gap-2 fw-semibold transition-all ${
+                        className={`flex-grow-1 py-1.5 px-2 rounded-2 btn btn-sm border-0 d-inline-flex align-items-center justify-content-center gap-1.5 fw-semibold transition-all ${
                             activeTab === 'privacidad' ? 'text-white shadow-sm' : 'text-secondary'
                         }`}
                         style={{
                             background: activeTab === 'privacidad' ? 'var(--perfil-acento)' : 'transparent',
                             color: activeTab === 'privacidad' ? '#080808' : undefined,
-                            fontSize: '0.8rem',
+                            fontSize: '0.78rem',
                         }}
                     >
-                        <ShieldCheck size={14} />
+                        <ShieldCheck size={13} />
                         <span>Privacidad</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('links')}
+                        className={`flex-grow-1 py-1.5 px-2 rounded-2 btn btn-sm border-0 d-inline-flex align-items-center justify-content-center gap-1.5 fw-semibold transition-all ${
+                            activeTab === 'links' ? 'text-white shadow-sm' : 'text-secondary'
+                        }`}
+                        style={{
+                            background: activeTab === 'links' ? 'var(--perfil-acento)' : 'transparent',
+                            color: activeTab === 'links' ? '#080808' : undefined,
+                            fontSize: '0.78rem',
+                        }}
+                    >
+                        <LinkIcon size={13} />
+                        <span>Links Asociados</span>
                     </button>
                 </div>
 
@@ -182,58 +218,43 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                 {OPCIONES_ACENTO.map((opcion) => {
                                     const isSelected = acentoModo === opcion.id
                                     return (
-                                        <div key={opcion.id} className="col-12 col-sm-6">
+                                        <div key={opcion.id} className="col-6 col-sm-4">
                                             <button
                                                 type="button"
                                                 onClick={() => setAcentoModo(opcion.id)}
-                                                className={`w-100 p-2.5 border d-flex align-items-center justify-content-between text-start transition-all`}
+                                                className={`w-100 p-2.5 border text-start d-flex align-items-center gap-2.5 transition-all ${
+                                                    isSelected ? 'border-primary' : ''
+                                                }`}
                                                 style={{
                                                     borderRadius: 12,
                                                     background: isSelected
                                                         ? 'var(--perfil-acento-soft)'
                                                         : 'var(--perfil-card-2)',
                                                     borderColor: isSelected
-                                                        ? (opcion.color || 'var(--perfil-acento)')
+                                                        ? 'var(--perfil-acento)'
                                                         : 'var(--perfil-border)',
                                                     cursor: 'pointer',
                                                 }}
                                             >
-                                                <div className="d-flex align-items-center gap-2.5">
-                                                    <span
-                                                        className="rounded-circle flex-shrink-0"
-                                                        style={{
-                                                            width: '18px',
-                                                            height: '18px',
-                                                            backgroundColor: opcion.color || 'var(--perfil-acento)',
-                                                            border: '2px solid rgba(255,255,255,0.4)',
-                                                            boxShadow: isSelected
-                                                                ? `0 0 10px ${opcion.color}`
-                                                                : 'none',
-                                                        }}
-                                                    />
-                                                    <div>
-                                                        <div className="small fw-bold text-white">
-                                                            {opcion.label}
-                                                        </div>
-                                                        <div
-                                                            className="small"
-                                                            style={{
-                                                                color: 'var(--perfil-text-dim)',
-                                                                fontSize: '0.72rem',
-                                                            }}
-                                                        >
-                                                            {opcion.id === 'auto'
-                                                                ? 'Reactivo al género principal'
-                                                                : opcion.color}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                {isSelected && (
-                                                    <Check
-                                                        size={16}
-                                                        style={{ color: opcion.color || 'var(--perfil-acento)' }}
-                                                    />
-                                                )}
+                                                <span
+                                                    className="rounded-circle flex-shrink-0"
+                                                    style={{
+                                                        width: 16,
+                                                        height: 16,
+                                                        background: opcion.color,
+                                                        boxShadow: `0 0 10px ${opcion.color}88`,
+                                                    }}
+                                                />
+                                                <span
+                                                    className="small text-truncate"
+                                                    style={{
+                                                        color: isSelected ? '#ffffff' : 'var(--perfil-text-muted)',
+                                                        fontWeight: isSelected ? 700 : 500,
+                                                        fontSize: '0.76rem',
+                                                    }}
+                                                >
+                                                    {opcion.label}
+                                                </span>
                                             </button>
                                         </div>
                                     )
@@ -246,169 +267,149 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 {/* CONTENIDO TAB 2: Datos de Perfil */}
                 {activeTab === 'perfil' && (
                     <div className="d-flex flex-column gap-3 animate-fade-in">
-                        {/* Selector de Avatar */}
+                        {/* Selector de Avatar con Previews */}
                         <div>
-                            <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-2">
-                                <ImageIcon size={14} style={{ color: 'var(--perfil-acento)' }} />
-                                <span>Foto de Perfil / Avatar</span>
+                            <label className="form-label small fw-semibold text-white d-flex align-items-center justify-content-between mb-2">
+                                <span className="d-inline-flex align-items-center gap-1.5">
+                                    <ImageIcon size={15} style={{ color: 'var(--perfil-acento)' }} />
+                                    <span>Foto de Perfil / Avatar</span>
+                                </span>
+                                {onOpenAvatarPicker && (
+                                    <button
+                                        type="button"
+                                        onClick={onOpenAvatarPicker}
+                                        className="btn btn-link p-0 text-decoration-none small"
+                                        style={{ color: 'var(--perfil-acento)', fontSize: '0.74rem' }}
+                                    >
+                                        Explorar Catálogo Completo ↗
+                                    </button>
+                                )}
                             </label>
-                            <div className="d-flex align-items-center gap-3 mb-2">
+
+                            <div className="d-flex align-items-center gap-3 p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
                                 <img
-                                    src={avatarUrl || initialAvatar}
-                                    alt="Previsualización"
-                                    className="rounded-circle"
+                                    src={avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                                    alt="Preview"
+                                    className="rounded-circle border"
                                     style={{
-                                        width: '56px',
-                                        height: '56px',
+                                        width: 54,
+                                        height: 54,
                                         objectFit: 'cover',
-                                        border: '2px solid var(--perfil-acento)',
-                                    }}
-                                    onError={(e) => {
-                                        e.currentTarget.src = initialAvatar
+                                        borderColor: 'var(--perfil-acento)',
                                     }}
                                 />
                                 <div className="flex-grow-1">
-                                    <input
-                                        type="url"
-                                        className="cat-search-control w-100"
-                                        placeholder="URL de imagen personalizada (https://...)"
-                                        value={avatarUrl}
-                                        onChange={(e) => setAvatarUrl(e.target.value)}
-                                        style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem' }}
-                                    />
+                                    <div className="small fw-semibold text-white mb-1.5" style={{ fontSize: '0.75rem' }}>
+                                        Presets Rápidos:
+                                    </div>
+                                    <div className="d-flex flex-wrap gap-1.5">
+                                        {PRESET_AVATARS.map((av) => (
+                                            <button
+                                                key={av.label}
+                                                type="button"
+                                                onClick={() => setAvatarUrl(av.url)}
+                                                className="btn btn-sm py-0.5 px-2 rounded-pill"
+                                                style={{
+                                                    background: avatarUrl === av.url ? 'var(--perfil-acento)' : 'rgba(255, 255, 255, 0.05)',
+                                                    color: avatarUrl === av.url ? '#080808' : 'var(--perfil-text-muted)',
+                                                    fontSize: '0.72rem',
+                                                    border: '1px solid var(--perfil-border)',
+                                                }}
+                                            >
+                                                {av.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-
-                            <div className="d-flex flex-wrap gap-2 pt-1 mb-2">
-                                {PRESET_AVATARS.map((p) => (
-                                    <button
-                                        key={p.label}
-                                        type="button"
-                                        onClick={() => setAvatarUrl(p.url)}
-                                        className="btn p-0 border-0"
-                                        title={p.label}
-                                        style={{
-                                            opacity: avatarUrl === p.url ? 1 : 0.6,
-                                            transform: avatarUrl === p.url ? 'scale(1.1)' : 'none',
-                                            transition: 'all 0.15s ease',
-                                        }}
-                                    >
-                                        <img
-                                            src={p.url}
-                                            alt={p.label}
-                                            className="rounded-circle"
-                                            style={{
-                                                width: '32px',
-                                                height: '32px',
-                                                objectFit: 'cover',
-                                                border:
-                                                    avatarUrl === p.url
-                                                        ? '2px solid var(--perfil-acento)'
-                                                        : '1px solid var(--perfil-border)',
-                                            }}
-                                        />
-                                    </button>
-                                ))}
-                            </div>
-
-                            {onOpenAvatarPicker && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        onClose()
-                                        onOpenAvatarPicker()
-                                    }}
-                                    className="btn btn-sm w-100 d-flex align-items-center justify-content-center gap-2 py-1.5 rounded-3 border"
-                                    style={{
-                                        backgroundColor: 'rgba(167, 139, 250, 0.12)',
-                                        borderColor: 'var(--perfil-acento)',
-                                        color: 'var(--perfil-acento)',
-                                        fontSize: '0.78rem',
-                                        fontWeight: 600,
-                                    }}
-                                >
-                                    <Sparkles size={14} />
-                                    <span>Explorar Catálogo Oficial (+800 Avatares de Anime)</span>
-                                </button>
-                            )}
                         </div>
 
-                        {/* Nombre para mostrar */}
+                        {/* Nombre a Mostrar */}
                         <div>
-                            <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
-                                <User size={14} style={{ color: 'var(--perfil-acento)' }} />
-                                <span>Nombre para Mostrar</span>
-                            </label>
+                            <label className="form-label small fw-semibold text-white mb-1">Nombre Visible / Alias</label>
                             <input
                                 type="text"
-                                required
-                                className="cat-search-control w-100"
-                                placeholder="Ej. Shinji Ikari"
+                                className="form-control form-control-sm text-white"
+                                style={{
+                                    background: 'var(--perfil-card-2)',
+                                    borderColor: 'var(--perfil-border)',
+                                    fontSize: '0.82rem',
+                                }}
+                                placeholder="Tu nombre en Animigos"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                maxLength={50}
+                                maxLength={30}
+                                required
                             />
                         </div>
 
                         {/* Biografía */}
                         <div>
-                            <label className="form-label small fw-semibold text-white mb-1.5">Biografía Corta</label>
+                            <label className="form-label small fw-semibold text-white mb-1">Biografía / Presentación</label>
                             <textarea
-                                className="cat-search-control w-100"
+                                className="form-control form-control-sm text-white"
+                                style={{
+                                    background: 'var(--perfil-card-2)',
+                                    borderColor: 'var(--perfil-border)',
+                                    fontSize: '0.82rem',
+                                    resize: 'none',
+                                }}
                                 rows={2}
-                                placeholder="Cuéntale a tus amigos qué animes te gustan o qué estás viendo..."
-                                value={bio || ''}
+                                placeholder="Escribe un estado o frase que te identifique..."
+                                value={bio}
                                 onChange={(e) => setBio(e.target.value)}
-                                maxLength={240}
-                                style={{ resize: 'none' }}
+                                maxLength={160}
                             />
+                            <div className="text-end small mt-1" style={{ color: 'var(--perfil-text-dim)', fontSize: '0.7rem' }}>
+                                {bio.length}/160 caracteres
+                            </div>
                         </div>
 
-                        {/* Redes Sociales */}
+                        {/* Redes Sociales y Enlaces */}
                         <div>
-                            <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
+                            <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-2">
                                 <LinkIcon size={14} style={{ color: 'var(--perfil-acento)' }} />
-                                <span>Enlaces y Redes Sociales</span>
+                                <span>Redes Sociales Vinculadas</span>
                             </label>
                             <div className="row g-2">
                                 <div className="col-6">
                                     <input
                                         type="text"
-                                        className="cat-search-control w-100"
+                                        className="form-control form-control-sm text-white"
+                                        style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', fontSize: '0.76rem' }}
                                         placeholder="Usuario MyAnimeList"
                                         value={socials.mal || ''}
                                         onChange={(e) => setSocials({ ...socials, mal: e.target.value })}
-                                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.65rem' }}
                                     />
                                 </div>
                                 <div className="col-6">
                                     <input
                                         type="text"
-                                        className="cat-search-control w-100"
+                                        className="form-control form-control-sm text-white"
+                                        style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', fontSize: '0.76rem' }}
                                         placeholder="Usuario AniList"
                                         value={socials.anilist || ''}
                                         onChange={(e) => setSocials({ ...socials, anilist: e.target.value })}
-                                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.65rem' }}
                                     />
                                 </div>
                                 <div className="col-6">
                                     <input
                                         type="text"
-                                        className="cat-search-control w-100"
-                                        placeholder="Discord Tag (#1234)"
+                                        className="form-control form-control-sm text-white"
+                                        style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', fontSize: '0.76rem' }}
+                                        placeholder="Tag Discord (ej: luffy#1234)"
                                         value={socials.discord || ''}
                                         onChange={(e) => setSocials({ ...socials, discord: e.target.value })}
-                                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.65rem' }}
                                     />
                                 </div>
                                 <div className="col-6">
                                     <input
                                         type="text"
-                                        className="cat-search-control w-100"
-                                        placeholder="Twitter / X (@usuario)"
+                                        className="form-control form-control-sm text-white"
+                                        style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', fontSize: '0.76rem' }}
+                                        placeholder="Perfil X / Twitter"
                                         value={socials.twitter || ''}
                                         onChange={(e) => setSocials({ ...socials, twitter: e.target.value })}
-                                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.65rem' }}
                                     />
                                 </div>
                             </div>
@@ -436,7 +437,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                             : 'var(--perfil-text-dim)',
                                     }}
                                 >
-                                    {privacy.isListPublic ? <Eye size={18} /> : <Lock size={18} />}
+                                    <Eye size={18} />
                                 </div>
                                 <div>
                                     <div className="text-white fw-semibold small">Lista de Anime Pública</div>
@@ -444,9 +445,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                         className="small"
                                         style={{ color: 'var(--perfil-text-dim)', fontSize: '0.74rem' }}
                                     >
-                                        {privacy.isListPublic
-                                            ? 'Cualquier usuario puede ver tus animes y notas'
-                                            : 'Solo tú puedes ver tu colección de animes'}
+                                        Cualquier usuario puede ver tus animes y notas
                                     </div>
                                 </div>
                             </div>
@@ -454,13 +453,13 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                 type="button"
                                 className={`perfil-pill-toggle ${privacy.isListPublic ? 'is-on' : ''}`}
                                 onClick={() => setPrivacy({ ...privacy, isListPublic: !privacy.isListPublic })}
-                                aria-label="Alternar visibilidad de lista"
+                                aria-label="Alternar lista pública"
                             >
                                 <span className="perfil-pill-handle" />
                             </button>
                         </div>
 
-                        {/* 2. Visibilidad de Estadísticas */}
+                        {/* 2. Estadísticas de Visionado */}
                         <div className="perfil-switch-wrap">
                             <div className="d-flex align-items-center gap-3">
                                 <div
@@ -591,6 +590,328 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                                         </div>
                                     )
                                 })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* CONTENIDO TAB 4: Links Asociados (Nueva Sección) */}
+                {activeTab === 'links' && (
+                    <div className="d-flex flex-column gap-3 animate-fade-in">
+                        {/* Toggle de activación general */}
+                        <div className="perfil-switch-wrap mb-0">
+                            <div className="d-flex align-items-center gap-3">
+                                <div
+                                    style={{
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: 8,
+                                        background: 'rgba(255, 255, 255, 0.05)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: linksConfig.enabled ? 'var(--perfil-acento)' : 'var(--perfil-text-dim)',
+                                    }}
+                                >
+                                    <Play size={17} fill="currentColor" />
+                                </div>
+                                <div>
+                                    <div className="text-white fw-semibold small">Activar Botón de Reproducción ("Ver")</div>
+                                    <div className="small" style={{ color: 'var(--perfil-text-dim)', fontSize: '0.74rem' }}>
+                                        Muestra el botón "Ver" en cada anime para saltar al capítulo configurado
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                className={`perfil-pill-toggle ${linksConfig.enabled ? 'is-on' : ''}`}
+                                onClick={() => setLinksConfig({ ...linksConfig, enabled: !linksConfig.enabled })}
+                                aria-label="Alternar links asociados"
+                            >
+                                <span className="perfil-pill-handle" />
+                            </button>
+                        </div>
+
+                        {/* 1. Dominio General */}
+                        <div>
+                            <div className="d-flex align-items-center justify-content-between mb-1.5">
+                                <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-0">
+                                    <Globe size={14} style={{ color: 'var(--perfil-acento)' }} />
+                                    <span>Dominio General / Plataforma</span>
+                                </label>
+                                <span className="small text-secondary" style={{ fontSize: '0.72rem' }}>
+                                    Presets rápidos:
+                                </span>
+                            </div>
+
+                            {/* Presets rápidos */}
+                            <div className="d-flex flex-wrap gap-1.5 mb-2">
+                                {PRESET_DOMAINS.map((preset) => {
+                                    const isMatch = linksConfig.domain.toLowerCase().includes(preset.domain.toLowerCase())
+                                    return (
+                                        <button
+                                            key={preset.id}
+                                            type="button"
+                                            onClick={() =>
+                                                setLinksConfig({
+                                                    ...linksConfig,
+                                                    domain: preset.domain,
+                                                    chapterSeparator: preset.chapterSep,
+                                                })
+                                            }
+                                            className="btn btn-sm py-1 px-2.5 rounded-pill border"
+                                            style={{
+                                                background: isMatch ? 'var(--perfil-acento)' : 'var(--perfil-card-2)',
+                                                color: isMatch ? '#080808' : 'var(--perfil-text-muted)',
+                                                borderColor: isMatch ? 'var(--perfil-acento)' : 'var(--perfil-border)',
+                                                fontSize: '0.72rem',
+                                                fontWeight: isMatch ? 700 : 500,
+                                            }}
+                                        >
+                                            {preset.label}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+
+                            <div className="position-relative">
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm text-white"
+                                    style={{
+                                        background: 'var(--perfil-card-2)',
+                                        borderColor: 'var(--perfil-border)',
+                                        fontSize: '0.82rem',
+                                        paddingLeft: '2.1rem',
+                                    }}
+                                    placeholder="ej: crunchyroll.com, myanimelist.net, animeflv.net..."
+                                    value={linksConfig.domain}
+                                    onChange={(e) => setLinksConfig({ ...linksConfig, domain: e.target.value })}
+                                />
+                                <Globe
+                                    size={14}
+                                    className="position-absolute text-secondary"
+                                    style={{ left: 10, top: '50%', transform: 'translateY(-50%)' }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* 2. Separación de Nombre del Anime */}
+                        <div>
+                            <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
+                                <span className="ml-eyebrow mb-0" style={{ fontSize: '0.7rem' }}>SEPARACIÓN DE NOMBRE</span>
+                            </label>
+                            <div className="row g-2">
+                                {[
+                                    {
+                                        id: 'guion' as NameSeparator,
+                                        label: 'Guión (-)',
+                                        example: 'ej: frieren-beyond-journeys-end',
+                                    },
+                                    {
+                                        id: 'ninguna' as NameSeparator,
+                                        label: 'Ninguna',
+                                        example: 'ej: frierenbeyondjourneysend',
+                                    },
+                                ].map((opt) => {
+                                    const isSelected = linksConfig.nameSeparator === opt.id
+                                    return (
+                                        <div key={opt.id} className="col-6">
+                                            <button
+                                                type="button"
+                                                onClick={() => setLinksConfig({ ...linksConfig, nameSeparator: opt.id })}
+                                                className={`w-100 p-2.5 border text-start transition-all ${
+                                                    isSelected ? 'border-primary' : ''
+                                                }`}
+                                                style={{
+                                                    borderRadius: 10,
+                                                    background: isSelected
+                                                        ? 'var(--perfil-acento-soft)'
+                                                        : 'var(--perfil-card-2)',
+                                                    borderColor: isSelected
+                                                        ? 'var(--perfil-acento)'
+                                                        : 'var(--perfil-border)',
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                <div
+                                                    className="small fw-bold"
+                                                    style={{ color: isSelected ? '#ffffff' : 'var(--perfil-text-muted)' }}
+                                                >
+                                                    {opt.label}
+                                                </div>
+                                                <div
+                                                    className="text-truncate"
+                                                    style={{ color: 'var(--perfil-text-dim)', fontSize: '0.7rem' }}
+                                                >
+                                                    {opt.example}
+                                                </div>
+                                            </button>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* 3. Separación de Capítulos */}
+                        <div>
+                            <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-1.5">
+                                <span className="ml-eyebrow mb-0" style={{ fontSize: '0.7rem' }}>SEPARACIÓN DE CAPÍTULOS</span>
+                            </label>
+                            <div className="row g-2">
+                                {[
+                                    {
+                                        id: 'barra' as ChapterSeparator,
+                                        label: 'Barra (/)',
+                                        example: '.../frieren/6',
+                                    },
+                                    {
+                                        id: 'guion' as ChapterSeparator,
+                                        label: 'Guión (-)',
+                                        example: '.../frieren-6',
+                                    },
+                                    {
+                                        id: 'ninguna' as ChapterSeparator,
+                                        label: 'Ninguna',
+                                        example: '.../frieren6',
+                                    },
+                                ].map((opt) => {
+                                    const isSelected = linksConfig.chapterSeparator === opt.id
+                                    return (
+                                        <div key={opt.id} className="col-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => setLinksConfig({ ...linksConfig, chapterSeparator: opt.id })}
+                                                className={`w-100 p-2.5 border text-start transition-all ${
+                                                    isSelected ? 'border-primary' : ''
+                                                }`}
+                                                style={{
+                                                    borderRadius: 10,
+                                                    background: isSelected
+                                                        ? 'var(--perfil-acento-soft)'
+                                                        : 'var(--perfil-card-2)',
+                                                    borderColor: isSelected
+                                                        ? 'var(--perfil-acento)'
+                                                        : 'var(--perfil-border)',
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                <div
+                                                    className="small fw-bold"
+                                                    style={{ color: isSelected ? '#ffffff' : 'var(--perfil-text-muted)' }}
+                                                >
+                                                    {opt.label}
+                                                </div>
+                                                <div
+                                                    className="text-truncate"
+                                                    style={{ color: 'var(--perfil-text-dim)', fontSize: '0.68rem' }}
+                                                >
+                                                    {opt.example}
+                                                </div>
+                                            </button>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* 4. Simulador / Live Preview en Tiempo Real */}
+                        <div
+                            className="p-3 rounded-3 border"
+                            style={{
+                                background: 'rgba(0, 0, 0, 0.4)',
+                                borderColor: 'var(--perfil-border)',
+                            }}
+                        >
+                            <div className="d-flex align-items-center justify-content-between mb-2">
+                                <span className="small fw-bold text-white d-inline-flex align-items-center gap-1.5" style={{ fontSize: '0.78rem' }}>
+                                    <Sparkles size={13} style={{ color: 'var(--perfil-acento)' }} />
+                                    <span>Simulador en Vivo · Probar Enlace Generado</span>
+                                </span>
+                                <span className="small text-secondary" style={{ fontSize: '0.7rem' }}>
+                                    Ejemplo interactivo
+                                </span>
+                            </div>
+
+                            {/* Inputs de prueba */}
+                            <div className="row g-2 mb-2.5">
+                                <div className="col-8">
+                                    <label className="text-secondary small mb-1" style={{ fontSize: '0.68rem' }}>
+                                        Anime de prueba:
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="form-control form-control-sm text-white"
+                                        style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', fontSize: '0.76rem' }}
+                                        value={testAnime}
+                                        onChange={(e) => setTestAnime(e.target.value)}
+                                        placeholder="ej: Frieren"
+                                    />
+                                </div>
+                                <div className="col-4">
+                                    <label className="text-secondary small mb-1" style={{ fontSize: '0.68rem' }}>
+                                        Capítulo:
+                                    </label>
+                                    <div className="d-flex align-items-center gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setTestChapter(Math.max(1, testChapter - 1))}
+                                            className="btn btn-sm btn-dark border px-2 py-0"
+                                            style={{ borderColor: 'var(--perfil-border)', fontSize: '0.8rem' }}
+                                        >
+                                            -
+                                        </button>
+                                        <input
+                                            type="number"
+                                            className="form-control form-control-sm text-center text-white"
+                                            style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', fontSize: '0.76rem' }}
+                                            value={testChapter}
+                                            onChange={(e) => setTestChapter(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                                            min={1}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setTestChapter(testChapter + 1)}
+                                            className="btn btn-sm btn-dark border px-2 py-0"
+                                            style={{ borderColor: 'var(--perfil-border)', fontSize: '0.8rem' }}
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Caja de Enlace Generado */}
+                            <div
+                                className="d-flex align-items-center justify-content-between p-2.5 rounded-2 border"
+                                style={{
+                                    background: 'var(--perfil-card-2)',
+                                    borderColor: 'color-mix(in srgb, var(--perfil-acento) 35%, var(--perfil-border))',
+                                }}
+                            >
+                                <div className="text-truncate me-2">
+                                    <div className="small font-mono text-truncate" style={{ color: 'var(--perfil-acento)', fontSize: '0.75rem' }}>
+                                        {livePreviewUrl}
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => window.open(livePreviewUrl, '_blank', 'noopener,noreferrer')}
+                                    className="btn btn-sm d-inline-flex align-items-center gap-1 flex-shrink-0"
+                                    style={{
+                                        background: 'var(--perfil-acento)',
+                                        color: '#080808',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
+                                        borderRadius: 6,
+                                        padding: '0.25rem 0.6rem',
+                                    }}
+                                    title="Abrir enlace de prueba en una nueva pestaña"
+                                >
+                                    <span>Probar</span>
+                                    <ExternalLink size={11} />
+                                </button>
                             </div>
                         </div>
                     </div>

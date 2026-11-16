@@ -12,11 +12,14 @@ import {
     EyeOff,
     Loader2,
     Trash2,
+    Play,
+    ExternalLink,
 } from 'lucide-react'
 import { useAnimeDetailQuery, useAnimeRecommendations } from '../../hooks/useCatalog'
 import { useMyList } from '../../hooks/useMyList'
 import { useAuth } from '../../context/AuthContext'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
+import { useAssociatedLinks } from '../../hooks/useAssociatedLinks'
 import type { ApiAnimeData, EstadoLista } from '../../services/userListApi'
 import { ESCALA_NOTAS } from '../mi-lista/mi-lista-data'
 import { getTagDescription } from '../../shared/tagDescriptions'
@@ -45,6 +48,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
     const { isAuthenticated } = useAuth()
     const { acento } = useThemeAccent()
     const { filas, agregarAnime, actualizar, quitar } = useMyList()
+    const { config: linksConfig, openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
 
     const { data: fetchedAnime, isLoading } = useAnimeDetailQuery(malId)
     const { data: recommendations = [], isLoading: loadingRecs } = useAnimeRecommendations(malId)
@@ -319,6 +323,19 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                             Marcar Visto
                                         </button>
                                     </div>
+
+                                    {isLinksEnabled && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => openAnimeLink(anime.title_english || anime.title, 1, e)}
+                                            className="anime-profile-btn-ver mt-1"
+                                            title={`Ver en ${linksConfig.domain}`}
+                                        >
+                                            <Play size={13} fill="currentColor" />
+                                            <span>Ver en {linksConfig.domain} (Cap. 1)</span>
+                                            <ExternalLink size={12} />
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="d-flex flex-column gap-2.5">
@@ -414,6 +431,24 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                             {myEntry.favorito ? 'En tus Animes Favoritos' : 'Añadir a Favoritos'}
                                         </span>
                                     </button>
+
+                                    {isLinksEnabled && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                const nextEp = (myEntry?.episodiosVistos || 0) + 1
+                                                openAnimeLink(anime.title_english || anime.title, nextEp, e)
+                                            }}
+                                            className="anime-profile-btn-ver"
+                                            title={`Ver en ${linksConfig.domain}`}
+                                        >
+                                            <Play size={13} fill="currentColor" />
+                                            <span>
+                                                Ver en {linksConfig.domain} (Cap. {(myEntry?.episodiosVistos || 0) + 1})
+                                            </span>
+                                            <ExternalLink size={12} />
+                                        </button>
+                                    )}
 
                                     <button
                                         type="button"

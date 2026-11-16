@@ -94,3 +94,13 @@ export type ProfileSubView =
 
 export type ProfileTimeRange = '7d' | '30d' | '1y' | 'all'
 
+
+export type NameSeparator = 'guion' | 'ninguna'
+export type ChapterSeparator = 'barra' | 'guion' | 'ninguna'
+
+export interface AssociatedLinksConfig {
+    enabled: boolean
+    domain: string
+    nameSeparator: NameSeparator
+    chapterSeparator: ChapterSeparator
+}

@@ -1210,3 +1210,61 @@
     object-fit: cover;
     display: block;
 }
+
+
+/* ---------- Botón de Links Asociados ("Ver") ---------- */
+.cat-btn-ver {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 8px;
+    background: var(--cat-surface-2);
+    border: 1px solid var(--cat-border);
+    color: var(--cat-text);
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.cat-btn-ver:hover {
+    background: color-mix(in srgb, var(--cat-acento) 20%, var(--cat-surface-2));
+    border-color: var(--cat-acento);
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--cat-acento) 35%, transparent);
+}
+
+.cat-btn-ver:active {
+    transform: scale(0.97);
+}
+
+/* Botón "Ver" en vista de perfil de anime */
+.anime-profile-btn-ver {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1rem;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--cat-acento) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--cat-acento) 45%, transparent);
+    color: #ffffff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.anime-profile-btn-ver:hover {
+    background: var(--cat-acento);
+    border-color: var(--cat-acento);
+    color: #080808;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--cat-acento) 45%, transparent);
+}

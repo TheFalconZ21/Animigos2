@@ -14,6 +14,7 @@ import {
     ChevronDown,
     Tag,
     X,
+    Play,
 } from 'lucide-react'
 import {
     useCatalogQuery,
@@ -25,6 +26,7 @@ import {
 import { useMyList } from '../../hooks/useMyList'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
 import { useAuth } from '../../context/AuthContext'
+import { useAssociatedLinks } from '../../hooks/useAssociatedLinks'
 import type { ApiAnimeData } from '../../services/userListApi'
 import { AnimeProfileView } from './AnimeProfileView'
 import './catalogo.css'
@@ -105,6 +107,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
     const { isAuthenticated } = useAuth()
     const { filas, agregarAnime } = useMyList()
     const { acento } = useThemeAccent()
+    const { config: linksConfig, openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
     const myListIds = useMemo(() => new Set(filas.map((f) => f.malId)), [filas])
 
     // --- Vista Perfil de Anime ---
@@ -876,30 +879,48 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                             </div>
                                         </div>
 
-                                        {/* Botón de Añadir a Mi Lista */}
-                                        <button
-                                            type="button"
-                                            onClick={(e) => handleQuickAdd(anime, e)}
-                                            className={`cat-btn-add ${inMyList ? 'in-list' : ''}`}
-                                            disabled={inMyList}
-                                        >
-                                            {justAdded ? (
-                                                <>
-                                                    <Check size={12} className="text-success" />
-                                                    <span>¡Guardado!</span>
-                                                </>
-                                            ) : inMyList ? (
-                                                <>
-                                                    <Check size={12} />
-                                                    <span>En mi lista</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Plus size={12} />
-                                                    <span>Añadir a Mi Lista</span>
-                                                </>
+                                        {/* Botón de Añadir a Mi Lista y Botón Ver */}
+                                        <div className="d-flex align-items-center gap-1.5 mt-2">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleQuickAdd(anime, e)}
+                                                className={`cat-btn-add flex-grow-1 ${inMyList ? 'in-list' : ''}`}
+                                                disabled={inMyList}
+                                            >
+                                                {justAdded ? (
+                                                    <>
+                                                        <Check size={12} className="text-success" />
+                                                        <span>¡Guardado!</span>
+                                                    </>
+                                                ) : inMyList ? (
+                                                    <>
+                                                        <Check size={12} />
+                                                        <span>En mi lista</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Plus size={12} />
+                                                        <span>Añadir</span>
+                                                    </>
+                                                )}
+                                            </button>
+
+                                            {isLinksEnabled && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        const inList = filas.find((f) => f.malId === anime.mal_id)
+                                                        const ep = inList ? (inList.episodiosVistos || 0) + 1 : 1
+                                                        openAnimeLink(anime.title, ep, e)
+                                                    }}
+                                                    className="cat-btn-ver"
+                                                    title={`Ver en ${linksConfig.domain}`}
+                                                >
+                                                    <Play size={10} fill="currentColor" />
+                                                    <span>Ver</span>
+                                                </button>
                                             )}
-                                        </button>
+                                        </div>
                                     </div>
                                 </article>
                             )

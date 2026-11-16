@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Ellipsis, Folder, FolderInput, Heart, MessageSquare, Send, Tag, Trash2, X } from 'lucide-react'
+import { Ellipsis, Folder, FolderInput, Heart, MessageSquare, Send, Tag, Trash2, X, Play, ExternalLink } from 'lucide-react'
 import { ESTADOS, medioDe, type Carpeta, type EntradaLista, type EstadoLista, type FilaLista, alFallarPoster } from './mi-lista-data'
 import { Menu, SelloNota } from './piezas'
+import { useAssociatedLinks } from '../../hooks/useAssociatedLinks'
 
 interface Props {
     fila: FilaLista
@@ -15,6 +16,7 @@ interface Props {
 
 export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, onVerDetalle, onRecomendar }: Props) {
     const { anime } = fila
+    const { config: linksConfig, openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
     const [agregandoTag, setAgregandoTag] = useState(false)
     const [nuevoTag, setNuevoTag] = useState('')
     const [editandoComentario, setEditandoComentario] = useState(false)
@@ -100,6 +102,21 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
                                 +1
                             </button>
                         </span>
+                    )}
+
+                    {isLinksEnabled && (
+                        <button
+                            type="button"
+                            className="ml-btn-ver-fila"
+                            onClick={(e) => {
+                                const ep = (fila.episodiosVistos || 0) + 1
+                                openAnimeLink(anime.title, ep, e)
+                            }}
+                            title={`Ver capítulo ${(fila.episodiosVistos || 0) + 1} en ${linksConfig.domain}`}
+                        >
+                            <Play size={10} fill="currentColor" />
+                            <span>Ver Cap. {(fila.episodiosVistos || 0) + 1}</span>
+                        </button>
                     )}
                 </div>
 
@@ -230,6 +247,18 @@ export function AnimeFila({ fila, posicion, carpetas, onActualizar, onQuitar, on
                         <button type="button" className="ml-menu-item" onClick={() => { onRecomendar(); cerrar() }}>
                             <Send size={15} /> Recomendar a un amigo
                         </button>
+                        {isLinksEnabled && (
+                            <button
+                                type="button"
+                                className="ml-menu-item"
+                                onClick={() => {
+                                    openAnimeLink(anime.title, (fila.episodiosVistos || 0) + 1)
+                                    cerrar()
+                                }}
+                            >
+                                <ExternalLink size={15} /> Ver en {linksConfig.domain}
+                            </button>
+                        )}
 
                         <div className="ml-menu-sep" />
                         <div className="ml-menu-titulo">Mover a carpeta</div>

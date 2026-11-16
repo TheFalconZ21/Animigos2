@@ -422,6 +422,30 @@
     transform: translateY(-1px);
 }
 
+.agenda-btn-ver {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.36rem 0.7rem;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--theme-acento, #e8508f) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--theme-acento, #e8508f) 45%, transparent);
+    color: #ffffff;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.agenda-btn-ver:hover {
+    background: var(--theme-acento, #e8508f);
+    border-color: var(--theme-acento, #e8508f);
+    color: #080808;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-acento, #e8508f) 35%, transparent);
+}
+
 /* Fila 3: Metadatos Acotados + Próximo Estreno + Botón Al Día */
 .agenda-card-footer-row {
     display: flex;

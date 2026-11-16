@@ -963,6 +963,53 @@
     background: color-mix(in srgb, var(--ml-visto) 12%, transparent);
 }
 
+.ml-btn-ver-fila {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--ml-acento) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ml-acento) 40%, transparent);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.ml-btn-ver-fila:hover {
+    background: var(--ml-acento);
+    border-color: var(--ml-acento);
+    color: #080808;
+    transform: translateY(-1px);
+}
+
+.ml-btn-ver {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--ml-acento) 20%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ml-acento) 50%, transparent);
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+}
+
+.ml-btn-ver:hover {
+    background: var(--ml-acento);
+    border-color: var(--ml-acento);
+    color: #080808;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--ml-acento) 35%, transparent);
+}
+
 /* ---------- Sello de nota (inspirado en los hanko japoneses) ---------- */
 
 .ml-sello-wrap {
