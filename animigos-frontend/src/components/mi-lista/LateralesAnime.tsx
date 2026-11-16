@@ -77,9 +77,9 @@ export function LateralesAnime({ filas = [], visibles = [], activeFila }: Props)
 
     const isActive = Boolean(activeFila)
 
-    // Ancho visible garantizado en ambos lados (nunca colapsa a 0)
-    const anchoIzq = Math.max(160, huecoIzq + 16, hueco - sidebarWidth)
-    const anchoDer = Math.max(160, huecoDer + 16, anchoIzq)
+    // Ancho visible generoso para un difuminado suave sin cortes
+    const anchoIzq = Math.max(240, huecoIzq + 80, hueco - sidebarWidth + 60)
+    const anchoDer = Math.max(240, huecoDer + 80, anchoIzq)
 
     return (
         <div ref={ref} className="ml-laterales-wrap">
