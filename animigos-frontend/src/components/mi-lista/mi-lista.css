@@ -1479,6 +1479,52 @@
     border-top: 1px solid var(--ml-borde);
 }
 
+.ml-btn-secundario {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--ml-superficie-2);
+    border: 1px solid var(--ml-borde);
+    color: var(--ml-texto);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.45rem 0.9rem;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.ml-btn-secundario:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.ml-btn-ficha-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.28rem 0.65rem;
+    border-radius: 9999px;
+    background: var(--ml-superficie-2);
+    border: 1px solid var(--ml-borde);
+    color: var(--ml-texto-2);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all 0.16s ease;
+}
+
+.ml-btn-ficha-badge:hover {
+    background: var(--ml-acento-suave, rgba(167, 139, 250, 0.16));
+    border-color: var(--ml-acento);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
 /* Detalle: cabecera con el póster desenfocado de fondo */
 .ml-detalle-hero {
     position: relative;

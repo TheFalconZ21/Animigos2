@@ -65,7 +65,13 @@ const CHIPS_ESTADO: { id: FiltroEstado; label: string }[] = [
     { id: 'favoritos', label: 'Favoritos' },
 ]
 
-export function MiLista({ visitedUsername }: { visitedUsername?: string } = {}) {
+export function MiLista({
+    visitedUsername,
+    onOpenAnimeDetail,
+}: {
+    visitedUsername?: string
+    onOpenAnimeDetail?: (malId: number) => void
+} = {}) {
     const { user } = useAuth()
     // --- Capa de Lógica / Hooks Reactivos (Pilar 1.2 y 4.3 de la Directiva de Arquitectura) ---
     const {
@@ -684,6 +690,14 @@ export function MiLista({ visitedUsername }: { visitedUsername?: string } = {}) 
                     if (isReadOnlyVisit || detalleId === null) return
                     ownQuitar(detalleId)
                     setDetalleId(null)
+                }}
+                onVerFichaCompleta={(malId) => {
+                    setDetalleId(null)
+                    if (onOpenAnimeDetail) {
+                        onOpenAnimeDetail(malId)
+                    } else {
+                        window.location.hash = `#anime/${malId}`
+                    }
                 }}
             />
             <VerTodosDialog

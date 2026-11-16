@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Award, Heart, Send, Star, Trash2, Users, Play, ExternalLink } from 'lucide-react'
+import { Award, Compass, Heart, Send, Star, Trash2, Users, Play, ExternalLink } from 'lucide-react'
 import { ESTADOS, type EntradaLista, type FilaLista, alFallarPoster } from './mi-lista-data'
 import { Dialogo, ProgresoEpisodios, SelloNota } from './piezas'
 import { useAssociatedLinks } from '../../hooks/useAssociatedLinks'
@@ -27,30 +27,45 @@ export function AnimeDetalleDialog({
     onActualizar,
     onRecomendar,
     onEliminar,
+    onVerFichaCompleta,
 }: {
     fila: FilaLista | null
     onCerrar: () => void
     onActualizar: (cambios: Partial<EntradaLista>) => void
     onRecomendar: () => void
     onEliminar?: () => void
+    onVerFichaCompleta?: (malId: number) => void
 }) {
     return (
         <Dialogo abierto={fila !== null} onCerrar={onCerrar} etiqueta={fila ? `Detalle de ${fila.anime.title}` : 'Detalle'}>
-            {fila && <Contenido fila={fila} onActualizar={onActualizar} onRecomendar={onRecomendar} onEliminar={onEliminar} />}
+            {fila && (
+                <Contenido
+                    fila={fila}
+                    onCerrar={onCerrar}
+                    onActualizar={onActualizar}
+                    onRecomendar={onRecomendar}
+                    onEliminar={onEliminar}
+                    onVerFichaCompleta={onVerFichaCompleta}
+                />
+            )}
         </Dialogo>
     )
 }
 
 function Contenido({
     fila,
+    onCerrar,
     onActualizar,
     onRecomendar,
     onEliminar,
+    onVerFichaCompleta,
 }: {
     fila: FilaLista
+    onCerrar: () => void
     onActualizar: (cambios: Partial<EntradaLista>) => void
     onRecomendar: () => void
     onEliminar?: () => void
+    onVerFichaCompleta?: (malId: number) => void
 }) {
     const { anime } = fila
     const { openAnimeLink, isEnabled: isLinksEnabled } = useAssociatedLinks()
@@ -61,6 +76,16 @@ function Contenido({
     useEffect(() => {
         setLocalEp(String(fila.episodiosVistos ?? 0))
     }, [fila.episodiosVistos])
+
+    const handleIrAFichaPrincipal = () => {
+        const malId = Number(fila.malId || anime.malId)
+        onCerrar()
+        if (onVerFichaCompleta) {
+            onVerFichaCompleta(malId)
+        } else {
+            window.location.hash = `#anime/${malId}`
+        }
+    }
 
     const maxEps = anime.episodes || 9999
 
@@ -93,10 +118,38 @@ function Contenido({
         <>
             <div className="ml-dialog-cuerpo">
                 <div className="ml-dialog-cabecera">
-                    <img className="ml-dialog-poster" src={anime.imageUrl} alt={anime.title} onError={alFallarPoster} />
+                    <img
+                        className="ml-dialog-poster"
+                        src={anime.imageUrl}
+                        alt={anime.title}
+                        onError={alFallarPoster}
+                        onClick={handleIrAFichaPrincipal}
+                        style={{ cursor: 'pointer' }}
+                        title="Clic para ir a la interfaz principal del anime"
+                    />
                     <div className="ml-dialog-titulares">
-                        <h2 className="ml-dialog-titulo">{cleanHtmlEntities(anime.title)}</h2>
-                        {anime.titleEnglish && <p className="ml-dialog-ingles">{cleanHtmlEntities(anime.titleEnglish)}</p>}
+                        <div className="d-flex align-items-start justify-content-between gap-2">
+                            <div>
+                                <h2
+                                    className="ml-dialog-titulo"
+                                    onClick={handleIrAFichaPrincipal}
+                                    style={{ cursor: 'pointer' }}
+                                    title="Clic para ir a la interfaz principal del anime"
+                                >
+                                    {cleanHtmlEntities(anime.title)}
+                                </h2>
+                                {anime.titleEnglish && <p className="ml-dialog-ingles">{cleanHtmlEntities(anime.titleEnglish)}</p>}
+                            </div>
+                            <button
+                                type="button"
+                                className="ml-btn-ficha-badge"
+                                onClick={handleIrAFichaPrincipal}
+                                title="Ir a la interfaz principal del anime"
+                            >
+                                <Compass size={13} />
+                                <span>Ver ficha</span>
+                            </button>
+                        </div>
                         <div className="ml-dialog-chips">
                             <span className="ml-chip">{anime.year}</span>
                             <span className="ml-chip">{anime.season}</span>
@@ -249,7 +302,7 @@ function Contenido({
                 </section>
             </div>
 
-            <footer className="ml-dialog-pie d-flex align-items-center justify-content-between">
+            <footer className="ml-dialog-pie d-flex flex-wrap align-items-center justify-content-between gap-2">
                 {onEliminar ? (
                     <button
                         type="button"
@@ -262,9 +315,20 @@ function Contenido({
                 ) : (
                     <div />
                 )}
-                <button type="button" className="ml-btn ml-btn-acento" onClick={onRecomendar}>
-                    <Send size={15} /> Recomendar a un amigo
-                </button>
+                <div className="d-flex align-items-center gap-2">
+                    <button
+                        type="button"
+                        className="ml-btn ml-btn-secundario"
+                        onClick={handleIrAFichaPrincipal}
+                        title="Ver interfaz principal del anime (detalles, taxonomía, estadísticas y recomendaciones)"
+                    >
+                        <Compass size={14} />
+                        <span>Ficha del anime</span>
+                    </button>
+                    <button type="button" className="ml-btn ml-btn-acento" onClick={onRecomendar}>
+                        <Send size={15} /> Recomendar a un amigo
+                    </button>
+                </div>
             </footer>
         </>
     )

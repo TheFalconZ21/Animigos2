@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Ellipsis, Folder, FolderInput, Heart, MessageSquare, Send, Tag, Trash2, X, Play, ExternalLink } from 'lucide-react'
+import { Compass, Ellipsis, Folder, FolderInput, Heart, MessageSquare, Send, Tag, Trash2, X, Play, ExternalLink } from 'lucide-react'
 import { ESTADOS, medioDe, type Carpeta, type EntradaLista, type EstadoLista, type FilaLista, alFallarPoster } from './mi-lista-data'
 import { Menu, SelloNota } from './piezas'
 import { useAssociatedLinks } from '../../hooks/useAssociatedLinks'
@@ -268,6 +268,16 @@ export function AnimeFila({
                         </button>
                         <button type="button" className="ml-menu-item" onClick={() => { onRecomendar(); cerrar() }}>
                             <Send size={15} /> Recomendar a un amigo
+                        </button>
+                        <button
+                            type="button"
+                            className="ml-menu-item"
+                            onClick={() => {
+                                window.location.hash = `#anime/${fila.malId || anime.malId}`
+                                cerrar()
+                            }}
+                        >
+                            <Compass size={15} /> Ficha del anime
                         </button>
                         {isLinksEnabled && (
                             <button
