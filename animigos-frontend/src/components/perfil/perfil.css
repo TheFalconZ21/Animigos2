@@ -2463,15 +2463,111 @@
     background: var(--perfil-card);
     border: 1px solid var(--perfil-border);
     border-radius: var(--perfil-radius-sm);
-    padding: 1.35rem 1.5rem;
+    padding: 1.25rem 1.4rem;
 }
 
 .perfil-time-watched-container svg rect {
     will-change: height, y;
 }
 
+/* Botones de navegación de carruseles de afiches */
+.perfil-carousel-nav-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    color: var(--perfil-text-secondary);
+    flex-shrink: 0;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.16s ease;
+}
 
+.perfil-carousel-nav-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--perfil-cyan);
+    color: #ffffff;
+    transform: scale(1.08);
+}
 
+.perfil-carousel-nav-btn:disabled {
+    opacity: 0.22;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 
+/* Carrusel horizontal de afiches en período inspeccionado */
+.perfil-time-poster-carousel {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-behavior: smooth;
+}
 
+.perfil-time-poster-carousel::-webkit-scrollbar {
+    display: none;
+}
+
+.perfil-time-poster-item {
+    width: 78px;
+    height: 112px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--perfil-border);
+    background: #111116;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.perfil-time-poster-item:hover {
+    transform: translateY(-3px) scale(1.04);
+    border-color: var(--perfil-cyan);
+    box-shadow: 0 6px 18px rgba(56, 189, 248, 0.35);
+}
+
+.perfil-time-poster-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.perfil-time-poster-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 2px 4px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.45) 70%, transparent 100%);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.perfil-time-poster-badge {
+    font-size: 0.65rem;
+    font-family: monospace;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(15, 23, 42, 0.85);
+    padding: 1px 4px;
+    border-radius: 4px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* Puntitos interactivos para Profesor Doki en Dimensiona tu Tiempo */
+.perfil-doki-dot {
+    height: 7px;
+    border-radius: 4px;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.perfil-doki-dot:hover {
+    transform: scale(1.18);
+}
 
