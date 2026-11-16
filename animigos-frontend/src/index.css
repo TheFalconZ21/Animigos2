@@ -10,6 +10,9 @@
   /* Aquí puedes definir tus propios colores y variables */
   --anime-primary: #080808;
   --anime-detalles: #646368;
+
+  /* Evitar que temas de alto contraste del sistema operativo anulen estilos y bordes redondeados */
+  forced-color-adjust: none;
 }
 
 /* Reset mínimo para evitar desbordes */

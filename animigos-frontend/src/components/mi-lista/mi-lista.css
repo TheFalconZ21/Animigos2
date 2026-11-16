@@ -7,7 +7,6 @@
    ============================================================ */
 
 .ml-root {
-    --ml-ancho-contenedor: 900px;
     --ml-acento: var(--theme-acento, #e8508f);
     --ml-acento-suave: color-mix(in srgb, var(--ml-acento) 14%, transparent);
     --ml-acento-borde: color-mix(in srgb, var(--ml-acento) 35%, transparent);
@@ -35,6 +34,10 @@
     width: 100%;
     color: var(--ml-texto-2);
     font-family: var(--font-body);
+}
+
+.ml-seccion-lista {
+    --ml-ancho-contenedor: 900px;
 }
 
 .ml-root button {
@@ -1868,8 +1871,8 @@
 
 /* ---------- Portadas animadas en los costados ---------- */
 
-/* El contenido queda por encima de las columnas */
-.ml-root > .container {
+/* El contenido de Mi Lista queda por encima de las columnas y acotado a 900px */
+.ml-seccion-lista > .container {
     position: relative;
     z-index: 1;
     max-width: var(--ml-ancho-contenedor, 900px) !important;
