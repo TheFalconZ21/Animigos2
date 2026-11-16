@@ -108,21 +108,11 @@ export const AssociatedLinkSelectorModal: React.FC = () => {
         setCopied(false)
     }, [editingSlotId, settings.slots, settings.animeOverrides, animeKey])
 
-    if (!isOpen || !targetAnime) return null
-
-    const animeDisplayName = targetAnime.title || targetAnime.titleEnglish || targetAnime.title_english || 'Anime'
-
-    // Cálculo del slug automático por defecto para este anime
-    const defaultTitleForSlug = formTitleLang === 'ingles'
-        ? (targetAnime.titleEnglish || targetAnime.title_english || targetAnime.title || '')
-        : (targetAnime.title || targetAnime.titleEnglish || targetAnime.title_english || '')
-    const defaultAutoSlug = cleanAnimeTitleForSlug(defaultTitleForSlug, formNameSep)
-
-    // Cálculo dinámico de la URL de previsualización en tiempo real durante la edición
+    // Cálculo dinámico de la URL de previsualización en tiempo real durante la edición (Hook incondicional)
     const editingSlot = editingSlotId !== null ? settings.slots.find((s) => s.id === editingSlotId) : null
 
     const previewUrl = useMemo(() => {
-        if (!editingSlot) return '#'
+        if (!editingSlot || !targetAnime) return '#'
         const draftSlot: LinkSlotConfig = {
             ...editingSlot,
             name: formSlotName,
@@ -159,6 +149,17 @@ export const AssociatedLinkSelectorModal: React.FC = () => {
         formCustomSlug,
         formCustomUrl,
     ])
+
+    // Condición de salida temprana (DESPUÉS de todos los hooks de React)
+    if (!isOpen || !targetAnime) return null
+
+    const animeDisplayName = targetAnime.title || targetAnime.titleEnglish || targetAnime.title_english || 'Anime'
+
+    // Cálculo del slug automático por defecto para este anime
+    const defaultTitleForSlug = formTitleLang === 'ingles'
+        ? (targetAnime.titleEnglish || targetAnime.title_english || targetAnime.title || '')
+        : (targetAnime.title || targetAnime.titleEnglish || targetAnime.title_english || '')
+    const defaultAutoSlug = cleanAnimeTitleForSlug(defaultTitleForSlug, formNameSep)
 
     const handleSelectSlot = (slot: LinkSlotConfig) => {
         if (!slot.domain || !slot.domain.trim()) return
