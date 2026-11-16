@@ -1501,6 +1501,30 @@
     }
 }
 
+/* Layout de 2 columnas para Subvista Nota Media: Histograma (izq) + Contrastes y Joyas (der) */
+.perfil-mean-score-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    gap: 1.25rem;
+    align-items: stretch;
+}
+
+.perfil-mean-score-layout .perfil-score-dist-card {
+    height: 100%;
+}
+
+.perfil-mean-score-layout .perfil-score-dist-card .perfil-section-header-line {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+}
+
+@media (max-width: 1080px) {
+    .perfil-mean-score-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ---------- 8.1 Distribución de Notas Dadas (Imagen 1) ---------- */
 .perfil-score-dist-card {
     background: var(--perfil-card);
@@ -1996,6 +2020,15 @@
     border: 1px solid var(--perfil-border);
     border-radius: var(--perfil-radius-sm);
     padding: 1.35rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.perfil-contrast-content-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 0.25rem;
 }
 
 .perfil-contrast-tabs {

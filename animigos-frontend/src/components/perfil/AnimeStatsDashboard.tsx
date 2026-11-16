@@ -703,7 +703,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         mode: 'hated_enjoyed' | 'loved_didnt' | 'hidden_gems',
         emptyText: string
     ) => {
-        const maxInRow = Math.max(3, Math.min(6, totalRowSlots - 1))
+        const maxInRow = activeSubView === 'mean-score' ? 4 : Math.max(3, Math.min(6, totalRowSlots - 1))
         const sliceItems = items.slice(0, maxInRow)
 
         if (sliceItems.length === 0) {
@@ -1712,258 +1712,262 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
 
         return (
             <div className="perfil-analytics-hub perfil-subview-enter">
-                {/* 1. Histograma Interactivo de Notas Dadas por el Usuario */}
-                <div className="perfil-score-dist-card mb-4">
-                    <div className="perfil-section-header-line">
-                        <div>
-                            <span className="ml-eyebrow">SUBVISTA DEDICADA · HISTOGRAMA DE CALIFICACIONES</span>
-                            <h3 className="h5 fw-bold text-white mb-0 d-flex align-items-center gap-2">
-                                <BarChart3 size={18} style={{ color: 'var(--perfil-acento)' }} />
-                                <span>Distribución de Notas Dadas por el Usuario</span>
-                            </h3>
-                        </div>
-                        <span className="small text-secondary" style={{ fontSize: '0.74rem' }}>
-                            Haz clic en cualquier nota (10 a 1) para ver los animes con esa puntuación
-                        </span>
-                    </div>
-
-                    <div className="perfil-score-rows-wrap">
-                        {stats.scoreRows.map((row) => {
-                            const widthPct =
-                                row.count > 0 ? Math.max(4, (row.count / stats.maxScoreRowCount) * 100) : 0
-                            const vistoShare = row.count > 0 ? (row.visto / row.count) * 100 : 0
-                            const viendoShare = row.count > 0 ? (row.viendo / row.count) * 100 : 0
-                            const pendienteShare = row.count > 0 ? (row.pendiente / row.count) * 100 : 0
-                            const dropeadoShare = row.count > 0 ? (row.dropeado / row.count) * 100 : 0
-                            const isHovered = hoveredScoreRow === row.score
-                            const isSelected = selectedScoreFilter === row.score
-
-                            return (
-                                <div
-                                    key={row.score}
-                                    className={`perfil-score-row ${isHovered || isSelected ? 'is-hovered' : ''}`}
-                                    style={{ cursor: row.count > 0 ? 'pointer' : 'default' }}
-                                    onMouseEnter={() => setHoveredScoreRow(row.score)}
-                                    onMouseLeave={() => setHoveredScoreRow(null)}
-                                    onClick={() => {
-                                        if (row.count > 0) {
-                                            setSelectedScoreFilter(isSelected ? null : row.score)
-                                        }
-                                    }}
-                                >
-                                    <span className="perfil-score-num">{row.score}</span>
-
-                                    <div className="perfil-score-bar-track">
-                                        {row.count > 0 && (
-                                            <div
-                                                className="perfil-score-bar-fill"
-                                                style={{ width: `${widthPct}%` }}
-                                            >
-                                                {vistoShare > 0 && (
-                                                    <span className="perfil-score-seg is-visto" style={{ width: `${vistoShare}%` }} />
-                                                )}
-                                                {viendoShare > 0 && (
-                                                    <span className="perfil-score-seg is-viendo" style={{ width: `${viendoShare}%` }} />
-                                                )}
-                                                {pendienteShare > 0 && (
-                                                    <span className="perfil-score-seg is-pendiente" style={{ width: `${pendienteShare}%` }} />
-                                                )}
-                                                {dropeadoShare > 0 && (
-                                                    <span className="perfil-score-seg is-dropeado" style={{ width: `${dropeadoShare}%` }} />
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {isHovered && (
-                                            <div className="perfil-score-tooltip">
-                                                <div className="perfil-score-tooltip-title">
-                                                    Nota: {row.score} - {row.label}
-                                                </div>
-                                                <div className="perfil-score-tooltip-item">
-                                                    <span className="dot is-visto" />
-                                                    <span>Completados : {row.visto}</span>
-                                                </div>
-                                                <div className="perfil-score-tooltip-item">
-                                                    <span className="dot is-viendo" />
-                                                    <span>Viendo : {row.viendo}</span>
-                                                </div>
-                                                <div className="perfil-score-tooltip-item">
-                                                    <span className="dot is-pendiente" />
-                                                    <span>Pendientes : {row.pendiente}</span>
-                                                </div>
-                                                {row.dropeado > 0 && (
-                                                    <div className="perfil-score-tooltip-item">
-                                                        <span className="dot is-dropeado" />
-                                                        <span>Dropeados : {row.dropeado}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="perfil-score-right-stats">
-                                        <span className="perfil-score-count">{row.count}</span>
-                                        <span className="perfil-score-pct">({row.pctOfScored}%)</span>
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-
-                    {selectedScoreRowObj && selectedScoreRowObj.items.length > 0 && (
-                        <div className="mt-3 pt-3 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
-                            <div className="d-flex align-items-center justify-content-between mb-2">
-                                <span className="small fw-bold text-white">
-                                    Animes calificados con ★ {selectedScoreRowObj.score} ({selectedScoreRowObj.label})
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedScoreFilter(null)}
-                                    className="btn btn-sm p-0 text-secondary small"
-                                >
-                                    Limpiar selección
-                                </button>
+                <div className="perfil-mean-score-layout">
+                    {/* 1. Histograma Interactivo de Notas Dadas por el Usuario (Columna Izquierda Compacta) */}
+                    <div className="perfil-score-dist-card">
+                        <div className="perfil-section-header-line">
+                            <div>
+                                <span className="ml-eyebrow">SUBVISTA DEDICADA · HISTOGRAMA DE CALIFICACIONES</span>
+                                <h3 className="h5 fw-bold text-white mb-0 d-flex align-items-center gap-2">
+                                    <BarChart3 size={18} style={{ color: 'var(--perfil-acento)' }} />
+                                    <span>Distribución de Notas Dadas por el Usuario</span>
+                                </h3>
                             </div>
-                            <div className="d-flex gap-2.5 overflow-auto pb-2">
-                                {selectedScoreRowObj.items.map((f) => (
+                            <span className="small text-secondary" style={{ fontSize: '0.74rem' }}>
+                                Haz clic en cualquier nota (10 a 1) para ver los animes con esa puntuación
+                            </span>
+                        </div>
+
+                        <div className="perfil-score-rows-wrap">
+                            {stats.scoreRows.map((row) => {
+                                const widthPct =
+                                    row.count > 0 ? Math.max(4, (row.count / stats.maxScoreRowCount) * 100) : 0
+                                const vistoShare = row.count > 0 ? (row.visto / row.count) * 100 : 0
+                                const viendoShare = row.count > 0 ? (row.viendo / row.count) * 100 : 0
+                                const pendienteShare = row.count > 0 ? (row.pendiente / row.count) * 100 : 0
+                                const dropeadoShare = row.count > 0 ? (row.dropeado / row.count) * 100 : 0
+                                const isHovered = hoveredScoreRow === row.score
+                                const isSelected = selectedScoreFilter === row.score
+
+                                return (
                                     <div
-                                        key={f.id}
-                                        onClick={() => setSelectedAnime(f)}
-                                        className="flex-shrink-0"
-                                        style={{ width: 86, cursor: 'pointer' }}
+                                        key={row.score}
+                                        className={`perfil-score-row ${isHovered || isSelected ? 'is-hovered' : ''}`}
+                                        style={{ cursor: row.count > 0 ? 'pointer' : 'default' }}
+                                        onMouseEnter={() => setHoveredScoreRow(row.score)}
+                                        onMouseLeave={() => setHoveredScoreRow(null)}
+                                        onClick={() => {
+                                            if (row.count > 0) {
+                                                setSelectedScoreFilter(isSelected ? null : row.score)
+                                            }
+                                        }}
                                     >
-                                        <img
-                                            src={f.anime.imageUrl}
-                                            alt={f.anime.title}
-                                            style={{ width: 86, height: 122, objectFit: 'cover', borderRadius: 8 }}
-                                        />
-                                        <div className="small text-white text-truncate mt-1" style={{ fontSize: '0.72rem' }}>
-                                            {f.anime.title}
+                                        <span className="perfil-score-num">{row.score}</span>
+
+                                        <div className="perfil-score-bar-track">
+                                            {row.count > 0 && (
+                                                <div
+                                                    className="perfil-score-bar-fill"
+                                                    style={{ width: `${widthPct}%` }}
+                                                >
+                                                    {vistoShare > 0 && (
+                                                        <span className="perfil-score-seg is-visto" style={{ width: `${vistoShare}%` }} />
+                                                    )}
+                                                    {viendoShare > 0 && (
+                                                        <span className="perfil-score-seg is-viendo" style={{ width: `${viendoShare}%` }} />
+                                                    )}
+                                                    {pendienteShare > 0 && (
+                                                        <span className="perfil-score-seg is-pendiente" style={{ width: `${pendienteShare}%` }} />
+                                                    )}
+                                                    {dropeadoShare > 0 && (
+                                                        <span className="perfil-score-seg is-dropeado" style={{ width: `${dropeadoShare}%` }} />
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {isHovered && (
+                                                <div className="perfil-score-tooltip">
+                                                    <div className="perfil-score-tooltip-title">
+                                                        Nota: {row.score} - {row.label}
+                                                    </div>
+                                                    <div className="perfil-score-tooltip-item">
+                                                        <span className="dot is-visto" />
+                                                        <span>Completados : {row.visto}</span>
+                                                    </div>
+                                                    <div className="perfil-score-tooltip-item">
+                                                        <span className="dot is-viendo" />
+                                                        <span>Viendo : {row.viendo}</span>
+                                                    </div>
+                                                    <div className="perfil-score-tooltip-item">
+                                                        <span className="dot is-pendiente" />
+                                                        <span>Pendientes : {row.pendiente}</span>
+                                                    </div>
+                                                    {row.dropeado > 0 && (
+                                                        <div className="perfil-score-tooltip-item">
+                                                            <span className="dot is-dropeado" />
+                                                            <span>Dropeados : {row.dropeado}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="perfil-score-right-stats">
+                                            <span className="perfil-score-count">{row.count}</span>
+                                            <span className="perfil-score-pct">({row.pctOfScored}%)</span>
                                         </div>
                                     </div>
-                                ))}
+                                )
+                            })}
+                        </div>
+
+                        {selectedScoreRowObj && selectedScoreRowObj.items.length > 0 && (
+                            <div className="mt-3 pt-3 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <span className="small fw-bold text-white">
+                                        Animes calificados con ★ {selectedScoreRowObj.score} ({selectedScoreRowObj.label})
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedScoreFilter(null)}
+                                        className="btn btn-sm p-0 text-secondary small"
+                                    >
+                                        Limpiar selección
+                                    </button>
+                                </div>
+                                <div className="d-flex gap-2.5 overflow-auto pb-2">
+                                    {selectedScoreRowObj.items.map((f) => (
+                                        <div
+                                            key={f.id}
+                                            onClick={() => setSelectedAnime(f)}
+                                            className="flex-shrink-0"
+                                            style={{ width: 86, cursor: 'pointer' }}
+                                        >
+                                            <img
+                                                src={f.anime.imageUrl}
+                                                alt={f.anime.title}
+                                                style={{ width: 86, height: 122, objectFit: 'cover', borderRadius: 8 }}
+                                            />
+                                            <div className="small text-white text-truncate mt-1" style={{ fontSize: '0.72rem' }}>
+                                                {f.anime.title}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    <div className="perfil-score-dist-footer">
-                        <div>
-                            <span className="text-secondary">Nota Media:</span>{' '}
-                            <strong className="text-white">{stats.notaMedia.toFixed(2)}</strong>
-                        </div>
-                        <div>
-                            <span className="text-secondary">Desv. Estándar:</span>{' '}
-                            <strong className="text-white">{stats.stdDev.toFixed(2)}</strong>
-                        </div>
-                        <div>
-                            <span className="text-secondary">Total Notas:</span>{' '}
-                            <strong className="text-white">{stats.totalScored}</strong>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 2. Selección de Animes que Generan Interés: Contraste con la Comunidad & Joyas Ocultas */}
-                <div className="perfil-contrasts-card">
-                    <div className="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-3">
-                        <div>
-                            <span className="ml-eyebrow">CONTRASTE PERSONAL VS. COMUNIDAD GLOBAL</span>
-                            <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-2">
-                                <Sparkles size={16} style={{ color: 'var(--perfil-acento)' }} />
-                                <span>Selección de Animes de Interés y Joyas Ocultas</span>
-                            </h4>
-                        </div>
-
-                        <div className="perfil-contrast-tabs" role="tablist">
-                            <button
-                                type="button"
-                                role="tab"
-                                aria-selected={activeContrastTab === 'hated_enjoyed'}
-                                className={`perfil-contrast-tab ${activeContrastTab === 'hated_enjoyed' ? 'is-active' : ''}`}
-                                onClick={() => setActiveContrastTab('hated_enjoyed')}
-                            >
-                                <Heart size={13} />
-                                <span>Me gustaron y a la mayoría no</span>
-                                <span className="count">{stats.theyHatedIEnjoyed.length}</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                role="tab"
-                                aria-selected={activeContrastTab === 'loved_didnt'}
-                                className={`perfil-contrast-tab ${activeContrastTab === 'loved_didnt' ? 'is-active' : ''}`}
-                                onClick={() => setActiveContrastTab('loved_didnt')}
-                            >
-                                <HeartCrack size={13} />
-                                <span>No me gustaron y a la mayoría sí</span>
-                                <span className="count">{stats.theyLovedIDidnt.length}</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                role="tab"
-                                aria-selected={activeContrastTab === 'hidden_gems'}
-                                className={`perfil-contrast-tab ${activeContrastTab === 'hidden_gems' ? 'is-active' : ''}`}
-                                onClick={() => setActiveContrastTab('hidden_gems')}
-                            >
-                                <Gem size={13} />
-                                <span>Joyas Ocultas</span>
-                                <span className="count">{stats.hiddenGems.length}</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                role="tab"
-                                aria-selected={activeContrastTab === 'all'}
-                                className={`perfil-contrast-tab ${activeContrastTab === 'all' ? 'is-active' : ''}`}
-                                onClick={() => setActiveContrastTab('all')}
-                            >
-                                <LayoutGrid size={13} />
-                                <span>Ver las 3</span>
-                            </button>
+                        <div className="perfil-score-dist-footer">
+                            <div>
+                                <span className="text-secondary">Nota Media:</span>{' '}
+                                <strong className="text-white">{stats.notaMedia.toFixed(2)}</strong>
+                            </div>
+                            <div>
+                                <span className="text-secondary">Desv. Estándar:</span>{' '}
+                                <strong className="text-white">{stats.stdDev.toFixed(2)}</strong>
+                            </div>
+                            <div>
+                                <span className="text-secondary">Total Notas:</span>{' '}
+                                <strong className="text-white">{stats.totalScored}</strong>
+                            </div>
                         </div>
                     </div>
 
-                    {(activeContrastTab === 'hated_enjoyed' || activeContrastTab === 'all') && (
-                        <div className="perfil-contrast-block">
-                            <div className="perfil-contrast-subhead">
-                                <span className="title">Me gustaron y a la mayoría no 🤍</span>
-                                <span className="legend">☆ Media Comunidad vs. ★ Tu Nota</span>
+                    {/* 2. Selección de Animes de Interés: Contraste con la Comunidad & Joyas Ocultas (Columna Derecha) */}
+                    <div className="perfil-contrasts-card">
+                        <div className="d-flex flex-column flex-xxl-row align-items-xxl-center justify-content-between gap-2.5 mb-3">
+                            <div>
+                                <span className="ml-eyebrow">CONTRASTE PERSONAL VS. COMUNIDAD GLOBAL</span>
+                                <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-2">
+                                    <Sparkles size={16} style={{ color: 'var(--perfil-acento)' }} />
+                                    <span>Selección de Animes de Interés y Joyas Ocultas</span>
+                                </h4>
                             </div>
-                            {renderContrastRow(
-                                stats.theyHatedIEnjoyed,
-                                'hated_enjoyed',
-                                'Aún no hay animes donde tu calificación supere a la media global de la comunidad (☆ MAL < ★ Tu Nota).'
-                            )}
-                        </div>
-                    )}
 
-                    {(activeContrastTab === 'loved_didnt' || activeContrastTab === 'all') && (
-                        <div className="perfil-contrast-block">
-                            <div className="perfil-contrast-subhead">
-                                <span className="title">No me gustaron y a la mayoría sí 💔</span>
-                                <span className="legend">☆ Media Comunidad vs. ★ Tu Nota</span>
-                            </div>
-                            {renderContrastRow(
-                                stats.theyLovedIDidnt,
-                                'loved_didnt',
-                                'No tienes animes calificados por debajo del consenso de la comunidad (☆ MAL > ★ Tu Nota).'
-                            )}
-                        </div>
-                    )}
+                            <div className="perfil-contrast-tabs" role="tablist">
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activeContrastTab === 'hated_enjoyed'}
+                                    className={`perfil-contrast-tab ${activeContrastTab === 'hated_enjoyed' ? 'is-active' : ''}`}
+                                    onClick={() => setActiveContrastTab('hated_enjoyed')}
+                                >
+                                    <Heart size={13} />
+                                    <span>Me gustaron y a la mayoría no</span>
+                                    <span className="count">{stats.theyHatedIEnjoyed.length}</span>
+                                </button>
 
-                    {(activeContrastTab === 'hidden_gems' || activeContrastTab === 'all') && (
-                        <div className="perfil-contrast-block">
-                            <div className="perfil-contrast-subhead">
-                                <span className="title">Joyas Ocultas: Animes poco populares con alta valoración 💎</span>
-                                <span className="legend"># Ranking / Popularidad vs. ★ Tu Nota</span>
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activeContrastTab === 'loved_didnt'}
+                                    className={`perfil-contrast-tab ${activeContrastTab === 'loved_didnt' ? 'is-active' : ''}`}
+                                    onClick={() => setActiveContrastTab('loved_didnt')}
+                                >
+                                    <HeartCrack size={13} />
+                                    <span>No me gustaron y a la mayoría sí</span>
+                                    <span className="count">{stats.theyLovedIDidnt.length}</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activeContrastTab === 'hidden_gems'}
+                                    className={`perfil-contrast-tab ${activeContrastTab === 'hidden_gems' ? 'is-active' : ''}`}
+                                    onClick={() => setActiveContrastTab('hidden_gems')}
+                                >
+                                    <Gem size={13} />
+                                    <span>Joyas Ocultas</span>
+                                    <span className="count">{stats.hiddenGems.length}</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activeContrastTab === 'all'}
+                                    className={`perfil-contrast-tab ${activeContrastTab === 'all' ? 'is-active' : ''}`}
+                                    onClick={() => setActiveContrastTab('all')}
+                                >
+                                    <LayoutGrid size={13} />
+                                    <span>Ver las 3</span>
+                                </button>
                             </div>
-                            {renderContrastRow(
-                                stats.hiddenGems,
-                                'hidden_gems',
-                                'Califica con ★ 7 o más tus animes favoritos para descubrir tus joyas ocultas aquí.'
+                        </div>
+
+                        <div className="perfil-contrast-content-scroll perfil-thin-scrollbar">
+                            {(activeContrastTab === 'hated_enjoyed' || activeContrastTab === 'all') && (
+                                <div className="perfil-contrast-block">
+                                    <div className="perfil-contrast-subhead">
+                                        <span className="title">Me gustaron y a la mayoría no 🤍</span>
+                                        <span className="legend">☆ Media Comunidad vs. ★ Tu Nota</span>
+                                    </div>
+                                    {renderContrastRow(
+                                        stats.theyHatedIEnjoyed,
+                                        'hated_enjoyed',
+                                        'Aún no hay animes donde tu calificación supere a la media global de la comunidad (☆ MAL < ★ Tu Nota).'
+                                    )}
+                                </div>
+                            )}
+
+                            {(activeContrastTab === 'loved_didnt' || activeContrastTab === 'all') && (
+                                <div className="perfil-contrast-block">
+                                    <div className="perfil-contrast-subhead">
+                                        <span className="title">No me gustaron y a la mayoría sí 💔</span>
+                                        <span className="legend">☆ Media Comunidad vs. ★ Tu Nota</span>
+                                    </div>
+                                    {renderContrastRow(
+                                        stats.theyLovedIDidnt,
+                                        'loved_didnt',
+                                        'No tienes animes calificados por debajo del consenso de la comunidad (☆ MAL > ★ Tu Nota).'
+                                    )}
+                                </div>
+                            )}
+
+                            {(activeContrastTab === 'hidden_gems' || activeContrastTab === 'all') && (
+                                <div className="perfil-contrast-block">
+                                    <div className="perfil-contrast-subhead">
+                                        <span className="title">Joyas Ocultas: Animes poco populares con alta valoración 💎</span>
+                                        <span className="legend"># Ranking / Popularidad vs. ★ Tu Nota</span>
+                                    </div>
+                                    {renderContrastRow(
+                                        stats.hiddenGems,
+                                        'hidden_gems',
+                                        'Califica con ★ 7 o más tus animes favoritos para descubrir tus joyas ocultas aquí.'
+                                    )}
+                                </div>
                             )}
                         </div>
-                    )}
+                    </div>
                 </div>
 
                 {selectedAnime && (
