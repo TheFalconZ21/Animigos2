@@ -2470,6 +2470,28 @@
     will-change: height, y;
 }
 
+/* Fila única de 4 KPIs garantizada (sin saltar a 2 filas) */
+.perfil-time-kpis-single-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.55rem;
+    margin-bottom: 0.85rem;
+}
+
+.perfil-time-kpi-card {
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-border);
+    border-radius: 8px;
+    padding: 0.55rem 0.75rem;
+    min-width: 0;
+    transition: border-color 0.16s ease, transform 0.16s ease;
+}
+
+.perfil-time-kpi-card:hover {
+    border-color: var(--perfil-border-strong);
+    transform: translateY(-1px);
+}
+
 /* Botones de navegación de carruseles de afiches */
 .perfil-carousel-nav-btn {
     width: 30px;

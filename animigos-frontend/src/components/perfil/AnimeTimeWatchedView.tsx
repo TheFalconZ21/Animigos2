@@ -12,6 +12,7 @@ import {
     Sparkles,
     ChevronLeft,
     ChevronRight,
+    X,
 } from 'lucide-react'
 import { ProfesorDoki, type DokiExpression } from '../doki/ProfesorDoki'
 import type { FilaLista } from '../mi-lista/mi-lista-data'
@@ -65,6 +66,7 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
     accentColor = 'var(--perfil-acento)',
 }) => {
     const [timeframe, setTimeframe] = useState<WatchedTimeframe>('all')
+    // Por defecto ninguna barra está seleccionada (null)
     const [selectedBarIdx, setSelectedBarIdx] = useState<number | null>(null)
 
     // Estado para el carrusel de afiches en "Período Inspeccionado"
@@ -310,13 +312,12 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
         return bars
     }, [filas, timeframe])
 
-    // Determinar la barra activa seleccionada
+    // Determinar la barra activa seleccionada ÚNICAMENTE al hacer clic (por defecto null)
     const activeBar = useMemo(() => {
         if (selectedBarIdx !== null && selectedBarIdx >= 0 && selectedBarIdx < barData.length) {
             return barData[selectedBarIdx]
         }
-        const maxBar = [...barData].reverse().find((b) => b.minutes > 0)
-        return maxBar || barData[barData.length - 1]
+        return null
     }, [barData, selectedBarIdx])
 
     // Control de scroll y flechas del carrusel de afiches
@@ -394,6 +395,7 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
     }, [kpis.totalHours])
 
     // Tarjetas temáticas con comentarios del Profesor Doki Doki
+    // El dato principal está incorporado directamente dentro del diálogo en su color respectivo
     const dokiCards = useMemo(() => {
         return [
             {
@@ -403,8 +405,13 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                 icon: <BookOpen size={16} style={{ color: '#38bdf8' }} />,
                 color: '#38bdf8',
                 expression: 'explicando' as DokiExpression,
-                headline: `~${timeEquivalences.books} libros completos`,
-                quote: `¡Con esas ${kpis.totalHours} horas frente al anime habrías terminado cerca de ${timeEquivalences.books} novelas de 300 páginas (a 250 palabras por minuto)! Podrías haber leído obras maestras enteras de la literatura universal... ¡aunque seguir el viaje de Frieren valió cada segundo!`,
+                dialogue: (
+                    <>
+                        ¡Con esas {kpis.totalHours} horas frente a la pantalla habrías devorado{' '}
+                        <strong style={{ color: '#38bdf8' }}>~{timeEquivalences.books} novelas u obras completas de 300 páginas</strong>{' '}
+                        (a 250 palabras por minuto)! Podrías haber terminado sagas literarias enteras de fantasía y ciencia ficción... ¡aunque acompañar el viaje de Frieren valió cada minuto!
+                    </>
+                ),
             },
             {
                 id: 'idiomas',
@@ -413,14 +420,20 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                 icon: <Languages size={16} style={{ color: '#a78bfa' }} />,
                 color: '#a78bfa',
                 expression: 'pensando' as DokiExpression,
-                headline:
-                    kpis.totalHours >= 200
-                        ? `~${timeEquivalences.languages} idiomas aprendidos (B1)`
-                        : `~${timeEquivalences.vocabWords} palabras y frases clave`,
-                quote:
-                    kpis.totalHours >= 200
-                        ? `¡Impresionante! Según el estándar FSI, con ${kpis.totalHours} horas habrías alcanzado nivel conversacional intermedio B1 en ${timeEquivalences.languages} idiomas. ¡Aunque escuchar 'Yamete' y 'Dattebayo' en audio original japonés también es inmersión auditiva!`
-                        : `¡Con tus ${kpis.totalHours} horas habrías dominado cerca de ${timeEquivalences.vocabWords} palabras de vocabulario y completado decenas de lecciones intensivas en un nuevo idioma!`,
+                dialogue:
+                    kpis.totalHours >= 200 ? (
+                        <>
+                            ¡Extraordinario! Según los estándares del FSI, con tus {kpis.totalHours} horas habrías alcanzado{' '}
+                            <strong style={{ color: '#a78bfa' }}>un nivel conversacional B1 en ~{timeEquivalences.languages} idiomas</strong>{' '}
+                            como japonés o alemán. ¡Aunque escuchar 'Yamete' y modismos en versión original también cuenta como entrenamiento auditivo!
+                        </>
+                    ) : (
+                        <>
+                            ¡Con tus {kpis.totalHours} horas habrías dominado{' '}
+                            <strong style={{ color: '#a78bfa' }}>~{timeEquivalences.vocabWords} palabras y frases clave de un nuevo idioma</strong>,{' '}
+                            completando decenas de lecciones intensivas de vocabulario!
+                        </>
+                    ),
             },
             {
                 id: 'carrera',
@@ -429,16 +442,20 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                 icon: <GraduationCap size={16} style={{ color: '#34d399' }} />,
                 color: '#34d399',
                 expression: 'aprobacion' as DokiExpression,
-                headline:
-                    kpis.totalHours >= 3600
-                        ? `~${(kpis.totalHours / 3600).toFixed(1)} títulos universitarios`
-                        : kpis.totalHours >= 450
-                        ? `~${timeEquivalences.semestres} semestres lectivos`
-                        : `${timeEquivalences.collegePct}% de una carrera (${timeEquivalences.ectsCredits} ECTS)`,
-                quote:
-                    kpis.totalHours >= 450
-                        ? `¡Has invertido el equivalente a ${timeEquivalences.semestres} semestres lectivos completos de educación superior! Ya prácticamente calificas para ser catedrático emérito de narrativa y animación contemporánea.`
-                        : `¡Equivale al ${timeEquivalences.collegePct}% de toda la carga lectiva de un grado universitario (cerca de ${timeEquivalences.ectsCredits} créditos ECTS)! ¡Un diplomado honorario en apreciación de anime!`,
+                dialogue:
+                    kpis.totalHours >= 450 ? (
+                        <>
+                            ¡Has invertido el equivalente a cursar{' '}
+                            <strong style={{ color: '#34d399' }}>~{timeEquivalences.semestres} semestres lectivos completos de una carrera universitaria</strong>!{' '}
+                            Con ese tiempo acumulado ya prácticamente calificas para ser catedrático emérito de narrativa y animación japonesa.
+                        </>
+                    ) : (
+                        <>
+                            ¡Tu tiempo acumulado equivale al{' '}
+                            <strong style={{ color: '#34d399' }}>{timeEquivalences.collegePct}% del plan de estudios de un grado universitario (~{timeEquivalences.ectsCredits} créditos ECTS)</strong>!{' '}
+                            ¡Un diplomado honorario en apreciación de anime contemporáneo!
+                        </>
+                    ),
             },
             {
                 id: 'mundo',
@@ -447,8 +464,13 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                 icon: <Plane size={16} style={{ color: '#fbbf24' }} />,
                 color: '#fbbf24',
                 expression: 'sorprendido' as DokiExpression,
-                headline: `~${timeEquivalences.worldTours} vueltas al mundo`,
-                quote: `¡Diste el equivalente a ${timeEquivalences.worldTours} circunvalaciones continuas a la Tierra volando sin descanso en un avión comercial (a 45 horas por vuelta al globo)! Mientras contemplabas tus openings favoritos, habrías aterrizado en Tokio, París, Londres y Sydney.`,
+                dialogue: (
+                    <>
+                        ¡Diste el equivalente a volar{' '}
+                        <strong style={{ color: '#fbbf24' }}>~{timeEquivalences.worldTours} vueltas al mundo enteras en avión comercial</strong>{' '}
+                        sin escalas (a 45 horas por circunvalación)! Mientras tú disfrutabas de las mejores batallas y giros argumentales, podrías haber cruzado todos los continentes de la Tierra.
+                    </>
+                ),
             },
             {
                 id: 'musica',
@@ -457,8 +479,13 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                 icon: <Sparkles size={16} style={{ color: '#f472b6' }} />,
                 color: '#f472b6',
                 expression: 'cantando' as DokiExpression,
-                headline: `~${Math.max(1, Math.round(kpis.totalHours / 40))} aperturas o técnicas dominadas`,
-                quote: `¡Unas ${kpis.totalHours} horas de práctica deliberada te habrían permitido dominar la guitarra, el bajo o el teclado para tocar tus openings favoritos de memoria! ¿Quién necesita un conservatorio cuando puedes tararear cada solo de Bocchi The Rock?`,
+                dialogue: (
+                    <>
+                        ¡Tus {kpis.totalHours} horas de práctica deliberada te habrían permitido dominar{' '}
+                        <strong style={{ color: '#f472b6' }}>~{Math.max(1, Math.round(kpis.totalHours / 40))} aperturas o técnicas de instrumento (guitarra o piano)</strong>{' '}
+                        para tocar tus temas favoritos de memoria! ¿Quién necesita un conservatorio cuando puedes tararear cada solo de Bocchi The Rock?
+                    </>
+                ),
             },
         ]
     }, [kpis.totalHours, timeEquivalences])
@@ -487,7 +514,7 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
 
     return (
         <div className="perfil-time-watched-container mb-4">
-            {/* 1. Header con Título Limpio (sin el selector aquí, que se traslada al pie del gráfico) */}
+            {/* 1. Header con Título Limpio */}
             <div
                 className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-2.5 border-bottom"
                 style={{ borderColor: 'var(--perfil-border)' }}
@@ -506,126 +533,106 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                 </span>
             </div>
 
-            {/* 2. Los 4 KPIs Principales de Tiempo y Consumo AGRUPADOS EN UNA ÚNICA LÍNEA */}
-            <div className="row g-2 mb-3">
+            {/* 2. Los 4 KPIs Principales de Tiempo y Consumo EN UNA ÚNICA LÍNEA (CSS Grid 4 columnas estricto) */}
+            <div className="perfil-time-kpis-single-row">
                 {/* 1. Capítulos Vistos */}
-                <div className="col-6 col-md-3">
-                    <div
-                        className="p-2.5 rounded-3 border h-100 d-flex flex-column justify-content-between"
-                        style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', minHeight: 72 }}
-                    >
-                        <div className="d-flex align-items-center justify-content-between mb-1">
-                            <span className="small text-secondary fw-semibold" style={{ fontSize: '0.72rem' }}>
-                                Capítulos Vistos
-                            </span>
-                            <Tv size={14} style={{ color: accentColor }} />
-                        </div>
-                        <div>
-                            <div className="h4 fw-bold text-white mb-0 font-mono" style={{ fontSize: '1.22rem' }}>
-                                {kpis.seriesEpisodes.toLocaleString()}
-                                <span className="small text-secondary fw-normal ms-1" style={{ fontSize: '0.78rem' }}>
-                                    eps
-                                </span>
-                            </div>
-                            <span className="small text-secondary" style={{ fontSize: '0.68rem' }}>
-                                Series TV, OVA y especiales
+                <div className="perfil-time-kpi-card d-flex flex-column justify-content-between">
+                    <div className="d-flex align-items-center justify-content-between mb-1">
+                        <span className="small text-secondary fw-semibold text-truncate" style={{ fontSize: '0.7rem' }}>
+                            Capítulos Vistos
+                        </span>
+                        <Tv size={13} style={{ color: accentColor, flexShrink: 0 }} />
+                    </div>
+                    <div>
+                        <div className="h5 fw-bold text-white mb-0 font-mono text-truncate" style={{ fontSize: '1.16rem' }}>
+                            {kpis.seriesEpisodes.toLocaleString()}
+                            <span className="small text-secondary fw-normal ms-1" style={{ fontSize: '0.74rem' }}>
+                                eps
                             </span>
                         </div>
+                        <span className="small text-secondary text-truncate d-block" style={{ fontSize: '0.66rem' }}>
+                            Series TV y OVA
+                        </span>
                     </div>
                 </div>
 
                 {/* 2. Películas Vistas */}
-                <div className="col-6 col-md-3">
-                    <div
-                        className="p-2.5 rounded-3 border h-100 d-flex flex-column justify-content-between"
-                        style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', minHeight: 72 }}
-                    >
-                        <div className="d-flex align-items-center justify-content-between mb-1">
-                            <span className="small text-secondary fw-semibold" style={{ fontSize: '0.72rem' }}>
-                                Películas Vistas
-                            </span>
-                            <Film size={14} style={{ color: 'var(--perfil-pink)' }} />
-                        </div>
-                        <div>
-                            <div
-                                className="h4 fw-bold mb-0 font-mono"
-                                style={{ color: 'var(--perfil-pink)', fontSize: '1.22rem' }}
-                            >
-                                {kpis.moviesCount}
-                                <span className="small text-secondary fw-normal ms-1" style={{ fontSize: '0.78rem' }}>
-                                    {kpis.moviesCount === 1 ? 'película' : 'películas'}
-                                </span>
-                            </div>
-                            <span className="small text-secondary" style={{ fontSize: '0.68rem' }}>
-                                Largometrajes autoconclusivos
+                <div className="perfil-time-kpi-card d-flex flex-column justify-content-between">
+                    <div className="d-flex align-items-center justify-content-between mb-1">
+                        <span className="small text-secondary fw-semibold text-truncate" style={{ fontSize: '0.7rem' }}>
+                            Películas Vistas
+                        </span>
+                        <Film size={13} style={{ color: 'var(--perfil-pink)', flexShrink: 0 }} />
+                    </div>
+                    <div>
+                        <div
+                            className="h5 fw-bold mb-0 font-mono text-truncate"
+                            style={{ color: 'var(--perfil-pink)', fontSize: '1.16rem' }}
+                        >
+                            {kpis.moviesCount}
+                            <span className="small text-secondary fw-normal ms-1" style={{ fontSize: '0.74rem' }}>
+                                {kpis.moviesCount === 1 ? 'película' : 'películas'}
                             </span>
                         </div>
+                        <span className="small text-secondary text-truncate d-block" style={{ fontSize: '0.66rem' }}>
+                            Largometrajes
+                        </span>
                     </div>
                 </div>
 
                 {/* 3. Tiempo en Horas */}
-                <div className="col-6 col-md-3">
-                    <div
-                        className="p-2.5 rounded-3 border h-100 d-flex flex-column justify-content-between"
-                        style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', minHeight: 72 }}
-                    >
-                        <div className="d-flex align-items-center justify-content-between mb-1">
-                            <span className="small text-secondary fw-semibold" style={{ fontSize: '0.72rem' }}>
-                                Tiempo en Horas
-                            </span>
-                            <Clock size={14} style={{ color: 'var(--perfil-cyan)' }} />
-                        </div>
-                        <div>
-                            <div
-                                className="h4 fw-bold mb-0 font-mono"
-                                style={{ color: 'var(--perfil-cyan)', fontSize: '1.22rem' }}
-                            >
-                                {kpis.totalHours.toLocaleString()}
-                                <span className="small text-secondary fw-normal ms-1" style={{ fontSize: '0.78rem' }}>
-                                    h
-                                </span>
-                            </div>
-                            <span className="small text-secondary" style={{ fontSize: '0.68rem' }}>
-                                Horas acumuladas de visionado
+                <div className="perfil-time-kpi-card d-flex flex-column justify-content-between">
+                    <div className="d-flex align-items-center justify-content-between mb-1">
+                        <span className="small text-secondary fw-semibold text-truncate" style={{ fontSize: '0.7rem' }}>
+                            Tiempo en Horas
+                        </span>
+                        <Clock size={13} style={{ color: 'var(--perfil-cyan)', flexShrink: 0 }} />
+                    </div>
+                    <div>
+                        <div
+                            className="h5 fw-bold mb-0 font-mono text-truncate"
+                            style={{ color: 'var(--perfil-cyan)', fontSize: '1.16rem' }}
+                        >
+                            {kpis.totalHours.toLocaleString()}
+                            <span className="small text-secondary fw-normal ms-1" style={{ fontSize: '0.74rem' }}>
+                                h
                             </span>
                         </div>
+                        <span className="small text-secondary text-truncate d-block" style={{ fontSize: '0.66rem' }}>
+                            Visionado acumulado
+                        </span>
                     </div>
                 </div>
 
                 {/* 4. Tiempo en Minutos */}
-                <div className="col-6 col-md-3">
-                    <div
-                        className="p-2.5 rounded-3 border h-100 d-flex flex-column justify-content-between"
-                        style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)', minHeight: 72 }}
-                    >
-                        <div className="d-flex align-items-center justify-content-between mb-1">
-                            <span className="small text-secondary fw-semibold" style={{ fontSize: '0.72rem' }}>
-                                Tiempo en Minutos
-                            </span>
-                            <Calendar size={14} style={{ color: 'var(--perfil-amber)' }} />
-                        </div>
-                        <div>
-                            <div
-                                className="h4 fw-bold mb-0 font-mono"
-                                style={{ color: 'var(--perfil-amber)', fontSize: '1.22rem' }}
-                            >
-                                {kpis.totalMinutes.toLocaleString()}
-                                <span className="small text-secondary fw-normal ms-1" style={{ fontSize: '0.78rem' }}>
-                                    min
-                                </span>
-                            </div>
-                            <span className="small text-secondary" style={{ fontSize: '0.68rem' }}>
-                                ~{kpis.totalDays} días continuos (24h)
+                <div className="perfil-time-kpi-card d-flex flex-column justify-content-between">
+                    <div className="d-flex align-items-center justify-content-between mb-1">
+                        <span className="small text-secondary fw-semibold text-truncate" style={{ fontSize: '0.7rem' }}>
+                            Tiempo en Minutos
+                        </span>
+                        <Calendar size={13} style={{ color: 'var(--perfil-amber)', flexShrink: 0 }} />
+                    </div>
+                    <div>
+                        <div
+                            className="h5 fw-bold mb-0 font-mono text-truncate"
+                            style={{ color: 'var(--perfil-amber)', fontSize: '1.16rem' }}
+                        >
+                            {kpis.totalMinutes.toLocaleString()}
+                            <span className="small text-secondary fw-normal ms-1" style={{ fontSize: '0.74rem' }}>
+                                min
                             </span>
                         </div>
+                        <span className="small text-secondary text-truncate d-block" style={{ fontSize: '0.66rem' }}>
+                            ~{kpis.totalDays} días continuos (24h)
+                        </span>
                     </div>
                 </div>
             </div>
 
-            {/* 3. Gráfico de Barras con Selector Abajo a la Derecha + Inspector con Carrusel de Afiches */}
+            {/* 3. Gráfico de Barras con Selector Abajo a la Derecha + Inspector Condicional (Solo al clickear una barra) */}
             <div className="row g-3 mb-3 align-items-stretch">
-                {/* Columna Izquierda: Gráfico SVG de Barras con Selector al Pie Derecho */}
-                <div className="col-12 col-xl-7">
+                {/* Columna del Gráfico SVG (col-12 si no hay selección, o col-12 col-xl-7 si hay barra seleccionada) */}
+                <div className={activeBar ? 'col-12 col-xl-7' : 'col-12'}>
                     <div
                         className="p-3 rounded-3 border h-100 d-flex flex-column justify-content-between"
                         style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}
@@ -639,7 +646,7 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                                 </span>
                             </div>
                             <span className="small text-secondary font-mono d-none d-sm-inline" style={{ fontSize: '0.7rem' }}>
-                                Clic en una barra para ver afiches
+                                {activeBar ? 'Clic en otra barra o cerrar para deseleccionar' : 'Clic en una barra para inspeccionar'}
                             </span>
                         </div>
 
@@ -681,12 +688,12 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                                     const x = pad.left + idx * barSpacing + (barSpacing - barWidth) / 2
                                     const barHeight = b.minutes > 0 ? Math.max(6, (b.minutes / maxMinutes) * chartH) : 0
                                     const y = pad.top + chartH - barHeight
-                                    const isSel = activeBar?.id === b.id
+                                    const isSel = selectedBarIdx === idx
 
                                     return (
                                         <g
                                             key={b.id}
-                                            onClick={() => setSelectedBarIdx(idx)}
+                                            onClick={() => setSelectedBarIdx(selectedBarIdx === idx ? null : idx)}
                                             style={{ cursor: 'pointer' }}
                                         >
                                             <rect
@@ -694,7 +701,7 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                                                 y={pad.top}
                                                 width={barSpacing}
                                                 height={chartH}
-                                                fill={isSel ? 'rgba(255, 255, 255, 0.04)' : 'transparent'}
+                                                fill={isSel ? 'rgba(56, 189, 248, 0.08)' : 'transparent'}
                                                 style={{ transition: 'all 0.15s ease' }}
                                             />
 
@@ -713,7 +720,7 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                                                             ? accentColor
                                                             : 'rgba(167, 139, 250, 0.75)'
                                                     }
-                                                    filter={isSel ? 'drop-shadow(0 0 8px rgba(56, 189, 248, 0.5))' : undefined}
+                                                    filter={isSel ? 'drop-shadow(0 0 8px rgba(56, 189, 248, 0.55))' : undefined}
                                                     style={{ transition: 'all 0.2s ease' }}
                                                 />
                                             )}
@@ -748,16 +755,22 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                             </svg>
                         </div>
 
-                        {/* Pie del Gráfico: Info de la Barra Seleccionada + SELECTOR DE TIEMPO A LA DERECHA */}
+                        {/* Pie del Gráfico: Info de la Barra Seleccionada (si hay una) + SELECTOR DE TIEMPO A LA DERECHA */}
                         <div
                             className="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-1.5 pt-2 border-top"
                             style={{ borderColor: 'var(--perfil-border)' }}
                         >
                             <div className="small text-secondary font-mono d-flex align-items-center gap-1.5" style={{ fontSize: '0.71rem' }}>
-                                <span>Barra activa:</span>
-                                <strong className="text-white">{activeBar.label}</strong>
-                                <span>•</span>
-                                <span style={{ color: 'var(--perfil-cyan)' }}>{activeBar.minutes} min ({activeBar.hours} h)</span>
+                                {activeBar ? (
+                                    <>
+                                        <span>Período seleccionado:</span>
+                                        <strong className="text-white">{activeBar.label}</strong>
+                                        <span>•</span>
+                                        <span style={{ color: 'var(--perfil-cyan)' }}>{activeBar.minutes} min ({activeBar.hours} h)</span>
+                                    </>
+                                ) : (
+                                    <span>Haz clic en una barra para inspeccionar sus animes</span>
+                                )}
                             </div>
 
                             {/* Switcher de Tiempo en la esquina inferior derecha */}
@@ -777,6 +790,7 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                                         type="button"
                                         onClick={() => {
                                             setTimeframe(btn.id)
+                                            // Al cambiar de rango temporal NO se selecciona ninguna barra por defecto
                                             setSelectedBarIdx(null)
                                         }}
                                         className={`btn btn-sm rounded-pill px-2.5 py-0.5 font-mono ${
@@ -799,111 +813,125 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                     </div>
                 </div>
 
-                {/* Columna Derecha: Inspector del Período con Carrusel de Afiches */}
-                <div className="col-12 col-xl-5">
-                    <div
-                        className="p-3 rounded-3 border h-100 d-flex flex-column justify-content-between"
-                        style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}
-                    >
-                        <div>
-                            {/* Cabecera del Período */}
-                            <div className="d-flex align-items-center justify-content-between mb-1">
-                                <span className="ml-eyebrow" style={{ color: 'var(--perfil-cyan)' }}>
-                                    PERÍODO INSPECCIONADO
-                                </span>
-                                <span
-                                    className="badge rounded-pill font-mono px-2 py-0.5"
-                                    style={{
-                                        background: 'rgba(56, 189, 248, 0.14)',
-                                        color: '#38bdf8',
-                                        fontSize: '0.69rem',
-                                    }}
-                                >
-                                    {activeBar.minutes} min ({activeBar.hours} h)
-                                </span>
-                            </div>
-
-                            <div className="d-flex align-items-baseline justify-content-between mb-2">
-                                <h4 className="h6 fw-bold text-white mb-0">{activeBar.sublabel}</h4>
-                                <span className="small text-secondary font-mono" style={{ fontSize: '0.71rem' }}>
-                                    {activeBar.episodes} eps en {activeBar.animes.length}{' '}
-                                    {activeBar.animes.length === 1 ? 'anime' : 'animes'}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Carrusel Horizontal de Afiches con Flechas Laterales */}
-                        <div className="d-flex align-items-center gap-1.5 my-auto py-2">
-                            {/* Flecha Izquierda */}
-                            <button
-                                type="button"
-                                onClick={handleScrollLeft}
-                                disabled={!canScrollLeft}
-                                className="perfil-carousel-nav-btn"
-                                aria-label="Afiche anterior"
-                                title="Desplazar a la izquierda"
-                            >
-                                <ChevronLeft size={16} />
-                            </button>
-
-                            {/* Pista de afiches (Solo carátulas de animes) */}
-                            <div
-                                ref={posterScrollRef}
-                                onScroll={updateScrollButtons}
-                                className="perfil-time-poster-carousel d-flex align-items-center gap-2 overflow-x-auto flex-grow-1 py-1 px-0.5"
-                            >
-                                {activeBar.animes.length === 0 ? (
-                                    <div className="text-center py-4 w-100 text-secondary small" style={{ fontSize: '0.74rem' }}>
-                                        No hay episodios registrados en esta fecha.
-                                    </div>
-                                ) : (
-                                    activeBar.animes.map(({ fila, minutes, episodes }) => (
-                                        <div
-                                            key={fila.id}
-                                            onClick={() => onSelectAnime?.(fila)}
-                                            className="perfil-time-poster-item position-relative flex-shrink-0"
-                                            title={`${fila.anime.title} • ${minutes}m (${episodes} eps) — Clic para abrir ficha`}
+                {/* Columna Derecha: Inspector del Período (SOLO SE MUESTRA AL CLICKEAR EL GRÁFICO) */}
+                {activeBar && (
+                    <div className="col-12 col-xl-5 perfil-subview-enter">
+                        <div
+                            className="p-3 rounded-3 border h-100 d-flex flex-column justify-content-between"
+                            style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}
+                        >
+                            <div>
+                                {/* Cabecera del Período con Botón de Cerrar */}
+                                <div className="d-flex align-items-center justify-content-between mb-1">
+                                    <span className="ml-eyebrow" style={{ color: 'var(--perfil-cyan)' }}>
+                                        PERÍODO INSPECCIONADO
+                                    </span>
+                                    <div className="d-flex align-items-center gap-2">
+                                        <span
+                                            className="badge rounded-pill font-mono px-2 py-0.5"
+                                            style={{
+                                                background: 'rgba(56, 189, 248, 0.14)',
+                                                color: '#38bdf8',
+                                                fontSize: '0.69rem',
+                                            }}
                                         >
-                                            <img
-                                                src={fila.anime.imageUrl}
-                                                alt={fila.anime.title}
-                                                className="perfil-time-poster-img"
-                                                loading="lazy"
-                                                onError={(e) => {
-                                                    e.currentTarget.style.opacity = '0.5'
-                                                }}
-                                            />
-                                            <div className="perfil-time-poster-overlay">
-                                                <span className="perfil-time-poster-badge">{minutes}m</span>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
+                                            {activeBar.minutes} min ({activeBar.hours} h)
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedBarIdx(null)}
+                                            className="btn btn-sm p-0 text-secondary border-0 d-flex align-items-center justify-content-center"
+                                            style={{ width: 20, height: 20, background: 'transparent' }}
+                                            title="Cerrar período inspeccionado"
+                                            aria-label="Cerrar"
+                                        >
+                                            <X size={15} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="d-flex align-items-baseline justify-content-between mb-2">
+                                    <h4 className="h6 fw-bold text-white mb-0">{activeBar.sublabel}</h4>
+                                    <span className="small text-secondary font-mono" style={{ fontSize: '0.71rem' }}>
+                                        {activeBar.episodes} eps en {activeBar.animes.length}{' '}
+                                        {activeBar.animes.length === 1 ? 'anime' : 'animes'}
+                                    </span>
+                                </div>
                             </div>
 
-                            {/* Flecha Derecha */}
-                            <button
-                                type="button"
-                                onClick={handleScrollRight}
-                                disabled={!canScrollRight}
-                                className="perfil-carousel-nav-btn"
-                                aria-label="Afiche siguiente"
-                                title="Desplazar a la derecha"
-                            >
-                                <ChevronRight size={16} />
-                            </button>
-                        </div>
+                            {/* Carrusel Horizontal de Afiches con Flechas Laterales */}
+                            <div className="d-flex align-items-center gap-1.5 my-auto py-2">
+                                {/* Flecha Izquierda */}
+                                <button
+                                    type="button"
+                                    onClick={handleScrollLeft}
+                                    disabled={!canScrollLeft}
+                                    className="perfil-carousel-nav-btn"
+                                    aria-label="Afiche anterior"
+                                    title="Desplazar a la izquierda"
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
 
-                        <div className="d-flex align-items-center justify-content-between pt-1 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
-                            <span className="small text-secondary font-mono" style={{ fontSize: '0.69rem' }}>
-                                Clic en un afiche para abrir ficha
-                            </span>
-                            <span className="small text-secondary font-mono" style={{ fontSize: '0.69rem' }}>
-                                {activeBar.animes.length} disponibles
-                            </span>
+                                {/* Pista de afiches (Solo carátulas de animes) */}
+                                <div
+                                    ref={posterScrollRef}
+                                    onScroll={updateScrollButtons}
+                                    className="perfil-time-poster-carousel d-flex align-items-center gap-2 overflow-x-auto flex-grow-1 py-1 px-0.5"
+                                >
+                                    {activeBar.animes.length === 0 ? (
+                                        <div className="text-center py-4 w-100 text-secondary small" style={{ fontSize: '0.74rem' }}>
+                                            No hay episodios registrados en esta fecha.
+                                        </div>
+                                    ) : (
+                                        activeBar.animes.map(({ fila, minutes, episodes }) => (
+                                            <div
+                                                key={fila.id}
+                                                onClick={() => onSelectAnime?.(fila)}
+                                                className="perfil-time-poster-item position-relative flex-shrink-0"
+                                                title={`${fila.anime.title} • ${minutes}m (${episodes} eps) — Clic para abrir ficha`}
+                                            >
+                                                <img
+                                                    src={fila.anime.imageUrl}
+                                                    alt={fila.anime.title}
+                                                    className="perfil-time-poster-img"
+                                                    loading="lazy"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.opacity = '0.5'
+                                                    }}
+                                                />
+                                                <div className="perfil-time-poster-overlay">
+                                                    <span className="perfil-time-poster-badge">{minutes}m</span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {/* Flecha Derecha */}
+                                <button
+                                    type="button"
+                                    onClick={handleScrollRight}
+                                    disabled={!canScrollRight}
+                                    className="perfil-carousel-nav-btn"
+                                    aria-label="Afiche siguiente"
+                                    title="Desplazar a la derecha"
+                                >
+                                    <ChevronRight size={16} />
+                                </button>
+                            </div>
+
+                            <div className="d-flex align-items-center justify-content-between pt-1 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
+                                <span className="small text-secondary font-mono" style={{ fontSize: '0.69rem' }}>
+                                    Clic en un afiche para abrir ficha
+                                </span>
+                                <span className="small text-secondary font-mono" style={{ fontSize: '0.69rem' }}>
+                                    {activeBar.animes.length} disponibles
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* 4. Sección "DIMENSIONA TU TIEMPO" con Profesor Doki Doki y Puntitos Interactivos */}
@@ -938,12 +966,13 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                     </span>
                 </div>
 
-                {/* Card Individual con Profesor Doki comentando en Globo de Texto */}
+                {/* Card Individual: Nombre del profesor debajo de su avatar y dato principal integrado en su diálogo */}
                 <div className="my-1">
                     <ProfesorDoki
                         expression={currentDokiCard.expression}
                         size="md"
                         title="Profesor Doki Doki"
+                        namePosition="below-avatar"
                         badgeText={`Hito ${activeDokiCard + 1} de ${dokiCards.length} · ${currentDokiCard.category}`}
                         align="left"
                         onPrevTip={() =>
@@ -953,23 +982,12 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                             setActiveDokiCard((prev) => (prev + 1) % dokiCards.length)
                         }
                         dialogue={
-                            <div>
-                                <div className="d-flex align-items-center gap-2 mb-1.5">
-                                    {currentDokiCard.icon}
-                                    <span
-                                        className="h6 fw-bold mb-0 font-mono"
-                                        style={{ color: currentDokiCard.color, fontSize: '0.96rem' }}
-                                    >
-                                        {currentDokiCard.headline}
-                                    </span>
-                                </div>
-                                <p
-                                    className="small text-secondary mb-0"
-                                    style={{ fontSize: '0.76rem', lineHeight: 1.48 }}
-                                >
-                                    {currentDokiCard.quote}
-                                </p>
-                            </div>
+                            <p
+                                className="small text-secondary mb-0"
+                                style={{ fontSize: '0.78rem', lineHeight: 1.52 }}
+                            >
+                                {currentDokiCard.dialogue}
+                            </p>
                         }
                     />
                 </div>
@@ -987,7 +1005,7 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                                 background: activeDokiCard === idx ? card.color : 'rgba(255, 255, 255, 0.2)',
                             }}
                             aria-label={`Ver hito: ${card.title}`}
-                            title={`${card.title}: ${card.headline}`}
+                            title={card.title}
                         />
                     ))}
                 </div>

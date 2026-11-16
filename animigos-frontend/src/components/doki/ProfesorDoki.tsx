@@ -64,6 +64,7 @@ interface ProfesorDokiProps {
     size?: 'sm' | 'md' | 'lg' | 'xl'
     className?: string
     align?: 'left' | 'center' | 'compact'
+    namePosition?: 'header' | 'below-avatar' | 'none'
     onPrevTip?: () => void
     onNextTip?: () => void
     actions?: React.ReactNode
@@ -77,6 +78,7 @@ export const ProfesorDoki: React.FC<ProfesorDokiProps> = ({
     size = 'md',
     className = '',
     align = 'left',
+    namePosition = 'header',
     onPrevTip,
     onNextTip,
     actions,
@@ -92,25 +94,45 @@ export const ProfesorDoki: React.FC<ProfesorDokiProps> = ({
 
     return (
         <div className={`doki-container doki-align-${align} ${className}`}>
-            <div className={`doki-avatar-wrap ${sizeClass}`}>
-                <img
-                    key={meta.file}
-                    src={meta.file}
-                    alt={title}
-                    className="doki-avatar-img"
-                    onError={(e) => {
-                        e.currentTarget.src = meta.file.replace('.webp', '.png')
-                    }}
-                />
+            <div className="d-flex flex-column align-items-center flex-shrink-0">
+                <div className={`doki-avatar-wrap ${sizeClass}`}>
+                    <img
+                        key={meta.file}
+                        src={meta.file}
+                        alt={title}
+                        className="doki-avatar-img"
+                        onError={(e) => {
+                            e.currentTarget.src = meta.file.replace('.webp', '.png')
+                        }}
+                    />
+                </div>
+                {namePosition === 'below-avatar' && title && (
+                    <span
+                        className="doki-avatar-caption fw-bold text-center mt-1.5"
+                        style={{
+                            fontSize: '0.73rem',
+                            color: '#e4e4e7',
+                            letterSpacing: '0.01em',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        {title}
+                    </span>
+                )}
             </div>
 
             {dialogue && (
                 <div className="doki-dialogue-bubble">
                     <div className="doki-dialogue-header">
                         <div className="d-flex align-items-center">
-                            <span className="doki-dialogue-title">{title}</span>
+                            {namePosition === 'header' && <span className="doki-dialogue-title">{title}</span>}
                             {badgeText && (
-                                <span className="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ms-2" style={{ fontSize: '0.72rem' }}>
+                                <span
+                                    className={`badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ${
+                                        namePosition === 'header' ? 'ms-2' : ''
+                                    }`}
+                                    style={{ fontSize: '0.72rem' }}
+                                >
                                     {badgeText}
                                 </span>
                             )}
