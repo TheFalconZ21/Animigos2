@@ -29,6 +29,7 @@ import type { FilaLista } from '../mi-lista/mi-lista-data'
 import { ESCALA_NOTAS } from '../mi-lista/mi-lista-data'
 import { AnimeDetalleDialog } from '../mi-lista/AnimeDetalleDialog'
 import { TasteCorrelationGraph } from '../recomendador/TasteCorrelationGraph'
+import { VennDiagramGenreExplorer } from './VennDiagramGenreExplorer'
 import type { TasteAnalyticsResponse } from '../../services/recommenderApi'
 import type { ProfileSubView, ProfileTimeRange } from './perfil-types'
 
@@ -48,8 +49,6 @@ interface AnimeStatsDashboardProps {
 
 type GenreSortField = 'count' | 'meanScore' | 'minutes' | 'weighted'
 type ContrastTab = 'hated_enjoyed' | 'loved_didnt' | 'hidden_gems' | 'all'
-
-const TREND_COLORS = ['#38bdf8', '#f43f5e', '#34d399', '#fbbf24', '#a78bfa']
 
 const TIME_RANGE_LABELS: Record<ProfileTimeRange, string> = {
     '7d': 'Últimos 7 días',
@@ -267,11 +266,6 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
     const [hoveredScoreRow, setHoveredScoreRow] = useState<number | null>(null)
     const [selectedScoreFilter, setSelectedScoreFilter] = useState<number | null>(null)
     const [activeContrastTab, setActiveContrastTab] = useState<ContrastTab>('hated_enjoyed')
-
-    // Estado para Subvista 4: Género Favorito (Tendencias Temporales + Sinergia)
-    const [trendTimeRange, setTrendTimeRange] = useState<ProfileTimeRange>('all')
-    const [selectedTrendBucketIdx, setSelectedTrendBucketIdx] = useState<number | null>(null)
-    const [hiddenTrendGenres, setHiddenTrendGenres] = useState<string[]>([])
 
     useEffect(() => {
         const el = favGridRef.current
@@ -530,101 +524,6 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         }
         return timeWatchedByGenreData.genres[0]
     }, [timeWatchedByGenreData.genres, selectedTimeGenre])
-
-    // =========================================================================
-    // 3. CÁLCULO DE TENDENCIAS TEMPORALES DE GÉNEROS (SUBVISTA 4)
-    // =========================================================================
-    const genreTrendsData = useMemo(() => {
-        const rangeFilas = filterFilasByTimeRange(
-            filas.filter((f) => f.estado !== 'pendiente'),
-            trendTimeRange
-        )
-        const baseList = rangeFilas.length > 0 ? rangeFilas : filas
-
-        // Determinar los Top 4 géneros o temáticas principales del usuario
-        const topGenreNames = [...stats.genreStats]
-            .sort((a, b) => b.minutes - a.minutes || b.count - a.count)
-            .slice(0, 4)
-            .map((g) => g.genre)
-
-        // Ordenar entradas cronológicamente por fecha de creación/actualización o año de estreno
-        const sortedEntries = [...baseList].sort((a, b) => {
-            const tA = a.createdAt || a.updatedAt ? new Date(a.createdAt || a.updatedAt || '').getTime() : 0
-            const tB = b.createdAt || b.updatedAt ? new Date(b.createdAt || b.updatedAt || '').getTime() : 0
-            if (tA && tB && Math.abs(tA - tB) > 60000) return tA - tB
-            return (a.anime.year || 2015) - (b.anime.year || 2015)
-        })
-
-        const bucketLabelsByRange: Record<ProfileTimeRange, string[]> = {
-            '7d': ['Día -6', 'Día -4', 'Día -2', 'Ayer', 'Hoy'],
-            '30d': ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Actual'],
-            '1y': ['Trimestre 1', 'Trimestre 2', 'Trimestre 3', 'Trimestre 4', 'Actual'],
-            all: ['Etapa Inicial', 'Consolidación', 'Exploración', 'Etapa Reciente', 'Actualidad'],
-        }
-        const labels = bucketLabelsByRange[trendTimeRange]
-        const numBuckets = labels.length
-
-        const buckets = labels.map((label, bIdx) => {
-            const startIdx = Math.floor((bIdx / numBuckets) * sortedEntries.length)
-            const endIdx = Math.max(startIdx + 1, Math.floor(((bIdx + 1) / numBuckets) * sortedEntries.length))
-            const slice = sortedEntries.length > 0 ? sortedEntries.slice(startIdx, endIdx) : []
-
-            const scoresByGenre: Record<string, number> = {}
-            const sliceMinutes = slice.reduce((acc, f) => acc + getEntryMinutes(f), 0)
-            const totalSliceMins = Math.max(1, sliceMinutes)
-
-            for (const gName of topGenreNames) {
-                const targetLower = gName.trim().toLowerCase()
-                const matching = slice.filter((f) => {
-                    const rawGenres = (f.anime.genres || []).map((g: any) =>
-                        typeof g === 'string' ? g : g?.name || ''
-                    )
-                    const rawTags = (f.anime.tagsData || []).map((t: any) =>
-                        typeof t === 'string' ? t : t?.name || ''
-                    )
-                    return (
-                        rawGenres.some((g: string) => g.trim().toLowerCase() === targetLower) ||
-                        rawTags.some((t: string) => t.trim().toLowerCase() === targetLower)
-                    )
-                })
-                const gMins = matching.reduce((acc, f) => acc + getEntryMinutes(f), 0)
-                // Si hay minutos medidos en el slice, usamos % de minutos; si no (ej. títulos recién añadidos), proporción por títulos
-                const sharePct =
-                    sliceMinutes > 0
-                        ? Math.min(100, Math.round((gMins / totalSliceMins) * 100))
-                        : slice.length > 0
-                        ? Math.min(100, Math.round((matching.length / slice.length) * 100))
-                        : 0
-                scoresByGenre[gName] = sharePct
-            }
-
-            return {
-                label,
-                animesInPeriod: slice,
-                scoresByGenre,
-            }
-        })
-
-        // Detectar evolución / transición entre el primer tramo y el tramo actual
-        let shiftSummary = 'Afinidad estable en los géneros principales del usuario.'
-        if (topGenreNames.length >= 2 && buckets.length >= 2) {
-            const firstB = buckets[0].scoresByGenre
-            const lastB = buckets[buckets.length - 1].scoresByGenre
-            const initialLeader = [...topGenreNames].sort((a, b) => (firstB[b] || 0) - (firstB[a] || 0))[0]
-            const currentLeader = [...topGenreNames].sort((a, b) => (lastB[b] || 0) - (lastB[a] || 0))[0]
-            if (initialLeader && currentLeader && initialLeader !== currentLeader) {
-                shiftSummary = `Transición detectada: históricamente lideraba ${initialLeader}, evolucionando recientemente hacia ${currentLeader}.`
-            } else if (currentLeader) {
-                shiftSummary = `Preferencia dominante sostenida en ${currentLeader} a lo largo del periodo seleccionado.`
-            }
-        }
-
-        return {
-            topGenreNames,
-            buckets,
-            shiftSummary,
-        }
-    }, [filas, stats.genreStats, trendTimeRange])
 
     // Subconjuntos reactivos para Subvista 2: Cantidad de Animes en Lista
     const listMetricsFilas = useMemo(() => {
@@ -1987,247 +1886,18 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
     }
 
     // =========================================================================
-    // SUBVISTA 4: GÉNERO FAVORITO (TENDENCIAS TEMPORALES + SINERGIA DE TAGS)
+    // SUBVISTA 4: GÉNERO FAVORITO (DIAGRAMA DE VENN DINÁMICO + SINERGIA DE TAGS)
     // =========================================================================
     if (activeSubView === 'favorite-genre') {
-        const svgW = 760
-        const svgH = 240
-        const pad = { top: 24, right: 32, bottom: 36, left: 44 }
-        const chartW = svgW - pad.left - pad.right
-        const chartH = svgH - pad.top - pad.bottom
-        const buckets = genreTrendsData.buckets
-        const activeBucketIdx =
-            selectedTrendBucketIdx !== null && selectedTrendBucketIdx < buckets.length
-                ? selectedTrendBucketIdx
-                : buckets.length - 1
-        const focusedBucket = buckets[activeBucketIdx]
-
         return (
             <div className="perfil-analytics-hub perfil-subview-enter">
-                {/* 1. Línea Temporal Interactiva de Tendencias de Géneros del Usuario */}
-                <div className="perfil-breakdown-card mb-4">
-                    <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-                        <div>
-                            <span className="ml-eyebrow">SUBVISTA DEDICADA · EVOLUCIÓN DE GUSTOS</span>
-                            <h3 className="h5 fw-bold text-white mb-0 d-flex align-items-center gap-2">
-                                <Compass size={18} style={{ color: 'var(--perfil-acento)' }} />
-                                <span>Línea Temporal de Tendencias de Géneros del Usuario</span>
-                            </h3>
-                            <p className="small text-secondary mb-0 mt-1">
-                                {genreTrendsData.shiftSummary}
-                            </p>
-                        </div>
-
-                        {renderTimeRangeSwitcher(trendTimeRange, setTrendTimeRange)}
-                    </div>
-
-                    {/* Leyenda interactiva de géneros */}
-                    <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
-                        {genreTrendsData.topGenreNames.map((gName, idx) => {
-                            const color = TREND_COLORS[idx % TREND_COLORS.length]
-                            const isHidden = hiddenTrendGenres.includes(gName)
-                            return (
-                                <button
-                                    key={gName}
-                                    type="button"
-                                    onClick={() =>
-                                        setHiddenTrendGenres((prev) =>
-                                            prev.includes(gName) ? prev.filter((x) => x !== gName) : [...prev, gName]
-                                        )
-                                    }
-                                    className="px-3 py-1 rounded-pill border d-inline-flex align-items-center gap-2 small"
-                                    style={{
-                                        background: isHidden ? 'transparent' : 'var(--perfil-card-2)',
-                                        borderColor: isHidden ? 'var(--perfil-border)' : color,
-                                        color: isHidden ? 'var(--perfil-text-dim)' : '#ffffff',
-                                        opacity: isHidden ? 0.5 : 1,
-                                        cursor: 'pointer',
-                                        fontSize: '0.76rem',
-                                        fontWeight: 600,
-                                    }}
-                                >
-                                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, display: 'inline-block' }} />
-                                    <span>{gName}</span>
-                                </button>
-                            )
-                        })}
-                    </div>
-
-                    {genreTrendsData.topGenreNames.length === 0 ? (
-                        <div className="perfil-contrast-empty">
-                            <span>Agrega animes a tu lista para visualizar la evolución temporal de tus géneros favoritos.</span>
-                        </div>
-                    ) : (
-                        <div className="row g-4 align-items-stretch">
-                            <div className="col-12 col-lg-8">
-                                <div className="p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
-                                    <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-100" style={{ height: 235, overflow: 'visible' }}>
-                                        {[0, 25, 50, 75, 100].map((pctVal) => {
-                                            const y = pad.top + chartH - (pctVal / 100) * chartH
-                                            return (
-                                                <g key={pctVal}>
-                                                    <line
-                                                        x1={pad.left}
-                                                        y1={y}
-                                                        x2={svgW - pad.right}
-                                                        y2={y}
-                                                        stroke="rgba(255,255,255,0.06)"
-                                                        strokeDasharray="3 3"
-                                                    />
-                                                    <text
-                                                        x={pad.left - 8}
-                                                        y={y + 4}
-                                                        fill="#71717a"
-                                                        fontSize="10"
-                                                        fontFamily="monospace"
-                                                        textAnchor="end"
-                                                    >
-                                                        {pctVal}%
-                                                    </text>
-                                                </g>
-                                            )
-                                        })}
-
-                                        {/* Líneas de tendencia por cada género */}
-                                        {genreTrendsData.topGenreNames.map((gName, gIdx) => {
-                                            if (hiddenTrendGenres.includes(gName)) return null
-                                            const color = TREND_COLORS[gIdx % TREND_COLORS.length]
-                                            const pts = buckets.map((b, bIdx) => {
-                                                const x =
-                                                    pad.left +
-                                                    (buckets.length > 1 ? (bIdx / (buckets.length - 1)) * chartW : chartW / 2)
-                                                const val = b.scoresByGenre[gName] || 0
-                                                const y = pad.top + chartH - (val / 100) * chartH
-                                                return { x, y, val, label: b.label, bIdx }
-                                            })
-                                            const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
-
-                                            return (
-                                                <g key={gName}>
-                                                    <path
-                                                        d={pathD}
-                                                        fill="none"
-                                                        stroke={color}
-                                                        strokeWidth="2.8"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                    />
-                                                    {pts.map((p) => (
-                                                        <circle
-                                                            key={`${gName}-${p.bIdx}`}
-                                                            cx={p.x}
-                                                            cy={p.y}
-                                                            r={activeBucketIdx === p.bIdx ? 6 : 4}
-                                                            fill={activeBucketIdx === p.bIdx ? '#ffffff' : color}
-                                                            stroke="#080808"
-                                                            strokeWidth="2"
-                                                            style={{ cursor: 'pointer' }}
-                                                            onClick={() => setSelectedTrendBucketIdx(p.bIdx)}
-                                                            onMouseEnter={() => setSelectedTrendBucketIdx(p.bIdx)}
-                                                        />
-                                                    ))}
-                                                </g>
-                                            )
-                                        })}
-
-                                        {/* Etiquetas del eje X */}
-                                        {buckets.map((b, bIdx) => {
-                                            const x =
-                                                pad.left +
-                                                (buckets.length > 1 ? (bIdx / (buckets.length - 1)) * chartW : chartW / 2)
-                                            const isSel = activeBucketIdx === bIdx
-                                            return (
-                                                <g
-                                                    key={b.label}
-                                                    style={{ cursor: 'pointer' }}
-                                                    onClick={() => setSelectedTrendBucketIdx(bIdx)}
-                                                >
-                                                    {isSel && (
-                                                        <line
-                                                            x1={x}
-                                                            y1={pad.top}
-                                                            x2={x}
-                                                            y2={pad.top + chartH}
-                                                            stroke="var(--perfil-acento)"
-                                                            strokeDasharray="3 3"
-                                                            strokeOpacity="0.45"
-                                                        />
-                                                    )}
-                                                    <text
-                                                        x={x}
-                                                        y={svgH - 8}
-                                                        fill={isSel ? '#ffffff' : '#9ca3af'}
-                                                        fontSize="11"
-                                                        fontWeight={isSel ? '700' : '500'}
-                                                        textAnchor="middle"
-                                                    >
-                                                        {b.label}
-                                                    </text>
-                                                </g>
-                                            )
-                                        })}
-                                    </svg>
-                                </div>
-                            </div>
-
-                            {/* Inspector del Tramo Temporal Seleccionado */}
-                            <div className="col-12 col-lg-4">
-                                <div className="perfil-trend-inspector-card">
-                                    <div>
-                                        <div className="d-flex align-items-center justify-content-between mb-2">
-                                            <span className="ml-eyebrow" style={{ color: 'var(--perfil-acento)', letterSpacing: '0.07em' }}>
-                                                ETAPA INSPECCIONADA · {focusedBucket?.label}
-                                            </span>
-                                            {focusedBucket && (
-                                                <span className="badge rounded-pill font-mono px-2 py-0.5" style={{ background: 'var(--perfil-acento-soft)', color: 'var(--perfil-acento)', fontSize: '0.68rem' }}>
-                                                    {focusedBucket.animesInPeriod.length} animes
-                                                </span>
-                                            )}
-                                        </div>
-                                        <h4 className="h6 fw-bold text-white mb-3">
-                                            Afinidad por Género en este Periodo
-                                        </h4>
-                                        <div className="d-flex flex-column gap-2 mb-3.5">
-                                            {genreTrendsData.topGenreNames.map((gName, idx) => {
-                                                const color = TREND_COLORS[idx % TREND_COLORS.length]
-                                                const pct = focusedBucket?.scoresByGenre[gName] || 0
-                                                return (
-                                                    <div key={gName} className="perfil-trend-genre-row">
-                                                        <span className="d-inline-flex align-items-center gap-2 text-white small">
-                                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                                                            <span>{gName}</span>
-                                                        </span>
-                                                        <strong className="font-mono small" style={{ color }}>{pct}%</strong>
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-
-                                        {focusedBucket && focusedBucket.animesInPeriod.length > 0 && (
-                                            <div className="pt-2.5 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
-                                                <div className="small text-secondary mb-2" style={{ fontSize: '0.72rem' }}>
-                                                    Animes representativos de esta etapa:
-                                                </div>
-                                                <div className="d-flex gap-2 overflow-auto pb-1">
-                                                    {focusedBucket.animesInPeriod.slice(0, 4).map((f) => (
-                                                        <img
-                                                            key={f.id}
-                                                            src={f.anime.imageUrl}
-                                                            alt={f.anime.title}
-                                                            title={f.anime.title}
-                                                            onClick={() => setSelectedAnime(f)}
-                                                            className="perfil-trend-thumb"
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                {/* 1. Diagrama de Venn Dinámico: Cantidad y Co-ocurrencia de Géneros, Tags y Elenco */}
+                <VennDiagramGenreExplorer
+                    filas={filas}
+                    tasteAnalytics={tasteAnalytics}
+                    onSelectAnime={(f) => setSelectedAnime(f)}
+                    accentColor={accentColor}
+                />
 
                 {/* 2. Gráfico de "Conexiones de Media Tags & Sinergia" */}
                 <TasteCorrelationGraph

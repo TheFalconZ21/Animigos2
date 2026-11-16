@@ -2455,6 +2455,35 @@
     border-color: var(--perfil-border-strong);
 }
 
+/* ============================================================
+   DIAGRAMA DE VENN DINÁMICO (GÉNEROS, TAGS Y ELENCO)
+   ============================================================ */
+.perfil-venn-wrapper {
+    position: relative;
+    background: var(--perfil-card);
+    border: 1px solid var(--perfil-border);
+    border-radius: var(--perfil-radius-sm);
+    padding: 1.35rem 1.5rem;
+}
+
+.perfil-venn-wrapper circle {
+    will-change: fill-opacity, stroke-width;
+}
+
+.perfil-venn-wrapper .is-active-set {
+    animation: perfil-venn-pill-pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes perfil-venn-pill-pulse {
+    from {
+        filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.15));
+    }
+    to {
+        filter: drop-shadow(0 0 8px currentColor);
+    }
+}
+
+
 
 
 
