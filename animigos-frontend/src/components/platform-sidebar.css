@@ -4,7 +4,7 @@
 
 :root {
   --platform-sidebar-bg: #08080c;
-  --platform-sidebar-header-bg: transparent;
+  --platform-sidebar-header-bg: #08080c;
   --platform-sidebar-footer-bg: #050508;
   --platform-sidebar-border: rgba(255, 255, 255, 0.07);
 }
@@ -20,7 +20,7 @@
   position: sticky;
   top: 0;
   height: 100vh;
-  z-index: 40 !important;
+  z-index: 50 !important;
   flex-shrink: 0;
   user-select: none;
   box-sizing: border-box;
@@ -365,8 +365,6 @@
 }
 
 .platform-main {
-  position: relative;
-  z-index: 50;
   min-height: 100vh;
 }
 
