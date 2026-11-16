@@ -29,7 +29,6 @@ import type { FilaLista } from '../mi-lista/mi-lista-data'
 import { ESCALA_NOTAS } from '../mi-lista/mi-lista-data'
 import { AnimeDetalleDialog } from '../mi-lista/AnimeDetalleDialog'
 import { TasteCorrelationGraph } from '../recomendador/TasteCorrelationGraph'
-import { VennDiagramGenreExplorer } from './VennDiagramGenreExplorer'
 import type { TasteAnalyticsResponse } from '../../services/recommenderApi'
 import type { ProfileSubView, ProfileTimeRange } from './perfil-types'
 
@@ -49,6 +48,8 @@ interface AnimeStatsDashboardProps {
 
 type GenreSortField = 'count' | 'meanScore' | 'minutes' | 'weighted'
 type ContrastTab = 'hated_enjoyed' | 'loved_didnt' | 'hidden_gems' | 'all'
+
+const TREND_COLORS = ['#38bdf8', '#f43f5e', '#34d399', '#fbbf24', '#a78bfa']
 
 const TIME_RANGE_LABELS: Record<ProfileTimeRange, string> = {
     '7d': 'Últimos 7 días',
@@ -568,8 +569,8 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         const q = tagSearchQuery.trim().toLowerCase()
         const base = q
             ? listMetricsTags.filter(
-                  (t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
-              )
+                (t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
+            )
             : listMetricsTags
         return expandAllTags ? base : base.slice(0, 10)
     }, [listMetricsTags, tagSearchQuery, expandAllTags])
@@ -640,9 +641,8 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                 </div>
                                 {mode !== 'hidden_gems' && (
                                     <span
-                                        className={`perfil-contrast-diff-pill ${
-                                            diff >= 0 ? 'is-pos' : 'is-neg'
-                                        }`}
+                                        className={`perfil-contrast-diff-pill ${diff >= 0 ? 'is-pos' : 'is-neg'
+                                            }`}
                                     >
                                         {diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1)}
                                     </span>
@@ -919,7 +919,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                             onUpdateFila?.(selectedAnime.id, cambios)
                             setSelectedAnime((prev) => (prev ? { ...prev, ...cambios } : null))
                         }}
-                        onRecomendar={() => {}}
+                        onRecomendar={() => { }}
                     />
                 )}
             </div>
@@ -981,8 +981,8 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         const activeStatusItem = hoveredStatus
             ? statusItems.find((s) => s.id === hoveredStatus)
             : selectedStatusFilter !== 'all'
-            ? statusItems.find((s) => s.id === selectedStatusFilter)
-            : null
+                ? statusItems.find((s) => s.id === selectedStatusFilter)
+                : null
 
         const donutRadius = 64
         const donutCircumference = 2 * Math.PI * donutRadius
@@ -1596,7 +1596,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                             onUpdateFila?.(selectedAnime.id, cambios)
                             setSelectedAnime((prev) => (prev ? { ...prev, ...cambios } : null))
                         }}
-                        onRecomendar={() => {}}
+                        onRecomendar={() => { }}
                     />
                 )}
             </div>
@@ -1878,7 +1878,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                             onUpdateFila?.(selectedAnime.id, cambios)
                             setSelectedAnime((prev) => (prev ? { ...prev, ...cambios } : null))
                         }}
-                        onRecomendar={() => {}}
+                        onRecomendar={() => { }}
                     />
                 )}
             </div>
@@ -1886,20 +1886,12 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
     }
 
     // =========================================================================
-    // SUBVISTA 4: GÉNERO FAVORITO (DIAGRAMA DE VENN DINÁMICO + SINERGIA DE TAGS)
+    // SUBVISTA 4: GÉNERO FAVORITO (CONEXIONES DE TAGS & SINERGIA DE NOTAS)
     // =========================================================================
     if (activeSubView === 'favorite-genre') {
         return (
             <div className="perfil-analytics-hub perfil-subview-enter">
-                {/* 1. Diagrama de Venn Dinámico: Cantidad y Co-ocurrencia de Géneros, Tags y Elenco */}
-                <VennDiagramGenreExplorer
-                    filas={filas}
-                    tasteAnalytics={tasteAnalytics}
-                    onSelectAnime={(f) => setSelectedAnime(f)}
-                    accentColor={accentColor}
-                />
-
-                {/* 2. Gráfico de "Conexiones de Media Tags & Sinergia" */}
+                {/* Gráfico de Conexiones de Media Tags & Sinergia de Notas */}
                 <TasteCorrelationGraph
                     analytics={tasteAnalytics}
                     filas={filas.filter(
@@ -1921,7 +1913,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                             onUpdateFila?.(selectedAnime.id, cambios)
                             setSelectedAnime((prev) => (prev ? { ...prev, ...cambios } : null))
                         }}
-                        onRecomendar={() => {}}
+                        onRecomendar={() => { }}
                     />
                 )}
             </div>
@@ -2148,7 +2140,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                         onUpdateFila?.(selectedAnime.id, cambios)
                         setSelectedAnime((prev) => (prev ? { ...prev, ...cambios } : null))
                     }}
-                    onRecomendar={() => {}}
+                    onRecomendar={() => { }}
                 />
             )}
         </div>
