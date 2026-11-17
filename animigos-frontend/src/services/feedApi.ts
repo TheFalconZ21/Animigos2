@@ -101,7 +101,14 @@ const nuevoId = () => `act-${Date.now()}-${Math.random().toString(36).slice(2, 7
 export async function fetchFeed(): Promise<Actividad[]> {
     const local = getLocalFeed()
 
-    // Sincronizar recomendaciones directas reales recibidas por el usuario
+    // Sincronizar recomendaciones directas reales recibidas por el usuario si tiene sesión
+    const hasSession = typeof localStorage !== 'undefined' && Boolean(
+        localStorage.getItem('animigos_session_id') || localStorage.getItem('session_id')
+    )
+    if (!hasSession) {
+        return local
+    }
+
     try {
         const { notifications } = await fetchUserNotifications()
         const recoNotifs = notifications.filter((n) => n.type === 'anime_recommendation' && n.anime_id)

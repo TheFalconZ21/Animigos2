@@ -1222,12 +1222,18 @@ def recommend_anime_to_user_view(request, username):
 
 
 @api_view(['GET', 'PATCH'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def user_notifications_view(request):
     """
     GET: Retorna la bandeja de notificaciones accionables del usuario autenticado.
+    Si el usuario es anónimo o su sesión expiró, devuelve lista vacía con 200 OK.
     PATCH: Marca una notificación como leída, la descarta, o marca todas como leídas.
     """
+    if not request.user.is_authenticated:
+        if request.method == 'PATCH':
+            return Response({'error': 'No autenticado'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'notifications': [], 'unread_count': 0}, status=status.HTTP_200_OK)
+
     import uuid
     from django.utils import timezone
 
