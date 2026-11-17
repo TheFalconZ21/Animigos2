@@ -863,7 +863,12 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                     <h3 className="anime-profile-section-heading">
                                         Evolución Histórica de Puntuación (2018–2026)
                                     </h3>
-                                    <AnimeScoreHistoryChart malId={anime.mal_id} title={anime.title} />
+                                    <AnimeScoreHistoryChart
+                                        malId={anime.mal_id}
+                                        title={anime.title}
+                                        relations={relations}
+                                        onSelectAnime={onSelectAnime}
+                                    />
                                 </div>
 
                                 {/* Cronología y Obras Relacionadas (Precuelas, Secuelas, Spin-offs) */}
@@ -952,7 +957,12 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                 <h3 className="anime-profile-section-heading">
                                     Histórico de Calificaciones y Tendencia en MyAnimeList
                                 </h3>
-                                <AnimeScoreHistoryChart malId={anime.mal_id} title={anime.title} />
+                                <AnimeScoreHistoryChart
+                                    malId={anime.mal_id}
+                                    title={anime.title}
+                                    relations={relations}
+                                    onSelectAnime={onSelectAnime}
+                                />
                             </div>
                         )}
 

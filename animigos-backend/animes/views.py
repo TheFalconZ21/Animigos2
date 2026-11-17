@@ -6,7 +6,7 @@ from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q, Count, Avg
 from django.core.cache import cache
 
-from .models import Anime, AnimeRecommendation
+from .models import Anime, AnimeRecommendation, AnimeScoreHistory
 from .serializers import AnimeSerializer, AnimeRecommendationSerializer, AnimeScoreHistorySerializer
 from core.constants import (
     CACHE_TTL_SHORT,
@@ -656,6 +656,14 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         """Devuelve la evolución temporal histórica y mensual de la nota del anime."""
         anime = self.get_object()
         history_qs = anime.score_history.all().order_by('recorded_at')
+        if not history_qs.exists() and AnimeScoreHistory.objects.count() == 0:
+            try:
+                from django.core.management import call_command
+                call_command('load_anime_history')
+                history_qs = anime.score_history.all().order_by('recorded_at')
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Error auto-loading anime history: {e}")
         serializer = AnimeScoreHistorySerializer(history_qs, many=True)
         return Response(serializer.data)
 

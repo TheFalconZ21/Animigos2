@@ -1,13 +1,21 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { TrendingUp, TrendingDown, Minus, Calendar, Users, Award, Loader2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, Calendar, Users, Award, Loader2, ArrowRight } from 'lucide-react'
 import { fetchAnimeScoreHistory, type AnimeScoreHistoryItem } from '../../services/catalogApi'
+import type { ApiAnimeRelationItem } from '../../services/userListApi'
 
 interface AnimeScoreHistoryChartProps {
     malId: number
     title?: string
+    relations?: ApiAnimeRelationItem[]
+    onSelectAnime?: (malId: number) => void
 }
 
-export const AnimeScoreHistoryChart: React.FC<AnimeScoreHistoryChartProps> = ({ malId }) => {
+export const AnimeScoreHistoryChart: React.FC<AnimeScoreHistoryChartProps> = ({
+    malId,
+    title: _title,
+    relations,
+    onSelectAnime,
+}) => {
     const [history, setHistory] = useState<AnimeScoreHistoryItem[]>([])
     const [isLoading, setIsLoading] = useState<boolean>(true)
     const [error, setError] = useState<string | null>(null)
@@ -156,10 +164,14 @@ export const AnimeScoreHistoryChart: React.FC<AnimeScoreHistoryChartProps> = ({ 
         )
     }
 
+    const prequel = relations?.find(
+        (r) => r.relation_type?.toUpperCase() === 'PREQUEL' && r.mal_id
+    )
+
     if (error || validPoints.length === 0) {
         return (
             <div
-                className="p-3 rounded-2 text-center"
+                className="p-3 rounded-2 text-center d-flex flex-column align-items-center gap-2"
                 style={{ background: 'var(--cat-surface-2)', border: '1px solid var(--cat-border)' }}
             >
                 <span className="small text-secondary" style={{ fontSize: '0.78rem' }}>
@@ -167,6 +179,37 @@ export const AnimeScoreHistoryChart: React.FC<AnimeScoreHistoryChartProps> = ({ 
                         ? 'Este anime aún no registra suficientes cortes históricos en la base de datos.'
                         : error}
                 </span>
+                {prequel && prequel.mal_id && (
+                    <button
+                        type="button"
+                        onClick={() =>
+                            onSelectAnime
+                                ? onSelectAnime(prequel.mal_id!)
+                                : (window.location.hash = `#anime/${prequel.mal_id}`)
+                        }
+                        className="btn btn-sm d-inline-flex align-items-center gap-2 mt-1"
+                        style={{
+                            background: 'rgba(168, 85, 247, 0.12)',
+                            border: '1px solid rgba(168, 85, 247, 0.3)',
+                            color: 'var(--cat-acento, #c084fc)',
+                            fontSize: '0.75rem',
+                            borderRadius: '6px',
+                            padding: '4px 10px',
+                        }}
+                    >
+                        {prequel.image_url && (
+                            <img
+                                src={prequel.image_url}
+                                alt=""
+                                style={{ width: 18, height: 24, objectFit: 'cover', borderRadius: 2 }}
+                            />
+                        )}
+                        <span>
+                            Ver histórico de su precuela: <strong>{prequel.title}</strong>
+                        </span>
+                        <ArrowRight size={13} />
+                    </button>
+                )}
             </div>
         )
     }
@@ -175,18 +218,64 @@ export const AnimeScoreHistoryChart: React.FC<AnimeScoreHistoryChartProps> = ({ 
         const single = validPoints[0]
         return (
             <div
-                className="p-3 rounded-2 d-flex align-items-center justify-content-between"
+                className="p-3 rounded-3 d-flex flex-column gap-2.5"
                 style={{ background: 'var(--cat-surface-2)', border: '1px solid var(--cat-border)' }}
             >
-                <div className="d-flex align-items-center gap-2">
-                    <Calendar size={15} className="text-secondary" />
-                    <span className="small text-secondary">
-                        Corte inicial ({single.period_label}): <strong className="text-white">★ {single.numScore.toFixed(2)}</strong>
+                <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div className="d-flex align-items-center gap-2">
+                        <Calendar size={15} style={{ color: 'var(--cat-acento, #a855f7)' }} />
+                        <span className="small text-white">
+                            Corte inicial ({single.period_label}):{' '}
+                            <strong style={{ color: 'var(--cat-acento, #a855f7)' }}>
+                                ★ {single.numScore.toFixed(2)}
+                            </strong>
+                        </span>
+                    </div>
+                    <span
+                        className="badge bg-black border border-dark text-secondary font-mono"
+                        style={{ fontSize: '0.7rem' }}
+                    >
+                        1 registro disponible (Estreno / Secuela)
                     </span>
                 </div>
-                <span className="badge bg-black border border-dark text-secondary font-mono" style={{ fontSize: '0.7rem' }}>
-                    1 registro disponible
-                </span>
+
+                {prequel && prequel.mal_id && (
+                    <div className="pt-2 border-top border-dark d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <span className="small text-secondary" style={{ fontSize: '0.78rem' }}>
+                            Para analizar la trayectoria histórica completa de la franquicia:
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                onSelectAnime
+                                    ? onSelectAnime(prequel.mal_id!)
+                                    : (window.location.hash = `#anime/${prequel.mal_id}`)
+                            }
+                            className="btn btn-sm d-inline-flex align-items-center gap-2"
+                            style={{
+                                background: 'rgba(168, 85, 247, 0.12)',
+                                border: '1px solid rgba(168, 85, 247, 0.3)',
+                                color: 'var(--cat-acento, #c084fc)',
+                                fontSize: '0.75rem',
+                                borderRadius: '6px',
+                                padding: '4px 10px',
+                            }}
+                            title={`Ver histórico de ${prequel.title}`}
+                        >
+                            {prequel.image_url && (
+                                <img
+                                    src={prequel.image_url}
+                                    alt=""
+                                    style={{ width: 16, height: 22, objectFit: 'cover', borderRadius: 2 }}
+                                />
+                            )}
+                            <span>
+                                Ver histórico de la precuela: <strong>{prequel.title}</strong>
+                            </span>
+                            <ArrowRight size={13} />
+                        </button>
+                    </div>
+                )}
             </div>
         )
     }
