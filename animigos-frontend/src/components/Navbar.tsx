@@ -186,6 +186,23 @@ export function Navbar({
         >
             <div className="container-fluid px-3 px-md-4 h-100 d-flex align-items-center">
 
+                {/* Logo visible en pantallas pequeñas (< 992px) cuando el sidebar lateral está oculto */}
+                <div className="d-lg-none me-2 flex-shrink-0">
+                    <a
+                        className="navbar-brand text-decoration-none p-0 d-flex align-items-center"
+                        href="#landing"
+                        onClick={(e) => {
+                            e.preventDefault()
+                            handleNavClick('landing')
+                        }}
+                        onMouseEnter={() => setExpression('happy')}
+                        onMouseLeave={() => setExpression('normal')}
+                        title="Animigos — Inicio"
+                    >
+                        <AnimigosLogo size="sm" showText={false} />
+                    </a>
+                </div>
+
                 {/* Si estamos en modo plataforma con Sidebar */}
                 {showSidebarToggle ? (
                     <div className="d-flex align-items-center gap-2">

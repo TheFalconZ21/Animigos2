@@ -11,13 +11,15 @@
 
 @media (max-width: 768px) {
   .navbar-search-wrapper {
-    max-width: 200px;
+    min-width: 0 !important;
+    max-width: 220px;
   }
 }
 
 @media (max-width: 576px) {
   .navbar-search-wrapper {
-    max-width: 160px;
+    min-width: 0 !important;
+    max-width: 170px;
   }
 }
 

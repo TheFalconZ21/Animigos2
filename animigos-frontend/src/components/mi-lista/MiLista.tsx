@@ -316,10 +316,10 @@ export function MiLista({
     const filaDetalle = filas.find((f) => f.malId === detalleId) ?? null
 
     return (
-        <section className="ml-root ml-seccion-lista" style={{ '--ml-acento': acento } as CSSProperties}>
+        <section className="ml-root ml-seccion-lista flex-grow-1" style={{ '--ml-acento': acento } as CSSProperties}>
             <LateralesAnime filas={filas} visibles={visibles} activeFila={activeFila} />
 
-            <div className="container">
+            <div className="container flex-grow-1 d-flex flex-column">
                 {/* ---------- Cabecera ---------- */}
                 <header className="ml-header">
                     <div className="ml-header-info">

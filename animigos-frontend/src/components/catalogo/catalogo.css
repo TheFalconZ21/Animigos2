@@ -795,6 +795,33 @@
 @media (max-width: 992px) {
     .anime-profile-grid {
         grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+
+    .anime-profile-sidebar {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+    }
+
+    .anime-profile-poster-card {
+        max-width: 250px;
+        width: 100%;
+        margin: 0 auto;
+    }
+
+    .anime-profile-poster-img {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 3 / 4.2;
+        object-fit: cover;
+        object-position: center top;
+        display: block;
+    }
+
+    .anime-profile-panel {
+        width: 100%;
     }
 }
 

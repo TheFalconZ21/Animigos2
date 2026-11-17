@@ -312,12 +312,10 @@ function App() {
         )
       case 'mi-lista':
         return (
-          <div className="py-4">
-            <MiLista
-              visitedUsername={visitedUsername}
-              onOpenAnimeDetail={(malId) => handleSelectAnime(malId)}
-            />
-          </div>
+          <MiLista
+            visitedUsername={visitedUsername}
+            onOpenAnimeDetail={(malId) => handleSelectAnime(malId)}
+          />
         )
       case 'perfil':
         return (
