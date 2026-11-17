@@ -41,8 +41,12 @@ class Anime(models.Model):
         help_text="Índice textual plano delimitado para filtrado rápido: |cyberpunk|time manipulation|"
     )
     type = models.CharField(max_length=30, blank=True, default='TV')
-    airing_day = models.CharField(max_length=20, blank=True, default='')
-    broadcast_time = models.CharField(max_length=50, blank=True, default='')
+    release_date = models.DateField(null=True, blank=True, db_index=True, help_text="Fecha de estreno confirmada (AAAA-MM-DD)")
+    relations_data = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Obras relacionadas de la franquicia: [{'relation_type': 'SEQUEL', 'format': 'TV', 'mal_id': 28701, 'title': '...', 'image_url': '...'}]"
+    )
     
     last_synced_at = models.DateTimeField(auto_now=True)
 

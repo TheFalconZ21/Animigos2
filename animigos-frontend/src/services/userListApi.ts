@@ -8,7 +8,21 @@ import { getAuthHeaders } from './authApi'
 
 const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, ''); const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
 
-export type EstadoLista = 'visto' | 'viendo' | 'pendiente' | 'dropeado'
+export type EstadoLista = 'visto' | 'viendo' | 'pendiente' | 'dropeado' | 'esperando'
+
+export interface ApiAnimeRelationItem {
+    relation_type: string
+    relation_type_display: string
+    format: string
+    format_display: string
+    mal_id: number | null
+    anilist_id?: number | null
+    title: string
+    title_english?: string
+    image_url: string
+    season_year?: number | null
+    status?: string
+}
 
 export interface ApiAnimeData {
     mal_id: number
@@ -34,6 +48,8 @@ export interface ApiAnimeData {
     genres: string[]
     tags_data?: Array<{ name: string; category?: string; rank?: number; spoiler?: boolean }>
     type?: string
+    release_date?: string
+    relations_data?: ApiAnimeRelationItem[]
 }
 
 export interface ApiUserListEntry {
@@ -73,6 +89,7 @@ export interface ApiListStats {
     viendo: number
     pendiente: number
     dropeado?: number
+    esperando?: number
     average_score: number | null
     percent_completed: number
 }

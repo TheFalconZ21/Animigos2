@@ -134,7 +134,20 @@ export function useWatchParty({
                         if (data.room) setRoom(data.room)
                     }
 
-                    // 6. Miembro se unió / salió
+                    // 6. Miembro se unió / salió / sala disuelta
+                    if (data.type === 'room_dissolved') {
+                        setRoom(null)
+                        setChatMessages((prev) => [
+                            ...prev,
+                            {
+                                id: `dissolve-${Date.now()}`,
+                                sender: 'Sistema',
+                                text: data.message || 'Esta sala grupal ha sido disuelta por su creador.',
+                                timestamp: Date.now() / 1000,
+                            },
+                        ])
+                    }
+
                     if (data.type === 'member_joined') {
                         if (data.room) setRoom(data.room)
                         setChatMessages((prev) => [
@@ -393,6 +406,7 @@ export function useWatchParty({
         connectionStatus,
         latencyMs,
         room,
+        setRoom,
         chatMessages,
         floatingReactions,
         updateMyProgress,

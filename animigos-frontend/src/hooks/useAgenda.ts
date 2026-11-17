@@ -36,7 +36,9 @@ export function useAgenda() {
             const previousData = queryClient.getQueryData<AgendaApiResponse>(queryKey)
 
             if (previousData) {
-                const newItems = previousData.items.map((item) => {
+                const newItems = previousData.items
+                    .filter((item) => item.user_status !== 'esperando')
+                    .map((item) => {
                     if (item.entry_id === entryId) {
                         const newWatched = Math.max(0, episodesWatched)
                         const newBehind = Math.max(0, item.latest_episode - newWatched)
@@ -125,7 +127,7 @@ export function useAgenda() {
 
     return {
         summary: data?.summary ?? { total_series: 0, total_episodes_behind: 0, up_to_date_count: 0, behind_count: 0, estimated_minutes: 0 },
-        items: data?.items ?? [],
+        items: (data?.items ?? []).filter((it) => it.user_status !== 'esperando'),
         suggestedAiring: data?.suggested_airing ?? [],
         isAuthenticated: Boolean(data?.is_authenticated ?? isAuthenticated),
         isLoading,

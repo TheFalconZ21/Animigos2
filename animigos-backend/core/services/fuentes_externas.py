@@ -74,7 +74,7 @@ class Emision(TypedDict):
     popularity: int
 
 
-def _post_json(url: str, cuerpo: dict) -> dict:
+def _post_json(url: str, cuerpo: dict, reintentos: int = 2) -> dict:
     datos = json.dumps(cuerpo).encode('utf-8')
     peticion = urllib.request.Request(
         url,
@@ -82,8 +82,19 @@ def _post_json(url: str, cuerpo: dict) -> dict:
         headers={'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': USER_AGENT},
         method='POST',
     )
-    with urllib.request.urlopen(peticion, timeout=TIMEOUT_SEGUNDOS) as respuesta:
-        return json.loads(respuesta.read().decode('utf-8'))
+    for intento in range(reintentos + 1):
+        try:
+            with urllib.request.urlopen(peticion, timeout=TIMEOUT_SEGUNDOS) as respuesta:
+                return json.loads(respuesta.read().decode('utf-8'))
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and intento < reintentos:
+                try:
+                    retry_after = int(e.headers.get('Retry-After', 2) or 2)
+                except (ValueError, TypeError):
+                    retry_after = 2
+                time.sleep(max(1, retry_after) + 0.5)
+                continue
+            raise
 
 
 def obtener_horario_semanal(dias: int = 7) -> list[Emision]:
@@ -260,11 +271,18 @@ query ($desde: FuzzyDateInt, $hasta: FuzzyDateInt, $pagina: Int) {
       idMal
       format
       episodes
+      duration
+      description
       popularity
-      title { romaji english }
-      coverImage { large }
+      title { romaji english native }
+      coverImage { large extraLarge }
+      bannerImage
       startDate { year month day }
-      studios(isMain: true) { nodes { name } }
+      season
+      seasonYear
+      genres
+      tags { name category rank isMediaSpoiler isGeneralSpoiler }
+      studios { nodes { name isAnimationStudio } }
     }
   }
 }
@@ -282,6 +300,134 @@ class Lanzamiento(TypedDict):
     studio: str | None
     release_date: str  # "AAAA-MM-DD"
     popularity: int
+    synopsis: str | None
+    genres: list[str]
+    season: str | None
+    year: int | None
+
+
+def _guardar_anime_catalogo(media: dict, fecha: dict) -> int | None:
+    try:
+        from animes.models import Anime
+        from datetime import date
+        mid = media.get('idMal') or (10000000 + media['id'])
+        f_date = date(fecha['year'], fecha['month'], fecha['day'])
+
+        titulos = media.get('title') or {}
+        title_romaji = (titulos.get('romaji') or titulos.get('english') or 'Anime').strip()
+        title_eng = (titulos.get('english') or '').strip()
+        title_jp = (titulos.get('native') or '').strip()
+
+        raw_desc = media.get('description') or ''
+        clean_desc = _texto_plano(raw_desc, limite=3000)
+
+        cover = media.get('coverImage') or {}
+        img_url = cover.get('extraLarge') or cover.get('large') or ''
+        banner = media.get('bannerImage') or ''
+
+        fmt = media.get('format') or 'TV'
+        type_map = {'MOVIE': 'Movie', 'TV_SHORT': 'TV', 'SPECIAL': 'Special'}
+        mapped_type = type_map.get(fmt, fmt)
+
+        studios_nodes = (media.get('studios') or {}).get('nodes') or []
+        anim_studios = [s['name'] for s in studios_nodes if s.get('isAnimationStudio') and s.get('name')]
+        chosen_studio = anim_studios[0] if anim_studios else (studios_nodes[0].get('name') if studios_nodes else '')
+
+        ani_genres = media.get('genres') or []
+        ani_tags = media.get('tags') or []
+        clean_tags = []
+        seen = set()
+        for t in sorted(ani_tags, key=lambda x: x.get('rank', 0), reverse=True):
+            tname = (t.get('name') or '').strip()
+            tl = tname.lower()
+            if not tl or tl in seen:
+                continue
+            seen.add(tl)
+            clean_tags.append({
+                'name': tname,
+                'category': t.get('category', 'Theme'),
+                'rank': int(t.get('rank', 0)),
+                'spoiler': bool(t.get('isMediaSpoiler') or t.get('isGeneralSpoiler'))
+            })
+            if len(clean_tags) >= 20:
+                break
+
+        tokens = [g.lower() for g in ani_genres if g]
+        for ct in clean_tags:
+            if not ct.get('spoiler'):
+                tl = ct['name'].lower()
+                if tl not in tokens:
+                    tokens.append(tl)
+        tags_cache_str = '|' + '|'.join(tokens) + '|' if tokens else ''
+
+        raw_season = media.get('season')
+        season_str = raw_season.capitalize() if raw_season else ''
+        if not season_str and fecha.get('month'):
+            m = fecha['month']
+            if m in (1, 2, 3):
+                season_str = 'Winter'
+            elif m in (4, 5, 6):
+                season_str = 'Spring'
+            elif m in (7, 8, 9):
+                season_str = 'Summer'
+            elif m in (10, 11, 12):
+                season_str = 'Fall'
+        season_yr = media.get('seasonYear') or fecha.get('year')
+
+        anime, created = Anime.objects.get_or_create(
+            mal_id=mid,
+            defaults={
+                'title': title_romaji,
+                'title_english': title_eng,
+                'title_japanese': title_jp,
+                'synopsis': clean_desc,
+                'image_url': img_url,
+                'banner_url': banner,
+                'type': mapped_type,
+                'episodes': media.get('episodes') or (1 if fmt == 'MOVIE' else None),
+                'duration': float(media.get('duration') or 24),
+                'status': 'NOT_YET_RELEASED',
+                'season': season_str,
+                'season_year': season_yr,
+                'studio': chosen_studio[:100],
+                'genres': ani_genres,
+                'tags_data': clean_tags,
+                'tags_cache': tags_cache_str,
+                'release_date': f_date,
+            }
+        )
+        if not created:
+            mod = False
+            if anime.release_date != f_date:
+                anime.release_date = f_date
+                mod = True
+            if not anime.studio and chosen_studio:
+                anime.studio = chosen_studio[:100]
+                mod = True
+            if not anime.title_english and title_eng:
+                anime.title_english = title_eng
+                mod = True
+            if (not anime.genres or anime.genres == []) and ani_genres:
+                anime.genres = ani_genres
+                mod = True
+            if (not anime.tags_data or anime.tags_data == []) and clean_tags:
+                anime.tags_data = clean_tags
+                anime.tags_cache = tags_cache_str
+                mod = True
+            if not anime.synopsis and clean_desc:
+                anime.synopsis = clean_desc
+                mod = True
+            if not anime.season and season_str:
+                anime.season = season_str
+                mod = True
+            if not anime.season_year and season_yr:
+                anime.season_year = season_yr
+                mod = True
+            if mod:
+                anime.save()
+        return mid
+    except Exception:
+        return media.get('idMal')
 
 
 def obtener_proximos_lanzamientos(dias: int = 90) -> list[Lanzamiento]:
@@ -309,9 +455,26 @@ def obtener_proximos_lanzamientos(dias: int = 90) -> list[Lanzamiento]:
                 continue
             titulos = media['title']
             estudios = media['studios']['nodes']
+            resolved_mid = _guardar_anime_catalogo(media, fecha)
+
+            season_names = {'FALL': 'Otoño', 'SPRING': 'Primavera', 'SUMMER': 'Verano', 'WINTER': 'Invierno'}
+            raw_season = media.get('season') or ''
+            season_es = season_names.get(raw_season.upper(), raw_season.capitalize() if raw_season else None)
+            if not season_es and fecha.get('month'):
+                m = fecha['month']
+                if m in (1, 2, 3):
+                    season_es = 'Invierno'
+                elif m in (4, 5, 6):
+                    season_es = 'Primavera'
+                elif m in (7, 8, 9):
+                    season_es = 'Verano'
+                elif m in (10, 11, 12):
+                    season_es = 'Otoño'
+            season_yr = media.get('seasonYear') or fecha.get('year')
+
             lanzamientos.append({
                 'id': media['id'],
-                'mal_id': media['idMal'],
+                'mal_id': resolved_mid,
                 'title': titulos['english'] or titulos['romaji'],
                 'title_romaji': titulos['romaji'],
                 'image_url': media['coverImage']['large'],
@@ -320,6 +483,10 @@ def obtener_proximos_lanzamientos(dias: int = 90) -> list[Lanzamiento]:
                 'studio': estudios[0]['name'] if estudios else None,
                 'release_date': f"{fecha['year']:04d}-{fecha['month']:02d}-{fecha['day']:02d}",
                 'popularity': media['popularity'] or 0,
+                'synopsis': _texto_plano(media.get('description') or '', limite=300),
+                'genres': media.get('genres') or [],
+                'season': season_es,
+                'year': season_yr,
             })
         if not page['pageInfo']['hasNextPage']:
             break
@@ -464,3 +631,105 @@ def obtener_noticias() -> list[Noticia]:
     if not noticias and errores:
         raise errores[0]
     return sorted(noticias, key=lambda n: n['published_at'] or 0, reverse=True)
+
+
+RELATION_TYPE_NAMES = {
+    'PREQUEL': 'Precuela',
+    'SEQUEL': 'Secuela',
+    'PARENT': 'Historia principal',
+    'SIDE_STORY': 'Historia paralela',
+    'SPIN_OFF': 'Spin-off',
+    'ALTERNATIVE': 'Ambientación alternativa',
+    'SUMMARY': 'Resumen / Recap',
+    'CHARACTER': 'Historia de personaje',
+    'OTHER': 'Relacionado',
+    'COMPILATION': 'Recopilación',
+    'CONTAINS': 'Contiene',
+}
+
+FORMAT_NAMES = {
+    'TV': 'TV',
+    'TV_SHORT': 'TV Corto',
+    'MOVIE': 'Película',
+    'SPECIAL': 'Especial',
+    'OVA': 'OVA',
+    'ONA': 'ONA',
+    'MUSIC': 'Musical',
+}
+
+
+def obtener_relaciones_anime(mal_id: int) -> list[dict]:
+    """Obtiene las obras relacionadas (precuelas, secuelas, spin-offs...) de AniList GraphQL."""
+    consulta = """
+    query ($id: Int) {
+      Media(idMal: $id, type: ANIME) {
+        id
+        relations {
+          edges {
+            relationType
+            node {
+              id
+              idMal
+              type
+              format
+              status
+              seasonYear
+              title { romaji english native }
+              coverImage { large medium }
+            }
+          }
+        }
+      }
+    }
+    """
+    try:
+        respuesta = _post_json(ANILIST_URL, {'query': consulta, 'variables': {'id': mal_id}})
+        media = respuesta.get('data', {}).get('Media')
+        if not media:
+            return []
+        edges = media.get('relations', {}).get('edges', [])
+        relaciones: list[dict] = []
+        prioridad_orden = {
+            'PREQUEL': 1,
+            'SEQUEL': 2,
+            'PARENT': 3,
+            'SIDE_STORY': 4,
+            'SPIN_OFF': 5,
+            'ALTERNATIVE': 6,
+            'SUMMARY': 7,
+            'CHARACTER': 8,
+            'COMPILATION': 9,
+            'OTHER': 10,
+        }
+
+        for e in edges:
+            node = e.get('node') or {}
+            if node.get('type') != 'ANIME':
+                continue
+            r_type = e.get('relationType') or 'OTHER'
+            titles = node.get('title') or {}
+            romaji = titles.get('romaji') or ''
+            eng = titles.get('english') or ''
+            cover = node.get('coverImage') or {}
+            img = cover.get('large') or cover.get('medium') or ''
+            fmt = node.get('format') or 'TV'
+
+            relaciones.append({
+                'relation_type': r_type,
+                'relation_type_display': RELATION_TYPE_NAMES.get(r_type, r_type.replace('_', ' ').capitalize()),
+                'format': fmt,
+                'format_display': FORMAT_NAMES.get(fmt, fmt),
+                'mal_id': node.get('idMal'),
+                'anilist_id': node.get('id'),
+                'title': romaji or eng or 'Anime relacionado',
+                'title_english': eng,
+                'image_url': img,
+                'season_year': node.get('seasonYear'),
+                'status': node.get('status'),
+                'priority': prioridad_orden.get(r_type, 99),
+            })
+
+        return sorted(relaciones, key=lambda r: (r['priority'], r['season_year'] or 9999))
+    except Exception:
+        return []
+

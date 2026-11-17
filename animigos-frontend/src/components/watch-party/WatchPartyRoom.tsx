@@ -26,6 +26,11 @@ import {
     Calendar,
     Star,
     Layers,
+    Settings,
+    UserMinus,
+    Trash2,
+    AlertTriangle,
+    Lock,
 } from 'lucide-react'
 import { useWatchParty } from '../../hooks/useWatchParty'
 import {
@@ -34,8 +39,15 @@ import {
     createRoomApi,
     joinRoomApi,
     selectWinningAnimeApi,
+    joinWatchingAnimeApi,
+    updateAnimeProgressApi,
+    setAnimeTargetApi,
+    updateRoomSettingsApi,
+    kickRoomMemberApi,
+    dissolveRoomApi,
     type RoomSummary,
     type RoomMember,
+    type WatchingAnimeItem,
 } from '../../services/watchPartyApi'
 import { useAuth } from '../../context/AuthContext'
 import { useCatalogSearch } from '../../hooks/useCatalog'
@@ -78,6 +90,11 @@ export const WatchPartyRoom: React.FC = () => {
     const [roomTab, setRoomTab] = useState<'sesion' | 'votacion' | 'analisis' | 'chat'>('sesion')
     const [chartMode, setChartMode] = useState<'matriz' | 'apilado'>('matriz')
 
+    // Anime seleccionado para tracker detallado en maratón
+    const [selectedWatchingAnimeId, setSelectedWatchingAnimeId] = useState<string | null>(null)
+    const [isJoiningAnime, setIsJoiningAnime] = useState(false)
+    const [participationFeedback, setParticipationFeedback] = useState<string | null>(null)
+
     // Valores locales de sliders de votación por candidato
     const [localVotes, setLocalVotes] = useState<Record<string, number>>({})
     const [voteFeedback, setVoteFeedback] = useState<string | null>(null)
@@ -96,10 +113,21 @@ export const WatchPartyRoom: React.FC = () => {
     const [showNominateModal, setShowNominateModal] = useState(false)
     const [nominateSearch, setNominateSearch] = useState('')
 
-    const [showCriteriaModal, setShowCriteriaModal] = useState(false)
+    // Modal de Ajustes (reemplaza modal de criterios suelto)
+    const [showSettingsModal, setShowSettingsModal] = useState(false)
+    const [settingsTab, setSettingsTab] = useState<'criterios' | 'sala'>('criterios')
     const [criteriaDuration, setCriteriaDuration] = useState('1-28 caps')
     const [criteriaGenres, setCriteriaGenres] = useState('Sci-Fi, Fantasía, Misterio')
     const [criteriaYears, setCriteriaYears] = useState('2010-2026')
+    const [criteriaFormat, setCriteriaFormat] = useState('Cualquiera')
+    const [criteriaMinScore, setCriteriaMinScore] = useState('7.0')
+    const [roomMaxMembers, setRoomMaxMembers] = useState(10)
+    const [isSavingSettings, setIsSavingSettings] = useState(false)
+    const [settingsFeedback, setSettingsFeedback] = useState<string | null>(null)
+    const [memberToKick, setMemberToKick] = useState<RoomMember | null>(null)
+    const [isKickingMember, setIsKickingMember] = useState(false)
+    const [showDissolveConfirm, setShowDissolveConfirm] = useState(false)
+    const [isDissolving, setIsDissolving] = useState(false)
 
     const [showScheduleModal, setShowScheduleModal] = useState(false)
     const [scheduleDate, setScheduleDate] = useState('')
@@ -209,16 +237,125 @@ export const WatchPartyRoom: React.FC = () => {
         connectionStatus,
         latencyMs,
         room,
+        setRoom,
         chatMessages,
         floatingReactions,
-        updateMyProgress,
-        setGroupTarget,
         scheduleSession,
         voteCandidate,
         nominateCandidate,
         sendChat,
         sendReaction,
     } = useWatchParty({ roomId: selectedRoomId || '', userName, userToken })
+
+    // Determinar si el usuario actual es el creador/anfitrión de la sala
+    const isOwner = useMemo(() => {
+        if (!room?.members) return false
+        return (
+            room.members.some(
+                (m) =>
+                    m.role === 'owner' &&
+                    (m.guest_token === userToken ||
+                        (user && (m.guest_name === user.username || m.guest_name === user.display_name)))
+            ) || (room.members.length === 1 && room.members[0].guest_token === userToken)
+        )
+    }, [room?.members, userToken, user])
+
+    // Sincronizar ajustes de la sala cuando se carga o actualiza la sala
+    useEffect(() => {
+        if (room) {
+            if (room.criteria_data) {
+                if (room.criteria_data.duration) setCriteriaDuration(room.criteria_data.duration)
+                if (room.criteria_data.genres) setCriteriaGenres(room.criteria_data.genres)
+                if (room.criteria_data.years) setCriteriaYears(room.criteria_data.years)
+                if (room.criteria_data.format) setCriteriaFormat(room.criteria_data.format)
+                if (room.criteria_data.min_score) setCriteriaMinScore(room.criteria_data.min_score)
+            }
+            if (room.max_members) {
+                setRoomMaxMembers(room.max_members)
+            }
+        }
+    }, [room?.id, room?.criteria_data, room?.max_members])
+
+    // Guardar criterios de postulación
+    const handleSaveCriteria = async () => {
+        if (!room) return
+        setIsSavingSettings(true)
+        setSettingsFeedback(null)
+        try {
+            const updated = await updateRoomSettingsApi(room.id, {
+                criteria_data: {
+                    duration: criteriaDuration,
+                    genres: criteriaGenres,
+                    years: criteriaYears,
+                    format: criteriaFormat,
+                    min_score: criteriaMinScore,
+                },
+                guest_token: userToken,
+            })
+            setRoom(updated)
+            setSettingsFeedback('✓ Criterios guardados correctamente.')
+            setTimeout(() => setSettingsFeedback(null), 3500)
+        } catch (e: any) {
+            setSettingsFeedback(`❌ Error: ${e.message || 'No se pudieron guardar los criterios'}`)
+        } finally {
+            setIsSavingSettings(false)
+        }
+    }
+
+    // Guardar límite máximo de miembros
+    const handleSaveMaxMembers = async () => {
+        if (!room) return
+        setIsSavingSettings(true)
+        setSettingsFeedback(null)
+        try {
+            const updated = await updateRoomSettingsApi(room.id, {
+                max_members: Number(roomMaxMembers),
+                guest_token: userToken,
+            })
+            setRoom(updated)
+            setSettingsFeedback(`✓ Capacidad máxima actualizada a ${roomMaxMembers} miembros.`)
+            setTimeout(() => setSettingsFeedback(null), 3500)
+        } catch (e: any) {
+            setSettingsFeedback(`❌ Error: ${e.message || 'No se pudo actualizar el límite'}`)
+        } finally {
+            setIsSavingSettings(false)
+        }
+    }
+
+    // Expulsar a un integrante
+    const handleKickMember = async (member: RoomMember) => {
+        if (!room) return
+        setIsKickingMember(true)
+        try {
+            const updated = await kickRoomMemberApi(room.id, member.id, userToken)
+            setRoom(updated)
+            setMemberToKick(null)
+            setSettingsFeedback(`✓ ${cleanUserName(member.guest_name)} ha sido expulsado de la sala.`)
+            setTimeout(() => setSettingsFeedback(null), 3500)
+        } catch (e: any) {
+            setSettingsFeedback(`❌ Error: ${e.message || 'No se pudo expulsar al integrante'}`)
+        } finally {
+            setIsKickingMember(false)
+        }
+    }
+
+    // Disolver la lista grupal (con confirmación)
+    const handleDissolveRoom = async () => {
+        if (!room) return
+        setIsDissolving(true)
+        try {
+            await dissolveRoomApi(room.id, userToken)
+            setShowDissolveConfirm(false)
+            setShowSettingsModal(false)
+            setSelectedRoomId(null)
+            window.location.hash = '#listas'
+            await loadRooms()
+        } catch (e: any) {
+            alert(e.message || 'No se pudo disolver la sala grupal')
+        } finally {
+            setIsDissolving(false)
+        }
+    }
 
     // Sincronizar votos del usuario en mapa local
     useEffect(() => {
@@ -283,35 +420,152 @@ export const WatchPartyRoom: React.FC = () => {
 
     const topCandidate = candidates[0] || null
 
-    // Anime seleccionado o primer candidato para la sesión de maratón
-    const activeMarathonAnime = useMemo(() => {
-        if ((room as any)?.winning_anime) {
-            return (room as any).winning_anime
-        }
-        if (room?.selected_anime) {
-            return room.selected_anime
-        }
-        if (topCandidate) {
-            return {
-                title: topCandidate.title,
-                image_url: topCandidate.image_url,
-                episodes: topCandidate.episodes || 24,
-                score: topCandidate.score || 8.5,
+    // Animes activos en maratón grupal
+    const activeWatchingAnimes = useMemo(() => {
+        return room?.watching_animes?.filter((w) => w.is_active) || []
+    }, [room?.watching_animes])
+
+    // Estado binario de la sala: 'Decidiendo' o 'Viendo'
+    const isDeciding = useMemo(() => {
+        return activeWatchingAnimes.length === 0 || room?.status === 'deciding'
+    }, [activeWatchingAnimes.length, room?.status])
+
+    // Ajuste de pestaña automática cuando la sala está en 'Decidiendo'
+    useEffect(() => {
+        if (room) {
+            const active = room.watching_animes?.filter((w) => w.is_active) || []
+            if (active.length === 0 || room.status === 'deciding') {
+                setRoomTab('votacion')
             }
         }
+    }, [room?.id])
+
+    useEffect(() => {
+        if (isDeciding && roomTab === 'sesion') {
+            setRoomTab('votacion')
+        }
+    }, [isDeciding, roomTab])
+
+    // Anime en visualización activa dentro de Sesión & Tracker
+    const currentWatchingAnime: WatchingAnimeItem | null = useMemo(() => {
+        if (activeWatchingAnimes.length === 0) return null
+        if (selectedWatchingAnimeId) {
+            const found = activeWatchingAnimes.find((w) => w.id === selectedWatchingAnimeId)
+            if (found) return found
+        }
+        if (activeWatchingAnimes.length === 1) {
+            return activeWatchingAnimes[0]
+        }
         return null
-    }, [room, topCandidate])
+    }, [activeWatchingAnimes, selectedWatchingAnimeId])
 
-    const totalMembers = room?.members?.length || 1
+    // Participación del usuario actual en el anime en visualización
+    const myParticipationCurrent = useMemo(() => {
+        if (!currentWatchingAnime?.participations) return null
+        return (
+            currentWatchingAnime.participations.find(
+                (p) =>
+                    (p.guest_token && p.guest_token === userToken) ||
+                    cleanUserName(p.guest_name).toLowerCase() === userName.toLowerCase()
+            ) || null
+        )
+    }, [currentWatchingAnime, userToken, userName])
 
-    // Miembros de la sala ordenados
+    const isParticipatingCurrent = !!myParticipationCurrent?.is_participating
+    const myWatchedCurrent = myParticipationCurrent?.episodes_watched ?? 0
+    const groupTargetCurrent = currentWatchingAnime?.current_episode || 1
+    const totalEpisodesCurrent = currentWatchingAnime?.episodes_total || currentWatchingAnime?.anime?.episodes || 24
+
+    // Acciones de Maratón y Tracker
+    const handleJoinAnime = async (watchingAnimeId?: string, animeId?: number) => {
+        if (!room) return
+        setIsJoiningAnime(true)
+        setParticipationFeedback(null)
+        try {
+            const updated = await joinWatchingAnimeApi(room.id, {
+                watching_anime_id: watchingAnimeId,
+                anime_id: animeId,
+                guest_token: userToken,
+                guest_name: userName,
+            })
+            setRoom(updated)
+            setParticipationFeedback('✓ ¡Te has sumado a la maratón! El anime se agregó a tu lista personal en "Viendo".')
+            setTimeout(() => setParticipationFeedback(null), 4000)
+        } catch (e: any) {
+            setParticipationFeedback(`❌ Error: ${e.message || 'No se pudo unir a la maratón'}`)
+            setTimeout(() => setParticipationFeedback(null), 4000)
+        } finally {
+            setIsJoiningAnime(false)
+        }
+    }
+
+    const handleUpdateAnimeProgress = async (watchingAnimeId: string, episodesWatched: number) => {
+        if (!room) return
+        try {
+            const updated = await updateAnimeProgressApi(room.id, {
+                watching_anime_id: watchingAnimeId,
+                episodes_watched: episodesWatched,
+                guest_token: userToken,
+                guest_name: userName,
+            })
+            setRoom(updated)
+        } catch (e: any) {
+            console.error('Error al actualizar avance:', e)
+        }
+    }
+
+    const handleSetAnimeTarget = async (watchingAnimeId: string, episode: number) => {
+        if (!room) return
+        try {
+            const updated = await setAnimeTargetApi(room.id, {
+                watching_anime_id: watchingAnimeId,
+                episode,
+                guest_token: userToken,
+            })
+            setRoom(updated)
+        } catch (e: any) {
+            console.error('Error al actualizar meta:', e)
+        }
+    }
+
+    const handleToggleWatchingAnime = async (animeId: number) => {
+        if (!room) return
+        try {
+            const updated = await selectWinningAnimeApi(room.id, animeId, 'toggle', userToken)
+            setRoom(updated)
+            const active = updated.watching_animes?.filter((w) => w.is_active) || []
+            if (active.length > 0) {
+                setRoomTab('sesion')
+                if (active.length === 1) {
+                    setSelectedWatchingAnimeId(active[0].id)
+                } else {
+                    setSelectedWatchingAnimeId(null)
+                }
+            }
+        } catch (e: any) {
+            alert(e.message || 'No se pudo actualizar el anime de maratón')
+        }
+    }
+
+    // Miembros de la sala ordenados y deduplicados
     const roomMembers = useMemo(() => {
         if (!room?.members) return []
-        return [...room.members].map((m) => ({
+        const seen = new Set<string>()
+        const list = [...room.members]
+            .sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : 0))
+            .filter((m) => {
+                const key = cleanUserName(m.guest_name).toLowerCase().trim()
+                if (seen.has(key)) return false
+                seen.add(key)
+                return true
+            })
+        return list.map((m) => ({
             ...m,
             cleanName: cleanUserName(m.guest_name),
         }))
     }, [room?.members])
+
+    const totalMembers = roomMembers.length || 1
 
     // Sintonía y quórum amigables
     const dispersionDesc = useMemo(() => {
@@ -340,25 +594,20 @@ export const WatchPartyRoom: React.FC = () => {
         return `${pct}% quórum`
     }, [room?.members, candidates])
 
-    const myWatched = useMemo(() => {
-        const member = room?.members?.find((m) => cleanUserName(m.guest_name) === userName)
-        return member?.episodes_watched || 0
-    }, [room?.members, userName])
+    const groupTarget = currentWatchingAnime?.current_episode || room?.current_episode || 1
+    const totalEpisodes = currentWatchingAnime?.episodes_total || totalEpisodesCurrent || 24
 
-    const groupTarget = (room as any)?.target_episode || room?.current_episode || 1
-    const totalEpisodesRaw = activeMarathonAnime?.episodes || 24
-    
-    // Si la serie está en emisión, los capítulos disponibles pueden variar semana a semana
-    const totalEpisodes = airingEpisodesAvailable !== null ? airingEpisodesAvailable : Math.min(totalEpisodesRaw, 24)
-
-    // Miembros que faltan por ponerse al día
-    const cleanCatchupMembers = useMemo(() => {
-        if (!room?.catchup_members) return []
-        return room.catchup_members.map((cm) => ({
-            ...cm,
-            guest_name: cleanUserName(cm.guest_name),
-        }))
-    }, [room?.catchup_members])
+    // Miembros que faltan por ponerse al día en el anime activo
+    const currentAnimeCatchup = useMemo(() => {
+        if (!currentWatchingAnime?.participations) return []
+        return currentWatchingAnime.participations
+            .filter((p) => p.is_participating && p.episodes_watched < groupTargetCurrent)
+            .map((p) => ({
+                ...p,
+                cleanName: cleanUserName(p.guest_name),
+                behind: groupTargetCurrent - p.episodes_watched,
+            }))
+    }, [currentWatchingAnime, groupTargetCurrent])
 
     // ==============================================================
     // VISTA 1: DASHBOARD / LOBBY (CUANDO NO HAY SALA SELECCIONADA)
@@ -457,30 +706,33 @@ export const WatchPartyRoom: React.FC = () => {
                     ) : (
                         <div className="wp-rooms-grid">
                             {roomsList.map((r) => {
-                                const statusLabel =
-                                    r.status === 'voting'
-                                        ? 'Votación abierta'
-                                        : r.status === 'candidates'
-                                            ? 'Postulación'
-                                            : r.status === 'watching'
-                                                ? 'Viendo en grupo'
-                                                : 'Completado'
+                                const isRoomWatching =
+                                    r.status === 'watching' ||
+                                    (r.watching_animes && r.watching_animes.some((w) => w.is_active))
+                                const statusLabel = isRoomWatching ? 'Viendo' : 'Decidiendo'
 
                                 return (
                                     <div key={r.id} className="wp-room-card">
                                         <div>
-                                            <div className="d-flex justify-content-between align-items-center mb-2.5">
-                                                <span className="wp-pill-badge is-live">
-                                                    <Radio size={11} />
+                                            <div className="wp-room-card-header">
+                                                <span
+                                                    className={`wp-pill-badge ${isRoomWatching ? 'is-live' : ''} wp-status-badge`}
+                                                    style={{
+                                                        background: isRoomWatching ? 'rgba(52, 211, 153, 0.12)' : 'rgba(234, 179, 8, 0.12)',
+                                                        color: isRoomWatching ? '#34d399' : '#facc15',
+                                                        borderColor: isRoomWatching ? 'rgba(52, 211, 153, 0.3)' : 'rgba(234, 179, 8, 0.3)',
+                                                    }}
+                                                >
+                                                    <Radio size={10} className="wp-status-icon" />
                                                     <span>{statusLabel}</span>
                                                 </span>
                                                 <span className="small text-secondary d-flex align-items-center gap-1.5">
-                                                    <Users size={13} />
+                                                    <Users size={12} />
                                                     <span>{r.members?.length || r.members_count || 1} amigos</span>
                                                 </span>
                                             </div>
 
-                                            <h3 className="h6 fw-bold text-white mb-1.5">{r.name}</h3>
+                                            <h3 className="wp-room-card-title">{r.name}</h3>
                                             <p className="small text-secondary mb-3 text-truncate" style={{ fontSize: '0.85rem' }}>
                                                 {r.description || 'Grupo para maratón y coordinación de anime.'}
                                             </p>
@@ -614,6 +866,18 @@ export const WatchPartyRoom: React.FC = () => {
                             <span>{connectionStatus === 'connected' ? `En vivo (${latencyMs ?? 15}ms)` : 'Reconectando'}</span>
                         </span>
 
+                        <span
+                            className={`wp-pill-badge ${!isDeciding ? 'is-live' : ''}`}
+                            style={{
+                                background: !isDeciding ? 'rgba(52, 211, 153, 0.12)' : 'rgba(234, 179, 8, 0.12)',
+                                color: !isDeciding ? '#34d399' : '#facc15',
+                                borderColor: !isDeciding ? 'rgba(52, 211, 153, 0.3)' : 'rgba(234, 179, 8, 0.3)',
+                            }}
+                        >
+                            <Tv size={11} />
+                            <span>{isDeciding ? 'Decidiendo' : 'Viendo'}</span>
+                        </span>
+
                         <span className="wp-pill-badge">
                             <Users size={12} />
                             <span>{totalMembers} amigos</span>
@@ -630,15 +894,20 @@ export const WatchPartyRoom: React.FC = () => {
                             <span>Postular Anime</span>
                         </button>
 
-                        <button
-                            type="button"
-                            onClick={() => setShowCriteriaModal(true)}
-                            className="ml-btn ml-btn-sm d-flex align-items-center gap-1.5"
-                            title="Criterios del Grupo"
-                        >
-                            <SlidersHorizontal size={13} />
-                            <span>Criterios</span>
-                        </button>
+                        {isOwner && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSettingsTab('criterios')
+                                    setShowSettingsModal(true)
+                                }}
+                                className="ml-btn ml-btn-sm d-flex align-items-center gap-1.5"
+                                title="Ajustes de la Sala Grupal (Solo Creador)"
+                            >
+                                <Settings size={13} />
+                                <span>Ajustes</span>
+                            </button>
+                        )}
 
                         <button
                             type="button"
@@ -722,13 +991,20 @@ export const WatchPartyRoom: React.FC = () => {
 
                     <button
                         type="button"
-                        onClick={() => setRoomTab('sesion')}
-                        className="wp-kpi-pill"
-                        title="Ir a Sesión Tracker para ver avance de maratón"
+                        onClick={() => !isDeciding && setRoomTab('sesion')}
+                        className={`wp-kpi-pill ${isDeciding ? 'opacity-60' : ''}`}
+                        title={isDeciding ? 'Se habilitará al elegir un anime ganador' : 'Ir a Sesión Tracker para ver avance de maratón'}
+                        disabled={isDeciding}
                     >
                         <Tv size={14} style={{ color: '#60a5fa' }} />
-                        <span>Meta de Maratón:</span>
-                        <strong>Capítulo {groupTarget} de {totalEpisodes}</strong>
+                        <span>{isDeciding ? 'Fase:' : 'Meta de Maratón:'}</span>
+                        <strong>
+                            {isDeciding
+                                ? 'Decidiendo anime'
+                                : currentWatchingAnime
+                                    ? `Capítulo ${groupTargetCurrent} de ${totalEpisodesCurrent}`
+                                    : `${activeWatchingAnimes.length} animes en maratón`}
+                        </strong>
                     </button>
                 </div>
 
@@ -752,12 +1028,27 @@ export const WatchPartyRoom: React.FC = () => {
                     <div className="wp-tabs">
                         <button
                             type="button"
-                            className={`wp-tab ${roomTab === 'sesion' ? 'active' : ''}`}
+                            className={`wp-tab ${roomTab === 'sesion' ? 'active' : ''} ${isDeciding ? 'is-disabled' : ''}`}
                             aria-selected={roomTab === 'sesion'}
-                            onClick={() => setRoomTab('sesion')}
+                            onClick={() => {
+                                if (isDeciding) return
+                                setRoomTab('sesion')
+                            }}
+                            title={
+                                isDeciding
+                                    ? 'Se habilitará al elegir un anime para ver en grupo (Fase Decidiendo)'
+                                    : 'Sesión & Tracker'
+                            }
                         >
-                            <Target size={14} />
+                            {isDeciding ? <Lock size={13} className="text-secondary" /> : <Target size={14} />}
                             <span>Sesión & Tracker</span>
+                            {isDeciding ? (
+                                <span className="wp-tab-badge" style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--wp-text-dim)' }}>
+                                    Bloqueado
+                                </span>
+                            ) : activeWatchingAnimes.length > 1 ? (
+                                <span className="wp-tab-badge">{activeWatchingAnimes.length}</span>
+                            ) : null}
                         </button>
 
                         <button
@@ -824,105 +1115,309 @@ export const WatchPartyRoom: React.FC = () => {
                     {/* ==============================================================
                         SUB-VISTA 1: SESIÓN & TRACKER (LÍNEA DE TIEMPO CON HITOS)
                        ============================================================== */}
-                    {roomTab === 'sesion' && (
+                    {/* CASO A: Sala en estado Decidiendo (Sesión & Tracker Bloqueado) */}
+                    {roomTab === 'sesion' && isDeciding && (
                         <div className="wp-tracker-unified-card">
-                            {/* Hero Banner del Anime en Maratón */}
-                            {activeMarathonAnime ? (
-                                <div className="wp-marathon-header-banner">
-                                    <img
-                                        src={activeMarathonAnime.image_url}
-                                        alt={activeMarathonAnime.title}
-                                        className="wp-marathon-poster-thumb"
-                                    />
-                                    <div className="wp-marathon-meta-block">
-                                        <div className="d-flex align-items-center gap-2 mb-1">
-                                            <span className="small text-secondary fw-semibold text-uppercase" style={{ fontSize: '0.72rem', letterSpacing: '0.04em' }}>
-                                                Anime en Maratón Grupal
-                                            </span>
-                                            <span className="wp-pill-badge is-live" style={{ fontSize: '0.7rem' }}>
-                                                <Tv size={11} />
-                                                <span>Meta actual: Cap {groupTarget} de {totalEpisodes}</span>
-                                            </span>
-                                        </div>
-                                        <h2 className="h5 fw-bold text-white mb-1">{activeMarathonAnime.title}</h2>
-                                        <div className="d-flex align-items-center gap-3 text-secondary small font-mono">
-                                            <span className="d-flex align-items-center gap-1 text-warning">
-                                                <Star size={13} /> {activeMarathonAnime.score || '8.5'}
-                                            </span>
-                                            <span>·</span>
-                                            <span>{totalEpisodesRaw} capítulos estimados</span>
-                                            {airingEpisodesAvailable !== null && (
-                                                <>
-                                                    <span>·</span>
-                                                    <span className="text-info">🟢 En emisión: {airingEpisodesAvailable} emitidos</span>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
+                            <div
+                                className="p-5 text-center rounded-4"
+                                style={{
+                                    background: 'var(--wp-surface-2)',
+                                    border: '1px dashed var(--wp-border)',
+                                    borderRadius: 'var(--wp-radio-lg)',
+                                }}
+                            >
+                                <Lock size={36} className="text-secondary opacity-50 mb-3 mx-auto" />
+                                <h3 className="h6 fw-bold text-white mb-2">Fase de Decisión: Sesión & Tracker bloqueado</h3>
+                                <p className="small text-secondary mb-4 mx-auto" style={{ maxWidth: '520px' }}>
+                                    Esta sala grupal se encuentra en estado <strong>Decidiendo</strong>. Cuando el dueño de la sala seleccione al menos un anime ganador en la pestaña de votación, la sala pasará al estado <strong>Viendo</strong> y se habilitará el tracker y la línea de tiempo de episodios.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setRoomTab('votacion')}
+                                    className="ml-btn ml-btn-acento d-flex align-items-center gap-2 mx-auto"
+                                >
+                                    <List size={15} />
+                                    <span>Ir a Votación de Animes →</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
-                                    {/* Acciones de progreso y meta */}
-                                    <div className="wp-marathon-controls ms-auto">
+                    {/* CASO B: Sala en Viendo con Múltiples Animes (Menú Selector de Anime) */}
+                    {roomTab === 'sesion' && !isDeciding && activeWatchingAnimes.length > 1 && !selectedWatchingAnimeId && (
+                        <div className="wp-tracker-unified-card">
+                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                                <div>
+                                    <div className="d-flex align-items-center gap-2 mb-1">
+                                        <span className="small text-secondary fw-semibold text-uppercase" style={{ fontSize: '0.72rem', letterSpacing: '0.04em' }}>
+                                            Maratones Activas en Simultáneo
+                                        </span>
+                                        <span className="wp-pill-badge is-live" style={{ fontSize: '0.7rem' }}>
+                                            <Tv size={11} />
+                                            <span>{activeWatchingAnimes.length} animes en grupo</span>
+                                        </span>
+                                    </div>
+                                    <h2 className="h5 fw-bold text-white mb-0.5">Elige qué anime deseas seguir</h2>
+                                    <p className="small text-secondary mb-0">
+                                        Selecciona un anime para ver su línea de tiempo, sincronizar tus episodios o participar en la maratón.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Toast feedback de participación */}
+                            {participationFeedback && (
+                                <div
+                                    className="p-2.5 mb-3 rounded-3 text-center small fw-semibold"
+                                    style={{
+                                        background: 'rgba(52, 211, 153, 0.15)',
+                                        color: '#34d399',
+                                        border: '1px solid rgba(52, 211, 153, 0.3)',
+                                    }}
+                                >
+                                    {participationFeedback}
+                                </div>
+                            )}
+
+                            {/* Grilla de Animes en Maratón */}
+                            <div className="wp-watching-animes-grid">
+                                {activeWatchingAnimes.map((wItem) => {
+                                    const anime = wItem.anime
+                                    const myPart = wItem.participations?.find(
+                                        (p) =>
+                                            (p.guest_token && p.guest_token === userToken) ||
+                                            cleanUserName(p.guest_name).toLowerCase() === userName.toLowerCase()
+                                    )
+                                    const isPart = !!myPart?.is_participating
+                                    const myEps = myPart?.episodes_watched ?? 0
+                                    const totalEps = wItem.episodes_total || anime.episodes || 24
+
+                                    return (
+                                        <div key={wItem.id} className="wp-watching-anime-card">
+                                            <img
+                                                src={anime.image_url}
+                                                alt={anime.title}
+                                                className="wp-watching-card-poster"
+                                            />
+                                            <div className="wp-watching-card-content">
+                                                <div className="d-flex align-items-center justify-content-between gap-2 mb-1">
+                                                    <span className="wp-pill-badge" style={{ fontSize: '0.68rem', padding: '0.15rem 0.5rem' }}>
+                                                        <Tv size={10} />
+                                                        <span>Meta: Cap {wItem.current_episode} de {totalEps}</span>
+                                                    </span>
+                                                    <span className="small text-secondary d-flex align-items-center gap-1 font-mono" style={{ fontSize: '0.72rem' }}>
+                                                        <Users size={11} />
+                                                        <span>{wItem.participants_count || wItem.participations?.filter((p) => p.is_participating).length || 0} amigos</span>
+                                                    </span>
+                                                </div>
+
+                                                <h3 className="wp-watching-card-title" title={anime.title}>
+                                                    {anime.title}
+                                                </h3>
+
+                                                <div className="d-flex align-items-center gap-2 small text-secondary font-mono mb-3" style={{ fontSize: '0.75rem' }}>
+                                                    <span className="text-warning d-flex align-items-center gap-0.5">
+                                                        <Star size={11} /> {anime.score || '8.5'}
+                                                    </span>
+                                                    <span>·</span>
+                                                    <span>{totalEps} eps</span>
+                                                    <span>·</span>
+                                                    {isPart ? (
+                                                        <span className="text-success fw-semibold">
+                                                            ✓ Viendo (Cap {myEps})
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-secondary">Sin participar</span>
+                                                    )}
+                                                </div>
+
+                                                <div className="d-flex align-items-center gap-2 mt-auto">
+                                                    {!isPart && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleJoinAnime(wItem.id, anime.mal_id)}
+                                                            disabled={isJoiningAnime}
+                                                            className="ml-btn ml-btn-acento ml-btn-sm d-flex align-items-center gap-1.5 flex-grow-1 justify-content-center"
+                                                            title="Unirse a la maratón y agregar a 'Mi Lista' en Viendo"
+                                                        >
+                                                            <Plus size={13} />
+                                                            <span>Participar</span>
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedWatchingAnimeId(wItem.id)}
+                                                        className={`ml-btn ${isPart ? 'ml-btn-acento' : 'ml-btn-fantasma'} ml-btn-sm d-flex align-items-center gap-1.5 ${isPart ? 'w-100' : ''} justify-content-center`}
+                                                    >
+                                                        <span>Abrir Tracker</span>
+                                                        <span>→</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* CASO C: Sala en Viendo con Tracker Específico Seleccionado */}
+                    {roomTab === 'sesion' && !isDeciding && currentWatchingAnime && (
+                        <div className="wp-tracker-unified-card">
+                            {/* Si hay múltiples animes viendo, botón para regresar al selector */}
+                            {activeWatchingAnimes.length > 1 && (
+                                <div className="mb-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedWatchingAnimeId(null)}
+                                        className="ml-btn ml-btn-fantasma ml-btn-sm d-flex align-items-center gap-1.5"
+                                        style={{ fontSize: '0.78rem' }}
+                                    >
+                                        <ChevronLeft size={14} />
+                                        <span>← Ver todos los animes en maratón ({activeWatchingAnimes.length})</span>
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Banner de Invitación a Participar (si no está participando aún) */}
+                            {!isParticipatingCurrent && (
+                                <div
+                                    className="p-3 mb-3 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-2"
+                                    style={{
+                                        background: 'rgba(234, 179, 8, 0.1)',
+                                        border: '1px solid rgba(234, 179, 8, 0.25)',
+                                    }}
+                                >
+                                    <div className="d-flex align-items-center gap-2">
+                                        <Sparkles size={16} className="text-warning flex-shrink-0" />
+                                        <span className="small text-white">
+                                            <strong>¿Te sumas a ver este anime?</strong> Haz click en "Participar" para sincronizar tus capítulos. Si estás registrado, se añadirá automáticamente a tu lista personal en <em>"Viendo"</em>.
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleJoinAnime(currentWatchingAnime.id, currentWatchingAnime.anime.mal_id)}
+                                        disabled={isJoiningAnime}
+                                        className="ml-btn ml-btn-acento ml-btn-sm d-flex align-items-center gap-1.5"
+                                    >
+                                        <Check size={14} />
+                                        <span>Participar en este Anime</span>
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Toast feedback de participación */}
+                            {participationFeedback && (
+                                <div
+                                    className="p-2.5 mb-3 rounded-3 text-center small fw-semibold"
+                                    style={{
+                                        background: 'rgba(52, 211, 153, 0.15)',
+                                        color: '#34d399',
+                                        border: '1px solid rgba(52, 211, 153, 0.3)',
+                                    }}
+                                >
+                                    {participationFeedback}
+                                </div>
+                            )}
+
+                            {/* Hero Banner del Anime en Maratón */}
+                            <div className="wp-marathon-header-banner">
+                                <img
+                                    src={currentWatchingAnime.anime.image_url}
+                                    alt={currentWatchingAnime.anime.title}
+                                    className="wp-marathon-poster-thumb"
+                                />
+                                <div className="wp-marathon-meta-block">
+                                    <div className="d-flex align-items-center gap-2 mb-1">
+                                        <span className="small text-secondary fw-semibold text-uppercase" style={{ fontSize: '0.72rem', letterSpacing: '0.04em' }}>
+                                            Anime en Maratón Grupal
+                                        </span>
+                                        <span className="wp-pill-badge is-live" style={{ fontSize: '0.7rem' }}>
+                                            <Tv size={11} />
+                                            <span>Meta actual: Cap {groupTargetCurrent} de {totalEpisodesCurrent}</span>
+                                        </span>
+                                        {isParticipatingCurrent && (
+                                            <span className="wp-pill-badge" style={{ fontSize: '0.7rem', color: '#34d399', borderColor: 'rgba(52, 211, 153, 0.3)' }}>
+                                                <Check size={10} />
+                                                <span>Participando (Cap {myWatchedCurrent})</span>
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h2 className="h5 fw-bold text-white mb-1">{currentWatchingAnime.anime.title}</h2>
+                                    <div className="d-flex align-items-center gap-3 text-secondary small font-mono">
+                                        <span className="d-flex align-items-center gap-1 text-warning">
+                                            <Star size={13} /> {currentWatchingAnime.anime.score || '8.5'}
+                                        </span>
+                                        <span>·</span>
+                                        <span>{totalEpisodesCurrent} capítulos estimados</span>
+                                        {airingEpisodesAvailable !== null && (
+                                            <>
+                                                <span>·</span>
+                                                <span className="text-info">🟢 En emisión: {airingEpisodesAvailable} emitidos</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Acciones de progreso y meta */}
+                                <div className="wp-marathon-controls ms-auto">
+                                    {isParticipatingCurrent ? (
                                         <button
                                             type="button"
-                                            onClick={() => updateMyProgress(myWatched + 1)}
+                                            onClick={() => handleUpdateAnimeProgress(currentWatchingAnime.id, myWatchedCurrent + 1)}
+                                            disabled={myWatchedCurrent >= totalEpisodesCurrent}
                                             className="wp-btn-catchup d-flex align-items-center gap-1.5"
                                         >
                                             <Plus size={15} />
-                                            <span>¡Vi el Cap {myWatched + 1}!</span>
+                                            <span>¡Vi el Cap {myWatchedCurrent + 1}!</span>
                                         </button>
-
+                                    ) : (
                                         <button
                                             type="button"
-                                            onClick={() => setGroupTarget(groupTarget + 1)}
+                                            onClick={() => handleJoinAnime(currentWatchingAnime.id, currentWatchingAnime.anime.mal_id)}
+                                            disabled={isJoiningAnime}
+                                            className="wp-btn-catchup d-flex align-items-center gap-1.5"
+                                        >
+                                            <Plus size={15} />
+                                            <span>Participar</span>
+                                        </button>
+                                    )}
+
+                                    {isOwner && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSetAnimeTarget(currentWatchingAnime.id, groupTargetCurrent + 1)}
                                             className="ml-btn ml-btn-sm d-flex align-items-center gap-1.5"
                                             title="Avanzar la meta de maratón del grupo al siguiente episodio"
                                         >
                                             <span>Avanzar Meta (+1)</span>
                                         </button>
-                                    </div>
+                                    )}
                                 </div>
-                            ) : (
-                                <div
-                                    className="p-4 text-center rounded-4"
-                                    style={{ background: 'var(--wp-surface-2)', border: '1px dashed var(--wp-border)' }}
-                                >
-                                    <Tv size={32} className="text-secondary opacity-50 mb-2" />
-                                    <h3 className="h6 fw-bold text-white mb-1">No hay anime seleccionado para la maratón</h3>
-                                    <p className="small text-secondary mb-3">Voten por sus candidatos para coronar al ganador de la sala.</p>
-                                    <button
-                                        type="button"
-                                        onClick={() => setRoomTab('votacion')}
-                                        className="ml-btn ml-btn-acento ml-btn-sm"
-                                    >
-                                        Ir a Votación de Animes →
-                                    </button>
-                                </div>
-                            )}
+                            </div>
 
-                            {/* Línea de Tiempo de Capítulos como Hitos */}
+                            {/* Línea de Tiempo Dinámica de Capítulos según el anime */}
                             <div className="wp-timeline-box">
                                 <div className="wp-timeline-header">
                                     <div className="d-flex align-items-center gap-2">
                                         <Layers size={16} style={{ color: 'var(--wp-acento)' }} />
-                                        <span className="fw-bold text-white small">Línea de Tiempo de Capítulos</span>
+                                        <span className="fw-bold text-white small">Línea de Tiempo de Capítulos ({totalEpisodesCurrent} eps)</span>
                                         <span className="small text-secondary font-mono">
                                             (Haz click en un capítulo para sincronizar tu avance)
                                         </span>
                                     </div>
 
                                     <div className="d-flex align-items-center gap-2">
-                                        {/* Adaptabilidad a series en emisión */}
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                const next = (airingEpisodesAvailable ?? totalEpisodes) + 1
+                                                const next = (airingEpisodesAvailable ?? totalEpisodesCurrent) + 1
                                                 setAiringEpisodesAvailable(next)
                                             }}
                                             className="ml-btn ml-btn-fantasma ml-btn-sm d-flex align-items-center gap-1"
                                             title="Si la serie está en emisión, agrega el capítulo estrenado esta semana"
                                         >
                                             <Plus size={12} />
-                                            <span>+ Sumar capítulo emitido esta semana</span>
+                                            <span>+ Sumar capítulo emitido</span>
                                         </button>
                                     </div>
                                 </div>
@@ -935,7 +1430,7 @@ export const WatchPartyRoom: React.FC = () => {
                                             <div
                                                 className="wp-timeline-line-progress"
                                                 style={{
-                                                    width: `${Math.min(100, (Math.max(groupTarget, myWatched) / Math.max(1, totalEpisodes)) * 100)}%`,
+                                                    width: `${Math.min(100, (Math.max(groupTargetCurrent, myWatchedCurrent) / Math.max(1, totalEpisodesCurrent)) * 100)}%`,
                                                 }}
                                             />
                                         </div>
@@ -943,75 +1438,73 @@ export const WatchPartyRoom: React.FC = () => {
                                         {/* Hito Cap 0 / Inicio */}
                                         <div
                                             className="wp-timeline-milestone"
-                                            onClick={() => updateMyProgress(0)}
+                                            onClick={() => handleUpdateAnimeProgress(currentWatchingAnime.id, 0)}
                                             title="Punto de partida (Capítulo 0)"
                                         >
-                                            {/* Usuarios que aún no inician */}
-                                            {roomMembers.filter((m) => m.episodes_watched === 0).length > 0 && (
+                                            {/* Participantes en 0 */}
+                                            {currentWatchingAnime.participations?.filter((p) => p.is_participating && p.episodes_watched === 0).length > 0 && (
                                                 <div className="wp-milestone-users-stack">
-                                                    {roomMembers
-                                                        .filter((m) => m.episodes_watched === 0)
-                                                        .map((m) => (
-                                                            <div
-                                                                key={m.id}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation()
-                                                                    setSelectedMemberCard(m)
-                                                                }}
-                                                                className={`wp-milestone-user-pin ${m.cleanName === userName ? 'is-mine' : ''} ${m.sync_status === 'atrasado' ? 'is-behind' : ''}`}
-                                                                title={`${m.cleanName} (Inicio / 0 eps)`}
-                                                            >
-                                                                {m.cleanName.slice(0, 2).toUpperCase()}
-                                                            </div>
-                                                        ))}
+                                                    {currentWatchingAnime.participations
+                                                        .filter((p) => p.is_participating && p.episodes_watched === 0)
+                                                        .map((p) => {
+                                                            const cleanName = cleanUserName(p.guest_name)
+                                                            const isMine = cleanName === userName || (userToken && p.guest_token === userToken)
+                                                            return (
+                                                                <div
+                                                                    key={p.id}
+                                                                    className={`wp-milestone-user-pin ${isMine ? 'is-mine' : ''}`}
+                                                                    title={`${cleanName} (Inicio / 0 eps)`}
+                                                                >
+                                                                    {cleanName.slice(0, 2).toUpperCase()}
+                                                                </div>
+                                                            )
+                                                        })}
                                                 </div>
                                             )}
-                                            <div className={`wp-milestone-node ${myWatched >= 0 ? 'is-watched' : ''}`}>
+                                            <div className={`wp-milestone-node ${myWatchedCurrent >= 0 ? 'is-watched' : ''}`}>
                                                 0
                                             </div>
                                             <span className="wp-milestone-label">Inicio</span>
                                         </div>
 
-                                        {/* Hitos para cada capítulo disponible */}
-                                        {Array.from({ length: totalEpisodes }, (_, i) => i + 1).map((ep) => {
-                                            const isWatchedByMe = myWatched >= ep
-                                            const isTarget = groupTarget === ep
-                                            const isFuture = ep > (airingEpisodesAvailable ?? totalEpisodesRaw)
+                                        {/* Hitos dinámicos para cada capítulo disponible de este anime */}
+                                        {Array.from({ length: totalEpisodesCurrent }, (_, i) => i + 1).map((ep) => {
+                                            const isWatchedByMe = myWatchedCurrent >= ep
+                                            const isTarget = groupTargetCurrent === ep
+                                            const isFuture = ep > (airingEpisodesAvailable ?? totalEpisodesCurrent)
 
-                                            // Usuarios posicionados exactamente en este capítulo
-                                            const usersAtThisEp = roomMembers.filter((m) => m.episodes_watched === ep)
+                                            // Participantes posicionados exactamente en este capítulo
+                                            const usersAtThisEp =
+                                                currentWatchingAnime.participations?.filter(
+                                                    (p) => p.is_participating && p.episodes_watched === ep
+                                                ) || []
 
                                             return (
                                                 <div
                                                     key={ep}
                                                     className={`wp-timeline-milestone ${isTarget ? 'is-active' : ''}`}
-                                                    onClick={() => !isFuture && updateMyProgress(ep)}
+                                                    onClick={() => !isFuture && handleUpdateAnimeProgress(currentWatchingAnime.id, ep)}
                                                     title={`Capítulo ${ep}${isTarget ? ' (Meta actual del grupo)' : ''}`}
                                                 >
-                                                    {/* Avatares de los usuarios sobre este hito */}
                                                     {usersAtThisEp.length > 0 && (
                                                         <div className="wp-milestone-users-stack">
-                                                            {usersAtThisEp.map((m) => {
-                                                                const isBehind = m.episodes_watched < groupTarget
-                                                                const isMine = m.cleanName === userName
+                                                            {usersAtThisEp.map((p) => {
+                                                                const cleanName = cleanUserName(p.guest_name)
+                                                                const isBehind = p.episodes_watched < groupTargetCurrent
+                                                                const isMine = cleanName === userName || (userToken && p.guest_token === userToken)
                                                                 return (
                                                                     <div
-                                                                        key={m.id}
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation()
-                                                                            setSelectedMemberCard(m)
-                                                                        }}
+                                                                        key={p.id}
                                                                         className={`wp-milestone-user-pin ${isMine ? 'is-mine' : ''} ${isBehind ? 'is-behind' : ''}`}
-                                                                        title={`${m.cleanName} está en el Cap ${ep}${isBehind ? ' (Atrasado)' : ' (Al día)'}`}
+                                                                        title={`${cleanName} en Cap ${ep}${isBehind ? ' (Atrasado)' : ' (Al día)'}`}
                                                                     >
-                                                                        {m.cleanName.slice(0, 2).toUpperCase()}
+                                                                        {cleanName.slice(0, 2).toUpperCase()}
                                                                     </div>
                                                                 )
                                                             })}
                                                         </div>
                                                     )}
 
-                                                    {/* Nodo del Hito */}
                                                     <div
                                                         className={`wp-milestone-node ${isWatchedByMe ? 'is-watched' : ''} ${isTarget ? 'is-target' : ''} ${isFuture ? 'is-future' : ''}`}
                                                     >
@@ -1030,13 +1523,13 @@ export const WatchPartyRoom: React.FC = () => {
                                 {/* Banner de Sintonía Grupal */}
                                 <div className="d-flex align-items-center justify-content-between p-3 rounded-3" style={{ background: 'var(--wp-surface-3)', border: '1px solid var(--wp-border)' }}>
                                     <div className="d-flex align-items-center gap-2">
-                                        {cleanCatchupMembers.length > 0 ? (
+                                        {currentAnimeCatchup.length > 0 ? (
                                             <>
                                                 <Clock size={16} className="text-warning flex-shrink-0" />
                                                 <span className="small text-warning">
-                                                    Poniéndose al día con la meta (Cap {groupTarget}):{' '}
+                                                    Poniéndose al día con la meta (Cap {groupTargetCurrent}):{' '}
                                                     <strong>
-                                                        {cleanCatchupMembers.map((c) => `${c.guest_name} (-${c.episodes_behind})`).join(', ')}
+                                                        {currentAnimeCatchup.map((c) => `${c.cleanName} (-${c.behind})`).join(', ')}
                                                     </strong>
                                                 </span>
                                             </>
@@ -1044,7 +1537,7 @@ export const WatchPartyRoom: React.FC = () => {
                                             <>
                                                 <CheckCircle2 size={16} className="text-success flex-shrink-0" />
                                                 <span className="small text-success fw-semibold">
-                                                    ✨ ¡Todos los amigos están sincronizados con la meta actual!
+                                                    ✨ ¡Todos los participantes están al día con la meta actual!
                                                 </span>
                                             </>
                                         )}
@@ -1052,7 +1545,11 @@ export const WatchPartyRoom: React.FC = () => {
 
                                     <div className="d-flex align-items-center gap-2">
                                         <span className="small text-secondary">
-                                            Tu avance: <strong>Cap {myWatched}</strong> de {totalEpisodes}
+                                            {isParticipatingCurrent ? (
+                                                <>Tu avance: <strong>Cap {myWatchedCurrent}</strong> de {totalEpisodesCurrent}</>
+                                            ) : (
+                                                <span className="text-secondary opacity-75">No estás participando aún</span>
+                                            )}
                                         </span>
                                     </div>
                                 </div>
@@ -1238,22 +1735,65 @@ export const WatchPartyRoom: React.FC = () => {
                                                             </div>
                                                         </td>
 
-                                                        {/* 5. Acción */}
+                                                        {/* 5. Acción (Solo el Creador puede coronar animes para maratón) */}
                                                         <td style={{ textAlign: 'right' }}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={async () => {
-                                                                    if (room) {
-                                                                        await selectWinningAnimeApi(room.id, cand.anime_id)
-                                                                        setRoomTab('sesion')
+                                                            {(() => {
+                                                                const isWatchingCand = activeWatchingAnimes.some(
+                                                                    (w) => w.anime_id === cand.anime_id
+                                                                )
+
+                                                                if (isOwner) {
+                                                                    if (isWatchingCand) {
+                                                                        return (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleToggleWatchingAnime(cand.anime_id)}
+                                                                                className="ml-btn ml-btn-sm d-flex align-items-center gap-1.5 ms-auto"
+                                                                                style={{
+                                                                                    background: 'rgba(52, 211, 153, 0.15)',
+                                                                                    borderColor: 'rgba(52, 211, 153, 0.4)',
+                                                                                    color: '#34d399',
+                                                                                    fontSize: '0.78rem',
+                                                                                }}
+                                                                                title="Anime activo en maratón. Haz click para desmarcar de la maratón grupal"
+                                                                            >
+                                                                                <Check size={12} />
+                                                                                <span>Viendo (Quitar)</span>
+                                                                            </button>
+                                                                        )
                                                                     }
-                                                                }}
-                                                                className="ml-btn ml-btn-acento ml-btn-sm"
-                                                                title="Seleccionar este anime como el oficial para la maratón grupal"
-                                                            >
-                                                                <span>Elegir</span>
-                                                                <span>→</span>
-                                                            </button>
+                                                                    return (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleToggleWatchingAnime(cand.anime_id)}
+                                                                            className="ml-btn ml-btn-acento ml-btn-sm d-flex align-items-center gap-1.5 ms-auto"
+                                                                            style={{ fontSize: '0.78rem' }}
+                                                                            title="Elegir este anime como ganador / añadir a maratón grupal"
+                                                                        >
+                                                                            <Crown size={12} />
+                                                                            <span>Elegir para Ver</span>
+                                                                        </button>
+                                                                    )
+                                                                }
+
+                                                                if (isWatchingCand) {
+                                                                    return (
+                                                                        <span
+                                                                            className="wp-pill-badge is-live ms-auto"
+                                                                            style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                                                                        >
+                                                                            <Check size={11} />
+                                                                            <span>En Maratón</span>
+                                                                        </span>
+                                                                    )
+                                                                }
+
+                                                                return (
+                                                                    <span className="small text-secondary font-mono d-block text-end" style={{ fontSize: '0.75rem' }}>
+                                                                        Candidato
+                                                                    </span>
+                                                                )
+                                                            })()}
                                                         </td>
                                                     </tr>
                                                 )
@@ -1671,61 +2211,351 @@ export const WatchPartyRoom: React.FC = () => {
                 </div>
             </Dialogo>
 
-            {/* Modal Criterios Ideales */}
+            {/* Modal de Ajustes de la Sala Grupal (Solo Creador/Anfitrión) */}
             <Dialogo
-                abierto={showCriteriaModal}
-                onCerrar={() => setShowCriteriaModal(false)}
-                etiqueta="Criterios Ideales"
-                ancho={440}
+                abierto={showSettingsModal}
+                onCerrar={() => {
+                    setShowSettingsModal(false)
+                    setMemberToKick(null)
+                    setShowDissolveConfirm(false)
+                    setSettingsFeedback(null)
+                }}
+                etiqueta="Ajustes de la Sala Grupal"
+                ancho={520}
             >
                 <div className="p-4 d-flex flex-column gap-3">
-                    <div>
-                        <h3 className="h6 fw-bold text-white mb-1">Criterios de la Maratón</h3>
-                        <p className="small text-secondary mb-0">
-                            Filtros de referencia acordados para la votación de la sala.
-                        </p>
+                    <div className="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h3 className="h6 fw-bold text-white mb-0.5">Ajustes de la Lista Grupal</h3>
+                            <p className="small text-secondary mb-0">
+                                Gestiona los criterios de postulación y la administración de la sala.
+                            </p>
+                        </div>
                     </div>
 
-                    <div>
-                        <label className="form-label small text-white fw-semibold mb-1">Duración de Capítulos</label>
-                        <input
-                            type="text"
-                            value={criteriaDuration}
-                            onChange={(e) => setCriteriaDuration(e.target.value)}
-                            className="form-control text-white"
-                            style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '12px' }}
-                        />
+                    {/* Selector de Subvistas de Ajustes */}
+                    <div className="wp-settings-nav">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSettingsTab('criterios')
+                                setSettingsFeedback(null)
+                            }}
+                            className={`wp-settings-tab-btn ${settingsTab === 'criterios' ? 'active' : ''}`}
+                        >
+                            <SlidersHorizontal size={13} />
+                            <span>Criterios</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSettingsTab('sala')
+                                setSettingsFeedback(null)
+                            }}
+                            className={`wp-settings-tab-btn ${settingsTab === 'sala' ? 'active' : ''}`}
+                        >
+                            <Users size={13} />
+                            <span>Sala y Miembros ({roomMembers.length})</span>
+                        </button>
                     </div>
 
-                    <div>
-                        <label className="form-label small text-white fw-semibold mb-1">Géneros Preferidos</label>
-                        <input
-                            type="text"
-                            value={criteriaGenres}
-                            onChange={(e) => setCriteriaGenres(e.target.value)}
-                            className="form-control text-white"
-                            style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '12px' }}
-                        />
-                    </div>
+                    {settingsFeedback && (
+                        <div
+                            className={`small p-2.5 rounded-3 d-flex align-items-center gap-2 ${
+                                settingsFeedback.startsWith('✓')
+                                    ? 'text-success bg-success-subtle border border-success'
+                                    : 'text-danger bg-danger-subtle border border-danger'
+                            }`}
+                            style={{ fontSize: '0.8rem' }}
+                        >
+                            {settingsFeedback.startsWith('✓') ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                            <span>{settingsFeedback}</span>
+                        </div>
+                    )}
 
-                    <div>
-                        <label className="form-label small text-white fw-semibold mb-1">Rango de Años</label>
-                        <input
-                            type="text"
-                            value={criteriaYears}
-                            onChange={(e) => setCriteriaYears(e.target.value)}
-                            className="form-control text-white"
-                            style={{ background: 'var(--wp-surface-2)', border: '1px solid var(--wp-border)', borderRadius: '12px' }}
-                        />
+                    {/* SUBVISTA 1: CRITERIOS */}
+                    {settingsTab === 'criterios' && (
+                        <div className="d-flex flex-column gap-3">
+                            <p className="small text-secondary mb-0" style={{ fontSize: '0.82rem' }}>
+                                Configura qué tipos de animes se deben postular para que los miembros sigan esta guía al nominar.
+                            </p>
+
+                            <div>
+                                <label className="form-label small text-white fw-semibold mb-1">
+                                    Duración de Capítulos
+                                </label>
+                                <input
+                                    type="text"
+                                    value={criteriaDuration}
+                                    onChange={(e) => setCriteriaDuration(e.target.value)}
+                                    placeholder="Ej: 1-13 caps, 1-28 caps, Series cortas"
+                                    className="form-control text-white wp-input"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="form-label small text-white fw-semibold mb-1">
+                                    Géneros Preferidos / Permitidos
+                                </label>
+                                <input
+                                    type="text"
+                                    value={criteriaGenres}
+                                    onChange={(e) => setCriteriaGenres(e.target.value)}
+                                    placeholder="Ej: Sci-Fi, Fantasía, Romance, Misterio"
+                                    className="form-control text-white wp-input"
+                                />
+                            </div>
+
+                            <div className="row g-2">
+                                <div className="col-6">
+                                    <label className="form-label small text-white fw-semibold mb-1">
+                                        Rango de Años
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={criteriaYears}
+                                        onChange={(e) => setCriteriaYears(e.target.value)}
+                                        placeholder="Ej: 2010-2026 o Clásicos"
+                                        className="form-control text-white wp-input"
+                                    />
+                                </div>
+                                <div className="col-6">
+                                    <label className="form-label small text-white fw-semibold mb-1">
+                                        Formato Permitido
+                                    </label>
+                                    <select
+                                        value={criteriaFormat}
+                                        onChange={(e) => setCriteriaFormat(e.target.value)}
+                                        className="form-select text-white wp-input"
+                                    >
+                                        <option value="Cualquiera">Cualquier formato</option>
+                                        <option value="TV">Series TV</option>
+                                        <option value="Movie">Películas</option>
+                                        <option value="OVA">OVAs / Especiales</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="form-label small text-white fw-semibold mb-1">
+                                    Nota Mínima Sugerida (MyAnimeList)
+                                </label>
+                                <select
+                                    value={criteriaMinScore}
+                                    onChange={(e) => setCriteriaMinScore(e.target.value)}
+                                    className="form-select text-white wp-input"
+                                >
+                                    <option value="0">Cualquier puntuación</option>
+                                    <option value="7.0">7.0 o superior</option>
+                                    <option value="7.5">7.5 o superior (Recomendado)</option>
+                                    <option value="8.0">8.0 o superior (Obras maestras)</option>
+                                </select>
+                            </div>
+
+                            <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--wp-border)' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSettingsModal(false)}
+                                    className="ml-btn ml-btn-fantasma ml-btn-sm"
+                                >
+                                    Cerrar
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveCriteria}
+                                    disabled={isSavingSettings}
+                                    className="ml-btn ml-btn-acento ml-btn-sm d-flex align-items-center gap-1.5"
+                                >
+                                    {isSavingSettings ? <Loader2 size={13} className="wp-spinner" /> : <Check size={13} />}
+                                    <span>Guardar Criterios</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* SUBVISTA 2: SALA */}
+                    {settingsTab === 'sala' && (
+                        <div className="d-flex flex-column gap-3">
+                            {/* Límite Máximo de Miembros */}
+                            <div className="wp-settings-section">
+                                <label className="form-label small text-white fw-semibold mb-1">
+                                    Límite de Miembros Máximo
+                                </label>
+                                <p className="small text-secondary mb-2" style={{ fontSize: '0.78rem' }}>
+                                    Define la cantidad máxima de integrantes permitidos en la sala grupal.
+                                </p>
+                                <div className="d-flex align-items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min={2}
+                                        max={100}
+                                        value={roomMaxMembers}
+                                        onChange={(e) => setRoomMaxMembers(Math.max(2, Math.min(100, parseInt(e.target.value, 10) || 2)))}
+                                        className="form-control text-white wp-input"
+                                        style={{ width: '90px' }}
+                                    />
+                                    <span className="small text-secondary">
+                                        ({roomMembers.length} de {roomMaxMembers} cupos ocupados)
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveMaxMembers}
+                                        disabled={isSavingSettings}
+                                        className="ml-btn ml-btn-acento ml-btn-sm ms-auto d-flex align-items-center gap-1.5"
+                                    >
+                                        {isSavingSettings ? <Loader2 size={13} className="wp-spinner" /> : <Check size={13} />}
+                                        <span>Guardar Cupo</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Gestión de Integrantes & Expulsiones */}
+                            <div className="wp-settings-section">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <label className="form-label small text-white fw-semibold mb-0">
+                                        Integrantes de la Sala ({roomMembers.length})
+                                    </label>
+                                    <span className="small text-secondary" style={{ fontSize: '0.75rem' }}>
+                                        Gestiona o expulsa miembros
+                                    </span>
+                                </div>
+
+                                <div className="wp-members-manage-list">
+                                    {roomMembers.map((m) => {
+                                        const isMemberOwner = m.role === 'owner'
+                                        return (
+                                            <div key={m.id} className="wp-member-manage-row">
+                                                <div className="d-flex align-items-center gap-2.5 min-w-0">
+                                                    <div className="wp-member-avatar-badge">
+                                                        {cleanUserName(m.guest_name).charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="d-flex align-items-center gap-1.5">
+                                                            <span className="small text-white fw-semibold text-truncate">
+                                                                {cleanUserName(m.guest_name)}
+                                                            </span>
+                                                            {isMemberOwner && (
+                                                                <span className="wp-badge-owner">
+                                                                    <Crown size={10} /> Creador
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <span className="small text-secondary d-block" style={{ fontSize: '0.72rem' }}>
+                                                            Cap. {m.episodes_watched} • {m.sync_status === 'al_dia' ? 'Al día' : `${m.episodes_behind} atrasado`}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {!isMemberOwner && (
+                                                    <div>
+                                                        {memberToKick?.id === m.id ? (
+                                                            <div className="d-flex align-items-center gap-1">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleKickMember(m)}
+                                                                    disabled={isKickingMember}
+                                                                    className="ml-btn ml-btn-sm text-danger"
+                                                                    style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                                                                    title="Confirmar expulsión"
+                                                                >
+                                                                    {isKickingMember ? <Loader2 size={11} className="wp-spinner" /> : 'Confirmar'}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setMemberToKick(null)}
+                                                                    className="ml-btn ml-btn-fantasma ml-btn-sm"
+                                                                    style={{ fontSize: '0.72rem', padding: '0.2rem 0.4rem' }}
+                                                                >
+                                                                    Cancelar
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setMemberToKick(m)}
+                                                                className="ml-btn ml-btn-fantasma ml-btn-sm text-danger d-flex align-items-center gap-1"
+                                                                style={{ fontSize: '0.74rem', padding: '0.25rem 0.55rem' }}
+                                                                title={`Expulsar a ${cleanUserName(m.guest_name)}`}
+                                                            >
+                                                                <UserMinus size={12} />
+                                                                <span>Expulsar</span>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Zona de Peligro: Disolver Sala */}
+                            <div className="wp-danger-zone">
+                                <div className="d-flex align-items-start gap-2.5">
+                                    <ShieldAlert size={18} className="text-danger flex-shrink-0 mt-0.5" />
+                                    <div className="flex-1">
+                                        <h4 className="small fw-bold text-white mb-1">Zona de Peligro</h4>
+                                        <p className="small text-secondary mb-2" style={{ fontSize: '0.78rem' }}>
+                                            Disolver esta lista grupal borrará definitivamente las votaciones, historial de chat y expulsará a todos los integrantes.
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowDissolveConfirm(true)}
+                                            className="ml-btn ml-btn-sm text-danger d-flex align-items-center gap-1.5"
+                                            style={{ borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.1)' }}
+                                        >
+                                            <Trash2 size={13} />
+                                            <span>Disolver Lista Grupal</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </Dialogo>
+
+            {/* Modal de Confirmación para Disolver la Sala */}
+            <Dialogo
+                abierto={showDissolveConfirm}
+                onCerrar={() => setShowDissolveConfirm(false)}
+                etiqueta="Confirmar Disolución de Sala"
+                ancho={420}
+            >
+                <div className="p-4 d-flex flex-column gap-3">
+                    <div className="d-flex align-items-center gap-3">
+                        <div
+                            className="d-flex align-items-center justify-content-center flex-shrink-0 rounded-circle"
+                            style={{ width: '42px', height: '42px', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' }}
+                        >
+                            <Trash2 size={20} />
+                        </div>
+                        <div>
+                            <h3 className="h6 fw-bold text-white mb-1">¿Disolver esta Lista Grupal?</h3>
+                            <p className="small text-secondary mb-0">
+                                Esta acción es <strong className="text-white">irreversible</strong>. Se eliminará permanentemente la sala <span className="text-white fw-bold">"{room?.name}"</span> y todos sus datos.
+                            </p>
+                        </div>
                     </div>
 
                     <div className="d-flex justify-content-end gap-2 pt-2 border-top" style={{ borderColor: 'var(--wp-border)' }}>
                         <button
                             type="button"
-                            onClick={() => setShowCriteriaModal(false)}
-                            className="ml-btn ml-btn-acento ml-btn-sm"
+                            onClick={() => setShowDissolveConfirm(false)}
+                            className="ml-btn ml-btn-fantasma ml-btn-sm"
+                            disabled={isDissolving}
                         >
-                            Guardar Criterios
+                            Cancelar
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDissolveRoom}
+                            disabled={isDissolving}
+                            className="ml-btn ml-btn-sm text-white d-flex align-items-center gap-1.5"
+                            style={{ background: '#dc2626', borderColor: '#dc2626' }}
+                        >
+                            {isDissolving ? <Loader2 size={13} className="wp-spinner" /> : <Trash2 size={13} />}
+                            <span>Sí, Disolver Sala</span>
                         </button>
                     </div>
                 </div>

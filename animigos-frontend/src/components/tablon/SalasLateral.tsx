@@ -2,6 +2,7 @@ import { ArrowRight, Plus, Users, Vote } from 'lucide-react'
 import type { RoomSummary } from '../../services/watchPartyApi'
 
 const ESTADO_SALA: Record<RoomSummary['status'], string> = {
+    deciding: 'Decidiendo',
     candidates: 'Candidatos abiertos',
     voting: 'Votación en curso',
     selected: 'Anime elegido',

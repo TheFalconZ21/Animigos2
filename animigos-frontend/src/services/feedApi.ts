@@ -14,6 +14,7 @@ export type TipoActividad =
     | 'busco_anime'
     | 'encuesta'
     | 'hito'
+    | 'estreno_anime'
 
 export type FiltroTablon = 'todo' | 'recomendaciones' | 'invitaciones' | 'publicaciones'
 
@@ -85,7 +86,7 @@ const TIPOS_POR_FILTRO: Record<FiltroTablon, TipoActividad[] | null> = {
     todo: null,
     recomendaciones: ['recomendacion_directa', 'recomendacion_general'],
     invitaciones: ['invitacion_sala'],
-    publicaciones: ['busco_anime', 'encuesta', 'hito'],
+    publicaciones: ['busco_anime', 'encuesta', 'hito', 'estreno_anime'],
 }
 
 export function filtrarActividades(actividades: Actividad[], filtro: FiltroTablon): Actividad[] {
@@ -104,6 +105,7 @@ export async function fetchFeed(): Promise<Actividad[]> {
     try {
         const { notifications } = await fetchUserNotifications()
         const recoNotifs = notifications.filter((n) => n.type === 'anime_recommendation' && n.anime_id)
+        const releaseNotifs = notifications.filter((n) => n.type === 'anime_release' && n.anime_id)
 
         const recoActs: Actividad[] = recoNotifs.map((n) => {
             const timestampSegundos = n.created_at ? Math.floor(new Date(n.created_at).getTime() / 1000) : null
@@ -133,11 +135,44 @@ export async function fetchFeed(): Promise<Actividad[]> {
             }
         })
 
+        const releaseActs: Actividad[] = releaseNotifs.map((n) => {
+            const timestampSegundos = n.created_at ? Math.floor(new Date(n.created_at).getTime() / 1000) : null
+            return {
+                id: `release-${n.id}`,
+                tipo: 'estreno_anime',
+                autor: {
+                    id: 'calendario_oficial',
+                    nombre: 'Calendario Oficial',
+                    usuario: 'estrenos',
+                    avatarUrl: '',
+                },
+                creadoHace: timestampSegundos ? haceCuanto(timestampSegundos) : 'Reciente',
+                agradecimientos: 0,
+                agradecidoPorMi: false,
+                recomendacion: {
+                    anime: {
+                        malId: n.anime_id!,
+                        titulo: n.anime_title || 'Anime',
+                        imagenUrl: n.anime_poster || '',
+                        nota: null,
+                        generos: [],
+                    },
+                    nota: n.message || `¡"${n.anime_title}" se ha estrenado oficialmente! Ha pasado automáticamente a tu lista en "Pendiente".`,
+                    paraMi: true,
+                },
+                hito: {
+                    titulo: `¡Estreno Oficial: ${n.anime_title}!`,
+                    descripcion: n.message || `El anime ya está disponible. Se ha actualizado tu seguimiento a "Pendiente".`,
+                    icono: 'estrella',
+                },
+            }
+        })
+
         const ids = new Set(local.map((a) => a.id))
         const combinado = [...local]
-        for (const r of recoActs) {
+        for (const r of [...releaseActs, ...recoActs]) {
             if (!ids.has(r.id)) {
-                combinado.push(r)
+                combinado.unshift(r)
                 ids.add(r.id)
             }
         }

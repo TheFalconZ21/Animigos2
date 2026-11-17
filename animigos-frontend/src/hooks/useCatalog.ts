@@ -8,6 +8,7 @@ import {
     fetchTopAnimes,
     fetchCatalogAnimes,
     fetchAnimeRecommendations,
+    fetchAnimeRelations,
     fetchStudios,
     fetchGenres,
     fetchYears,
@@ -23,7 +24,7 @@ import {
     type AnimeRecommendationItem,
     type TaxonomiesCatalogResponse,
 } from '../services/catalogApi'
-import type { ApiAnimeData } from '../services/userListApi'
+import type { ApiAnimeData, ApiAnimeRelationItem } from '../services/userListApi'
 
 /**
  * Hook para consultar los animes top puntuados
@@ -101,6 +102,21 @@ export function useAnimeRecommendations(malId: number | null) {
         },
         enabled: malId !== null && malId > 0,
         staleTime: 1000 * 60 * 15,
+    })
+}
+
+/**
+ * Hook para obras relacionadas (precuelas, secuelas, spin-offs...) de un anime
+ */
+export function useAnimeRelationsQuery(malId: number | null) {
+    return useQuery<ApiAnimeRelationItem[], Error>({
+        queryKey: ['animes', 'relations', malId],
+        queryFn: () => {
+            if (!malId) return Promise.resolve([])
+            return fetchAnimeRelations(malId)
+        },
+        enabled: malId !== null && malId > 0,
+        staleTime: 1000 * 60 * 60, // 1 hora
     })
 }
 

@@ -124,28 +124,33 @@ export function AgendaView({ onOpenAnimeDetail }: AgendaViewProps) {
     }
     const formatoMinutos = formatoTiempo
 
+    // Filtrar animes con categoría 'esperando' (Esperando su estreno)
+    const activeItems = useMemo(() => {
+        return items.filter((it) => it.user_status !== 'esperando')
+    }, [items])
+
     // 1. Cálculo del anime con el estreno más cercano para el KPI 2
     const proximoEstreno = useMemo(() => {
         const ahora = Date.now() / 1000
-        const conEstreno = items
+        const conEstreno = activeItems
             .filter((it) => it.next_airing_at && it.next_airing_at > ahora)
             .sort((a, b) => a.next_airing_at! - b.next_airing_at!)
         return conEstreno[0] || null
-    }, [items])
+    }, [activeItems])
 
     // 2. Animes que tienen atraso actualmente (para la sub-vista 1)
     const animesConAtraso = useMemo(() => {
-        return items
+        return activeItems
             .filter((item) => item.episodes_behind > 0)
             .sort((a, b) => b.episodes_behind - a.episodes_behind || a.title.localeCompare(b.title))
-    }, [items])
+    }, [activeItems])
 
     // 3. Proyección de hasta 15 capítulos futuros de las series del usuario (para la sub-vista 2)
     const capsFuturos = useMemo(() => {
         const ahora = Date.now() / 1000
         const lista: CapituloFuturo[] = []
 
-        items.forEach((item) => {
+        activeItems.forEach((item) => {
             if (!item.next_airing_at || item.next_airing_at <= ahora) return
 
             const baseTime = item.next_airing_at
@@ -175,7 +180,7 @@ export function AgendaView({ onOpenAnimeDetail }: AgendaViewProps) {
         // Ordenamos cronológicamente y recortamos a exactamente máximo 15 capítulos
         lista.sort((a, b) => a.airingAtUnix - b.airingAtUnix)
         return lista.slice(0, 15)
-    }, [items])
+    }, [activeItems])
 
     // Paginación de capítulos futuros
     const totalPaginasProximos = Math.max(1, Math.ceil(capsFuturos.length / itemsPorPagina))

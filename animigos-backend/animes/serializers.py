@@ -1,3 +1,4 @@
+import html
 from rest_framework import serializers
 from .models import Anime, AnimeRecommendation, AnimeScoreHistory
 
@@ -30,8 +31,8 @@ class AnimeSerializer(serializers.ModelSerializer):
             'genres',
             'tags_data',
             'type',
-            'airing_day',
-            'broadcast_time',
+            'release_date',
+            'relations_data',
             'recommended_by',
             'last_synced_at',
         ]
@@ -58,6 +59,8 @@ class AnimeSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         if getattr(instance, 'synopsis_es', None):
             data['synopsis'] = instance.synopsis_es
+        if data.get('synopsis'):
+            data['synopsis'] = html.unescape(data['synopsis'])
         return data
 
 class AnimeRecommendationSerializer(serializers.ModelSerializer):

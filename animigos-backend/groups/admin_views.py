@@ -1298,8 +1298,6 @@ def admin_update_anime(request, mal_id):
         'status',
         'season',
         'type',
-        'airing_day',
-        'broadcast_time',
     ]
     for field in str_fields:
         if field in data and data[field] is not None:

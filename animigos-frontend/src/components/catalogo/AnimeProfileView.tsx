@@ -14,8 +14,10 @@ import {
     Trash2,
     Play,
     ExternalLink,
+    Bell,
+    GitFork,
 } from 'lucide-react'
-import { useAnimeDetailQuery, useAnimeRecommendations } from '../../hooks/useCatalog'
+import { useAnimeDetailQuery, useAnimeRecommendations, useAnimeRelationsQuery } from '../../hooks/useCatalog'
 import { useMyList } from '../../hooks/useMyList'
 import { useAuth } from '../../context/AuthContext'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
@@ -52,8 +54,15 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
 
     const { data: fetchedAnime, isLoading } = useAnimeDetailQuery(malId)
     const { data: recommendations = [], isLoading: loadingRecs } = useAnimeRecommendations(malId)
+    const { data: fetchedRelations = [], isLoading: loadingRelations } = useAnimeRelationsQuery(malId)
 
     const anime = fetchedAnime || initialAnime
+
+    const relations = useMemo(() => {
+        if (fetchedRelations && fetchedRelations.length > 0) return fetchedRelations
+        if (anime?.relations_data && anime.relations_data.length > 0) return anime.relations_data
+        return []
+    }, [fetchedRelations, anime?.relations_data])
 
     const [activeTab, setActiveTab] = useState<'details' | 'stats' | 'recommendations'>('details')
     const [showSpoilers, setShowSpoilers] = useState(false)
@@ -296,15 +305,33 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
 
                             {!myEntry ? (
                                 <div className="d-flex flex-column gap-2">
-                                    <button
-                                        type="button"
-                                        disabled={savingList}
-                                        onClick={() => handleAddToMyList('pendiente')}
-                                        className="cat-btn-search w-100 py-2 d-flex align-items-center justify-content-center gap-2"
-                                    >
-                                        <Plus size={15} />
-                                        <span>{savingList ? 'Guardando...' : 'Añadir a Mi Lista'}</span>
-                                    </button>
+                                    {anime.status === 'NOT_YET_RELEASED' || (anime.release_date && new Date(anime.release_date) > new Date()) ? (
+                                        <button
+                                            type="button"
+                                            disabled={savingList}
+                                            onClick={() => handleAddToMyList('esperando')}
+                                            className="cat-btn-search w-100 py-2 d-flex align-items-center justify-content-center gap-2"
+                                            style={{
+                                                background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(167, 139, 250, 0.2))',
+                                                borderColor: 'var(--ml-esperando, #38bdf8)',
+                                                color: '#38bdf8',
+                                                fontWeight: 700,
+                                            }}
+                                        >
+                                            <Bell size={15} />
+                                            <span>{savingList ? 'Guardando...' : 'Esperando su estreno'}</span>
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            disabled={savingList}
+                                            onClick={() => handleAddToMyList('pendiente')}
+                                            className="cat-btn-search w-100 py-2 d-flex align-items-center justify-content-center gap-2"
+                                        >
+                                            <Plus size={15} />
+                                            <span>{savingList ? 'Guardando...' : 'Añadir a Mi Lista'}</span>
+                                        </button>
+                                    )}
                                     <div className="d-grid grid-cols-2 gap-1.5" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
                                         <button
                                             type="button"
@@ -317,10 +344,10 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                         <button
                                             type="button"
                                             disabled={savingList}
-                                            onClick={() => handleAddToMyList('visto')}
+                                            onClick={() => handleAddToMyList(anime.status === 'NOT_YET_RELEASED' ? 'pendiente' : 'esperando')}
                                             className="anime-profile-mini-btn"
                                         >
-                                            Marcar Visto
+                                            {anime.status === 'NOT_YET_RELEASED' ? 'Marcar Pendiente' : 'Esperando Estreno'}
                                         </button>
                                     </div>
 
@@ -343,7 +370,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                         <span className="anime-profile-field-label">Estado:</span>
                                         <select
                                             className="cat-select py-1 px-2"
-                                            style={{ width: '155px', fontSize: '0.78rem' }}
+                                            style={{ width: '165px', fontSize: '0.78rem' }}
                                             value={myEntry.estado}
                                             onChange={(e) => {
                                                 if (e.target.value === 'eliminar') {
@@ -356,6 +383,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                             <option value="viendo">🟢 Viendo</option>
                                             <option value="visto">🔵 Completado</option>
                                             <option value="pendiente">⚪ Pendiente</option>
+                                            <option value="esperando">⏳ Esperando estreno</option>
                                             <option value="dropeado">🔴 Dropeado</option>
                                             <option value="eliminar">🗑️ Quitar de Mi Lista</option>
                                         </select>
@@ -837,6 +865,85 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                     </h3>
                                     <AnimeScoreHistoryChart malId={anime.mal_id} title={anime.title} />
                                 </div>
+
+                                {/* Cronología y Obras Relacionadas (Precuelas, Secuelas, Spin-offs) */}
+                                {(relations.length > 0 || loadingRelations) && (
+                                    <div className="anime-profile-section-card">
+                                        <div className="d-flex align-items-center justify-content-between mb-2">
+                                            <h3 className="anime-profile-section-heading mb-0 d-flex align-items-center gap-2">
+                                                <GitFork size={15} style={{ color: 'var(--cat-acento, #a855f7)' }} />
+                                                <span>Cronología y Obras Relacionadas</span>
+                                            </h3>
+                                            {relations.length > 0 && (
+                                                <span className="small text-secondary font-mono" style={{ fontSize: '0.74rem' }}>
+                                                    {relations.length} {relations.length === 1 ? 'obra vinculada' : 'obras vinculadas'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="small text-secondary mb-3" style={{ fontSize: '0.8rem', lineHeight: '1.5' }}>
+                                            Sigue la historia en orden: conecta esta temporada con sus precuelas, secuelas directas, historias paralelas y derivados.
+                                        </p>
+
+                                        {loadingRelations && relations.length === 0 ? (
+                                            <div className="d-flex align-items-center justify-content-center py-4 text-secondary gap-2">
+                                                <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                                                <span className="small">Cargando relaciones de la franquicia...</span>
+                                            </div>
+                                        ) : (
+                                            <div className="anime-profile-relations-grid">
+                                                {relations.map((rel, idx) => {
+                                                    const typeKey = (rel.relation_type || 'other').toLowerCase()
+                                                    return (
+                                                        <div
+                                                            key={`${rel.mal_id || rel.anilist_id || idx}-${rel.relation_type}`}
+                                                            className="anime-relation-card"
+                                                            onClick={() => {
+                                                                if (rel.mal_id) {
+                                                                    if (onSelectAnime) {
+                                                                        onSelectAnime(rel.mal_id)
+                                                                    } else {
+                                                                        window.location.hash = `#anime/${rel.mal_id}`
+                                                                    }
+                                                                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                                }
+                                                            }}
+                                                            role={rel.mal_id ? 'button' : undefined}
+                                                            tabIndex={rel.mal_id ? 0 : undefined}
+                                                            title={rel.mal_id ? `Ir a la ficha de ${rel.title}` : rel.title}
+                                                        >
+                                                            <div className="anime-relation-poster-wrap">
+                                                                <img
+                                                                    src={rel.image_url}
+                                                                    alt={rel.title}
+                                                                    className="anime-relation-poster-img"
+                                                                    loading="lazy"
+                                                                    onError={(e) => {
+                                                                        ;(e.currentTarget as HTMLImageElement).src =
+                                                                            'https://via.placeholder.com/60x85/1e1e24/a855f7?text=Anime'
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <div className="anime-relation-info">
+                                                                <div className="anime-relation-badge-row">
+                                                                    <span className={`anime-relation-badge relation-${typeKey}`}>
+                                                                        {rel.relation_type_display || rel.relation_type} ({rel.format_display || rel.format || 'Anime'})
+                                                                    </span>
+                                                                </div>
+                                                                <div className="anime-relation-title">
+                                                                    {rel.title}
+                                                                </div>
+                                                                <div className="anime-relation-meta">
+                                                                    {rel.season_year && <span>{rel.season_year}</span>}
+                                                                    {rel.status && <span>· {rel.status}</span>}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
 

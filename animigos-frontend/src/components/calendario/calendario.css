@@ -359,6 +359,78 @@
 
 .cal-lanzamiento {
     grid-template-columns: 62px 46px minmax(0, 1fr) auto;
+    position: relative;
+    border-radius: 12px;
+    padding: 0.75rem 0.6rem;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cal-lanzamiento-interactive {
+    cursor: pointer;
+}
+
+.cal-lanzamiento-interactive:hover {
+    background: rgba(255, 255, 255, 0.035);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.cal-lanzamiento-interactive:hover .cal-titulo {
+    color: var(--ml-acento);
+}
+
+.cal-lanzamiento-esperando {
+    border-left: 3px solid var(--ml-esperando, #38bdf8);
+    background: rgba(56, 189, 248, 0.02);
+}
+
+.cal-lanzamiento-acciones {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    justify-content: flex-end;
+}
+
+.cal-btn-esperar {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    font-family: inherit;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    color: var(--ml-esperando, #38bdf8);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+}
+
+.cal-btn-esperar:hover {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: rgba(56, 189, 248, 0.5);
+    transform: translateY(-1px);
+}
+
+.cal-btn-esperando-activo {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: rgba(56, 189, 248, 0.6);
+    color: var(--ml-esperando, #38bdf8);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+}
+
+.cal-badge-estado {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 0.3rem 0.65rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--ml-borde);
+    color: var(--ml-texto-2);
 }
 
 /* Hoja de calendario japonés (日めくり): banda rosa arriba, número grande */

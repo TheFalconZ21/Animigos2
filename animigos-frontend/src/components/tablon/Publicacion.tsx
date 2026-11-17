@@ -1,4 +1,4 @@
-import { BookmarkCheck, BookmarkPlus, Heart, Lightbulb, Ticket, Trophy, Users, Vote, Send, Sparkles, Handshake, Star } from 'lucide-react'
+import { BookmarkCheck, BookmarkPlus, Heart, Lightbulb, Ticket, Trophy, Users, Vote, Send, Sparkles, Handshake, Star, Clapperboard } from 'lucide-react'
 import type { Actividad, TipoActividad } from '../../services/feedApi'
 import { alFallarPoster } from '../mi-lista/mi-lista-data'
 
@@ -9,6 +9,7 @@ const ETIQUETA_TIPO: Record<TipoActividad, { texto: string; icono: typeof Send }
     busco_anime: { texto: 'Pide sugerencias', icono: Lightbulb },
     encuesta: { texto: 'Encuesta', icono: Vote },
     hito: { texto: 'Logro', icono: Trophy },
+    estreno_anime: { texto: '¡Estreno Oficial!', icono: Clapperboard },
 }
 
 interface Props {
@@ -36,11 +37,17 @@ export function Publicacion({ actividad: a, enMiLista, onGuardar, onAgradecer, o
                 <span className="tb-post-tipo"><Icono size={13} /> {texto}</span>
             </header>
 
-            {a.recomendacion && <CuerpoRecomendacion actividad={a} guardado={enMiLista(a.recomendacion.anime.malId)} onGuardar={onGuardar} onAgradecer={onAgradecer} />}
-            {a.invitacion && <CuerpoInvitacion actividad={a} onEntrarSala={onEntrarSala} />}
-            {a.busqueda && <CuerpoBusqueda actividad={a} onSugerir={onSugerir} />}
-            {a.encuesta && <CuerpoEncuesta actividad={a} onVotar={onVotar} />}
-            {a.hito && <CuerpoHito actividad={a} onAgradecer={onAgradecer} />}
+            {a.tipo === 'estreno_anime' ? (
+                <CuerpoEstreno actividad={a} guardado={enMiLista(a.recomendacion?.anime.malId || 0)} onGuardar={onGuardar} onAgradecer={onAgradecer} />
+            ) : (
+                <>
+                    {a.recomendacion && <CuerpoRecomendacion actividad={a} guardado={enMiLista(a.recomendacion.anime.malId)} onGuardar={onGuardar} onAgradecer={onAgradecer} />}
+                    {a.invitacion && <CuerpoInvitacion actividad={a} onEntrarSala={onEntrarSala} />}
+                    {a.busqueda && <CuerpoBusqueda actividad={a} onSugerir={onSugerir} />}
+                    {a.encuesta && <CuerpoEncuesta actividad={a} onVotar={onVotar} />}
+                    {a.hito && <CuerpoHito actividad={a} onAgradecer={onAgradecer} />}
+                </>
+            )}
         </article>
     )
 }
@@ -176,6 +183,55 @@ function CuerpoHito({ actividad: a, onAgradecer }: { actividad: Actividad; onAgr
                 <p>{h.descripcion}</p>
                 <BotonAgradecer a={a} onAgradecer={onAgradecer} textos={['Felicitar', '¡Felicitado!']} />
             </div>
+        </div>
+    )
+}
+
+// Estreno oficial de un anime que estaba en "Esperando su estreno"
+function CuerpoEstreno({
+    actividad: a,
+    guardado: _guardado,
+    onGuardar: _onGuardar,
+    onAgradecer,
+}: {
+    actividad: Actividad
+    guardado: boolean
+    onGuardar: (a: Actividad) => void
+    onAgradecer: (id: string) => void
+}) {
+    const reco = a.recomendacion
+    const anime = reco?.anime
+    return (
+        <div className="tb-estreno-bloque">
+            {anime && (
+                <div className="tb-reco">
+                    <img className="tb-reco-poster" src={anime.imagenUrl} alt="" loading="lazy" onError={alFallarPoster} />
+                    <div className="tb-reco-info">
+                        <span
+                            className="tb-para-ti"
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(167, 139, 250, 0.22))',
+                                color: '#38bdf8',
+                                borderColor: 'rgba(56, 189, 248, 0.4)',
+                                fontWeight: 700,
+                            }}
+                        >
+                            <Sparkles size={11} className="me-1 inline" /> Estreno Oficial
+                        </span>
+                        <h3 className="tb-reco-titulo">{anime.titulo}</h3>
+                        <blockquote className="tb-burbuja" style={{ borderColor: 'rgba(56, 189, 248, 0.35)', background: 'rgba(56, 189, 248, 0.04)' }}>
+                            {reco?.nota}
+                        </blockquote>
+                    </div>
+                </div>
+            )}
+            <footer className="tb-post-acciones">
+                <span className="small text-secondary d-flex align-items-center gap-1 font-mono" style={{ fontSize: '0.78rem' }}>
+                    <BookmarkCheck size={14} style={{ color: 'var(--ml-esperando, #38bdf8)' }} />
+                    Estado en tu lista: <strong className="text-white">Pendiente</strong>
+                </span>
+                <BotonAgradecer a={a} onAgradecer={onAgradecer} textos={['Celebrar', '¡Celebrado! 🎉']} />
+            </footer>
         </div>
     )
 }

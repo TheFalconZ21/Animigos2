@@ -9,9 +9,11 @@ El propósito central de la plataforma Animigos es:
 """
 
 import time
+import urllib.parse
 from typing import Dict, Any, Optional
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from asgiref.sync import sync_to_async
+from django.db.models import Q
 from .models import SharedList, SharedListMember, SharedListCandidate, SharedListVote
 from animes.models import Anime
 from .services.happiness import calculate_happiness_score
@@ -35,7 +37,7 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
         # Parsear query params (token y name)
         query_string = self.scope.get('query_string', b'').decode('utf-8')
         params = dict(qp.split('=', 1) for qp in query_string.split('&') if '=' in qp)
-        self.user_name = params.get('name', 'Invitado')
+        self.user_name = urllib.parse.unquote_plus(params.get('name', 'Invitado'))
         self.user_token = params.get('token', '')
 
         # Validar si la sala existe en la base de datos
@@ -373,23 +375,56 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
     @sync_to_async
     def register_or_touch_member(self, room_id: str, guest_name: str, guest_token: str):
         try:
+            clean_name = urllib.parse.unquote_plus(guest_name).strip() if guest_name else 'Invitado'
             room = SharedList.objects.get(id=room_id)
             member = None
+
             if guest_token:
-                member = room.members.filter(guest_token=guest_token).first()
-            if not member and guest_name:
-                member = room.members.filter(guest_name=guest_name).first()
+                token_variants = [guest_token]
+                if guest_token.startswith('user_'):
+                    token_variants.append(guest_token[5:])
+                member = room.members.filter(guest_token__in=token_variants).first()
+
+            if not member and clean_name:
+                member = room.members.filter(
+                    Q(guest_name__iexact=clean_name) | Q(guest_name__iexact=guest_name)
+                ).first()
 
             if not member:
+                # Si el usuario que se conecta es el creador/owner de la sala, asociar el token al registro existente
+                owner_member = room.members.filter(role='owner').first()
+                if owner_member:
+                    owner_clean = urllib.parse.unquote_plus(owner_member.guest_name).strip()
+                    if (
+                        owner_clean.lower() == clean_name.lower()
+                        or owner_member.guest_name.lower() == clean_name.lower()
+                        or not owner_member.guest_token
+                        or (guest_token.startswith('user_') and owner_member.guest_token.startswith('user_'))
+                    ):
+                        owner_member.guest_token = guest_token
+                        owner_member.guest_name = clean_name
+                        owner_member.save(update_fields=['guest_token', 'guest_name', 'last_active_at'])
+                        return
+
+                # Validar capacidad máxima para nuevos miembros
+                if room.members.count() >= getattr(room, 'max_members', 10):
+                    return
+
                 SharedListMember.objects.create(
                     shared_list=room,
                     guest_token=guest_token,
-                    guest_name=guest_name or 'Miembro',
+                    guest_name=clean_name or 'Miembro',
                     role='guest'
                 )
             else:
-                member.guest_name = guest_name
-                member.save(update_fields=['guest_name', 'last_active_at'])
+                updated_fields = ['last_active_at']
+                if clean_name and member.guest_name != clean_name:
+                    member.guest_name = clean_name
+                    updated_fields.append('guest_name')
+                if guest_token and member.guest_token != guest_token:
+                    member.guest_token = guest_token
+                    updated_fields.append('guest_token')
+                member.save(update_fields=updated_fields)
         except Exception:
             pass
 
@@ -538,7 +573,17 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
         target_ep = room.current_episode
         members_data = []
         catchup_data = []
-        for m in room.members.all():
+        seen_keys = set()
+
+        # Ordenar para que 'owner' se procese primero y prevalezca ante duplicados
+        raw_members = sorted(room.members.all(), key=lambda x: (0 if x.role == 'owner' else 1, getattr(x, 'joined_at', None)))
+        for m in raw_members:
+            clean_name = urllib.parse.unquote_plus(m.guest_name).strip()
+            dedup_key = clean_name.lower()
+            if dedup_key in seen_keys:
+                continue
+            seen_keys.add(dedup_key)
+
             behind = max(0, target_ep - m.episodes_watched)
             if m.episodes_watched > target_ep:
                 status_str = 'adelantado'
@@ -549,7 +594,7 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
 
             member_dict = {
                 'id': str(m.id),
-                'guest_name': m.guest_name,
+                'guest_name': clean_name,
                 'guest_token': m.guest_token,
                 'role': m.role,
                 'episodes_watched': m.episodes_watched,
@@ -561,24 +606,67 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
             if behind > 0:
                 catchup_data.append({
                     'id': str(m.id),
-                    'guest_name': m.guest_name,
+                    'guest_name': clean_name,
                     'episodes_watched': m.episodes_watched,
                     'episodes_behind': behind,
                 })
+
+        # Animes en maratón activa simultáneos
+        watching_animes_data = []
+        has_active_watching = False
+        for wa in room.watching_animes.select_related('anime').prefetch_related('participations__member').filter(is_active=True):
+            has_active_watching = True
+            part_list = []
+            for p in wa.participations.all():
+                p_clean = urllib.parse.unquote_plus(p.member.guest_name).strip()
+                p_behind = max(0, wa.current_episode - p.episodes_watched)
+                p_status = 'adelantado' if p.episodes_watched > wa.current_episode else ('al_dia' if p.episodes_watched == wa.current_episode else 'atrasado')
+                part_list.append({
+                    'id': str(p.id),
+                    'member_id': str(p.member.id),
+                    'guest_name': p_clean,
+                    'guest_token': p.member.guest_token,
+                    'episodes_watched': p.episodes_watched,
+                    'is_participating': p.is_participating,
+                    'sync_status': p_status,
+                    'episodes_behind': p_behind,
+                })
+
+            watching_animes_data.append({
+                'id': str(wa.id),
+                'anime_id': wa.anime.mal_id,
+                'anime': {
+                    'mal_id': wa.anime.mal_id,
+                    'title': wa.anime.title,
+                    'image_url': wa.anime.image_url,
+                    'score': float(wa.anime.score) if wa.anime.score else None,
+                    'episodes': wa.anime.episodes or 24,
+                },
+                'current_episode': wa.current_episode,
+                'episodes_total': wa.anime.episodes or 24,
+                'is_active': wa.is_active,
+                'participants_count': len([x for x in part_list if x['is_participating']]),
+                'participations': part_list,
+            })
+
+        computed_status = 'watching' if has_active_watching else 'deciding'
 
         return {
             'id': str(room.id),
             'name': room.name,
             'description': room.description,
-            'status': room.status,
+            'status': computed_status,
             'invite_code': room.invite_code,
             'current_episode': room.current_episode,
+            'max_members': getattr(room, 'max_members', 10),
+            'criteria_data': getattr(room, 'criteria_data', {}) or {},
             'next_session_date': room.next_session_date.isoformat() if room.next_session_date else None,
             'session_notes': room.session_notes,
-            'members_count': room.members.count(),
+            'members_count': len(members_data),
             'members': members_data,
             'catchup_members': catchup_data,
             'candidates': candidates_data,
+            'watching_animes': watching_animes_data,
             'selected_anime': {
                 'mal_id': room.selected_anime.mal_id,
                 'title': room.selected_anime.title,

@@ -25,6 +25,7 @@
     --ml-visto: #f472b6;
     --ml-viendo: #a78bfa;
     --ml-pendiente: #f4f4f5;
+    --ml-esperando: #38bdf8;
     --ml-dropeado: #ef4444;
 
     --ml-radio: 14px;
@@ -814,6 +815,7 @@
 .ml-estado-visto { color: var(--ml-visto); }
 .ml-estado-viendo { color: var(--ml-viendo); }
 .ml-estado-pendiente { color: var(--ml-pendiente); }
+.ml-estado-esperando { color: var(--ml-esperando); }
 .ml-estado-dropeado { color: var(--ml-dropeado); }
 
 /* ---------- Progreso de episodios (marcas tipo tira de película) ---------- */

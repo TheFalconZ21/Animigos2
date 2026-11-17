@@ -66,6 +66,10 @@ interface ApiLanzamiento {
     studio: string | null
     release_date: string // "AAAA-MM-DD"
     popularity: number
+    synopsis?: string | null
+    genres?: string[]
+    season?: string | null
+    year?: number | null
 }
 
 export interface Lanzamiento {
@@ -78,6 +82,10 @@ export interface Lanzamiento {
     estudio: string | null
     fecha: Date // Medianoche local del día de estreno
     popularidad: number
+    synopsis?: string | null
+    genres?: string[]
+    season?: string | null
+    year?: number | null
 }
 
 export async function fetchUpcoming(): Promise<Lanzamiento[]> {
@@ -96,6 +104,10 @@ export async function fetchUpcoming(): Promise<Lanzamiento[]> {
             estudio: l.studio,
             fecha: new Date(anio, mes - 1, dia),
             popularidad: l.popularity,
+            synopsis: l.synopsis,
+            genres: l.genres,
+            season: l.season,
+            year: l.year,
         }
     })
 }

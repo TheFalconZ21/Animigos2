@@ -1,0 +1,239 @@
+erDiagram
+    %% ========================================================
+    %% RELACIONES ENTRE ENTIDADES
+    %% ========================================================
+
+    %% Dominio: Usuarios y Preferencias
+    AUTH_USER ||--|| PROFILE : "tiene_perfil"
+    PROFILE ||--|| USER_PREFERENCES : "define_preferencias"
+    AUTH_USER ||--o{ FRIENDSHIP : "inicia_amistad"
+    AUTH_USER ||--o{ FRIENDSHIP : "recibe_amistad"
+
+    %% Dominio: Mi Lista Personal
+    AUTH_USER ||--o{ USER_ANIME_FOLDER : "crea_carpetas"
+    AUTH_USER ||--o{ USER_ANIME_ENTRY : "registra_en_lista"
+    ANIME ||--o{ USER_ANIME_ENTRY : "catalogado_en"
+    USER_ANIME_FOLDER |o--o{ USER_ANIME_ENTRY : "agrupa_entradas"
+    ANIME |o--o{ PROFILE : "anime_favorito"
+
+    %% Dominio: Dataset y Analitica de Anime
+    ANIME ||--o{ ANIME_SCORE_HISTORY : "registra_historico"
+    ANIME ||--o{ ANIME_RECOMMENDATION : "origen_recomendacion"
+    ANIME ||--o{ ANIME_RECOMMENDATION : "destino_recomendacion"
+
+    %% Dominio: Listas Compartidas y Coordinacion Grupal
+    ANIME |o--o{ SHARED_LIST : "ganador_oficial"
+    SHARED_LIST ||--o{ SHARED_LIST_MEMBER : "tiene_miembros"
+    SHARED_LIST ||--o{ SHARED_LIST_CANDIDATE : "postula_candidatos"
+    ANIME ||--o{ SHARED_LIST_CANDIDATE : "es_candidato"
+    SHARED_LIST_CANDIDATE ||--o{ SHARED_LIST_VOTE : "recibe_votos"
+
+    %% Dominio: Maratones Simultaneas y Participacion
+    SHARED_LIST ||--o{ SHARED_LIST_WATCHING_ANIME : "maratona_animes"
+    ANIME ||--o{ SHARED_LIST_WATCHING_ANIME : "serie_en_maraton"
+    SHARED_LIST_WATCHING_ANIME ||--o{ SHARED_LIST_ANIME_PARTICIPATION : "tiene_participantes"
+    SHARED_LIST_MEMBER ||--o{ SHARED_LIST_ANIME_PARTICIPATION : "se_suma_a"
+
+    %% ========================================================
+    %% DEFINICION DE ENTIDADES Y CAMPOS
+    %% ========================================================
+
+    AUTH_USER {
+        int id PK "ID usuario"
+        string username "Nombre de usuario unico"
+        string email "Correo electronico"
+        string first_name "Nombre"
+        string last_name "Apellido"
+        boolean is_staff "Es administrador"
+        boolean is_active "Cuenta activa"
+        datetime date_joined "Fecha de registro"
+    }
+
+    PROFILE {
+        uuid id PK "UUID perfil"
+        int user_id FK "1 a 1 con auth_user"
+        string display_name "Nombre visible"
+        text avatar_url "URL avatar"
+        text bio "Biografia personal"
+        int favorite_anime_id FK "Anime favorito (nullable)"
+        datetime created_at "Creacion"
+        datetime updated_at "Ultima actualizacion"
+    }
+
+    USER_PREFERENCES {
+        uuid id PK "UUID preferencias"
+        uuid profile_id FK "1 a 1 con profile"
+        boolean onboarding_completed "Onboarding completado"
+        string experience_level "beginner | intermediate | expert"
+        json favorite_genres "Generos predilectos"
+        json disliked_genres "Generos vetados"
+        string preferred_duration "Duracion ideal episodios"
+        json privacy_settings "Ajustes de privacidad"
+        datetime updated_at "Ultima actualizacion"
+    }
+
+    FRIENDSHIP {
+        uuid id PK "UUID amistad"
+        int user_id FK "Usuario solicitante"
+        int friend_id FK "Usuario amigo"
+        datetime created_at "Fecha conexion"
+    }
+
+    USER_ANIME_FOLDER {
+        uuid id PK "UUID carpeta"
+        int user_id FK "Propietario"
+        string name "Nombre de carpeta personalizada"
+        datetime created_at "Creacion"
+        datetime updated_at "Actualizacion"
+    }
+
+    USER_ANIME_ENTRY {
+        uuid id PK "UUID entrada de lista"
+        int user_id FK "Usuario dueno"
+        int anime_id FK "Anime asociado"
+        uuid folder_id FK "Carpeta opcional (nullable)"
+        string status "visto | viendo | pendiente | dropeado | esperando"
+        int score "Nota personal 1 a 10"
+        int episodes_watched "Capitulos vistos"
+        boolean is_favorite "Marcado favorito"
+        json tags "Etiquetas personales"
+        text notes "Resena o comentario"
+        datetime created_at "Fecha creacion"
+        datetime updated_at "Ultima actualizacion"
+    }
+
+    ANIME {
+        int mal_id PK "ID MyAnimeList oficial"
+        string title "Titulo canonico"
+        string title_english "Titulo en ingles"
+        string title_japanese "Titulo en japones"
+        text synopsis "Sinopsis en ingles"
+        text synopsis_es "Sinopsis en espanol"
+        text image_url "Poster oficial"
+        text banner_url "Banner horizontal"
+        decimal score "Puntuacion promedio MAL"
+        int scored_by "Total personas que votaron"
+        int popularity "Posicion popularidad"
+        int rank "Ranking historico"
+        decimal polarization_index "Indice dispersion controversia"
+        int episodes "Total episodios"
+        decimal duration "Duracion por episodio"
+        string status "Estado emision"
+        string season "Temporada estreno"
+        int season_year "Ano de temporada"
+        string studio "Estudio de animacion principal"
+        json genres "Lista de generos"
+        json tags_data "Tags ponderados de AniList"
+        text tags_cache "Indice plano para busqueda rapida"
+        string type "TV | MOVIE | OVA | ONA | SPECIAL"
+        date release_date "Fecha de estreno confirmada"
+        json relations_data "Grafo de franquicia y secuelas"
+        datetime last_synced_at "Ultima sincronizacion"
+    }
+
+    ANIME_SCORE_HISTORY {
+        int id PK "ID registro"
+        int anime_id FK "Anime relacionado"
+        int year "Ano del corte"
+        int month "Mes del corte o null"
+        date recorded_at "Fecha de referencia"
+        decimal score "Score en ese periodo"
+        bigint scored_by "Votantes en ese periodo"
+        bigint members "Miembros en ese periodo"
+        int rank "Ranking historico"
+        int popularity "Popularidad en ese periodo"
+        int favorites "Favoritos acumulados"
+    }
+
+    ANIME_RECOMMENDATION {
+        int id PK "ID relacion"
+        int source_id FK "Anime origen"
+        int target_id FK "Anime sugerido"
+        int strength "Votos mutuos comunidad"
+        datetime created_at "Fecha registro"
+    }
+
+    EXTERNAL_REFERENCE_MEDIA {
+        int id PK "ID referencia"
+        int tmdb_id "ID oficial TMDB"
+        string media_type "movie | tv"
+        string title "Titulo de la pelicula o serie"
+        string original_title "Titulo original"
+        string release_year "Ano de estreno"
+        text poster_path "Ruta de poster"
+        text backdrop_path "Ruta de fondo"
+        decimal vote_average "Calificacion TMDB"
+        int vote_count "Cantidad de votos"
+        decimal popularity "Popularidad TMDB"
+        text overview "Sinopsis TMDB"
+        json genres "Generos TMDB"
+        json keywords "Palabras clave tematicas"
+        int number_of_seasons "Temporadas TV"
+        int number_of_episodes "Capitulos TV"
+        datetime created_at "Creacion"
+    }
+
+    SHARED_LIST {
+        uuid id PK "UUID lista grupal"
+        string name "Nombre de la sala"
+        text description "Descripcion u objetivo"
+        string status "deciding | watching | completed"
+        string invite_code "Codigo unico invitacion"
+        int selected_anime_id FK "Anime ganador oficial (nullable)"
+        int current_episode "Meta de capitulo grupal"
+        int max_members "Capacidad maxima de integrantes"
+        json criteria_data "Criterios pactados duracion generos"
+        datetime next_session_date "Fecha proxima sesion"
+        text session_notes "Notas de coordinacion"
+        datetime created_at "Creacion"
+        datetime updated_at "Ultima actualizacion"
+    }
+
+    SHARED_LIST_MEMBER {
+        uuid id PK "UUID integrante"
+        uuid shared_list_id FK "Sala grupal"
+        string guest_token "Token invitado o user_id"
+        string guest_name "Nombre del integrante"
+        string role "owner | member | guest"
+        string invite_channel "Canal de invitacion"
+        int episodes_watched "Capitulo visto por este integrante"
+        datetime last_active_at "Ultima actividad"
+        datetime joined_at "Fecha ingreso"
+    }
+
+    SHARED_LIST_CANDIDATE {
+        uuid id PK "UUID candidato"
+        uuid shared_list_id FK "Sala grupal"
+        int anime_id FK "Anime nominado"
+        string suggested_by "Nombre de quien postulo"
+        datetime added_at "Fecha postulacion"
+    }
+
+    SHARED_LIST_VOTE {
+        uuid id PK "UUID voto"
+        uuid candidate_id FK "Candidato votado"
+        string voter_id "Token o user_id votante"
+        string voter_name "Nombre del votante"
+        int interest_score "Ganas de ver del 0 al 10"
+        datetime voted_at "Fecha voto"
+    }
+
+    SHARED_LIST_WATCHING_ANIME {
+        uuid id PK "UUID maraton activa"
+        uuid shared_list_id FK "Sala grupal"
+        int anime_id FK "Anime seleccionado"
+        int current_episode "Meta de capitulo para este anime"
+        boolean is_active "Maraton activa o archivada"
+        datetime started_at "Fecha inicio"
+        datetime completed_at "Fecha finalizacion"
+    }
+
+    SHARED_LIST_ANIME_PARTICIPATION {
+        uuid id PK "UUID participacion"
+        uuid watching_anime_id FK "Anime en maraton"
+        uuid member_id FK "Integrante de la sala"
+        int episodes_watched "Capitulos vistos en este anime"
+        boolean is_participating "Acepto participar"
+        datetime joined_at "Fecha union"
+        datetime last_updated_at "Ultimo avance registrado"
+    }

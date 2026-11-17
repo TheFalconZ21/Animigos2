@@ -85,21 +85,32 @@
 .wp-pill-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.3rem 0.85rem;
+    gap: 0.4rem;
+    padding: 0.22rem 0.65rem;
     border-radius: var(--wp-radio-pill);
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     font-weight: 600;
     background: var(--wp-surface-2);
     border: 1px solid var(--wp-border);
     color: var(--wp-text-muted);
     white-space: nowrap;
+    line-height: 1.2;
 }
 
 .wp-pill-badge.is-live {
     background: rgba(52, 211, 153, 0.12);
     border-color: rgba(52, 211, 153, 0.3);
     color: var(--wp-success);
+}
+
+.wp-status-badge {
+    padding: 0.2rem 0.55rem;
+    font-size: 0.72rem;
+    gap: 0.35rem;
+}
+
+.wp-status-icon {
+    flex-shrink: 0;
 }
 
 .wp-room-header-actions {
@@ -722,6 +733,201 @@
     transform: translateY(-3px);
     border-color: var(--wp-border-hover);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.wp-room-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.95rem;
+}
+
+.wp-room-card-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 0.45rem 0;
+    line-height: 1.3;
+}
+
+/* ============================================================
+   AJUSTES DE LA SALA GRUPAL (SUBVISTAS: CRITERIOS & SALA)
+   ============================================================ */
+.wp-settings-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--wp-surface-2);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid var(--wp-border);
+}
+
+.wp-settings-tab-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0.45rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: transparent;
+    border: none;
+    color: var(--wp-text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.wp-settings-tab-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.wp-settings-tab-btn.active {
+    background: var(--wp-surface-3);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.wp-settings-section {
+    background: var(--wp-surface-2);
+    border: 1px solid var(--wp-border);
+    border-radius: 12px;
+    padding: 0.85rem;
+}
+
+.wp-input {
+    background: var(--wp-surface-3) !important;
+    border: 1px solid var(--wp-border) !important;
+    border-radius: 10px !important;
+    color: #ffffff !important;
+    font-size: 0.82rem !important;
+}
+
+.wp-input:focus {
+    border-color: var(--wp-acento) !important;
+    box-shadow: 0 0 0 2px var(--wp-acento-glow) !important;
+}
+
+.wp-members-manage-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.wp-member-manage-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0.5rem 0.65rem;
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: 9px;
+}
+
+.wp-member-avatar-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--wp-acento) 20%, #1e1e28);
+    color: var(--wp-acento);
+    font-size: 0.75rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.wp-badge-owner {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0.1rem 0.4rem;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    background: rgba(251, 191, 36, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    color: var(--wp-warning);
+}
+
+.wp-danger-zone {
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    background: rgba(239, 68, 68, 0.05);
+    border-radius: 12px;
+    padding: 0.85rem;
+}
+
+/* ============================================================
+   ESTADO BLOQUEADO Y SELECTOR DE ANIMES EN MARATÓN
+   ============================================================ */
+.wp-tab.is-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+}
+
+.wp-tab.is-disabled:hover {
+    background: transparent !important;
+    color: var(--wp-text-muted) !important;
+}
+
+.wp-watching-animes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.25rem;
+    margin-top: 1rem;
+}
+
+.wp-watching-anime-card {
+    background: var(--wp-surface-2);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radio);
+    display: flex;
+    gap: 1rem;
+    padding: 1.15rem;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.wp-watching-anime-card:hover {
+    border-color: var(--wp-border-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.wp-watching-card-poster {
+    width: 84px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: var(--wp-radio-md);
+    border: 1px solid var(--wp-border);
+    flex-shrink: 0;
+}
+
+.wp-watching-card-content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex-grow: 1;
+}
+
+.wp-watching-card-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--wp-text);
+    margin: 0 0 0.35rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* ============================================================

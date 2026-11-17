@@ -3,7 +3,7 @@
  * Abstrae las peticiones hacia el BFF Django, consumiendo endpoints con caché intermedia.
  */
 
-import type { ApiAnimeData } from './userListApi'
+import type { ApiAnimeData, ApiAnimeRelationItem } from './userListApi'
 import { getAuthHeaders } from './authApi'
 
 const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, ''); const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
@@ -337,6 +337,23 @@ export async function fetchSeasonMetrics(year: number, season?: string): Promise
 
     if (!response.ok) {
         throw new Error(`Error ${response.status} al consultar las métricas de la temporada.`)
+    }
+
+    return response.json()
+}
+
+/**
+ * Consulta las obras relacionadas (precuelas, secuelas, spin-offs...) de un anime
+ */
+export async function fetchAnimeRelations(malId: number): Promise<ApiAnimeRelationItem[]> {
+    const response = await fetch(`${API_BASE_URL}/animes/${malId}/relations/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+    })
+
+    if (!response.ok) {
+        return []
     }
 
     return response.json()

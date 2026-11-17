@@ -303,7 +303,7 @@ function App() {
       case 'tablon':
         return <Tablon />
       case 'calendario':
-        return <Calendario />
+        return <Calendario onOpenAnimeDetail={(malId) => handleSelectAnime(malId)} />
       case 'agenda':
         return (
           <div className="py-4">

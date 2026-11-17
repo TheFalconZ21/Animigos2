@@ -22,7 +22,7 @@ from core.constants import (
     CACHE_PREFIX_SEASON_METRICS,
 )
 from core.utils.cache import cached_api_response, build_cache_key
-from core.services.fuentes_externas import obtener_horario_semanal, obtener_proximos_lanzamientos
+from core.services.fuentes_externas import obtener_horario_semanal, obtener_proximos_lanzamientos, obtener_relaciones_anime
 
 
 class AnimeCatalogPagination(PageNumberPagination):
@@ -43,12 +43,12 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Anime.objects.all()
     serializer_class = AnimeSerializer
     pagination_class = AnimeCatalogPagination
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['title', 'title_english', 'studio', 'genres']
-    ordering_fields = ['score', 'popularity', 'rank', 'season_year', 'polarization_index', 'title', 'mal_id']
-    ordering = ['-score']
+    filter_backends = []
 
     def get_queryset(self):
+        if getattr(self, 'action', None) == 'retrieve':
+            return Anime.objects.all()
+
         if Anime.objects.count() < 10000:
             try:
                 from django.core.management import call_command
@@ -60,7 +60,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         qs = super().get_queryset()
         params = self.request.query_params
 
-        q = params.get('q')
+        q = params.get('q') or params.get('search')
         genre = params.get('genre') or params.get('genres')
         tags_param = params.get('tags') or params.get('taxonomies') or params.get('tag')
         studio = params.get('studio')
@@ -205,14 +205,31 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
                 qs = qs.order_by('-score', '-scored_by')
         elif ordering_param == 'score':
             qs = qs.order_by('score', 'scored_by')
-        elif ordering_param == '-popularity':
+        elif ordering_param in ('-popularity', '-scored_by', 'popularity_desc', '-members'):
             qs = qs.order_by('-scored_by', '-score')
-        elif ordering_param == '-season_year':
+        elif ordering_param in ('popularity', 'scored_by', 'popularity_asc', 'members'):
+            qs = qs.order_by('scored_by', 'score')
+        elif ordering_param in ('-season_year', '-year'):
             qs = qs.order_by('-season_year', '-score')
+        elif ordering_param in ('season_year', 'year', '+season_year'):
+            qs = qs.order_by('season_year', '-score')
         elif ordering_param == 'title':
             qs = qs.order_by('title')
+        elif ordering_param == '-title':
+            qs = qs.order_by('-title')
+        elif ordering_param == '-rank':
+            qs = qs.order_by('-rank')
+        elif ordering_param == 'rank':
+            qs = qs.order_by('rank')
+        elif ordering_param == '-polarization_index':
+            qs = qs.order_by('-polarization_index')
+        elif ordering_param == 'polarization_index':
+            qs = qs.order_by('polarization_index')
         else:
-            qs = qs.order_by(ordering_param)
+            try:
+                qs = qs.order_by(ordering_param)
+            except Exception:
+                qs = qs.order_by('-score', '-scored_by')
 
         return qs
 
@@ -544,16 +561,82 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['get'])
     @cached_api_response(timeout=CACHE_TTL_MEDIUM, prefix=CACHE_PREFIX_RECOMMENDATIONS)
     def recommendations(self, request, pk=None):
-        """Devuelve las mejores recomendaciones cruzadas para este anime."""
+        """Devuelve las mejores recomendaciones cruzadas para este anime, con fallback inteligente si hay pocas."""
         anime = self.get_object()
         limit = int(request.query_params.get('limit', 12))
-        recoms = (
+        recoms = list(
             AnimeRecommendation.objects.filter(source=anime)
             .select_related('target')
             .order_by('-strength')[:limit]
         )
-        serializer = AnimeRecommendationSerializer(recoms, many=True)
+
+        if len(recoms) < limit:
+            existing_target_ids = {r.target_id for r in recoms}
+            existing_target_ids.add(anime.mal_id)
+
+            # 1. Fallback por franquicia (ej. JoJo, Bleach, Frieren, Gintama)
+            title = anime.title or ''
+            franchise_prefix = (
+                title.split(':')[0]
+                .split(' 2nd')[0]
+                .split(' 3rd')[0]
+                .split(' 4th')[0]
+                .split(' Season')[0]
+                .split(' Part')[0]
+                .split(' Movie')[0]
+                .strip()
+            )
+            if len(franchise_prefix) >= 4:
+                franchise_targets = list(
+                    Anime.objects.filter(title__icontains=franchise_prefix)
+                    .exclude(mal_id__in=existing_target_ids)
+                    .exclude(score__isnull=True)
+                    .order_by('-score')[:limit - len(recoms)]
+                )
+                for ft in franchise_targets:
+                    rec_obj, _ = AnimeRecommendation.objects.get_or_create(
+                        source=anime,
+                        target=ft,
+                        defaults={'strength': 25}
+                    )
+                    recoms.append(rec_obj)
+                    existing_target_ids.add(ft.mal_id)
+
+            # 2. Fallback por afinidad temática/género y alta puntuación
+            if len(recoms) < limit and anime.genres:
+                first_genre = anime.genres[0]
+                affinity_targets = list(
+                    Anime.objects.filter(genres__contains=first_genre)
+                    .exclude(mal_id__in=existing_target_ids)
+                    .exclude(score__isnull=True)
+                    .order_by('-score')[:limit - len(recoms)]
+                )
+                for at in affinity_targets:
+                    rec_obj, _ = AnimeRecommendation.objects.get_or_create(
+                        source=anime,
+                        target=at,
+                        defaults={'strength': 10}
+                    )
+                    recoms.append(rec_obj)
+                    existing_target_ids.add(at.mal_id)
+
+        serializer = AnimeRecommendationSerializer(recoms[:limit], many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    @cached_api_response(timeout=CACHE_TTL_LONG, prefix='anime_relations')
+    def relations(self, request, pk=None):
+        """Devuelve las obras relacionadas de la franquicia (precuelas, secuelas, spin-offs...)."""
+        anime = self.get_object()
+        if anime.relations_data and len(anime.relations_data) > 0:
+            return Response(anime.relations_data)
+
+        # Si aún no tiene relaciones cacheadas en la DB, consultar a AniList
+        rels = obtener_relaciones_anime(anime.mal_id)
+        if rels:
+            anime.relations_data = rels
+            anime.save(update_fields=['relations_data'])
+        return Response(rels)
 
     @action(detail=False, methods=['get'])
     @cached_api_response(timeout=CACHE_TTL_LONG, prefix=CACHE_PREFIX_STUDIOS)

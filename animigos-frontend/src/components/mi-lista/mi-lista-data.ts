@@ -7,7 +7,7 @@ import type { ApiUserListEntry } from '../../services/userListApi'
 // MI LISTA — Tipos, escala de notas y adaptadores de API
 // ============================================================
 
-export type EstadoLista = 'visto' | 'viendo' | 'pendiente' | 'dropeado'
+export type EstadoLista = 'visto' | 'viendo' | 'pendiente' | 'dropeado' | 'esperando'
 
 export interface EntradaLista {
     id?: string
@@ -106,6 +106,7 @@ export const ESTADOS: { id: EstadoLista; label: string }[] = [
     { id: 'visto', label: 'Visto' },
     { id: 'viendo', label: 'Viendo' },
     { id: 'pendiente', label: 'Pendiente' },
+    { id: 'esperando', label: 'Esperando su estreno' },
     { id: 'dropeado', label: 'Dropeado' },
 ]
 

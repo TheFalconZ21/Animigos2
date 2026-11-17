@@ -5,7 +5,10 @@ import { useMyList } from '../../hooks/useMyList'
 import { useAuth } from '../../context/AuthContext'
 import { useAhora } from '../../hooks/useAhora'
 import { dentroDe, horaLocal } from '../../shared/tiempo'
-import { alFallarPoster } from '../mi-lista/mi-lista-data'
+import { alFallarPoster, type FilaLista } from '../mi-lista/mi-lista-data'
+import { fetchAnimeById } from '../../services/catalogApi'
+import { type Lanzamiento } from '../../services/scheduleApi'
+import { AnimeDetalleDialog } from '../mi-lista/AnimeDetalleDialog'
 import { EstaSemana } from './EstaSemana'
 import { ProximosLanzamientos } from './ProximosLanzamientos'
 import '../mi-lista/mi-lista.css'
@@ -20,17 +23,111 @@ import './calendario.css'
 
 type Pestana = 'semana' | 'lanzamientos'
 
-export function Calendario() {
+export function Calendario({
+    onOpenAnimeDetail,
+}: {
+    onOpenAnimeDetail?: (malId: number) => void
+} = {}) {
     const horario = useHorario()
     const proximos = useLanzamientos()
-    const { filas } = useMyList()
+    const { filas, agregarAnime, actualizar, quitar } = useMyList()
     const { isAuthenticated } = useAuth()
     const ahora = useAhora() / 1000
     const [pestana, setPestana] = useState<Pestana>('semana')
+    const [animeSeleccionado, setAnimeSeleccionado] = useState<FilaLista | null>(null)
 
     const idsEnLista = useMemo(() => new Set(isAuthenticated ? filas.map((f) => f.malId) : []), [filas, isAuthenticated])
     const enMiLista = (malId: number | null) => malId !== null && idsEnLista.has(malId)
     const siguiente = horario.emisiones.filter((e) => e.emiteEn > ahora).sort((a, b) => a.emiteEn - b.emiteEn)[0]
+
+    const handleSeleccionarLanzamiento = async (l: Lanzamiento) => {
+        const mid = l.malId ?? l.id
+        const existing = filas.find((f) => f.malId === mid)
+        if (existing) {
+            setAnimeSeleccionado(existing)
+            return
+        }
+
+        const tempFila: FilaLista = {
+            id: `temp-${mid}`,
+            malId: mid,
+            estado: 'esperando',
+            nota: null,
+            episodiosVistos: 0,
+            favorito: false,
+            tags: [],
+            anime: {
+                malId: mid,
+                title: l.titulo,
+                titleEnglish: l.titulo,
+                imageUrl: l.imagenUrl,
+                score: 8.0,
+                rank: 1,
+                durationMinutes: 24,
+                episodes: l.episodios || (l.formato === 'MOVIE' ? 1 : 12),
+                status: 'NOT_YET_RELEASED',
+                studio: l.estudio || 'Desconocido',
+                genres: l.genres || [],
+                tagsData: [],
+                synopsis: l.synopsis || '',
+                type: l.formato,
+                season: l.season || 'Estreno',
+                year: l.year || l.fecha.getFullYear(),
+            },
+        }
+        setAnimeSeleccionado(tempFila)
+
+        if (l.malId) {
+            try {
+                const fullData = await fetchAnimeById(l.malId)
+                if (fullData) {
+                    setAnimeSeleccionado((prev) => {
+                        if (!prev || prev.malId !== l.malId) return prev
+                        return {
+                            ...prev,
+                            anime: {
+                                ...prev.anime,
+                                title: fullData.title || prev.anime.title,
+                                titleEnglish: fullData.title_english || prev.anime.titleEnglish,
+                                titleJapanese: fullData.title_japanese,
+                                imageUrl: fullData.image_url || prev.anime.imageUrl,
+                                synopsis: fullData.synopsis || prev.anime.synopsis,
+                                studio: fullData.studio || prev.anime.studio,
+                                genres: fullData.genres && fullData.genres.length ? fullData.genres : prev.anime.genres,
+                                score: typeof fullData.score === 'number' ? fullData.score : prev.anime.score,
+                                episodes: fullData.episodes || prev.anime.episodes,
+                                season: fullData.season_display || fullData.season || prev.anime.season,
+                                year: fullData.season_year || fullData.year || prev.anime.year,
+                            },
+                        }
+                    })
+                }
+            } catch {
+                // Silencioso: la ficha temporal ya cuenta con datos de AniList
+            }
+        }
+    }
+
+    const handleMarcarEsperando = async (l: Lanzamiento) => {
+        const mid = l.malId ?? l.id
+        const existing = filas.find((f) => f.malId === mid)
+        if (existing) {
+            if (existing.estado === 'esperando') {
+                setAnimeSeleccionado(existing)
+            } else {
+                await actualizar(mid, { estado: 'esperando' })
+            }
+        } else {
+            await agregarAnime({
+                malId: mid,
+                estado: 'esperando',
+                nota: null,
+                episodiosVistos: 0,
+                favorito: false,
+                tags: [],
+            })
+        }
+    }
 
     return (
         <section className="ml-root cal-root">
@@ -81,9 +178,53 @@ export function Calendario() {
                     <EstaSemana emisiones={horario.emisiones} cargando={horario.cargando} error={horario.error} enMiLista={enMiLista} />
                 )}
                 {pestana === 'lanzamientos' && (
-                    <ProximosLanzamientos lanzamientos={proximos.lanzamientos} cargando={proximos.cargando} error={proximos.error} enMiLista={enMiLista} />
+                    <ProximosLanzamientos
+                        lanzamientos={proximos.lanzamientos}
+                        cargando={proximos.cargando}
+                        error={proximos.error}
+                        enMiLista={enMiLista}
+                        filas={filas}
+                        onSeleccionarAnime={handleSeleccionarLanzamiento}
+                        onMarcarEsperando={handleMarcarEsperando}
+                    />
                 )}
             </div>
+
+            {animeSeleccionado && (
+                <AnimeDetalleDialog
+                    fila={animeSeleccionado}
+                    onCerrar={() => setAnimeSeleccionado(null)}
+                    onActualizar={async (cambios) => {
+                        const mid = animeSeleccionado.malId
+                        const existing = filas.find((f) => f.malId === mid)
+                        if (existing) {
+                            await actualizar(mid, cambios)
+                            setAnimeSeleccionado((prev) => (prev ? { ...prev, ...cambios } : null))
+                        } else {
+                            const nuevoEstado = cambios.estado || 'esperando'
+                            await agregarAnime({
+                                malId: mid,
+                                estado: nuevoEstado,
+                                nota: cambios.nota ?? null,
+                                episodiosVistos: cambios.episodiosVistos ?? 0,
+                                favorito: cambios.favorito ?? false,
+                                tags: cambios.tags ?? [],
+                                comentario: cambios.comentario ?? '',
+                            })
+                            setAnimeSeleccionado((prev) => (prev ? { ...prev, ...cambios, estado: nuevoEstado } : null))
+                        }
+                    }}
+                    onRecomendar={() => {}}
+                    onEliminar={() => {
+                        quitar(animeSeleccionado.malId)
+                        setAnimeSeleccionado(null)
+                    }}
+                    onVerFichaCompleta={(malId) => {
+                        setAnimeSeleccionado(null)
+                        onOpenAnimeDetail?.(malId)
+                    }}
+                />
+            )}
         </section>
     )
 }

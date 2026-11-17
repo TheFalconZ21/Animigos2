@@ -443,7 +443,9 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
 
                         {/* Selector Multi-Género + Taxonomías de AniList */}
                         <div className="cat-filter-col position-relative" ref={taxDropdownRef}>
-                            <label className="cat-filter-label">GÉNEROS & TAXONOMÍA</label>
+                            <label className="cat-filter-label" title="Géneros y Taxonomía de AniList">
+                                GÉNEROS Y TAGS
+                            </label>
                             <button
                                 type="button"
                                 className={`cat-tax-trigger-btn ${taxDropdownOpen ? 'open' : ''}`}
@@ -880,7 +882,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                         </div>
 
                                         {/* Botón de Añadir a Mi Lista y Botón Ver */}
-                                        <div className="d-flex align-items-center gap-1.5 mt-2">
+                                        <div className="cat-card-actions">
                                             <button
                                                 type="button"
                                                 onClick={(e) => handleQuickAdd(anime, e)}

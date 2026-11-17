@@ -151,17 +151,19 @@ function Contenido({
                             </button>
                         </div>
                         <div className="ml-dialog-chips">
-                            <span className="ml-chip">{anime.year}</span>
-                            <span className="ml-chip">{anime.season}</span>
-                            <span className="ml-chip">{anime.studio}</span>
-                            <span className="ml-chip ml-chip-nota">
-                                <Star size={12} fill="currentColor" /> {anime.score}
-                            </span>
-                            {anime.rank && (
+                            {Boolean(anime.year) && <span className="ml-chip">{anime.year}</span>}
+                            {Boolean(anime.season) && <span className="ml-chip">{anime.season}</span>}
+                            {Boolean(anime.studio) && <span className="ml-chip">{anime.studio}</span>}
+                            {typeof anime.score === 'number' && anime.score > 0 ? (
+                                <span className="ml-chip ml-chip-nota">
+                                    <Star size={12} fill="currentColor" /> {anime.score}
+                                </span>
+                            ) : null}
+                            {anime.rank ? (
                                 <span className="ml-chip">
                                     <Award size={12} /> #{anime.rank}
                                 </span>
-                            )}
+                            ) : null}
                         </div>
                         <div className="ml-dialog-generos">
                             {anime.genres.map((g) => (

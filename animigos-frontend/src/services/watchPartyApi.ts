@@ -73,13 +73,46 @@ export interface CatchupMember {
     episodes_behind: number
 }
 
+export interface WatchingAnimeParticipation {
+    id: string
+    member_id: string
+    guest_name: string
+    guest_token: string
+    episodes_watched: number
+    is_participating: boolean
+    sync_status: 'al_dia' | 'atrasado' | 'adelantado'
+    episodes_behind: number
+    joined_at?: string
+}
+
+export interface WatchingAnimeItem {
+    id: string
+    anime_id: number
+    anime: RoomSelectedAnime
+    current_episode: number
+    episodes_total: number
+    is_active: boolean
+    participants_count: number
+    participations: WatchingAnimeParticipation[]
+    started_at?: string
+}
+
 export interface RoomSummary {
     id: string
     name: string
     description: string
-    status: 'candidates' | 'voting' | 'selected' | 'watching' | 'completed'
+    status: 'deciding' | 'watching' | 'candidates' | 'voting' | 'selected' | 'completed'
     invite_code: string
     current_episode: number
+    max_members?: number
+    criteria_data?: {
+        duration?: string
+        genres?: string
+        years?: string
+        format?: string
+        min_score?: string
+        [key: string]: any
+    }
     next_session_date: string | null
     session_notes: string
     members_count: number
@@ -87,6 +120,7 @@ export interface RoomSummary {
     catchup_members: CatchupMember[]
     candidates: RoomCandidate[]
     selected_anime: RoomSelectedAnime | null
+    watching_animes?: WatchingAnimeItem[]
 }
 
 export interface ChatMessage {
@@ -238,12 +272,144 @@ export async function scheduleGroupSessionApi(
     return res.json()
 }
 
-export async function selectWinningAnimeApi(roomId: string, animeId: number): Promise<RoomSummary> {
+export async function selectWinningAnimeApi(
+    roomId: string,
+    animeId: number,
+    action: 'add' | 'remove' | 'toggle' = 'toggle',
+    guestToken?: string
+): Promise<RoomSummary> {
     const res = await fetch(`${API_BASE}/${roomId}/select_winner/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ anime_id: animeId }),
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ anime_id: animeId, action, guest_token: guestToken }),
     })
-    if (!res.ok) throw new Error('No se pudo seleccionar el anime ganador')
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'No se pudo actualizar el anime para la maratón grupal')
+    }
+    return res.json()
+}
+
+export async function joinWatchingAnimeApi(
+    roomId: string,
+    data: {
+        watching_anime_id?: string
+        anime_id?: number
+        guest_token?: string
+        guest_name?: string
+    }
+): Promise<RoomSummary> {
+    const res = await fetch(`${API_BASE}/${roomId}/join_anime/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'No se pudo unir a la maratón de este anime')
+    }
+    return res.json()
+}
+
+export async function updateAnimeProgressApi(
+    roomId: string,
+    data: {
+        watching_anime_id: string
+        episodes_watched: number
+        guest_token?: string
+        guest_name?: string
+    }
+): Promise<RoomSummary> {
+    const res = await fetch(`${API_BASE}/${roomId}/update_anime_progress/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'No se pudo actualizar el progreso del anime')
+    }
+    return res.json()
+}
+
+export async function setAnimeTargetApi(
+    roomId: string,
+    data: {
+        watching_anime_id: string
+        episode: number
+        guest_token?: string
+    }
+): Promise<RoomSummary> {
+    const res = await fetch(`${API_BASE}/${roomId}/set_anime_target/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'No se pudo actualizar la meta del anime')
+    }
+    return res.json()
+}
+
+export async function updateRoomSettingsApi(
+    roomId: string,
+    data: {
+        max_members?: number
+        criteria_data?: Record<string, any>
+        name?: string
+        description?: string
+        guest_token?: string
+    }
+): Promise<RoomSummary> {
+    const res = await fetch(`${API_BASE}/${roomId}/update_settings/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'No se pudieron actualizar los ajustes de la sala')
+    }
+    return res.json()
+}
+
+export async function kickRoomMemberApi(
+    roomId: string,
+    memberId: string,
+    guestToken?: string
+): Promise<RoomSummary> {
+    const res = await fetch(`${API_BASE}/${roomId}/kick_member/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ member_id: memberId, guest_token: guestToken }),
+    })
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'No se pudo expulsar al integrante')
+    }
+    return res.json()
+}
+
+export async function dissolveRoomApi(
+    roomId: string,
+    guestToken?: string
+): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/${roomId}/dissolve/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ guest_token: guestToken }),
+    })
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'No se pudo disolver la sala grupal')
+    }
     return res.json()
 }

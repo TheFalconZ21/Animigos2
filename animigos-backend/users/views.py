@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.db import transaction
+from django.utils import timezone
 import xml.etree.ElementTree as ET
 import time
 import urllib.request
@@ -166,6 +167,77 @@ def update_preferences(request):
 # SECCIÓN: MI LISTA (PERSONAL ANIME LIST & FOLDERS)
 # -------------------------------------------------------------
 
+def verificar_estrenos_usuario(user):
+    """
+    Revisa las entradas del usuario con estado 'esperando'.
+    Si el anime ya se estrenó oficialmente (fecha de estreno alcanzada o estado RELEASING/FINISHED con fecha de estreno <= hoy),
+    cambia automáticamente su estado a 'pendiente' y genera una notificación en la bandeja
+    (que alimenta el Tablón Social).
+    """
+    import uuid
+    from django.utils import timezone
+    hoy = timezone.now().date()
+
+    entradas_esperando = UserAnimeEntry.objects.filter(
+        user=user,
+        status='esperando'
+    ).select_related('anime')
+
+    if not entradas_esperando.exists():
+        return 0
+
+    estrenados_count = 0
+    nuevas_notifs = []
+
+    for entry in entradas_esperando:
+        anime = entry.anime
+        ya_estreno = False
+
+        if anime.release_date and anime.release_date <= hoy:
+            ya_estreno = True
+        elif anime.status in ['RELEASING', 'FINISHED'] and (not anime.release_date or anime.release_date <= hoy):
+            ya_estreno = True
+
+        if ya_estreno:
+            entry.status = 'pendiente'
+            entry.save(update_fields=['status', 'updated_at'])
+            estrenados_count += 1
+
+            nuevas_notifs.append({
+                'id': str(uuid.uuid4()),
+                'type': 'anime_release',
+                'from_username': 'calendario_oficial',
+                'from_display_name': 'Calendario Oficial',
+                'from_avatar': '',
+                'anime_id': anime.mal_id,
+                'anime_title': anime.title,
+                'anime_poster': anime.image_url or '',
+                'message': f'¡"{anime.title}" se ha estrenado oficialmente! Tu seguimiento cambió automáticamente de "Esperando su estreno" a "Pendiente".',
+                'created_at': timezone.now().isoformat(),
+                'read': False,
+            })
+
+    if nuevas_notifs:
+        profile, _ = Profile.objects.get_or_create(
+            user=user,
+            defaults={'display_name': user.first_name or user.username}
+        )
+        prefs, _ = UserPreferences.objects.get_or_create(profile=profile)
+        ps = dict(prefs.privacy_settings) if isinstance(prefs.privacy_settings, dict) else {}
+        notifs = list(ps.get('notifications', [])) if isinstance(ps.get('notifications'), list) else []
+
+        existentes_anime_ids = {n.get('anime_id') for n in notifs if n.get('type') == 'anime_release'}
+        for nn in nuevas_notifs:
+            if nn['anime_id'] not in existentes_anime_ids:
+                notifs.insert(0, nn)
+
+        ps['notifications'] = notifs[:50]
+        prefs.privacy_settings = ps
+        prefs.save(update_fields=['privacy_settings'])
+
+    return estrenados_count
+
+
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def user_my_list_view(request):
@@ -177,6 +249,8 @@ def user_my_list_view(request):
     user = request.user
 
     if request.method == 'GET':
+        verificar_estrenos_usuario(user)
+
         entries_qs = (
             UserAnimeEntry.objects.filter(user=user)
             .select_related('anime', 'folder')
@@ -189,6 +263,7 @@ def user_my_list_view(request):
         viendo_count = entries_qs.filter(status='viendo').count()
         pendiente_count = entries_qs.filter(status='pendiente').count()
         dropeado_count = entries_qs.filter(status='dropeado').count()
+        esperando_count = entries_qs.filter(status='esperando').count()
 
         scores = [e.score for e in entries_qs if e.score is not None]
         avg_score = round(sum(scores) / len(scores), 1) if scores else None
@@ -209,6 +284,7 @@ def user_my_list_view(request):
                 'viendo': viendo_count,
                 'pendiente': pendiente_count,
                 'dropeado': dropeado_count,
+                'esperando': esperando_count,
                 'average_score': avg_score,
                 'percent_completed': round((visto_count / total_count * 100)) if total_count > 0 else 0
             }
@@ -339,12 +415,20 @@ def user_agenda_view(request):
     items = []
     user_mal_ids = set()
 
+    hoy = timezone.now().date()
+    all_user_mal_ids = set()
+
     if user.is_authenticated:
+        # Excluir explícitamente entradas con categoría 'esperando' (Esperando su estreno)
+        # y animes que no han sido estrenados
         entries_qs = (
             UserAnimeEntry.objects.filter(user=user, anime__status='RELEASING')
+            .exclude(status='esperando')
+            .exclude(anime__status='NOT_YET_RELEASED')
             .select_related('anime')
         )
         user_mal_ids = set(entries_qs.values_list('anime__mal_id', flat=True))
+        all_user_mal_ids = set(UserAnimeEntry.objects.filter(user=user).values_list('anime__mal_id', flat=True))
 
         mal_ids = list(user_mal_ids)
         airing_data = obtener_estado_emision_animes(mal_ids)
@@ -352,7 +436,18 @@ def user_agenda_view(request):
         for entry in entries_qs:
             anime = entry.anime
             info = airing_data.get(anime.mal_id, {})
-            latest_ep = info.get('latest_episode') or (anime.episodes or 1)
+
+            # Si el anime aún no estrena su primer episodio o es futuro, se omite de la agenda
+            if (
+                info.get('status') == 'NOT_YET_RELEASED'
+                or (anime.release_date and anime.release_date > hoy and (info.get('latest_episode') or 0) == 0)
+                or (info.get('latest_episode') == 0 and not info.get('airing'))
+            ):
+                continue
+
+            latest_ep = info.get('latest_episode')
+            if latest_ep is None:
+                latest_ep = anime.episodes or 1
             episodes_watched = entry.episodes_watched or 0
             episodes_behind = max(0, latest_ep - episodes_watched)
             is_up_to_date = (episodes_behind == 0)
@@ -383,13 +478,14 @@ def user_agenda_view(request):
         # Ordenar por capítulos de atraso descendente (mayor retraso primero)
         items.sort(key=lambda x: (-x['episodes_behind'], x['title']))
 
-    # Animes en emisión sugeridos (top popular por scored_by)
+    # Animes en emisión sugeridos (top popular por scored_by que ya estén al aire)
     suggested_qs = (
         Anime.objects.filter(status='RELEASING')
-        .order_by('-scored_by', 'popularity')[:15]
+        .exclude(status='NOT_YET_RELEASED')
+        .order_by('-scored_by', 'popularity')[:25]
         .values(
             'mal_id', 'title', 'title_english', 'image_url', 'banner_url',
-            'score', 'scored_by', 'episodes', 'synopsis', 'synopsis_es', 'genres', 'duration'
+            'score', 'scored_by', 'episodes', 'synopsis', 'synopsis_es', 'genres', 'duration', 'release_date'
         )
     )
     sugg_ids = [s['mal_id'] for s in suggested_qs]
@@ -399,7 +495,15 @@ def user_agenda_view(request):
     for s in suggested_qs:
         mid = s['mal_id']
         info = sugg_airing.get(mid, {})
-        latest_ep = info.get('latest_episode') or (s['episodes'] or 1)
+        # Descartar los que aún no se estrenan
+        if (
+            info.get('status') == 'NOT_YET_RELEASED'
+            or (s.get('release_date') and s['release_date'] > hoy and (info.get('latest_episode') or 0) == 0)
+        ):
+            continue
+        latest_ep = info.get('latest_episode')
+        if latest_ep is None:
+            latest_ep = s['episodes'] or 1
         synopsis_text = s['synopsis_es'] or s['synopsis'] or ''
         genres_list = s['genres'] if isinstance(s['genres'], list) else []
         dur_val = int(s['duration']) if (s['duration'] and s['duration'] > 0) else 24
@@ -419,8 +523,10 @@ def user_agenda_view(request):
             'total_episodes': info.get('total_episodes') or s['episodes'],
             'next_airing_at': info.get('next_airing_at'),
             'next_episode': info.get('next_episode'),
-            'in_user_list': mid in user_mal_ids
+            'in_user_list': mid in all_user_mal_ids
         })
+        if len(suggested_items) >= 15:
+            break
 
     total_series = len(items)
     total_behind = sum(x['episodes_behind'] for x in items)
@@ -1059,6 +1165,8 @@ def user_notifications_view(request):
         defaults={'display_name': request.user.first_name or request.user.username}
     )
     prefs, _ = UserPreferences.objects.get_or_create(profile=profile)
+    verificar_estrenos_usuario(request.user)
+    prefs.refresh_from_db()
     ps = dict(prefs.privacy_settings) if isinstance(prefs.privacy_settings, dict) else {}
 
     if 'notifications' not in ps or not isinstance(ps.get('notifications'), list):
