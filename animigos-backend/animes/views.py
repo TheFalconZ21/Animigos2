@@ -269,6 +269,10 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         except Exception as e:
             logging.error(f"Error cargando anime recommendations: {e}")
         try:
+            call_command('load_anime_relations')
+        except Exception as e:
+            logging.error(f"Error cargando anime relations: {e}")
+        try:
             call_command('seed_initial_data')
         except Exception as e:
             logging.error(f"Error seeding initial data: {e}")
@@ -282,7 +286,8 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             'total_animes': Anime.objects.count(),
             'total_history': AnimeScoreHistory.objects.count(),
             'total_recommendations': AnimeRecommendation.objects.count(),
-            'message': 'Catálogo maestro, tags, historial y recomendaciones sincronizados completamente.',
+            'total_with_relations': Anime.objects.exclude(relations_data=[]).exclude(relations_data__isnull=True).count(),
+            'message': 'Catálogo maestro, tags, historial, recomendaciones y relaciones sincronizados completamente.',
         })
 
     @action(detail=False, methods=['get', 'post'], url_path='sync-catalog')
