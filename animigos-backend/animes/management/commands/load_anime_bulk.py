@@ -28,12 +28,16 @@ class Command(BaseCommand):
         limit = options['limit']
         batch_size = options['batch_size']
 
+        from django.conf import settings
+
         possible_paths = [
-            Path(__file__).resolve().parent.parent / 'data' / 'full_catalog_30k.csv',
+            Path(__file__).resolve().parent.parent.parent / 'data' / 'full_catalog_30k.csv',
+            Path(settings.BASE_DIR) / 'animes' / 'data' / 'full_catalog_30k.csv',
+            Path(settings.BASE_DIR) / 'data' / 'full_catalog_30k.csv',
+            Path(os.getcwd()) / 'animigos-backend' / 'animes' / 'data' / 'full_catalog_30k.csv',
             Path(os.getcwd()) / 'animes' / 'data' / 'full_catalog_30k.csv',
-            Path(__file__).resolve().parent.parent / 'data' / 'anime_master_catalogo.csv',
-            Path(__file__).resolve().parent.parent.parent.parent.parent / 'anime_dataset_2018_2026' / 'csv' / 'anime_master_catalogo.csv',
-            Path(__file__).resolve().parent.parent.parent.parent / 'anime_dataset_2018_2026' / 'csv' / 'anime_master_catalogo.csv',
+            Path(__file__).resolve().parent.parent.parent / 'data' / 'anime_master_catalogo.csv',
+            Path(settings.BASE_DIR) / 'animes' / 'data' / 'anime_master_catalogo.csv',
             Path(os.getcwd()) / 'animes' / 'data' / 'anime_master_catalogo.csv',
         ]
         csv_path = None
@@ -59,7 +63,7 @@ class Command(BaseCommand):
             'image_url', 'banner_url', 'score', 'scored_by', 'popularity', 'rank',
             'episodes', 'duration', 'season_year', 'season',
             'studio', 'status', 'type', 'genres',
-            'tags_data', 'tags_cache'
+            'tags_data', 'tags_cache', 'release_date', 'relations_data'
         ]
 
         with open(csv_path, mode='r', encoding='utf-8-sig', errors='replace') as f:
@@ -165,6 +169,23 @@ class Command(BaseCommand):
                             tags_data = []
                     tags_cache = (row.get('tags_cache') or '').strip()
 
+                    release_date = None
+                    rel_date_str = (row.get('release_date') or '').strip()
+                    if rel_date_str:
+                        try:
+                            from datetime import datetime
+                            release_date = datetime.strptime(rel_date_str, '%Y-%m-%d').date()
+                        except Exception:
+                            release_date = None
+
+                    relations_data = []
+                    rel_data_raw = (row.get('relations_data') or '').strip()
+                    if rel_data_raw:
+                        try:
+                            relations_data = json.loads(rel_data_raw)
+                        except Exception:
+                            relations_data = []
+
                 else:
                     title = (row.get('title_userPreferred') or row.get('title_romaji') or '').strip() or f"Anime #{mal_id}"
                     title_english = (row.get('title_english') or '').strip()
@@ -231,6 +252,8 @@ class Command(BaseCommand):
                     genres = [g.strip('[]"\' \t\r\n') for g in genres_raw.split(',') if g.strip('[]"\' \t\r\n')] if genres_raw else []
                     tags_data = []
                     tags_cache = ''
+                    release_date = None
+                    relations_data = []
 
                 anime_obj = Anime(
                     mal_id=mal_id,
@@ -254,7 +277,9 @@ class Command(BaseCommand):
                     type=type_val,
                     genres=genres,
                     tags_data=tags_data,
-                    tags_cache=tags_cache
+                    tags_cache=tags_cache,
+                    release_date=release_date,
+                    relations_data=relations_data
                 )
                 objects_batch.append(anime_obj)
 
@@ -280,6 +305,13 @@ class Command(BaseCommand):
                 )
                 total_inserted += len(objects_batch)
                 objects_batch.clear()
+
+        try:
+            from django.core.cache import cache
+            cache.clear()
+            self.stdout.write(self.style.SUCCESS("Caché invalidada y refrescada exitosamente."))
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f"Aviso al limpiar caché: {e}"))
 
         elapsed = round(time.time() - start_time, 2)
         self.stdout.write(
