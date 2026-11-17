@@ -17,6 +17,8 @@ import {
     Plus,
     ExternalLink,
     ArrowLeft,
+    History,
+    CalendarCheck,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
@@ -705,6 +707,41 @@ export function Navbar({
                             </a>
                         )}
                         <a
+                            href="#calendario"
+                            onClick={(e) => {
+                                e.preventDefault()
+                                handleNavClick('calendario')
+                            }}
+                            className={`mobile-nav-link ${currentView === 'calendario' ? 'active' : ''}`}
+                        >
+                            <Calendar size={18} />
+                            <span>Calendario</span>
+                        </a>
+                        {isAuthenticated && (
+                            <a
+                                href="#agenda"
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    handleNavClick('agenda')
+                                }}
+                                className={`mobile-nav-link ${currentView === 'agenda' ? 'active' : ''}`}
+                            >
+                                <CalendarCheck size={18} />
+                                <span>Agenda</span>
+                            </a>
+                        )}
+                        <a
+                            href="#listas"
+                            onClick={(e) => {
+                                e.preventDefault()
+                                handleNavClick('sala')
+                            }}
+                            className={`mobile-nav-link ${currentView === 'sala' ? 'active' : ''}`}
+                        >
+                            <Users size={18} />
+                            <span>Listas Grupales</span>
+                        </a>
+                        <a
                             href="#catalogo"
                             onClick={(e) => {
                                 e.preventDefault()
@@ -726,6 +763,17 @@ export function Navbar({
                             <Sparkles size={18} />
                             <span>Recomendador</span>
                         </a>
+                        <a
+                            href="#temporadas"
+                            onClick={(e) => {
+                                e.preventDefault()
+                                handleNavClick('temporadas')
+                            }}
+                            className={`mobile-nav-link ${currentView === 'temporadas' ? 'active' : ''}`}
+                        >
+                            <History size={18} />
+                            <span>Temporadas</span>
+                        </a>
                         {isAuthenticated && (
                             <a
                                 href="#mi-lista"
@@ -739,28 +787,6 @@ export function Navbar({
                                 <span>Mi Lista</span>
                             </a>
                         )}
-                        <a
-                            href="#listas"
-                            onClick={(e) => {
-                                e.preventDefault()
-                                handleNavClick('sala')
-                            }}
-                            className={`mobile-nav-link ${currentView === 'sala' ? 'active' : ''}`}
-                        >
-                            <Users size={18} />
-                            <span>Listas Grupales</span>
-                        </a>
-                        <a
-                            href="#calendario"
-                            onClick={(e) => {
-                                e.preventDefault()
-                                handleNavClick('calendario')
-                            }}
-                            className={`mobile-nav-link ${currentView === 'calendario' ? 'active' : ''}`}
-                        >
-                            <Calendar size={18} />
-                            <span>Calendario</span>
-                        </a>
                     </div>
 
                     <div className="border-top border-secondary border-opacity-25 my-3"></div>

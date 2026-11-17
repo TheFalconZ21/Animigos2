@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { getAuthHeaders } from '../services/authApi'
 
 export type TitleLanguage = 'japones' | 'ingles'
 export type NameSeparator = 'guion' | 'guion_bajo' | 'ninguna'
@@ -45,12 +47,12 @@ export function createDefaultSlot(id: number, name?: string): LinkSlotConfig {
         id,
         name: name || `Perfil ${id}`,
         enabled: true,
-        domain: id === 1 ? 'www.animigos.app' : '',
-        intermediateTerm: id === 1 ? 'serie' : '',
+        domain: '',
+        intermediateTerm: '',
         sectionSeparator: 'barra',
         nameSeparator: 'guion',
         suffixSeparator: 'barra',
-        suffix: id === 1 ? 'chapter-6' : '',
+        suffix: '',
         titleLanguage: 'japones',
     }
 }
@@ -232,10 +234,87 @@ export function buildAssociatedAnimeUrl(
     return `${domainWithScheme}${sectionChar}${path}`
 }
 
-function loadPersistedSettings(): AssociatedLinksSettings {
-    if (typeof window === 'undefined') return createDefaultSettings()
+export function getAssociatedLinksStorageKey(userId?: string | null): string {
+    if (!userId) {
+        return 'animigos_associated_links_guest'
+    }
+    return `animigos_associated_links_user_${userId}`
+}
+
+export async function syncAssociatedLinksToBackend(settings: AssociatedLinksSettings): Promise<void> {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY_ASSOCIATED_SETTINGS)
+        const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, '')
+        const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
+        await fetch(`${API_BASE_URL}/users/me/preferences/`, {
+            method: 'PATCH',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            credentials: 'include',
+            body: JSON.stringify({
+                privacy_settings: {
+                    associated_links_settings: settings,
+                },
+            }),
+        })
+    } catch (e) {
+        console.warn('No se pudo sincronizar los enlaces asociados con el backend:', e)
+    }
+}
+
+export function loadPersistedSettings(
+    userId?: string | null,
+    backendSettings?: AssociatedLinksSettings | null
+): AssociatedLinksSettings {
+    if (typeof window === 'undefined') return createDefaultSettings()
+
+    // 1. Invitado sin sesión activa: NUNCA cargar datos de cuentas de usuario ni la clave global compartida
+    if (!userId) {
+        try {
+            const guestRaw = localStorage.getItem('animigos_associated_links_guest')
+            if (guestRaw) {
+                const parsed = JSON.parse(guestRaw)
+                const defaults = createDefaultSettings()
+                const slots = defaults.slots.map((defSlot) => {
+                    const found = parsed.slots?.find((s: LinkSlotConfig) => s.id === defSlot.id)
+                    return found ? { ...defSlot, ...found } : defSlot
+                })
+                return {
+                    globalEnabled: parsed.globalEnabled ?? defaults.globalEnabled,
+                    activeSlotId: parsed.activeSlotId || defaults.activeSlotId,
+                    slots,
+                    animeOverrides: parsed.animeOverrides || {},
+                }
+            }
+        } catch {
+            // fallback
+        }
+        return createDefaultSettings()
+    }
+
+    // 2. Si hay backendSettings para este usuario específico en la base de datos, hidratar con máxima prioridad
+    if (backendSettings && Array.isArray(backendSettings.slots) && backendSettings.slots.length > 0) {
+        const defaults = createDefaultSettings()
+        const slots = defaults.slots.map((defSlot) => {
+            const found = backendSettings.slots?.find((s: LinkSlotConfig) => s.id === defSlot.id)
+            return found ? { ...defSlot, ...found } : defSlot
+        })
+        const hydrated: AssociatedLinksSettings = {
+            globalEnabled: backendSettings.globalEnabled ?? defaults.globalEnabled,
+            activeSlotId: backendSettings.activeSlotId || defaults.activeSlotId,
+            slots,
+            animeOverrides: backendSettings.animeOverrides || {},
+        }
+        try {
+            localStorage.setItem(getAssociatedLinksStorageKey(userId), JSON.stringify(hydrated))
+        } catch {
+            // ignore
+        }
+        return hydrated
+    }
+
+    // 3. Revisar localStorage privado de este usuario
+    try {
+        const userKey = getAssociatedLinksStorageKey(userId)
+        const raw = localStorage.getItem(userKey)
         if (raw) {
             const parsed = JSON.parse(raw)
             const defaults = createDefaultSettings()
@@ -251,30 +330,58 @@ function loadPersistedSettings(): AssociatedLinksSettings {
             }
         }
 
-        // Migración de configuración previa si existía
-        const legacy = localStorage.getItem(STORAGE_KEY_LEGACY_CONFIG)
+        // 4. Migración segura de configuración global compartida previa hacia esta cuenta autenticada
+        const legacy = localStorage.getItem(STORAGE_KEY_ASSOCIATED_SETTINGS)
         if (legacy) {
             const parsedLegacy = JSON.parse(legacy)
             const defaults = createDefaultSettings()
-            defaults.slots[0] = { ...defaults.slots[0], ...parsedLegacy, id: 1 }
-            defaults.globalEnabled = parsedLegacy.enabled ?? true
-            return defaults
+            const slots = defaults.slots.map((defSlot) => {
+                const found = parsedLegacy.slots?.find((s: LinkSlotConfig) => s.id === defSlot.id)
+                return found ? { ...defSlot, ...found } : defSlot
+            })
+            const migrated: AssociatedLinksSettings = {
+                globalEnabled: parsedLegacy.globalEnabled ?? defaults.globalEnabled,
+                activeSlotId: parsedLegacy.activeSlotId || defaults.activeSlotId,
+                slots,
+                animeOverrides: parsedLegacy.animeOverrides || {},
+            }
+            // Guardar bajo el usuario activo y purgar la clave global para que no se filtre a invitados
+            localStorage.setItem(userKey, JSON.stringify(migrated))
+            localStorage.removeItem(STORAGE_KEY_ASSOCIATED_SETTINGS)
+            localStorage.removeItem(STORAGE_KEY_LEGACY_CONFIG)
+
+            // Sincronizar de inmediato al backend en la cuenta del usuario
+            syncAssociatedLinksToBackend(migrated).catch(() => {})
+
+            return migrated
         }
     } catch {
         // fallback
     }
+
     return createDefaultSettings()
 }
 
 /**
  * Hook para gestionar los 8 perfiles de links asociados y la selección activa.
+ * Aislado estrictamente por usuario autenticado (Zero Trust).
  */
 export function useAssociatedLinks() {
-    const [settings, setSettingsState] = useState<AssociatedLinksSettings>(loadPersistedSettings)
+    const { user, isAuthenticated } = useAuth()
+    const backendSettings = user?.preferences?.privacy_settings?.associated_links_settings as AssociatedLinksSettings | undefined
+
+    const [settings, setSettingsState] = useState<AssociatedLinksSettings>(() =>
+        loadPersistedSettings(user?.id, backendSettings)
+    )
+
+    useEffect(() => {
+        const loaded = loadPersistedSettings(user?.id, backendSettings)
+        setSettingsState(loaded)
+    }, [user?.id, backendSettings])
 
     useEffect(() => {
         const handleSync = () => {
-            setSettingsState(loadPersistedSettings())
+            setSettingsState(loadPersistedSettings(user?.id, backendSettings))
         }
 
         window.addEventListener(EVENT_ASSOCIATED_LINKS_UPDATED, handleSync)
@@ -283,22 +390,36 @@ export function useAssociatedLinks() {
             window.removeEventListener(EVENT_ASSOCIATED_LINKS_UPDATED, handleSync)
             window.removeEventListener('storage', handleSync)
         }
-    }, [])
+    }, [user?.id, backendSettings])
 
-    const persistSettings = useCallback((newSettings: AssociatedLinksSettings) => {
-        setSettingsState(newSettings)
-        try {
-            localStorage.setItem(STORAGE_KEY_ASSOCIATED_SETTINGS, JSON.stringify(newSettings))
-            // Mantener sincronizado el key legacy con el slot activo para retrocompatibilidad
-            const active = newSettings.slots.find((s) => s.id === newSettings.activeSlotId) || newSettings.slots[0]
-            if (active) {
-                localStorage.setItem(STORAGE_KEY_LEGACY_CONFIG, JSON.stringify(active))
+    const persistSettings = useCallback(
+        (newSettings: AssociatedLinksSettings) => {
+            setSettingsState(newSettings)
+            const storageKey = getAssociatedLinksStorageKey(user?.id)
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(newSettings))
+                const active = newSettings.slots.find((s) => s.id === newSettings.activeSlotId) || newSettings.slots[0]
+                if (active) {
+                    localStorage.setItem(`animigos_associated_links_config_${user?.id || 'guest'}`, JSON.stringify(active))
+                }
+                // Limpiar claves legacy para evitar filtraciones globales
+                localStorage.removeItem(STORAGE_KEY_ASSOCIATED_SETTINGS)
+                localStorage.removeItem(STORAGE_KEY_LEGACY_CONFIG)
+
+                window.dispatchEvent(new CustomEvent(EVENT_ASSOCIATED_LINKS_UPDATED, { detail: newSettings }))
+            } catch (err) {
+                console.error('Error persistiendo settings de links asociados:', err)
             }
-            window.dispatchEvent(new CustomEvent(EVENT_ASSOCIATED_LINKS_UPDATED, { detail: newSettings }))
-        } catch (err) {
-            console.error('Error persistiendo settings de links asociados:', err)
-        }
-    }, [])
+
+            // Sincronizar con el backend si el usuario está autenticado
+            if (user?.id) {
+                syncAssociatedLinksToBackend(newSettings).catch((err) => {
+                    console.error('Error sincronizando links asociados con backend:', err)
+                })
+            }
+        },
+        [user?.id]
+    )
 
     const updateSlot = useCallback(
         (slotId: number, slotChanges: Partial<LinkSlotConfig>) => {
@@ -420,6 +541,11 @@ export function useAssociatedLinks() {
                 e.stopPropagation()
                 e.preventDefault()
             }
+            if (!isAuthenticated) {
+                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                dialog?.showModal()
+                return
+            }
             if (slotId !== undefined) {
                 const targetSlot = settings.slots.find((s) => s.id === slotId) || activeSlot
                 const animeKey = getAnimeOverrideKey(anime)
@@ -433,14 +559,14 @@ export function useAssociatedLinks() {
             // Por defecto, abrir el modal de selección de los 8 slots
             requestOpenLinkSelector(anime)
         },
-        [settings.slots, settings.animeOverrides, activeSlot]
+        [settings.slots, settings.animeOverrides, activeSlot, isAuthenticated]
     )
 
     const hasAnyConfiguredSlot = settings.slots.some(
         (s) => s.enabled && Boolean(s.domain && s.domain.trim())
     )
 
-    const isEnabled = settings.globalEnabled && hasAnyConfiguredSlot
+    const isEnabled = Boolean(isAuthenticated && settings.globalEnabled && hasAnyConfiguredSlot)
 
     return {
         settings,

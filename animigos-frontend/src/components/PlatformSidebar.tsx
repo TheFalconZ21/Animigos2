@@ -73,14 +73,18 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
         {
             category: 'De todos los días',
             items: [
-                {
-                    id: 'tablon',
-                    label: 'Tablón Social',
-                    icon: <LayoutDashboard size={17} />,
-                    hash: 'tablon',
-                    requiresAuth: true,
-                    description: 'Feed de amigos, noticias y watch parties'
-                },
+                ...(isAuthenticated
+                    ? [
+                          {
+                              id: 'tablon' as PlatformView,
+                              label: 'Tablón Social',
+                              icon: <LayoutDashboard size={17} />,
+                              hash: 'tablon',
+                              requiresAuth: true,
+                              description: 'Feed de amigos, noticias y watch parties'
+                          }
+                      ]
+                    : []),
                 {
                     id: 'calendario',
                     label: 'Calendario',
@@ -90,16 +94,20 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     badgeColor: 'rgba(59, 130, 246, 0.25)',
                     description: 'Horarios de emisión y estrenos semanales'
                 },
-                {
-                    id: 'agenda' as PlatformView,
-                    label: 'Agenda',
-                    icon: <CalendarCheck size={17} />,
-                    hash: 'agenda',
-                    badge: 'Pendientes',
-                    badgeColor: 'rgba(245, 158, 11, 0.25)',
-                    requiresAuth: true,
-                    description: 'Seguimiento de capítulos pendientes'
-                },
+                ...(isAuthenticated
+                    ? [
+                          {
+                              id: 'agenda' as PlatformView,
+                              label: 'Agenda',
+                              icon: <CalendarCheck size={17} />,
+                              hash: 'agenda',
+                              badge: 'Pendientes',
+                              badgeColor: 'rgba(245, 158, 11, 0.25)',
+                              requiresAuth: true,
+                              description: 'Seguimiento de capítulos pendientes'
+                          }
+                      ]
+                    : []),
                 {
                     id: 'sala',
                     label: 'Listas Grupales',

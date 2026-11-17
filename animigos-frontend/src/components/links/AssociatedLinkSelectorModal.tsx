@@ -19,8 +19,10 @@ import {
     type OpenLinkSelectorPayload,
     type LinkSlotConfig,
 } from '../../hooks/useAssociatedLinks'
+import { useAuth } from '../../context/AuthContext'
 
 export const AssociatedLinkSelectorModal: React.FC = () => {
+    const { isAuthenticated } = useAuth()
     const {
         settings,
         saveAnimeExactUrl,
@@ -38,6 +40,11 @@ export const AssociatedLinkSelectorModal: React.FC = () => {
 
     useEffect(() => {
         const handleOpen = (e: Event) => {
+            if (!isAuthenticated) {
+                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                dialog?.showModal()
+                return
+            }
             const customEvent = e as CustomEvent<OpenLinkSelectorPayload>
             if (customEvent.detail) {
                 setTargetAnime(customEvent.detail)
@@ -47,7 +54,7 @@ export const AssociatedLinkSelectorModal: React.FC = () => {
         }
         window.addEventListener(EVENT_OPEN_LINK_SELECTOR, handleOpen)
         return () => window.removeEventListener(EVENT_OPEN_LINK_SELECTOR, handleOpen)
-    }, [])
+    }, [isAuthenticated])
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -94,7 +101,7 @@ export const AssociatedLinkSelectorModal: React.FC = () => {
     }, [editingSlotId, targetAnime, getAnimeExactUrl, defaultTemplateUrl])
 
     // Condición de salida temprana incondicional DESPUÉS de todos los hooks de React
-    if (!isOpen || !targetAnime) return null
+    if (!isOpen || !targetAnime || !isAuthenticated) return null
 
     const animeDisplayName = targetAnime.title || targetAnime.titleEnglish || targetAnime.title_english || 'Anime'
 
