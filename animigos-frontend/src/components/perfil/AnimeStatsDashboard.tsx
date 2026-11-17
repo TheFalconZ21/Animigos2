@@ -224,7 +224,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
     const [totalRowSlots, setTotalRowSlots] = useState<number>(8)
 
     // Estado para Subvista 2: Cantidad de Animes en Lista (Estados, % Géneros, % Tags)
-    const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'visto' | 'viendo' | 'pendiente' | 'dropeado'>('all')
+    const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'visto' | 'viendo' | 'pendiente' | 'dropeado' | 'esperando'>('all')
     const [hoveredStatus, setHoveredStatus] = useState<string | null>(null)
     const [genreSortBy, setGenreSortBy] = useState<GenreSortField>('count')
     const [genreSortDesc, setGenreSortDesc] = useState<boolean>(true)
@@ -271,6 +271,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         const viendo = filas.filter((f) => f.estado === 'viendo').length
         const pendientes = filas.filter((f) => f.estado === 'pendiente').length
         const dropeados = filas.filter((f) => f.estado === 'dropeado').length
+        const esperando = filas.filter((f) => f.estado === 'esperando').length
 
         const totalMinutos = filas.reduce((acc, f) => acc + getEntryMinutes(f), 0)
         const totalHoras = Math.round(totalMinutos / 60)
@@ -300,6 +301,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             const cViendo = matching.filter((f) => f.estado === 'viendo').length
             const cPendiente = matching.filter((f) => f.estado === 'pendiente').length
             const cDropeado = matching.filter((f) => f.estado === 'dropeado').length
+            const cEsperando = matching.filter((f) => f.estado === 'esperando').length
             const count = matching.length
             const pctOfScored = totalScored > 0 ? Math.round((count / totalScored) * 100) : 0
             return {
@@ -311,6 +313,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                 viendo: cViendo,
                 pendiente: cPendiente,
                 dropeado: cDropeado,
+                esperando: cEsperando,
                 items: matching,
             }
         })
@@ -320,6 +323,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         const pctViendo = totalEntries > 0 ? (viendo / totalEntries) * 100 : 0
         const pctPendiente = totalEntries > 0 ? (pendientes / totalEntries) * 100 : 0
         const pctDropeado = totalEntries > 0 ? (dropeados / totalEntries) * 100 : 0
+        const pctEsperando = totalEntries > 0 ? (esperando / totalEntries) * 100 : 0
 
         // Hall of Fame: Animes marcados como favoritos ordenados por la nota más alta
         const favsMarcados = [...filas]
@@ -399,6 +403,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             viendo,
             pendientes,
             dropeados,
+            esperando,
             totalMinutos,
             totalHoras,
             totalDias,
@@ -413,6 +418,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             pctViendo,
             pctPendiente,
             pctDropeado,
+            pctEsperando,
             top10,
             theyHatedIEnjoyed,
             theyLovedIDidnt,
@@ -626,8 +632,8 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                 shortLabel: 'Viendo',
                 count: stats.viendo,
                 pct: stats.pctViendo,
-                colorHex: '#38bdf8',
-                colorVar: 'var(--perfil-cyan)',
+                colorHex: '#22c55e',
+                colorVar: '#22c55e',
                 dotClass: 'perfil-seg-viendo',
             },
             {
@@ -639,6 +645,16 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                 colorHex: '#fbbf24',
                 colorVar: '#fbbf24',
                 dotClass: 'perfil-seg-pendiente',
+            },
+            {
+                id: 'esperando' as const,
+                label: 'Esperando Estreno',
+                shortLabel: 'Esperando',
+                count: stats.esperando,
+                pct: stats.pctEsperando,
+                colorHex: '#38bdf8',
+                colorVar: 'var(--ml-esperando, #38bdf8)',
+                dotClass: 'perfil-seg-esperando',
             },
             {
                 id: 'dropeado' as const,
@@ -868,7 +884,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                                 <span className="perfil-legend-dot perfil-seg-viendo" />
                                                 <span>Viendo</span>
                                             </span>
-                                            <span className="perfil-donut-stat-chip-val" style={{ color: '#38bdf8' }}>
+                                            <span className="perfil-donut-stat-chip-val" style={{ color: '#22c55e' }}>
                                                 {stats.viendo}{' '}
                                                 <span className="small text-secondary fw-normal">({stats.pctViendo.toFixed(0)}%)</span>
                                             </span>
@@ -881,6 +897,16 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                             <span className="perfil-donut-stat-chip-val" style={{ color: '#fbbf24' }}>
                                                 {stats.pendientes}{' '}
                                                 <span className="small text-secondary fw-normal">({stats.pctPendiente.toFixed(0)}%)</span>
+                                            </span>
+                                        </div>
+                                        <div className="perfil-donut-stat-chip">
+                                            <span className="perfil-donut-stat-chip-label">
+                                                <span className="perfil-legend-dot perfil-seg-esperando" />
+                                                <span>Esperando</span>
+                                            </span>
+                                            <span className="perfil-donut-stat-chip-val" style={{ color: '#38bdf8' }}>
+                                                {stats.esperando}{' '}
+                                                <span className="small text-secondary fw-normal">({stats.pctEsperando.toFixed(0)}%)</span>
                                             </span>
                                         </div>
                                         <div className="perfil-donut-stat-chip">
@@ -1313,6 +1339,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                 const vistoShare = row.count > 0 ? (row.visto / row.count) * 100 : 0
                                 const viendoShare = row.count > 0 ? (row.viendo / row.count) * 100 : 0
                                 const pendienteShare = row.count > 0 ? (row.pendiente / row.count) * 100 : 0
+                                const esperandoShare = row.count > 0 ? (row.esperando / row.count) * 100 : 0
                                 const dropeadoShare = row.count > 0 ? (row.dropeado / row.count) * 100 : 0
                                 const isHovered = hoveredScoreRow === row.score
                                 const isSelected = selectedScoreFilter === row.score
@@ -1347,6 +1374,9 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                                     {pendienteShare > 0 && (
                                                         <span className="perfil-score-seg is-pendiente" style={{ width: `${pendienteShare}%` }} />
                                                     )}
+                                                    {esperandoShare > 0 && (
+                                                        <span className="perfil-score-seg is-esperando" style={{ width: `${esperandoShare}%` }} />
+                                                    )}
                                                     {dropeadoShare > 0 && (
                                                         <span className="perfil-score-seg is-dropeado" style={{ width: `${dropeadoShare}%` }} />
                                                     )}
@@ -1370,6 +1400,12 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                                         <span className="dot is-pendiente" />
                                                         <span>Pendientes : {row.pendiente}</span>
                                                     </div>
+                                                    {row.esperando > 0 && (
+                                                        <div className="perfil-score-tooltip-item">
+                                                            <span className="dot is-esperando" />
+                                                            <span>Esperando : {row.esperando}</span>
+                                                        </div>
+                                                    )}
                                                     {row.dropeado > 0 && (
                                                         <div className="perfil-score-tooltip-item">
                                                             <span className="dot is-dropeado" />

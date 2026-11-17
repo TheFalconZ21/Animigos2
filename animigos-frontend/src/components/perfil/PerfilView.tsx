@@ -307,6 +307,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                 (f) =>
                     f.estado !== 'pendiente' &&
                     f.estado !== 'dropeado' &&
+                    f.estado !== 'esperando' &&
                     (f.estado === 'visto' || (f.estado === 'viendo' && f.episodiosVistos > 0))
             )
             .map((f) => f.malId)
@@ -321,7 +322,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
 
         const pendingOrDroppedIds = new Set(
             filas
-                .filter((f) => f.estado === 'pendiente' || f.estado === 'dropeado')
+                .filter((f) => f.estado === 'pendiente' || f.estado === 'dropeado' || f.estado === 'esperando')
                 .map((f) => f.malId)
         )
         const allLikedIds = Array.from(new Set([...(tasteAnswers.likedAnimeIds || []), ...listLikedIds]))

@@ -137,8 +137,7 @@ export const AssociatedLinkSelectorModal: React.FC = () => {
         if (!editingSlot) return
         const trimmed = (customUrlInput || '').trim()
 
-        // Si la URL ingresada es idéntica a la plantilla por defecto o está vacía, no hace falta override
-        if (!trimmed || trimmed === defaultTemplateUrl) {
+        if (!trimmed) {
             saveAnimeExactUrl(targetAnime, editingSlot.id, null)
         } else {
             const formatted = trimmed.startsWith('http://') || trimmed.startsWith('https://')
@@ -160,6 +159,8 @@ export const AssociatedLinkSelectorModal: React.FC = () => {
     }
 
     const handleResetToTemplate = () => {
+        if (!editingSlot) return
+        saveAnimeExactUrl(targetAnime, editingSlot.id, null)
         setCustomUrlInput(defaultTemplateUrl !== '#' ? defaultTemplateUrl : '')
     }
 
@@ -545,18 +546,19 @@ export const AssociatedLinkSelectorModal: React.FC = () => {
                             </div>
 
                             {/* Botón para restablecer al enlace original de la plantilla */}
-                            {customUrlInput.trim() !== defaultTemplateUrl && defaultTemplateUrl !== '#' && (
+                            {(isSlotCurrentlyOverridden || (customUrlInput.trim() !== defaultTemplateUrl && defaultTemplateUrl !== '#')) && (
                                 <button
                                     type="button"
                                     onClick={handleResetToTemplate}
                                     className="btn btn-sm py-0.5 px-2 border-0 d-inline-flex align-items-center gap-1"
                                     style={{
                                         fontSize: '0.68rem',
-                                        color: 'rgba(255, 255, 255, 0.55)',
-                                        background: 'transparent',
+                                        color: 'rgba(255, 255, 255, 0.65)',
+                                        background: 'rgba(255, 255, 255, 0.05)',
+                                        borderRadius: '6px',
                                         cursor: 'pointer',
                                     }}
-                                    title="Volver al enlace que genera la plantilla general de este slot"
+                                    title="Quitar ajuste fino y volver al enlace que genera la plantilla general de este slot"
                                 >
                                     <RotateCcw size={11} />
                                     <span>Restablecer plantilla</span>

@@ -85,7 +85,7 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
         let totalMinutes = 0
 
         for (const f of filas) {
-            if (f.estado === 'pendiente' || f.estado === 'dropeado') continue
+            if (f.estado === 'pendiente' || f.estado === 'dropeado' || f.estado === 'esperando') continue
             const isMovie = isAnimeMovie(f)
             const eps = getEntryWatchedEpisodes(f)
             const mins = getEntryMinutes(f)
@@ -118,6 +118,7 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
             (f) =>
                 f.estado !== 'pendiente' &&
                 f.estado !== 'dropeado' &&
+                f.estado !== 'esperando' &&
                 (f.estado === 'visto' || (f.estado === 'viendo' && f.episodiosVistos > 0))
         )
 

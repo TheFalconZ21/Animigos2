@@ -55,27 +55,26 @@ export function LoginModal() {
                 if (!usernameOrEmail.trim()) {
                     throw new Error('Ingresa tu usuario o correo electrónico')
                 }
-                if (!password) {
+                if (!password.trim()) {
                     throw new Error('Ingresa tu contraseña')
                 }
 
-                const loggedUser = await login(usernameOrEmail.trim(), password)
-                if (loggedUser?.is_staff || loggedUser?.is_superuser) {
+                const loggedUser = await login(usernameOrEmail.trim(), password.trim())
+                const isAdminUser = Boolean(loggedUser?.is_staff || loggedUser?.is_superuser)
+
+                if (isAdminUser && window.location.hash === '#admin') {
                     setSuccessMsg('¡Bienvenido Administrador! Ingresando a Admin Console...')
-                    setTimeout(() => {
-                        handleClose()
-                        setPassword('')
-                        window.location.hash = '#admin'
-                    }, 600)
-                    return
+                } else if (isAdminUser) {
+                    setSuccessMsg(`¡Bienvenido ${loggedUser.display_name || loggedUser.username}!`)
+                } else {
+                    setSuccessMsg('¡Bienvenido de vuelta a Animigos!')
                 }
-                setSuccessMsg('¡Bienvenido de vuelta a Animigos!')
             }
 
             setTimeout(() => {
                 handleClose()
                 setPassword('')
-            }, 800)
+            }, 700)
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Error al procesar la solicitud'
             setErrorMsg(msg)
@@ -140,6 +139,10 @@ export function LoginModal() {
                                     onChange={(e) => setRegisterUsername(e.target.value)}
                                     required
                                     autoFocus
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    spellCheck={false}
+                                    autoComplete="username"
                                 />
                             </div>
 
@@ -169,6 +172,10 @@ export function LoginModal() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    spellCheck={false}
+                                    autoComplete="email"
                                 />
                             </div>
                         </>
@@ -187,6 +194,10 @@ export function LoginModal() {
                                 onChange={(e) => setUsernameOrEmail(e.target.value)}
                                 required
                                 autoFocus
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                                spellCheck={false}
+                                autoComplete="username"
                             />
                         </div>
                     )}
@@ -205,6 +216,10 @@ export function LoginModal() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                                spellCheck={false}
+                                autoComplete={isRegister ? 'new-password' : 'current-password'}
                             />
                             <button
                                 type="button"

@@ -290,28 +290,7 @@ export function loadPersistedSettings(
         return createDefaultSettings()
     }
 
-    // 2. Si hay backendSettings para este usuario específico en la base de datos, hidratar con máxima prioridad
-    if (backendSettings && Array.isArray(backendSettings.slots) && backendSettings.slots.length > 0) {
-        const defaults = createDefaultSettings()
-        const slots = defaults.slots.map((defSlot) => {
-            const found = backendSettings.slots?.find((s: LinkSlotConfig) => s.id === defSlot.id)
-            return found ? { ...defSlot, ...found } : defSlot
-        })
-        const hydrated: AssociatedLinksSettings = {
-            globalEnabled: backendSettings.globalEnabled ?? defaults.globalEnabled,
-            activeSlotId: backendSettings.activeSlotId || defaults.activeSlotId,
-            slots,
-            animeOverrides: backendSettings.animeOverrides || {},
-        }
-        try {
-            localStorage.setItem(getAssociatedLinksStorageKey(userId), JSON.stringify(hydrated))
-        } catch {
-            // ignore
-        }
-        return hydrated
-    }
-
-    // 3. Revisar localStorage privado de este usuario
+    // 2. Revisar localStorage privado de este usuario (fuente de verdad local más reciente)
     try {
         const userKey = getAssociatedLinksStorageKey(userId)
         const raw = localStorage.getItem(userKey)
@@ -328,6 +307,27 @@ export function loadPersistedSettings(
                 slots,
                 animeOverrides: parsed.animeOverrides || {},
             }
+        }
+
+        // 3. Si no hay nada en localStorage para este usuario en este navegador, hidratar desde backendSettings
+        if (backendSettings && Array.isArray(backendSettings.slots) && backendSettings.slots.length > 0) {
+            const defaults = createDefaultSettings()
+            const slots = defaults.slots.map((defSlot) => {
+                const found = backendSettings.slots?.find((s: LinkSlotConfig) => s.id === defSlot.id)
+                return found ? { ...defSlot, ...found } : defSlot
+            })
+            const hydrated: AssociatedLinksSettings = {
+                globalEnabled: backendSettings.globalEnabled ?? defaults.globalEnabled,
+                activeSlotId: backendSettings.activeSlotId || defaults.activeSlotId,
+                slots,
+                animeOverrides: backendSettings.animeOverrides || {},
+            }
+            try {
+                localStorage.setItem(userKey, JSON.stringify(hydrated))
+            } catch {
+                // ignore
+            }
+            return hydrated
         }
 
         // 4. Migración segura de configuración global compartida previa hacia esta cuenta autenticada
@@ -380,7 +380,12 @@ export function useAssociatedLinks() {
     }, [user?.id, backendSettings])
 
     useEffect(() => {
-        const handleSync = () => {
+        const handleSync = (e: Event) => {
+            const customEvent = e as CustomEvent<AssociatedLinksSettings>
+            if (customEvent && customEvent.detail && Array.isArray(customEvent.detail.slots)) {
+                setSettingsState(customEvent.detail)
+                return
+            }
             setSettingsState(loadPersistedSettings(user?.id, backendSettings))
         }
 
@@ -462,9 +467,12 @@ export function useAssociatedLinks() {
             const nextOverrides = { ...(settings.animeOverrides || {}) }
             if (!override || Object.keys(override).length === 0) {
                 if (nextOverrides[animeKey]) {
-                    delete nextOverrides[animeKey][slotId]
-                    if (Object.keys(nextOverrides[animeKey]).length === 0) {
+                    const slotMap = { ...nextOverrides[animeKey] }
+                    delete slotMap[slotId]
+                    if (Object.keys(slotMap).length === 0) {
                         delete nextOverrides[animeKey]
+                    } else {
+                        nextOverrides[animeKey] = slotMap
                     }
                 }
             } else {
@@ -497,9 +505,12 @@ export function useAssociatedLinks() {
 
             if (!trimmed) {
                 if (nextOverrides[animeKey]) {
-                    delete nextOverrides[animeKey][slotId]
-                    if (Object.keys(nextOverrides[animeKey]).length === 0) {
+                    const slotMap = { ...nextOverrides[animeKey] }
+                    delete slotMap[slotId]
+                    if (Object.keys(slotMap).length === 0) {
                         delete nextOverrides[animeKey]
+                    } else {
+                        nextOverrides[animeKey] = slotMap
                     }
                 }
             } else {

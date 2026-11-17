@@ -65,17 +65,26 @@ export interface CurrentUserResponse {
 export async function loginUser(usernameOrEmail: string, password: string): Promise<AuthResponse> {
     const res = await fetch(`${API_BASE_URL}/users/login/`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: {
+            'Content-Type': 'application/json',
+        },
         credentials: 'include',
         body: JSON.stringify({
-            username: usernameOrEmail,
-            password,
+            username: usernameOrEmail.trim(),
+            password: password.trim(),
         }),
     })
 
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-        throw new Error(data.error || 'Credenciales inválidas. Verifica tu usuario y contraseña.')
+        const errorMsg =
+            data.error ||
+            data.detail ||
+            (data.username ? (Array.isArray(data.username) ? data.username[0] : data.username) : null) ||
+            (data.password ? (Array.isArray(data.password) ? data.password[0] : data.password) : null) ||
+            (typeof data === 'string' ? data : null) ||
+            `Error del servidor (${res.status}): No se pudo iniciar sesión.`
+        throw new Error(errorMsg)
     }
     if (data.session_id) {
         localStorage.setItem('animigos_session_id', data.session_id)

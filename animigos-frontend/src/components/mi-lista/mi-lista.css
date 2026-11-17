@@ -530,6 +530,7 @@
 .ml-punto-visto { background: var(--ml-visto); }
 .ml-punto-viendo { background: var(--ml-viendo); }
 .ml-punto-pendiente { background: var(--ml-pendiente); }
+.ml-punto-esperando { background: var(--ml-esperando); }
 .ml-punto-dropeado { background: var(--ml-dropeado); }
 
 .ml-badge-contador {

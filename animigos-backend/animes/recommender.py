@@ -756,11 +756,11 @@ def build_user_taste_analytics(
                 if aid not in liked_ids:
                     liked_ids.append(aid)
 
-            # Excluir explícitamente cualquier anime que esté en 'pendiente' o 'dropeado'
+            # Excluir explícitamente cualquier anime que esté en 'pendiente', 'dropeado' o 'esperando'
             pending_or_dropped_ids = set(
                 UserAnimeEntry.objects.filter(
                     user=user,
-                    status__in=['pendiente', 'dropeado']
+                    status__in=['pendiente', 'dropeado', 'esperando']
                 ).values_list('anime_id', flat=True)
             )
             liked_ids = [aid for aid in liked_ids if aid not in pending_or_dropped_ids]

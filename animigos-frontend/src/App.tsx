@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Navbar } from './components/Navbar'
 import { PlatformSidebar, type PlatformView } from './components/PlatformSidebar'
 import { LoginModal } from './components/LoginModal'
@@ -31,6 +31,11 @@ function App() {
   }
 
   const isAdmin = Boolean(isAuthenticated && (user?.is_staff || user?.is_superuser))
+  const isAdminRef = useRef(isAdmin)
+  isAdminRef.current = isAdmin
+  const isAuthenticatedRef = useRef(isAuthenticated)
+  isAuthenticatedRef.current = isAuthenticated
+
   const [currentView, setCurrentView] = useState<PlatformView>('landing')
   const [profileSubView, setProfileSubView] = useState<ProfileSubView | null>(null)
   const [visitedUsername, setVisitedUsername] = useState<string | undefined>(undefined)
@@ -86,7 +91,7 @@ function App() {
       } else if (hash === '#agenda' || hash === '#pendientes') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
-        if (!isAuthenticated) {
+        if (!isAuthenticatedRef.current) {
           window.location.hash = '#catalogo'
           setCurrentView('catalogo')
           const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
@@ -96,7 +101,7 @@ function App() {
         }
       } else if (hash === '#mi-lista' || hash.startsWith('#mi-lista/')) {
         setSelectedAnimeId(null)
-        if (!isAuthenticated) {
+        if (!isAuthenticatedRef.current) {
           window.location.hash = '#catalogo'
           setCurrentView('catalogo')
           const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
@@ -109,7 +114,7 @@ function App() {
       } else if (hash === '#tablon' || hash === '#dashboard') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
-        if (!isAuthenticated) {
+        if (!isAuthenticatedRef.current) {
           window.location.hash = '#catalogo'
           setCurrentView('catalogo')
           const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
@@ -132,11 +137,13 @@ function App() {
       } else if (hash === '#admin') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
-        if (!isAdmin) {
+        if (!isAdminRef.current) {
           window.location.hash = '#catalogo'
           setCurrentView('catalogo')
-          const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
-          dialog?.showModal()
+          if (!isAuthenticatedRef.current) {
+            const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+            dialog?.showModal()
+          }
         } else {
           setCurrentView('admin')
         }
@@ -146,7 +153,7 @@ function App() {
         setCurrentView('sala')
       } else if (hash === '#perfil' || hash === '#profile' || hash.startsWith('#perfil/')) {
         setSelectedAnimeId(null)
-        if (!isAuthenticated) {
+        if (!isAuthenticatedRef.current) {
           window.location.hash = '#catalogo'
           setCurrentView('catalogo')
           const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null

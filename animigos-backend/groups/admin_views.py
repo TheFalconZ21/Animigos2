@@ -667,7 +667,7 @@ def algorithm_analytics(request):
         u_name = getattr(getattr(e.user, 'profile', None), 'display_name', '') or e.user.first_name or e.user.username
         u_avatar = getattr(getattr(e.user, 'profile', None), 'avatar_url', '') or ''
         genres_str = ' · '.join((e.anime.genres or [])[:2]) if isinstance(e.anime.genres, list) else 'Anime'
-        action_label = 'Añadido a Favoritos' if e.is_favorite else f'En Mi Lista ({e.status})'
+        action_label = 'Añadido a Favoritos' if e.is_favorite else f'En Mi Lista ({e.get_status_display()})'
         individual_ratings.append({
             'id': f'entry-{e.id}',
             'userName': u_name,

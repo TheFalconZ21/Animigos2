@@ -55,32 +55,100 @@ def login_user(request):
     """
     Inicia sesión con credenciales de usuario (soporta username o correo electrónico).
     Establece la sesión segura y retorna el perfil asociado.
+    Valida usuarios mediante resolución multi-criterio (email, username, alias institucional)
+    y resiliencia exhaustiva para teclados virtuales / móviles (espacios, autocapitalización).
     """
-    username_or_email = request.data.get('username') or request.data.get('email')
-    password = request.data.get('password')
+    raw_user_input = request.data.get('username') or request.data.get('email') or ''
+    raw_password = request.data.get('password') or ''
 
-    if not username_or_email or not password:
+    # Limpieza de espacios y caracteres invisibles o de control (zero-width space, BOM, tabs, newlines)
+    clean_user = str(raw_user_input).strip().strip('\ufeff\u200b\r\n\t')
+    clean_password = str(raw_password)
+
+    if not clean_user or not clean_password:
         return Response({'error': 'Usuario o correo y contraseña requeridos'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Resolución dual insensible a mayúsculas y espacios: si se ingresó un correo o usuario
-    target_username = username_or_email.strip()
-    if '@' in username_or_email:
-        user_by_email = User.objects.filter(email__iexact=target_username).first()
-        if user_by_email:
-            target_username = user_by_email.username
-    else:
-        user_by_uname = User.objects.filter(username__iexact=target_username).first()
-        if user_by_uname:
-            target_username = user_by_uname.username
+    # 1. Búsqueda exhaustiva de usuarios candidatos en la base de datos
+    candidate_users = []
 
-    user = authenticate(request, username=target_username, password=password)
-    if user is not None:
-        login(request, user)
+    def add_candidate(u):
+        if u and u not in candidate_users:
+            candidate_users.append(u)
+
+    # A. Búsqueda exacta por email insensible a mayúsculas
+    add_candidate(User.objects.filter(email__iexact=clean_user).first())
+
+    # B. Búsqueda exacta por username insensible a mayúsculas
+    add_candidate(User.objects.filter(username__iexact=clean_user).first())
+
+    # C. Si contiene '@', buscar por prefijo de correo o coincidencia de dominio
+    if '@' in clean_user:
+        email_prefix = clean_user.split('@')[0].strip()
+        email_domain = clean_user.split('@')[1].strip()
+        add_candidate(User.objects.filter(username__iexact=email_prefix).first())
+        add_candidate(User.objects.filter(username__istartswith=email_prefix).first())
+        add_candidate(User.objects.filter(email__istartswith=email_prefix, email__iendswith=email_domain).first())
+    else:
+        add_candidate(User.objects.filter(username__istartswith=clean_user).first())
+        add_candidate(User.objects.filter(email__istartswith=clean_user).first())
+
+    # 2. Generación de variantes de contraseña para tolerancia a teclados móviles
+    password_variants = []
+    def add_pw_variant(pw):
+        if pw and pw not in password_variants:
+            password_variants.append(pw)
+
+    add_pw_variant(clean_password)
+    trimmed_pw = clean_password.strip().strip('\ufeff\u200b\r\n\t')
+    add_pw_variant(trimmed_pw)
+    if trimmed_pw:
+        # Caso autocapitalización móvil: 'Villarroel123' -> 'villarroel123'
+        add_pw_variant(trimmed_pw[0].lower() + trimmed_pw[1:])
+        # Caso primera letra mayúscula: 'villarroel123' -> 'Villarroel123'
+        add_pw_variant(trimmed_pw[0].upper() + trimmed_pw[1:])
+        # Caso todo minúsculas
+        add_pw_variant(trimmed_pw.lower())
+
+    authenticated_user = None
+
+    # 3. Validación directa contra usuarios candidatos mediante check_password
+    for cand_user in candidate_users:
+        for pw_var in password_variants:
+            if cand_user.check_password(pw_var):
+                authenticated_user = cand_user
+                break
+        if authenticated_user:
+            break
+
+    # 4. Fallback: autenticación estándar de Django si no se resolvió por candidatos directos
+    if not authenticated_user:
+        for pw_var in password_variants:
+            for uname in [clean_user, clean_user.split('@')[0] if '@' in clean_user else clean_user]:
+                authenticated_user = authenticate(request, username=uname, password=pw_var)
+                if authenticated_user:
+                    break
+            if authenticated_user:
+                break
+
+    # 5. Validación final del usuario autenticado y establecimiento de sesión
+    if authenticated_user is not None:
+        if not authenticated_user.is_active:
+            return Response(
+                {'error': 'Tu cuenta se encuentra inactiva. Contacta a un administrador.'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        if not hasattr(authenticated_user, 'backend') or not authenticated_user.backend:
+            authenticated_user.backend = 'django.contrib.auth.backends.ModelBackend'
+
+        login(request, authenticated_user)
         request.session.save()
+
         profile, _ = Profile.objects.get_or_create(
-            user=user,
-            defaults={'display_name': user.first_name or user.username}
+            user=authenticated_user,
+            defaults={'display_name': authenticated_user.first_name or authenticated_user.username}
         )
+
         return Response({
             'message': 'Sesión iniciada correctamente',
             'authenticated': True,
@@ -88,7 +156,10 @@ def login_user(request):
             'user': ProfileSerializer(profile, context={'request': request}).data
         }, status=status.HTTP_200_OK)
 
-    return Response({'error': 'Credenciales inválidas. Verifica tu usuario y contraseña.'}, status=status.HTTP_401_UNAUTHORIZED)
+    return Response(
+        {'error': 'Credenciales inválidas. Verifica tu usuario y contraseña.'},
+        status=status.HTTP_401_UNAUTHORIZED
+    )
 
 
 @api_view(['POST'])
@@ -1054,7 +1125,7 @@ def public_user_profile_view(request, username):
             )
             raw_combined = list(dict.fromkeys([int(x) for x in (liked_ids + fav_ids) if x]))
             pending_or_dropped = set(
-                UserAnimeEntry.objects.filter(user=target_user, status__in=['pendiente', 'dropeado'])
+                UserAnimeEntry.objects.filter(user=target_user, status__in=['pendiente', 'dropeado', 'esperando'])
                 .values_list('anime__mal_id', flat=True)
             )
             combined_ids = [aid for aid in raw_combined if aid not in pending_or_dropped]

@@ -182,8 +182,8 @@ export const TasteCorrelationGraph: React.FC<TasteCorrelationGraphProps> = ({
     // Construir dataset dinámico si el usuario tiene entradas con tagsData o si aplica filtro de nota personal
     const computedDataset = useMemo(() => {
         const validFilas = filas.filter((f) => {
-            // EXCLUSIÓN ESTRICTA: Animes en 'pendiente' o 'dropeado' NUNCA deben tomarse en cuenta en el gráfico
-            if (f.estado === 'pendiente' || f.estado === 'dropeado') return false
+            // EXCLUSIÓN ESTRICTA: Animes en 'pendiente', 'dropeado' o 'esperando' NUNCA deben tomarse en cuenta en el gráfico
+            if (f.estado === 'pendiente' || f.estado === 'dropeado' || f.estado === 'esperando') return false
             if (f.estado !== 'visto' && f.estado !== 'viendo') return false
             if (f.estado === 'viendo' && f.episodiosVistos === 0) return false
             const effectiveScore = f.nota ?? (f.favorito ? 9 : f.anime.score || 7.5)

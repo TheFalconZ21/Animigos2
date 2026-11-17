@@ -572,8 +572,9 @@
 }
 
 .perfil-seg-visto { background: var(--perfil-acento); }
-.perfil-seg-viendo { background: var(--perfil-cyan); }
-.perfil-seg-pendiente { background: #e4e4e7; }
+.perfil-seg-viendo { background: #22c55e; }
+.perfil-seg-pendiente { background: #fbbf24; }
+.perfil-seg-esperando { background: var(--ml-esperando, #38bdf8); }
 .perfil-seg-dropeado { background: var(--perfil-pink); }
 
 .perfil-legend-item {
@@ -1603,6 +1604,10 @@
     background: #eab308;
 }
 
+.perfil-score-seg.is-esperando {
+    background: #38bdf8;
+}
+
 .perfil-score-seg.is-dropeado {
     background: #ef4444;
 }
@@ -1678,6 +1683,10 @@
 
 .perfil-score-tooltip-item .dot.is-pendiente {
     background: #eab308;
+}
+
+.perfil-score-tooltip-item .dot.is-esperando {
+    background: #38bdf8;
 }
 
 .perfil-score-tooltip-item .dot.is-dropeado {
