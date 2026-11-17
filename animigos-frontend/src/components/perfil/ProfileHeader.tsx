@@ -120,7 +120,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                                 className="perfil-avatar-img"
                                 onError={(e) => {
                                     e.currentTarget.src =
-                                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+                                        resolveMediaUrl('/media/avatars/crunchyroll_classic_collection/classic-hime-avatar-3.webp')
                                 }}
                             />
 

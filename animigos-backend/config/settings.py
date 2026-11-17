@@ -83,17 +83,37 @@ CHANNEL_LAYERS = {
 
 
 # Database
-# Conexión híbrida resiliente: si PostgreSQL está configurado y el puerto responde,
-# usa PostgreSQL (AWS RDS / EC2); de lo contrario, conmuta transparentemente a SQLite local (db.sqlite3).
+# Conexión híbrida resiliente: si PostgreSQL está configurado (vía DATABASE_URL o variables individuales)
+# y el puerto responde, usa PostgreSQL (Render / AWS RDS / Supabase); de lo contrario, conmuta a SQLite local (db.sqlite3).
 import socket
+import urllib.parse
 
+db_url = os.getenv('DATABASE_URL')
 pg_host = os.getenv('POSTGRES_HOST')
 pg_port = os.getenv('POSTGRES_PORT', '5432')
 pg_db = os.getenv('POSTGRES_DB')
+pg_user = os.getenv('POSTGRES_USER', 'postgres')
+pg_password = os.getenv('POSTGRES_PASSWORD', '')
+
+if db_url:
+    try:
+        parsed_db = urllib.parse.urlparse(db_url)
+        if parsed_db.hostname:
+            pg_host = parsed_db.hostname
+        if parsed_db.port:
+            pg_port = str(parsed_db.port)
+        if parsed_db.path and parsed_db.path != '/':
+            pg_db = parsed_db.path.lstrip('/')
+        if parsed_db.username:
+            pg_user = parsed_db.username
+        if parsed_db.password:
+            pg_password = parsed_db.password
+    except Exception:
+        pass
 
 def _check_db_reachable(host, port):
     try:
-        with socket.create_connection((host, int(port)), timeout=0.8):
+        with socket.create_connection((host, int(port)), timeout=1.2):
             return True
     except (socket.timeout, ConnectionRefusedError, OSError):
         return False
@@ -103,8 +123,8 @@ if pg_db and pg_host and _check_db_reachable(pg_host, pg_port):
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': pg_db,
-            'USER': os.getenv('POSTGRES_USER', 'postgres'),
-            'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
+            'USER': pg_user,
+            'PASSWORD': pg_password,
             'HOST': pg_host,
             'PORT': pg_port,
         }

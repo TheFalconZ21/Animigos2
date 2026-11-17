@@ -12,7 +12,7 @@ class Profile(models.Model):
     display_name = models.CharField(max_length=100, blank=True)
     avatar_url = models.TextField(
         blank=True,
-        default='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+        default='/media/avatars/crunchyroll_classic_collection/classic-hime-avatar-1.webp'
     )
     bio = models.TextField(
         blank=True,

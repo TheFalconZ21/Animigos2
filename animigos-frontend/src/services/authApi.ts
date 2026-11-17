@@ -189,6 +189,29 @@ export async function updateUserProfile(updates: Partial<{
     return res.json()
 }
 
+/**
+ * Actualiza preferencias de usuario y customización en la BD (flag_url, lateral_config, socials, etc.)
+ */
+export async function updateUserPreferences(updates: Partial<{
+    onboarding_completed: boolean
+    experience_level: string
+    favorite_genres: string[]
+    disliked_genres: string[]
+    preferred_duration: string
+    privacy_settings: Record<string, unknown>
+}>): Promise<UserPreferences> {
+    const res = await fetch(`${API_BASE_URL}/users/me/preferences/`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(updates),
+    })
+    if (!res.ok) {
+        throw new Error(`Error al actualizar preferencias: ${res.statusText}`)
+    }
+    return res.json()
+}
+
 export interface PresetAvatarItem {
     id: string
     name: string

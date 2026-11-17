@@ -10,24 +10,28 @@ ADMIN_USERS = [
         'username': 'jcarmonao',
         'display_name': 'J. Carmona',
         'password': 'villarroel123',
+        'avatar_url': '/media/avatars/attack_on_titan/aot_fc_levi-avatar.webp',
     },
     {
         'email': 'agustingarridop@gmail.com',
         'username': 'agustingarridop',
         'display_name': 'Agustín Garrido',
         'password': 'villarroel123',
+        'avatar_url': '/media/avatars/bleach/bleach_ichigo_avatar.webp',
     },
     {
         'email': 'mfalcong@udd.cl',
         'username': 'mfalcong',
         'display_name': 'M. Falcón',
         'password': 'villarroel123',
+        'avatar_url': '/media/avatars/crunchyroll_classic_collection/classic-hime-avatar-3.webp',
     },
     {
         'email': 'alonsorogonz@gmail.com',
         'username': 'alonsorogonz',
         'display_name': 'Alonso González',
         'password': 'villarroel123',
+        'avatar_url': '/media/avatars/jujutsu_kaisen/jjk_gojo_avatar.webp',
     },
 ]
 
@@ -67,6 +71,12 @@ class Command(BaseCommand):
             profile, _ = Profile.objects.get_or_create(user=user)
             if profile.display_name != display_name:
                 profile.display_name = display_name
+                profile.save()
+
+            # Asignar avatar de anime oficial si no tiene uno o si tenía la imagen stock genérica
+            default_unsplash = 'images.unsplash.com/photo-1534528741775-53994a69daeb'
+            if not profile.avatar_url or default_unsplash in profile.avatar_url:
+                profile.avatar_url = admin_data.get('avatar_url', '')
                 profile.save()
 
         self.stdout.write(self.style.SUCCESS('Administradores configurados correctamente.'))

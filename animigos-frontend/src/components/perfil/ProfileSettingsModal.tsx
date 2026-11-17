@@ -30,14 +30,15 @@ import {
     type SuffixSeparator,
 } from '../../hooks/useAssociatedLinks'
 import type { SocialLinks, PrivacyConfig } from './perfil-types'
+import { resolveMediaUrl } from '../../utils/mediaUrl'
 
 const PRESET_AVATARS = [
-    { label: 'Spike', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' },
-    { label: 'Luffy / Shonen', url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=150' },
-    { label: 'Cyberpunk Girl', url: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=150' },
-    { label: 'Mecha Pilot', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150' },
-    { label: 'Neon Samurai', url: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=150' },
-    { label: 'Misterio / Noir', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' },
+    { label: 'Hime (CR)', url: '/media/avatars/crunchyroll_classic_collection/classic-hime-avatar-3.webp' },
+    { label: 'Fern', url: '/media/avatars/frieren_mas_alla_del_final_del_viaje/frieren_fern-avatar-1.webp' },
+    { label: 'Levi', url: '/media/avatars/attack_on_titan/aot_fc_levi-avatar.webp' },
+    { label: 'Gojo', url: '/media/avatars/jujutsu_kaisen/jjk_gojo_avatar.webp' },
+    { label: 'Ichigo', url: '/media/avatars/bleach/bleach_ichigo_avatar.webp' },
+    { label: 'Bocchi', url: '/media/avatars/bocchi_the_rock/bocchi-avatar.webp' },
 ]
 
 type ActiveLinkField = 'domain' | 'intermediate' | 'sectionSeparator' | 'name' | 'suffixSeparator' | 'suffix' | null
@@ -359,7 +360,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
 
                             <div className="d-flex align-items-center gap-3 p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
                                 <img
-                                    src={avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                                    src={resolveMediaUrl(avatarUrl || '/media/avatars/crunchyroll_classic_collection/classic-hime-avatar-3.webp')}
                                     alt="Preview"
                                     className="rounded-circle border"
                                     style={{

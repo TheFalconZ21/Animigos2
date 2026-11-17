@@ -14,7 +14,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { useMyList } from '../../hooks/useMyList'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
-import { updateUserProfile, getAuthHeaders } from '../../services/authApi'
+import { updateUserProfile, updateUserPreferences, getAuthHeaders } from '../../services/authApi'
 import {
     fetchPublicProfile,
     fetchFriends,
@@ -197,59 +197,55 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
     // Sincronizar estado cuando el usuario cambia o se autentica
     React.useEffect(() => {
         const uid = user?.id ?? 'guest'
-        // Cargar perfil custom si existe para este usuario
+        const ps = (user?.preferences?.privacy_settings as Record<string, any>) || {}
+
+        // Cargar perfil custom si existe para este usuario (priorizando datos persistidos del backend)
         try {
             const savedProfile = localStorage.getItem(getStorageProfileKey(uid))
-            if (savedProfile) {
-                const parsed = JSON.parse(savedProfile)
-                setDisplayName(parsed.displayName || user?.display_name || user?.username || '')
-                setBio(typeof parsed.bio === 'string' ? parsed.bio : (user?.bio || ''))
-                setAvatarUrl(parsed.avatarUrl || user?.avatar_url || '')
-                setSocials(parsed.socials || { mal: '', anilist: '', discord: '', twitter: '' })
-            } else {
-                setDisplayName(user?.display_name || user?.username || '')
-                setBio(user?.bio || '')
-                setAvatarUrl(user?.avatar_url || '')
-                setSocials({ mal: '', anilist: '', discord: '', twitter: '' })
-            }
+            const parsed = savedProfile ? JSON.parse(savedProfile) : {}
+
+            setDisplayName(user?.display_name || parsed.displayName || user?.username || '')
+            setBio(typeof user?.bio === 'string' ? user.bio : (typeof parsed.bio === 'string' ? parsed.bio : ''))
+            setAvatarUrl(user?.avatar_url || parsed.avatarUrl || '')
+            setSocials(ps.socials || parsed.socials || { mal: '', anilist: '', discord: '', twitter: '' })
         } catch {
             setDisplayName(user?.display_name || user?.username || '')
             setBio(user?.bio || '')
             setAvatarUrl(user?.avatar_url || '')
-            setSocials({ mal: '', anilist: '', discord: '', twitter: '' })
+            setSocials(ps.socials || { mal: '', anilist: '', discord: '', twitter: '' })
         }
 
-        // Cargar Flag
+        // Cargar Flag (priorizando backend ps.flag_url, luego localStorage, luego preset)
         try {
             const savedFlag = localStorage.getItem(getStorageFlagKey(uid))
-            setFlagUrl(savedFlag || FLAG_PRESETS[0]?.url || '')
+            const effectiveFlag = ps.flag_url || savedFlag || FLAG_PRESETS[0]?.url || ''
+            setFlagUrl(effectiveFlag)
+            if (ps.flag_url && !savedFlag) {
+                localStorage.setItem(getStorageFlagKey(uid), ps.flag_url)
+            }
         } catch {
-            setFlagUrl(FLAG_PRESETS[0]?.url || '')
+            setFlagUrl(ps.flag_url || FLAG_PRESETS[0]?.url || '')
         }
 
-        // Cargar Lateral (habilitado por defecto con preset si aún no se ha configurado imagen)
+        // Cargar Lateral (priorizando backend ps.lateral_config, luego localStorage, luego preset)
         try {
             const savedLat = localStorage.getItem(getStorageLateralKey(uid))
-            if (savedLat) {
-                const parsed = JSON.parse(savedLat)
-                if (parsed && parsed.imageUrl) {
-                    setLateralConfig(parsed)
-                } else {
-                    setLateralConfig({
+            const parsedLat = savedLat ? JSON.parse(savedLat) : null
+            const effectiveLateral = (ps.lateral_config && ps.lateral_config.imageUrl)
+                ? ps.lateral_config
+                : (parsedLat && parsedLat.imageUrl)
+                    ? parsedLat
+                    : {
                         imageUrl: LATERAL_PRESETS[0]?.url || '',
                         opacity: 55,
                         enabled: true,
-                    })
-                }
-            } else {
-                setLateralConfig({
-                    imageUrl: LATERAL_PRESETS[0]?.url || '',
-                    opacity: 55,
-                    enabled: true,
-                })
+                    }
+            setLateralConfig(effectiveLateral)
+            if (ps.lateral_config && !savedLat) {
+                localStorage.setItem(getStorageLateralKey(uid), JSON.stringify(ps.lateral_config))
             }
         } catch {
-            setLateralConfig({
+            setLateralConfig(ps.lateral_config || {
                 imageUrl: LATERAL_PRESETS[0]?.url || '',
                 opacity: 55,
                 enabled: true,
@@ -259,7 +255,13 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
         // Cargar Privacidad
         try {
             const savedPriv = localStorage.getItem(getStoragePrivacyKey(uid))
-            setPrivacy(savedPriv ? JSON.parse(savedPriv) : { isListPublic: true, showStats: true, allowComments: 'everyone' })
+            const backendPriv = ps.privacy || (ps.isListPublic !== undefined ? {
+                isListPublic: ps.isListPublic,
+                showStats: ps.showStats ?? true,
+                allowComments: ps.allowComments ?? 'everyone',
+                allowRecommendations: ps.allowRecommendations ?? true,
+            } : null)
+            setPrivacy(backendPriv || (savedPriv ? JSON.parse(savedPriv) : { isListPublic: true, showStats: true, allowComments: 'everyone' }))
         } catch {
             setPrivacy({ isListPublic: true, showStats: true, allowComments: 'everyone' })
         }
@@ -378,6 +380,9 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
             const saved = localStorage.getItem(key)
             const parsed = saved ? JSON.parse(saved) : {}
             localStorage.setItem(key, JSON.stringify({ ...parsed, avatarUrl: newUrl }))
+            if (user?.username) {
+                localStorage.setItem(getStorageProfileKey(user.username), JSON.stringify({ ...parsed, avatarUrl: newUrl }))
+            }
         } catch {}
 
         if (user) {
@@ -403,23 +408,43 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
         setSocials(data.socials)
 
         const uid = user?.id ?? 'guest'
-        localStorage.setItem(
-            getStorageProfileKey(uid),
-            JSON.stringify({
-                displayName: data.displayName,
-                bio: data.bio,
-                avatarUrl: data.avatarUrl,
-                socials: data.socials,
-            })
-        )
+        try {
+            localStorage.setItem(
+                getStorageProfileKey(uid),
+                JSON.stringify({
+                    displayName: data.displayName,
+                    bio: data.bio,
+                    avatarUrl: data.avatarUrl,
+                    socials: data.socials,
+                })
+            )
+            if (user?.username) {
+                localStorage.setItem(
+                    getStorageProfileKey(user.username),
+                    JSON.stringify({
+                        displayName: data.displayName,
+                        bio: data.bio,
+                        avatarUrl: data.avatarUrl,
+                        socials: data.socials,
+                    })
+                )
+            }
+        } catch {}
 
         if (user) {
             try {
-                await updateUserProfile({
-                    display_name: data.displayName,
-                    bio: data.bio,
-                    avatar_url: data.avatarUrl,
-                })
+                await Promise.all([
+                    updateUserProfile({
+                        display_name: data.displayName,
+                        bio: data.bio,
+                        avatar_url: data.avatarUrl,
+                    }),
+                    updateUserPreferences({
+                        privacy_settings: {
+                            socials: data.socials,
+                        },
+                    }),
+                ])
                 await refreshUser()
             } catch (e) {
                 console.error('Error sincronizando perfil con el backend:', e)
@@ -427,18 +452,54 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
         }
     }
 
-    // Guardar Flag
-    const handleSaveFlag = (newUrl: string) => {
+    // Guardar Flag (Banner Superior)
+    const handleSaveFlag = async (newUrl: string) => {
         setFlagUrl(newUrl)
         const uid = user?.id ?? 'guest'
-        localStorage.setItem(getStorageFlagKey(uid), newUrl)
+        try {
+            localStorage.setItem(getStorageFlagKey(uid), newUrl)
+            if (user?.username) {
+                localStorage.setItem(getStorageFlagKey(user.username), newUrl)
+            }
+        } catch {}
+
+        if (user) {
+            try {
+                await updateUserPreferences({
+                    privacy_settings: {
+                        flag_url: newUrl,
+                    },
+                })
+                await refreshUser()
+            } catch (e) {
+                console.error('Error sincronizando banner flag con el backend:', e)
+            }
+        }
     }
 
-    // Guardar Configuración de Fondo Lateral
-    const handleSaveLateralConfig = (newConfig: LateralWallpaperConfig) => {
+    // Guardar Configuración de Fondo Lateral (Banners Laterales)
+    const handleSaveLateralConfig = async (newConfig: LateralWallpaperConfig) => {
         setLateralConfig(newConfig)
         const uid = user?.id ?? 'guest'
-        localStorage.setItem(getStorageLateralKey(uid), JSON.stringify(newConfig))
+        try {
+            localStorage.setItem(getStorageLateralKey(uid), JSON.stringify(newConfig))
+            if (user?.username) {
+                localStorage.setItem(getStorageLateralKey(user.username), JSON.stringify(newConfig))
+            }
+        } catch {}
+
+        if (user) {
+            try {
+                await updateUserPreferences({
+                    privacy_settings: {
+                        lateral_config: newConfig,
+                    },
+                })
+                await refreshUser()
+            } catch (e) {
+                console.error('Error sincronizando wallpaper lateral con el backend:', e)
+            }
+        }
     }
 
     // Guardar Privacidad
