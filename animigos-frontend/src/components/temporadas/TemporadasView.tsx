@@ -637,7 +637,7 @@ export const TemporadasView: React.FC<TemporadasViewProps> = ({
                                                 loading="lazy"
                                             />
                                             <div className="compact-texts">
-                                                <span className="compact-title text-truncate" title={anime.title_english || anime.title}>
+                                                <span className="compact-title d-block text-truncate" title={anime.title_english || anime.title}>
                                                     {anime.title_english || anime.title}
                                                 </span>
                                                 <div className="compact-sub">
