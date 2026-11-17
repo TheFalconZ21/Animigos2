@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Award, Compass, Heart, Send, Star, Trash2, Users, Play, ExternalLink } from 'lucide-react'
+import { Award, Compass, Heart, Send, Star, Trash2, Users, Play, ExternalLink, Plus } from 'lucide-react'
 import { ESTADOS, type EntradaLista, type FilaLista, alFallarPoster } from './mi-lista-data'
 import { Dialogo, ProgresoEpisodios, SelloNota } from './piezas'
 import { useAssociatedLinks } from '../../hooks/useAssociatedLinks'
@@ -192,7 +192,12 @@ function Contenido({
 
                 {/* Lo que el usuario tiene guardado de este anime */}
                 <section>
-                    <h3 className="ml-label">En tu lista</h3>
+                    <h3 className="ml-label">{onEliminar ? 'En tu lista' : 'Estado en tu lista'}</h3>
+                    {!onEliminar && (
+                        <p className="small text-secondary mb-2" style={{ fontSize: '0.78rem' }}>
+                            Este anime no está en tu lista todavía. Selecciona un estado o pulsa Agregar:
+                        </p>
+                    )}
                     <div className="d-flex flex-wrap align-items-center gap-3">
                         <SelloNota nota={fila.nota} onCambiar={(nota) => onActualizar({ nota })} />
                         <div className="d-flex flex-column gap-2" style={{ flex: 1, minWidth: 220 }}>
@@ -315,7 +320,15 @@ function Contenido({
                         <Trash2 size={14} /> Quitar de mi lista
                     </button>
                 ) : (
-                    <div />
+                    <button
+                        type="button"
+                        className="ml-btn ml-btn-sm ml-btn-acento d-inline-flex align-items-center gap-1.5"
+                        onClick={() => onActualizar({ estado: fila.estado || 'esperando' })}
+                        title="Agregar este anime a Mi Lista"
+                    >
+                        <Plus size={14} />
+                        <span>Agregar a Mi Lista</span>
+                    </button>
                 )}
                 <div className="d-flex align-items-center gap-2">
                     <button

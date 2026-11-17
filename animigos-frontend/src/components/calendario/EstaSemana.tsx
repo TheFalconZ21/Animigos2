@@ -15,11 +15,18 @@ function hito(e: Emision): 'Estreno' | 'Final' | null {
 }
 
 // Episodios de los próximos 7 días: vista por día (lista) o semana completa (7 columnas)
-export function EstaSemana({ emisiones, cargando, error, enMiLista }: {
+export function EstaSemana({
+    emisiones,
+    cargando,
+    error,
+    enMiLista,
+    onSeleccionarAnime,
+}: {
     emisiones: Emision[]
     cargando: boolean
     error: string | null
     enMiLista: (malId: number | null) => boolean
+    onSeleccionarAnime?: (emision: Emision) => void
 }) {
     const ahoraMs = useAhora()
     const claveHoy = new Date(ahoraMs).toDateString()
@@ -88,7 +95,20 @@ export function EstaSemana({ emisiones, cargando, error, enMiLista }: {
                                 const mio = enMiLista(e.malId)
                                 const marca = hito(e)
                                 return (
-                                    <li key={e.id} className={`cal-emision ${yaSalio ? 'cal-pasada' : ''} ${mio ? 'cal-mia' : ''}`}>
+                                    <li
+                                        key={e.id}
+                                        className={`cal-emision cal-emision-interactive ${yaSalio ? 'cal-pasada' : ''} ${mio ? 'cal-mia' : ''}`}
+                                        onClick={() => onSeleccionarAnime?.(e)}
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(evt) => {
+                                            if (evt.key === 'Enter' || evt.key === ' ') {
+                                                evt.preventDefault()
+                                                onSeleccionarAnime?.(e)
+                                            }
+                                        }}
+                                        title="Haz clic para ver detalles y evaluar agregar a Mi Lista"
+                                    >
                                         <time className="cal-hora" dateTime={aFecha(e.emiteEn).toISOString()}>
                                             <strong>{horaLocal(e.emiteEn)}</strong>
                                             <span title="Hora de Japón">JST {horaJapon(e.emiteEn)}</span>
@@ -124,7 +144,20 @@ export function EstaSemana({ emisiones, cargando, error, enMiLista }: {
                             {filtrar(d.emisiones).map((e) => {
                                 const marca = hito(e)
                                 return (
-                                    <article key={e.id} className={`cal-ficha ${e.emiteEn <= ahora ? 'cal-pasada' : ''} ${enMiLista(e.malId) ? 'cal-mia' : ''}`} title={e.titulo}>
+                                    <article
+                                        key={e.id}
+                                        className={`cal-ficha cal-ficha-interactive ${e.emiteEn <= ahora ? 'cal-pasada' : ''} ${enMiLista(e.malId) ? 'cal-mia' : ''}`}
+                                        onClick={() => onSeleccionarAnime?.(e)}
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(evt) => {
+                                            if (evt.key === 'Enter' || evt.key === ' ') {
+                                                evt.preventDefault()
+                                                onSeleccionarAnime?.(e)
+                                            }
+                                        }}
+                                        title="Haz clic para ver detalles y evaluar agregar a Mi Lista"
+                                    >
                                         <img src={e.imagenUrl} alt="" loading="lazy" onError={alFallarPoster} />
                                         <div style={{ minWidth: 0 }}>
                                             <span className="cal-ficha-hora">{horaLocal(e.emiteEn)}</span>

@@ -365,16 +365,32 @@
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.cal-lanzamiento-interactive {
+.cal-lanzamiento-interactive,
+.cal-emision-interactive,
+.cal-siguiente-interactive,
+.cal-ficha-interactive {
     cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.cal-lanzamiento-interactive:hover {
-    background: rgba(255, 255, 255, 0.035);
-    border-color: rgba(255, 255, 255, 0.12);
+.cal-lanzamiento-interactive:hover,
+.cal-emision-interactive:hover,
+.cal-siguiente-interactive:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.15);
 }
 
-.cal-lanzamiento-interactive:hover .cal-titulo {
+.cal-ficha-interactive:hover {
+    background: var(--ml-acento-suave, rgba(167, 139, 250, 0.12));
+    border-color: var(--ml-acento-borde, rgba(167, 139, 250, 0.35));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.cal-lanzamiento-interactive:hover .cal-titulo,
+.cal-emision-interactive:hover .cal-titulo,
+.cal-siguiente-interactive:hover .cal-siguiente-titulo,
+.cal-ficha-interactive:hover .cal-ficha-titulo {
     color: var(--ml-acento);
 }
 

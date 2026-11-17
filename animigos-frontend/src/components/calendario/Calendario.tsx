@@ -6,8 +6,8 @@ import { useAuth } from '../../context/AuthContext'
 import { useAhora } from '../../hooks/useAhora'
 import { dentroDe, horaLocal } from '../../shared/tiempo'
 import { alFallarPoster, type FilaLista } from '../mi-lista/mi-lista-data'
-import { fetchAnimeById } from '../../services/catalogApi'
-import { type Lanzamiento } from '../../services/scheduleApi'
+import { fetchAnimeById, fetchCatalogAnimes, type ApiAnimeData } from '../../services/catalogApi'
+import { type Lanzamiento, type Emision } from '../../services/scheduleApi'
 import { AnimeDetalleDialog } from '../mi-lista/AnimeDetalleDialog'
 import { EstaSemana } from './EstaSemana'
 import { ProximosLanzamientos } from './ProximosLanzamientos'
@@ -39,6 +39,90 @@ export function Calendario({
     const idsEnLista = useMemo(() => new Set(isAuthenticated ? filas.map((f) => f.malId) : []), [filas, isAuthenticated])
     const enMiLista = (malId: number | null) => malId !== null && idsEnLista.has(malId)
     const siguiente = horario.emisiones.filter((e) => e.emiteEn > ahora).sort((a, b) => a.emiteEn - b.emiteEn)[0]
+
+    const handleSeleccionarEmision = async (e: Emision) => {
+        const mid = e.malId ?? e.id
+        const existing = filas.find((f) => f.malId === mid)
+        if (existing) {
+            setAnimeSeleccionado(existing)
+            return
+        }
+
+        const tempFila: FilaLista = {
+            id: `temp-${mid}`,
+            malId: mid,
+            estado: 'esperando',
+            nota: null,
+            episodiosVistos: 0,
+            favorito: false,
+            tags: [],
+            anime: {
+                malId: mid,
+                title: e.titulo,
+                titleEnglish: e.tituloRomaji || e.titulo,
+                imageUrl: e.imagenUrl,
+                score: 8.0,
+                rank: 1,
+                durationMinutes: 24,
+                episodes: e.totalEpisodios || 12,
+                status: 'RELEASING',
+                studio: 'En emisión',
+                genres: [],
+                tagsData: [],
+                synopsis: '',
+                type: 'TV',
+                season: 'En emisión',
+                year: new Date().getFullYear(),
+            },
+        }
+        setAnimeSeleccionado(tempFila)
+
+        let fullData: ApiAnimeData | null = null
+        if (e.malId) {
+            try {
+                fullData = await fetchAnimeById(e.malId)
+            } catch {
+                // Silencioso, intentamos búsqueda por título
+            }
+        }
+        if (!fullData && e.titulo) {
+            try {
+                const searchRes = await fetchCatalogAnimes({ q: e.titulo, page_size: 1 })
+                if (searchRes?.results?.length > 0) {
+                    fullData = searchRes.results[0]
+                }
+            } catch {
+                // Silencioso
+            }
+        }
+
+        if (fullData) {
+            setAnimeSeleccionado((prev) => {
+                if (!prev) return prev
+                return {
+                    ...prev,
+                    malId: fullData!.mal_id,
+                    anime: {
+                        ...prev.anime,
+                        malId: fullData!.mal_id,
+                        title: fullData!.title || prev.anime.title,
+                        titleEnglish: fullData!.title_english || prev.anime.titleEnglish,
+                        titleJapanese: fullData!.title_japanese,
+                        imageUrl: fullData!.image_url || prev.anime.imageUrl,
+                        synopsis: (fullData as { synopsis_es?: string }).synopsis_es || fullData!.synopsis || prev.anime.synopsis,
+                        studio: fullData!.studio || prev.anime.studio,
+                        genres: fullData!.genres && fullData!.genres.length ? fullData!.genres : prev.anime.genres,
+                        score: typeof fullData!.score === 'number' ? fullData!.score : prev.anime.score,
+                        episodes: fullData!.episodes || prev.anime.episodes,
+                        season: fullData!.season_display || fullData!.season || prev.anime.season,
+                        year: fullData!.season_year || fullData!.year || prev.anime.year,
+                        type: fullData!.type || prev.anime.type,
+                        status: fullData!.status || prev.anime.status,
+                    },
+                }
+            })
+        }
+    }
 
     const handleSeleccionarLanzamiento = async (l: Lanzamiento) => {
         const mid = l.malId ?? l.id
@@ -77,34 +161,50 @@ export function Calendario({
         }
         setAnimeSeleccionado(tempFila)
 
+        let fullData: ApiAnimeData | null = null
         if (l.malId) {
             try {
-                const fullData = await fetchAnimeById(l.malId)
-                if (fullData) {
-                    setAnimeSeleccionado((prev) => {
-                        if (!prev || prev.malId !== l.malId) return prev
-                        return {
-                            ...prev,
-                            anime: {
-                                ...prev.anime,
-                                title: fullData.title || prev.anime.title,
-                                titleEnglish: fullData.title_english || prev.anime.titleEnglish,
-                                titleJapanese: fullData.title_japanese,
-                                imageUrl: fullData.image_url || prev.anime.imageUrl,
-                                synopsis: fullData.synopsis || prev.anime.synopsis,
-                                studio: fullData.studio || prev.anime.studio,
-                                genres: fullData.genres && fullData.genres.length ? fullData.genres : prev.anime.genres,
-                                score: typeof fullData.score === 'number' ? fullData.score : prev.anime.score,
-                                episodes: fullData.episodes || prev.anime.episodes,
-                                season: fullData.season_display || fullData.season || prev.anime.season,
-                                year: fullData.season_year || fullData.year || prev.anime.year,
-                            },
-                        }
-                    })
+                fullData = await fetchAnimeById(l.malId)
+            } catch {
+                // Fallback a búsqueda
+            }
+        }
+        if (!fullData && l.titulo) {
+            try {
+                const searchRes = await fetchCatalogAnimes({ q: l.titulo, page_size: 1 })
+                if (searchRes?.results?.length > 0) {
+                    fullData = searchRes.results[0]
                 }
             } catch {
-                // Silencioso: la ficha temporal ya cuenta con datos de AniList
+                // Silencioso
             }
+        }
+
+        if (fullData) {
+            setAnimeSeleccionado((prev) => {
+                if (!prev) return prev
+                return {
+                    ...prev,
+                    malId: fullData!.mal_id,
+                    anime: {
+                        ...prev.anime,
+                        malId: fullData!.mal_id,
+                        title: fullData!.title || prev.anime.title,
+                        titleEnglish: fullData!.title_english || prev.anime.titleEnglish,
+                        titleJapanese: fullData!.title_japanese,
+                        imageUrl: fullData!.image_url || prev.anime.imageUrl,
+                        synopsis: (fullData as { synopsis_es?: string }).synopsis_es || fullData!.synopsis || prev.anime.synopsis,
+                        studio: fullData!.studio || prev.anime.studio,
+                        genres: fullData!.genres && fullData!.genres.length ? fullData!.genres : prev.anime.genres,
+                        score: typeof fullData!.score === 'number' ? fullData!.score : prev.anime.score,
+                        episodes: fullData!.episodes || prev.anime.episodes,
+                        season: fullData!.season_display || fullData!.season || prev.anime.season,
+                        year: fullData!.season_year || fullData!.year || prev.anime.year,
+                        type: fullData!.type || prev.anime.type,
+                        status: fullData!.status || prev.anime.status,
+                    },
+                }
+            })
         }
     }
 
@@ -147,7 +247,19 @@ export function Calendario({
                         <div className="ml-ficha-lista-cuerpo">
                             <span className="ml-label mb-2">Lo próximo en salir</span>
                             {siguiente ? (
-                                <div className="cal-siguiente">
+                                <div
+                                    className="cal-siguiente cal-siguiente-interactive"
+                                    onClick={() => handleSeleccionarEmision(siguiente)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault()
+                                            handleSeleccionarEmision(siguiente)
+                                        }
+                                    }}
+                                    title="Haz clic para ver detalles y evaluar agregar a Mi Lista"
+                                >
                                     <img src={siguiente.imagenUrl} alt="" onError={alFallarPoster} />
                                     <div style={{ minWidth: 0 }}>
                                         <div className="ml-ficha-porcentaje cal-cuenta">{dentroDe(siguiente.emiteEn, ahora * 1000)}</div>
@@ -175,7 +287,13 @@ export function Calendario({
                 </header>
 
                 {pestana === 'semana' && (
-                    <EstaSemana emisiones={horario.emisiones} cargando={horario.cargando} error={horario.error} enMiLista={enMiLista} />
+                    <EstaSemana
+                        emisiones={horario.emisiones}
+                        cargando={horario.cargando}
+                        error={horario.error}
+                        enMiLista={enMiLista}
+                        onSeleccionarAnime={handleSeleccionarEmision}
+                    />
                 )}
                 {pestana === 'lanzamientos' && (
                     <ProximosLanzamientos
@@ -215,10 +333,10 @@ export function Calendario({
                         }
                     }}
                     onRecomendar={() => {}}
-                    onEliminar={() => {
+                    onEliminar={filas.some((f) => f.malId === animeSeleccionado.malId) ? () => {
                         quitar(animeSeleccionado.malId)
                         setAnimeSeleccionado(null)
-                    }}
+                    } : undefined}
                     onVerFichaCompleta={(malId) => {
                         setAnimeSeleccionado(null)
                         onOpenAnimeDetail?.(malId)

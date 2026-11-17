@@ -4,6 +4,7 @@
  */
 
 import type { ApiAnimeData, ApiAnimeRelationItem } from './userListApi'
+export type { ApiAnimeData, ApiAnimeRelationItem } from './userListApi'
 import { getAuthHeaders } from './authApi'
 
 const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, ''); const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
