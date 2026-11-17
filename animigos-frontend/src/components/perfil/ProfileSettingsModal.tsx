@@ -361,6 +361,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                             <div className="d-flex align-items-center gap-3 p-3 rounded-3 border" style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}>
                                 <img
                                     src={resolveMediaUrl(avatarUrl || '/media/avatars/crunchyroll_classic_collection/classic-hime-avatar-3.webp')}
+                                    crossOrigin="anonymous"
                                     alt="Preview"
                                     className="rounded-circle border"
                                     style={{

@@ -116,6 +116,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                         <div className="perfil-avatar-wrapper position-relative">
                             <img
                                 src={resolveMediaUrl(avatarUrl)}
+                                crossOrigin="anonymous"
                                 alt={displayName}
                                 className="perfil-avatar-img"
                                 onError={(e) => {

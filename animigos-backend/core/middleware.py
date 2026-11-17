@@ -13,7 +13,17 @@ class PartitionedCookiesMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
 
-        # Solo aplicable cuando las cookies operan en modo cross-site (SameSite=None)
+        # 1. Manejo de recursos multimedia y estáticos (evitar bloqueos ORB/CORB cross-origin)
+        if request.path.startswith('/media/') or request.path.startswith('/static/'):
+            response['Access-Control-Allow-Origin'] = '*'
+            response['Access-Control-Allow-Methods'] = 'GET, HEAD, OPTIONS'
+            response['Cross-Origin-Resource-Policy'] = 'cross-origin'
+            if 'Cross-Origin-Opener-Policy' in response:
+                del response['Cross-Origin-Opener-Policy']
+            if 'X-Frame-Options' in response:
+                del response['X-Frame-Options']
+
+        # 2. Solo aplicable cuando las cookies operan en modo cross-site (SameSite=None)
         cookie_samesite = getattr(settings, 'SESSION_COOKIE_SAMESITE', 'Lax')
         if str(cookie_samesite).lower() != 'none':
             return response

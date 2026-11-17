@@ -650,6 +650,7 @@ export function Navbar({
                                     {user.avatar_url && !user.avatar_url.includes('placeholder') ? (
                                         <img
                                             src={resolveMediaUrl(user.avatar_url)}
+                                            crossOrigin="anonymous"
                                             alt={user.display_name || user.username}
                                             className="rounded-circle"
                                             style={{
@@ -703,6 +704,7 @@ export function Navbar({
                                     {user.avatar_url && !user.avatar_url.includes('placeholder') ? (
                                         <img
                                             src={resolveMediaUrl(user.avatar_url)}
+                                            crossOrigin="anonymous"
                                             alt={user.display_name || user.username}
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         />

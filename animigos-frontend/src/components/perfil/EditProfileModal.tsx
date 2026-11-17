@@ -99,6 +99,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                                 objectFit: 'cover',
                                 border: '2px solid var(--perfil-acento)',
                             }}
+                            crossOrigin="anonymous"
                             src={resolveMediaUrl(avatarUrl || initialAvatar || '/media/avatars/crunchyroll_classic_collection/classic-hime-avatar-3.webp')}
                             onError={(e) => {
                                 e.currentTarget.src = resolveMediaUrl(initialAvatar || '/media/avatars/crunchyroll_classic_collection/classic-hime-avatar-3.webp')
@@ -132,6 +133,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                             >
                                 <img
                                     src={resolveMediaUrl(p.url)}
+                                    crossOrigin="anonymous"
                                     alt={p.label}
                                     className="rounded-circle"
                                     style={{

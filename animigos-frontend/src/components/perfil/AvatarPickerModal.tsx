@@ -290,6 +290,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                                                     <img
                                                         src={resolveMediaUrl(av.url)}
                                                         alt={av.name}
+                                                        crossOrigin="anonymous"
                                                         loading="lazy"
                                                         className="w-100 h-100 object-fit-cover"
                                                     />
@@ -349,6 +350,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                                 <img
                                     src={resolveMediaUrl(customUrlInput || currentAvatarUrl)}
                                     alt="Vista previa personalizada"
+                                    crossOrigin="anonymous"
                                     className="w-100 h-100 object-fit-cover"
                                     onError={(e) => {
                                         e.currentTarget.src = resolveMediaUrl(currentAvatarUrl)
@@ -378,6 +380,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                         <img
                             src={resolveMediaUrl(activeTab === 'catalog' ? selectedUrl : customUrlInput || currentAvatarUrl)}
                             alt="Seleccionado"
+                            crossOrigin="anonymous"
                             className="rounded-circle border"
                             style={{
                                 width: '40px',

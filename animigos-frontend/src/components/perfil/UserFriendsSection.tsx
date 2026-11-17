@@ -277,6 +277,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                         <div className="position-relative flex-shrink-0">
                                             <img
                                                 src={resolveMediaUrl(friend.avatar_url) || DEFAULT_AVATAR}
+                                                crossOrigin="anonymous"
                                                 alt={friend.display_name}
                                                 className="perfil-friend-avatar"
                                                 onError={(e) => {
@@ -369,6 +370,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                         <div className="position-relative flex-shrink-0">
                                             <img
                                                 src={resolveMediaUrl(sug.avatar_url) || DEFAULT_AVATAR}
+                                                crossOrigin="anonymous"
                                                 alt={sug.display_name}
                                                 className="perfil-friend-avatar"
                                                 onError={(e) => {
@@ -539,6 +541,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                             <div className="d-flex align-items-center gap-2 min-w-0">
                                                 <img
                                                     src={resolveMediaUrl(u.avatar_url) || DEFAULT_AVATAR}
+                                                    crossOrigin="anonymous"
                                                     alt=""
                                                     className="rounded-circle flex-shrink-0"
                                                     style={{ width: '36px', height: '36px', objectFit: 'cover' }}
@@ -629,6 +632,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                     >
                                         <img
                                             src={resolveMediaUrl(f.avatar_url) || DEFAULT_AVATAR}
+                                            crossOrigin="anonymous"
                                             alt=""
                                             className="rounded-circle flex-shrink-0"
                                             style={{ width: '36px', height: '36px', objectFit: 'cover' }}
@@ -728,6 +732,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                     >
                                         <img
                                             src={resolveMediaUrl(sug.avatar_url) || DEFAULT_AVATAR}
+                                            crossOrigin="anonymous"
                                             alt=""
                                             className="rounded-circle flex-shrink-0"
                                             style={{ width: '36px', height: '36px', objectFit: 'cover' }}
