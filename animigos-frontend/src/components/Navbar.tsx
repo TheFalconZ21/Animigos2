@@ -136,7 +136,12 @@ export function Navbar({
             const res = await updateUserNotification({ notification_id: notif.id, action: 'mark_read' })
             setNotifications(res.notifications)
             setUnreadCount(res.unread_count)
-        } catch (err) {
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al agregar recomendación'
+            if (msg.includes('iniciar sesión') || msg.includes('credenciales')) {
+                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                dialog?.showModal()
+            }
             console.error('Error agregando anime recomendado:', err)
         }
     }

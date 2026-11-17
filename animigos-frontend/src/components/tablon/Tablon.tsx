@@ -70,7 +70,9 @@ export function Tablon() {
     const guardar = (a: Actividad) => {
         if (!isAuthenticated) return abrirLogin()
         const { malId } = a.recomendacion!.anime
-        agregarAnime({ malId, estado: 'pendiente', nota: null, episodiosVistos: 0, favorito: false, tags: [] })
+        agregarAnime({ malId, estado: 'pendiente', nota: null, episodiosVistos: 0, favorito: false, tags: [] }).catch((err) => {
+            console.error('Error al guardar anime desde tablón:', err)
+        })
     }
 
     // Responder a un "busco anime": recomendación directa al autor, con la nota ya iniciada

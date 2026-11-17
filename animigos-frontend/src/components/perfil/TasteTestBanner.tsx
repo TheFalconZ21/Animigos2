@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { ProfesorDoki } from '../doki/ProfesorDoki'
 import { useMyList } from '../../hooks/useMyList'
+import { useAuth } from '../../context/AuthContext'
 import {
     calibrateAndGetRecommendations,
     type CalibratedRecommendation,
@@ -33,6 +34,7 @@ export const TasteTestBanner: React.FC<TasteTestBannerProps> = ({
     recommendations: initialRecs,
 }) => {
     const { agregarAnime, filas } = useMyList()
+    const { isAuthenticated } = useAuth()
     const isCalibrated = answers.calibratedPercentage >= 90
 
     // Lista de recomendaciones calibradas
@@ -107,6 +109,11 @@ export const TasteTestBanner: React.FC<TasteTestBannerProps> = ({
 
     const handleAddToList = async () => {
         if (!activeRec || isInList) return
+        if (!isAuthenticated) {
+            const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+            dialog?.showModal()
+            return
+        }
         try {
             await agregarAnime({
                 malId: activeRec.anime_id,
@@ -118,7 +125,12 @@ export const TasteTestBanner: React.FC<TasteTestBannerProps> = ({
                 comentario: `Recomendado por Profesor Doki Doki: ${activeRec.match_reason}`,
             })
             setAddedAnimeIds((prev) => [...prev, activeRec.anime_id])
-        } catch (err) {
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar en Mi Lista'
+            if (msg.includes('iniciar sesión') || msg.includes('credenciales')) {
+                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                dialog?.showModal()
+            }
             console.error('Error agregando anime desde banner:', err)
         }
     }

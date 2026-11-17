@@ -110,6 +110,9 @@ export interface AddAnimePayload {
     folder_id?: string | null
     tags?: string[]
     notes?: string
+    title?: string
+    image_url?: string
+    episodes?: number | null
 }
 
 export interface UpdateAnimePayload {
@@ -120,6 +123,68 @@ export interface UpdateAnimePayload {
     folder_id?: string | null
     tags?: string[]
     notes?: string
+}
+
+// -------------------------------------------------------------
+// HELPER PARA MANEJO ROBUSTO DE RESPUESTAS Y ERRORES DEL BFF
+// -------------------------------------------------------------
+
+async function handleApiResponse<T>(res: Response, fallbackPrefix: string): Promise<T> {
+    if (!res.ok) {
+        let errorDetail = ''
+        try {
+            const data = await res.json()
+            if (data) {
+                if (typeof data.detail === 'string' && data.detail.trim()) {
+                    errorDetail = data.detail.trim()
+                } else if (typeof data.error === 'string' && data.error.trim()) {
+                    errorDetail = data.error.trim()
+                } else if (typeof data.message === 'string' && data.message.trim()) {
+                    errorDetail = data.message.trim()
+                } else if (typeof data === 'object') {
+                    const firstKey = Object.keys(data)[0]
+                    if (firstKey) {
+                        const val = data[firstKey]
+                        if (Array.isArray(val) && val[0]) errorDetail = `${firstKey}: ${val[0]}`
+                        else if (typeof val === 'string') errorDetail = `${firstKey}: ${val}`
+                    }
+                }
+            }
+        } catch {
+            // Cuerpo no es JSON
+        }
+
+        if (!errorDetail) {
+            if (res.status === 401 || res.status === 403) {
+                errorDetail = 'Debes iniciar sesión para realizar esta acción en tu lista.'
+            } else if (res.status === 404) {
+                errorDetail = 'El elemento o anime solicitado no fue encontrado.'
+            } else if (res.status >= 500) {
+                errorDetail = `Error en el servidor (${res.status}). Inténtalo nuevamente en unos instantes.`
+            } else {
+                errorDetail = `${fallbackPrefix} (Código ${res.status}${res.statusText ? `: ${res.statusText}` : ''})`
+            }
+        }
+
+        // Si la sesión expiró o no está autorizada, limpiar tokens locales y emitir evento reactivo
+        if (res.status === 401 || res.status === 403) {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.removeItem('animigos_session_id')
+                localStorage.removeItem('session_id')
+            }
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('animigos-auth-expired', { detail: { status: res.status } }))
+            }
+        }
+
+        throw new Error(errorDetail)
+    }
+
+    if (res.status === 204) {
+        return undefined as unknown as T
+    }
+
+    return res.json()
 }
 
 // -------------------------------------------------------------
@@ -134,10 +199,7 @@ export async function fetchMyList(): Promise<MyListApiResponse> {
         headers: getAuthHeaders(),
         credentials: 'include',
     })
-    if (!res.ok) {
-        throw new Error(`Error al obtener Mi Lista: ${res.statusText}`)
-    }
-    return res.json()
+    return handleApiResponse<MyListApiResponse>(res, 'Error al obtener Mi Lista')
 }
 
 /**
@@ -150,11 +212,7 @@ export async function addAnimeToMyList(payload: AddAnimePayload): Promise<ApiUse
         credentials: 'include',
         body: JSON.stringify(payload),
     })
-    if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}))
-        throw new Error(errorData.error || `Error al agregar anime: ${res.statusText}`)
-    }
-    return res.json()
+    return handleApiResponse<ApiUserListEntry>(res, 'Error al agregar anime a Mi Lista')
 }
 
 /**
@@ -170,10 +228,7 @@ export async function updateMyListEntry(
         credentials: 'include',
         body: JSON.stringify(updates),
     })
-    if (!res.ok) {
-        throw new Error(`Error al actualizar anime: ${res.statusText}`)
-    }
-    return res.json()
+    return handleApiResponse<ApiUserListEntry>(res, 'Error al actualizar anime')
 }
 
 /**
@@ -185,9 +240,7 @@ export async function deleteMyListEntry(entryId: string): Promise<void> {
         headers: getAuthHeaders(),
         credentials: 'include',
     })
-    if (!res.ok) {
-        throw new Error(`Error al eliminar anime de la lista: ${res.statusText}`)
-    }
+    return handleApiResponse<void>(res, 'Error al eliminar anime de la lista')
 }
 
 /**
@@ -200,11 +253,7 @@ export async function createMyListFolder(name: string): Promise<ApiUserFolder> {
         credentials: 'include',
         body: JSON.stringify({ name }),
     })
-    if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}))
-        throw new Error(errorData.error || `Error al crear carpeta: ${res.statusText}`)
-    }
-    return res.json()
+    return handleApiResponse<ApiUserFolder>(res, 'Error al crear carpeta')
 }
 
 /**
@@ -217,10 +266,7 @@ export async function renameMyListFolder(folderId: string, name: string): Promis
         credentials: 'include',
         body: JSON.stringify({ name }),
     })
-    if (!res.ok) {
-        throw new Error(`Error al renombrar carpeta: ${res.statusText}`)
-    }
-    return res.json()
+    return handleApiResponse<ApiUserFolder>(res, 'Error al renombrar carpeta')
 }
 
 /**
@@ -232,9 +278,7 @@ export async function deleteMyListFolder(folderId: string): Promise<void> {
         headers: getAuthHeaders(),
         credentials: 'include',
     })
-    if (!res.ok) {
-        throw new Error(`Error al eliminar carpeta: ${res.statusText}`)
-    }
+    return handleApiResponse<void>(res, 'Error al eliminar carpeta')
 }
 
 /**
@@ -251,10 +295,7 @@ export async function searchCatalogAnimes(query: string, limit = 20): Promise<Ap
         headers: getAuthHeaders(),
         credentials: 'include',
     })
-    if (!res.ok) {
-        throw new Error(`Error al buscar animes en catálogo: ${res.statusText}`)
-    }
-    const data = await res.json()
+    const data = await handleApiResponse<any>(res, 'Error al buscar animes en catálogo')
     return Array.isArray(data) ? data : data.results || []
 }
 
@@ -288,11 +329,6 @@ export async function importMalXml(file: File): Promise<ImportMalXmlResult> {
         credentials: 'include',
     })
 
-    const data = await res.json()
-    if (!res.ok) {
-        throw new Error(data.error || 'Error al importar lista de MyAnimeList')
-    }
-
-    return data
+    return handleApiResponse<ImportMalXmlResult>(res, 'Error al importar lista de MyAnimeList')
 }
 

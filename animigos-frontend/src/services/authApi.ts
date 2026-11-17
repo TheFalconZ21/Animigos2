@@ -152,13 +152,15 @@ export async function getCurrentUser(): Promise<CurrentUserResponse> {
             credentials: 'include',
         })
         if (!res.ok) {
+            localStorage.removeItem('animigos_session_id')
+            localStorage.removeItem('session_id')
             return { authenticated: false, user: null }
         }
         const data = await res.json()
-        if (data.session_id) {
+        if (data.authenticated && data.session_id) {
             localStorage.setItem('animigos_session_id', data.session_id)
             localStorage.setItem('session_id', data.session_id)
-        } else if (!data.authenticated) {
+        } else {
             localStorage.removeItem('animigos_session_id')
             localStorage.removeItem('session_id')
         }

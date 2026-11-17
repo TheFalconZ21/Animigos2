@@ -209,23 +209,37 @@ export function Calendario({
     }
 
     const handleMarcarEsperando = async (l: Lanzamiento) => {
+        if (!isAuthenticated) {
+            const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+            dialog?.showModal()
+            return
+        }
         const mid = l.malId ?? l.id
         const existing = filas.find((f) => f.malId === mid)
-        if (existing) {
-            if (existing.estado === 'esperando') {
-                setAnimeSeleccionado(existing)
+        try {
+            if (existing) {
+                if (existing.estado === 'esperando') {
+                    setAnimeSeleccionado(existing)
+                } else {
+                    await actualizar(mid, { estado: 'esperando' })
+                }
             } else {
-                await actualizar(mid, { estado: 'esperando' })
+                await agregarAnime({
+                    malId: mid,
+                    estado: 'esperando',
+                    nota: null,
+                    episodiosVistos: 0,
+                    favorito: false,
+                    tags: [],
+                })
             }
-        } else {
-            await agregarAnime({
-                malId: mid,
-                estado: 'esperando',
-                nota: null,
-                episodiosVistos: 0,
-                favorito: false,
-                tags: [],
-            })
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar en Mi Lista'
+            if (msg.includes('iniciar sesión') || msg.includes('credenciales')) {
+                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                dialog?.showModal()
+            }
+            console.error('Error al marcar esperando:', err)
         }
     }
 
@@ -313,23 +327,37 @@ export function Calendario({
                     fila={animeSeleccionado}
                     onCerrar={() => setAnimeSeleccionado(null)}
                     onActualizar={async (cambios) => {
+                        if (!isAuthenticated) {
+                            const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                            dialog?.showModal()
+                            return
+                        }
                         const mid = animeSeleccionado.malId
                         const existing = filas.find((f) => f.malId === mid)
-                        if (existing) {
-                            await actualizar(mid, cambios)
-                            setAnimeSeleccionado((prev) => (prev ? { ...prev, ...cambios } : null))
-                        } else {
-                            const nuevoEstado = cambios.estado || 'esperando'
-                            await agregarAnime({
-                                malId: mid,
-                                estado: nuevoEstado,
-                                nota: cambios.nota ?? null,
-                                episodiosVistos: cambios.episodiosVistos ?? 0,
-                                favorito: cambios.favorito ?? false,
-                                tags: cambios.tags ?? [],
-                                comentario: cambios.comentario ?? '',
-                            })
-                            setAnimeSeleccionado((prev) => (prev ? { ...prev, ...cambios, estado: nuevoEstado } : null))
+                        try {
+                            if (existing) {
+                                await actualizar(mid, cambios)
+                                setAnimeSeleccionado((prev) => (prev ? { ...prev, ...cambios } : null))
+                            } else {
+                                const nuevoEstado = cambios.estado || 'esperando'
+                                await agregarAnime({
+                                    malId: mid,
+                                    estado: nuevoEstado,
+                                    nota: cambios.nota ?? null,
+                                    episodiosVistos: cambios.episodiosVistos ?? 0,
+                                    favorito: cambios.favorito ?? false,
+                                    tags: cambios.tags ?? [],
+                                    comentario: cambios.comentario ?? '',
+                                })
+                                setAnimeSeleccionado((prev) => (prev ? { ...prev, ...cambios, estado: nuevoEstado } : null))
+                            }
+                        } catch (err: unknown) {
+                            const msg = err instanceof Error ? err.message : 'Error al actualizar'
+                            if (msg.includes('iniciar sesión') || msg.includes('credenciales')) {
+                                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                                dialog?.showModal()
+                            }
+                            console.error('Error al actualizar desde calendario:', err)
                         }
                     }}
                     onRecomendar={() => {}}

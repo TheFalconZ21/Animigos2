@@ -373,7 +373,12 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
             )
             setAddedAnimeId(anime.mal_id)
             setTimeout(() => setAddedAnimeId(null), 2500)
-        } catch (err) {
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al agregar a Mi Lista'
+            if (msg.includes('iniciar sesión') || msg.includes('credenciales')) {
+                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                dialog?.showModal()
+            }
             console.error('Error al agregar a Mi Lista:', err)
         }
     }

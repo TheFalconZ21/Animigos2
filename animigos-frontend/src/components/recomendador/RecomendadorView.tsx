@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { useRecommender } from '../../hooks/useRecommender'
 import { useMyList } from '../../hooks/useMyList'
+import { useAuth } from '../../context/AuthContext'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
 import { searchTmdbMovies } from '../../services/tmdbService'
 import {
@@ -116,6 +117,7 @@ const ONBOARDING_DIALOGUES: { expression: DokiExpression; text: React.ReactNode 
 export const RecomendadorView: React.FC = () => {
     const { acento } = useThemeAccent()
     const { filas, agregarAnime } = useMyList()
+    const { isAuthenticated } = useAuth()
     const {
         tasteAnswers,
         isCalibrated,
@@ -397,6 +399,11 @@ export const RecomendadorView: React.FC = () => {
     ])
 
     const handleAddToMyList = async (animeId: number) => {
+        if (!isAuthenticated) {
+            const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+            dialog?.showModal()
+            return
+        }
         if (myListIds.has(animeId) || justAddedIds.includes(animeId)) return
         setJustAddedIds((prev) => [...prev, animeId])
         try {
@@ -410,7 +417,12 @@ export const RecomendadorView: React.FC = () => {
                 tags: ['#recomendado-doki'],
                 comentario: 'Descubierto en el Recomendador de Animigos',
             })
-        } catch (err) {
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al guardar en Mi Lista'
+            if (msg.includes('iniciar sesión') || msg.includes('credenciales')) {
+                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                dialog?.showModal()
+            }
             console.error('Error agregando anime desde recomendador:', err)
         }
     }

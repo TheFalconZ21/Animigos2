@@ -826,7 +826,9 @@ export function AgendaView({ onOpenAnimeDetail }: AgendaViewProps) {
                                                 abrirLogin()
                                                 return
                                             }
-                                            addAnimeToAgenda(currentSugg.mal_id)
+                                            addAnimeToAgenda(currentSugg.mal_id).catch((err) => {
+                                                console.error('Error al agregar a agenda:', err)
+                                            })
                                         }}
                                     >
                                         {currentSugg.in_user_list ? (

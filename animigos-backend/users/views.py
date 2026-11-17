@@ -13,6 +13,7 @@ import urllib.request
 import json
 from pathlib import Path
 from django.conf import settings
+import uuid
 from animes.models import Anime
 from core.services.fuentes_externas import obtener_estado_emision_animes
 from .models import Profile, UserPreferences, UserAnimeFolder, UserAnimeEntry, Friendship
@@ -309,6 +310,16 @@ def verificar_estrenos_usuario(user):
     return estrenados_count
 
 
+def _is_valid_uuid(val):
+    if not val:
+        return False
+    try:
+        uuid.UUID(str(val).strip())
+        return True
+    except (ValueError, AttributeError, TypeError):
+        return False
+
+
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def user_my_list_view(request):
@@ -362,24 +373,58 @@ def user_my_list_view(request):
         })
 
     elif request.method == 'POST':
-        mal_id = request.data.get('mal_id') or request.data.get('anime_id')
-        if not mal_id:
+        raw_mal_id = request.data.get('mal_id') or request.data.get('anime_id')
+        if not raw_mal_id:
             return Response({'error': 'mal_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            mal_id = int(raw_mal_id)
+        except (ValueError, TypeError):
+            return Response({'error': 'mal_id debe ser un número entero'}, status=status.HTTP_400_BAD_REQUEST)
 
         anime = Anime.objects.filter(mal_id=mal_id).first()
         if not anime:
-            return Response({'error': f'Anime con mal_id {mal_id} no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+            # Resiliencia: si el cliente proporciona datos mínimos del anime (ej. desde búsqueda o franquicia)
+            anime_meta = request.data.get('anime') if isinstance(request.data.get('anime'), dict) else {}
+            title = (request.data.get('title') or anime_meta.get('title') or '').strip()
+            if title:
+                image_url = (request.data.get('image_url') or anime_meta.get('image_url') or '').strip()
+                episodes = request.data.get('episodes') or anime_meta.get('episodes')
+                anime = Anime.objects.create(
+                    mal_id=mal_id,
+                    title=title,
+                    image_url=image_url,
+                    episodes=int(episodes) if (episodes and str(episodes).isdigit()) else None,
+                    status=anime_meta.get('status', 'UNKNOWN')
+                )
+            else:
+                return Response({'error': f'Anime con mal_id {mal_id} no encontrado en el catálogo'}, status=status.HTTP_404_NOT_FOUND)
 
-        status_val = request.data.get('status', 'pendiente')
+        status_val = str(request.data.get('status', 'pendiente')).strip().lower()
+        valid_statuses = [c[0] for c in UserAnimeEntry.STATUS_CHOICES]
+        if status_val not in valid_statuses:
+            status_val = 'pendiente'
+
         score_val = request.data.get('score')
-        episodes_val = request.data.get('episodes_watched', 0)
+        try:
+            score_val = int(score_val) if score_val is not None and score_val != '' else None
+            if score_val is not None and (score_val < 1 or score_val > 10):
+                score_val = None
+        except (ValueError, TypeError):
+            score_val = None
+
+        try:
+            episodes_val = max(0, int(request.data.get('episodes_watched', 0)))
+        except (ValueError, TypeError):
+            episodes_val = 0
+
         is_fav = bool(request.data.get('is_favorite', False))
         folder_id = request.data.get('folder_id')
         tags_val = request.data.get('tags', [])
-        notes_val = request.data.get('notes', '')
+        notes_val = str(request.data.get('notes', '') or '')
 
         folder = None
-        if folder_id:
+        if folder_id and _is_valid_uuid(folder_id):
             folder = UserAnimeFolder.objects.filter(id=folder_id, user=user).first()
 
         entry, created = UserAnimeEntry.objects.update_or_create(
@@ -387,7 +432,7 @@ def user_my_list_view(request):
             anime=anime,
             defaults={
                 'status': status_val,
-                'score': score_val if score_val else None,
+                'score': score_val,
                 'episodes_watched': episodes_val,
                 'is_favorite': is_fav,
                 'folder': folder,
@@ -407,6 +452,9 @@ def user_my_list_entry_detail_view(request, entry_id):
     DELETE: Elimina el anime de la lista del usuario.
     """
     user = request.user
+    if not _is_valid_uuid(entry_id):
+        return Response({'error': 'ID de entrada no válido'}, status=status.HTTP_404_NOT_FOUND)
+
     entry = get_object_or_404(UserAnimeEntry.objects.select_related('anime', 'folder'), id=entry_id, user=user)
 
     if request.method == 'DELETE':
@@ -415,21 +463,31 @@ def user_my_list_entry_detail_view(request, entry_id):
 
     elif request.method == 'PATCH':
         if 'status' in request.data:
-            entry.status = request.data['status']
+            st = str(request.data['status']).strip().lower()
+            if st in [c[0] for c in UserAnimeEntry.STATUS_CHOICES]:
+                entry.status = st
         if 'score' in request.data:
             val = request.data['score']
-            entry.score = val if val else None
+            try:
+                entry.score = int(val) if val is not None and val != '' else None
+                if entry.score is not None and (entry.score < 1 or entry.score > 10):
+                    entry.score = None
+            except (ValueError, TypeError):
+                entry.score = None
         if 'episodes_watched' in request.data:
-            entry.episodes_watched = max(0, int(request.data['episodes_watched']))
+            try:
+                entry.episodes_watched = max(0, int(request.data['episodes_watched']))
+            except (ValueError, TypeError):
+                pass
         if 'is_favorite' in request.data:
             entry.is_favorite = bool(request.data['is_favorite'])
         if 'notes' in request.data:
-            entry.notes = request.data['notes']
+            entry.notes = str(request.data['notes'] or '')
         if 'tags' in request.data:
             entry.tags = request.data['tags'] if isinstance(request.data['tags'], list) else []
         if 'folder_id' in request.data:
             fid = request.data['folder_id']
-            entry.folder = UserAnimeFolder.objects.filter(id=fid, user=user).first() if fid else None
+            entry.folder = UserAnimeFolder.objects.filter(id=fid, user=user).first() if (fid and _is_valid_uuid(fid)) else None
 
         entry.save()
         return Response(UserAnimeEntrySerializer(entry).data)
@@ -458,6 +516,9 @@ def user_my_list_folder_detail_view(request, folder_id):
     DELETE: Elimina la carpeta (los animes permanecen en la lista).
     """
     user = request.user
+    if not _is_valid_uuid(folder_id):
+        return Response({'error': 'ID de carpeta no válido'}, status=status.HTTP_404_NOT_FOUND)
+
     folder = get_object_or_404(UserAnimeFolder, id=folder_id, user=user)
 
     if request.method == 'DELETE':

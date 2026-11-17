@@ -98,8 +98,9 @@ export function useMyList() {
                             notes: newPayload.notes ?? '',
                             anime: {
                                 mal_id: newPayload.mal_id,
-                                title: 'Guardando...',
-                                image_url: '',
+                                title: newPayload.title || 'Guardando...',
+                                image_url: newPayload.image_url || '',
+                                episodes: newPayload.episodes ?? null,
                                 genres: [],
                             },
                             created_at: new Date().toISOString(),
@@ -239,7 +240,7 @@ export function useMyList() {
         await deleteMutation.mutateAsync(fila.id)
     }
 
-    const agregarAnime = async (nuevaEntrada: EntradaLista, _animeData?: ApiAnimeData) => {
+    const agregarAnime = async (nuevaEntrada: EntradaLista, animeData?: ApiAnimeData) => {
         await addMutation.mutateAsync({
             mal_id: nuevaEntrada.malId,
             status: nuevaEntrada.estado,
@@ -249,6 +250,9 @@ export function useMyList() {
             folder_id: nuevaEntrada.carpetaId || null,
             tags: nuevaEntrada.tags,
             notes: nuevaEntrada.comentario || '',
+            title: animeData?.title,
+            image_url: animeData?.image_url,
+            episodes: animeData?.episodes,
         })
     }
 

@@ -73,7 +73,7 @@ export function MiLista({
     visitedUsername?: string
     onOpenAnimeDetail?: (malId: number) => void
 } = {}) {
-    const { user } = useAuth()
+    const { user, isAuthenticated } = useAuth()
     // --- Capa de Lógica / Hooks Reactivos (Pilar 1.2 y 4.3 de la Directiva de Arquitectura) ---
     const {
         filas: ownFilas,
@@ -185,11 +185,21 @@ export function MiLista({
         return null
     }, [hoveredFila, selectedFilaId, detalleId, filas])
 
-    const handleAgregarAnime = async (nuevaEntrada: EntradaLista, _animeData?: ApiAnimeData) => {
+    const handleAgregarAnime = async (nuevaEntrada: EntradaLista, animeData?: ApiAnimeData) => {
         if (isReadOnlyVisit) return
+        if (!isAuthenticated) {
+            const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+            dialog?.showModal()
+            return
+        }
         try {
-            await agregarAnime(nuevaEntrada, _animeData)
-        } catch (err) {
+            await agregarAnime(nuevaEntrada, animeData)
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al agregar anime a la lista'
+            if (msg.includes('iniciar sesión') || msg.includes('credenciales')) {
+                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                dialog?.showModal()
+            }
             console.error('Error al agregar anime a la lista:', err)
         } finally {
             setAgregarAbierto(false)
@@ -364,7 +374,18 @@ export function MiLista({
                                 </>
                             ) : (
                                 <>
-                                    <button type="button" className="ml-btn ml-btn-acento" onClick={() => setAgregarAbierto(true)}>
+                                    <button
+                                        type="button"
+                                        className="ml-btn ml-btn-acento"
+                                        onClick={() => {
+                                            if (!isAuthenticated) {
+                                                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                                                dialog?.showModal()
+                                                return
+                                            }
+                                            setAgregarAbierto(true)
+                                        }}
+                                    >
                                         <Plus size={16} /> Agregar anime
                                     </button>
                                     <button
@@ -375,7 +396,14 @@ export function MiLista({
                                             border: '1px solid var(--cat-border, rgba(255, 255, 255, 0.1))',
                                             color: '#f4f4f5',
                                         }}
-                                        onClick={() => setImportarAbierto(true)}
+                                        onClick={() => {
+                                            if (!isAuthenticated) {
+                                                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                                                dialog?.showModal()
+                                                return
+                                            }
+                                            setImportarAbierto(true)
+                                        }}
                                         title="Importa tu lista oficial desde animelist.xml de MyAnimeList"
                                     >
                                         <Upload size={15} /> Importar MyAnimeList (.xml)

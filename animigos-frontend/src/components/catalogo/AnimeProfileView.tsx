@@ -125,6 +125,13 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                 },
                 anime
             )
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Error al agregar anime a Mi Lista'
+            if (msg.includes('iniciar sesión') || msg.includes('credenciales') || !isAuthenticated) {
+                const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+                dialog?.showModal()
+            }
+            console.error('Error al agregar anime a Mi Lista:', err)
         } finally {
             setSavingList(false)
         }
@@ -138,19 +145,25 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
         if (newStatus === 'visto' && anime.episodes) {
             changes.episodiosVistos = anime.episodes
         }
-        actualizar(malId, changes)
+        actualizar(malId, changes).catch((err) => {
+            console.error('Error al actualizar estado:', err)
+        })
     }
 
     const handleUpdateScore = (newScoreStr: string) => {
         if (!myEntry) return
         const scoreVal = newScoreStr === '' ? null : Number(newScoreStr)
-        actualizar(malId, { nota: scoreVal })
+        actualizar(malId, { nota: scoreVal }).catch((err) => {
+            console.error('Error al actualizar nota:', err)
+        })
     }
 
     const handleDecrementEpisodes = () => {
         if (!myEntry) return
         const prevEps = Math.max(0, (myEntry.episodiosVistos || 0) - 1)
-        actualizar(Number(malId), { episodiosVistos: prevEps })
+        actualizar(Number(malId), { episodiosVistos: prevEps }).catch((err) => {
+            console.error('Error al decrementar episodios:', err)
+        })
     }
 
     const handleIncrementEpisodes = () => {
@@ -159,7 +172,9 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
         const nextEps = Math.min(maxEps, (myEntry.episodiosVistos || 0) + 1)
         const nextStatus: EstadoLista =
             anime?.episodes && nextEps >= anime.episodes ? 'visto' : myEntry.estado === 'pendiente' ? 'viendo' : myEntry.estado
-        actualizar(Number(malId), { episodiosVistos: nextEps, estado: nextStatus })
+        actualizar(Number(malId), { episodiosVistos: nextEps, estado: nextStatus }).catch((err) => {
+            console.error('Error al incrementar episodios:', err)
+        })
     }
 
     const handleCommitEpisodes = () => {
@@ -170,12 +185,16 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
         setLocalEp(String(finalVal))
         const nextStatus: EstadoLista =
             anime?.episodes && finalVal >= anime.episodes ? 'visto' : myEntry.estado === 'pendiente' && finalVal > 0 ? 'viendo' : myEntry.estado
-        actualizar(Number(malId), { episodiosVistos: finalVal, estado: nextStatus })
+        actualizar(Number(malId), { episodiosVistos: finalVal, estado: nextStatus }).catch((err) => {
+            console.error('Error al guardar episodios:', err)
+        })
     }
 
     const handleToggleFavorite = () => {
         if (!myEntry) return
-        actualizar(malId, { favorito: !myEntry.favorito })
+        actualizar(malId, { favorito: !myEntry.favorito }).catch((err) => {
+            console.error('Error al alternar favorito:', err)
+        })
     }
 
     const handleRemoveFromMyList = async () => {

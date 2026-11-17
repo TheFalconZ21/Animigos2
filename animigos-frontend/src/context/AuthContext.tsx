@@ -45,6 +45,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         refreshUser()
+
+        const handleAuthExpired = () => {
+            setUser(null)
+            setIsAuthenticated(false)
+        }
+        window.addEventListener('animigos-auth-expired', handleAuthExpired)
+        return () => window.removeEventListener('animigos-auth-expired', handleAuthExpired)
     }, [])
 
     const handleLogin = async (usernameOrEmail: string, password: string): Promise<UserProfile> => {
