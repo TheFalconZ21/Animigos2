@@ -35,7 +35,7 @@ export interface PublicUserProfileData {
 
 export interface UserNotificationItem {
     id: string
-    type: 'anime_recommendation' | 'friend_added' | 'anime_release'
+    type: 'anime_recommendation' | 'friend_added' | 'anime_release' | 'warning' | 'system' | string
     from_username: string
     from_display_name: string
     from_avatar: string

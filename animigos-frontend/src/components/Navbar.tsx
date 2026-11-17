@@ -19,6 +19,7 @@ import {
     ArrowLeft,
     History,
     CalendarCheck,
+    AlertTriangle,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
@@ -409,7 +410,22 @@ export function Navbar({
                                 <div ref={notifWrapRef} className="position-relative">
                                     <button
                                         type="button"
-                                        onClick={() => setIsNotifOpen((prev) => !prev)}
+                                        onClick={() => {
+                                            setIsNotifOpen((prev) => {
+                                                const next = !prev
+                                                if (next && user) {
+                                                    fetchUserNotifications()
+                                                        .then((res) => {
+                                                            if (res && res.notifications) {
+                                                                setNotifications(res.notifications)
+                                                                setUnreadCount(res.unread_count)
+                                                            }
+                                                        })
+                                                        .catch(() => {})
+                                                }
+                                                return next
+                                            })
+                                        }}
                                         className={`nav-notif-trigger ${isNotifOpen ? 'is-open' : ''}`}
                                         title="Notificaciones y eventos pendientes"
                                         aria-label="Notificaciones"
@@ -455,10 +471,11 @@ export function Navbar({
                                                 <div className="nav-notif-list">
                                                     {notifications.map((n) => {
                                                         const isAdded = Boolean(addedNotifIds[n.id])
+                                                        const isWarning = n.type === 'warning' || n.type === 'admin_warning'
                                                         return (
                                                             <div
                                                                 key={n.id}
-                                                                className={`nav-notif-card ${!n.read ? 'is-unread' : ''}`}
+                                                                className={`nav-notif-card ${!n.read ? 'is-unread' : ''} ${isWarning ? 'is-warning' : ''}`}
                                                             >
                                                                 <div className="nav-notif-thumb-wrap">
                                                                     {n.type === 'anime_recommendation' && n.anime_poster ? (
@@ -467,6 +484,17 @@ export function Navbar({
                                                                             alt={n.anime_title || ''}
                                                                             className="nav-notif-poster"
                                                                         />
+                                                                    ) : isWarning ? (
+                                                                        <div
+                                                                            className="nav-notif-avatar-fallback warning-fallback"
+                                                                            style={{
+                                                                                background: 'rgba(234, 179, 8, 0.15)',
+                                                                                border: '1px solid rgba(234, 179, 8, 0.35)',
+                                                                                color: '#facc15',
+                                                                            }}
+                                                                        >
+                                                                            <AlertTriangle size={18} />
+                                                                        </div>
                                                                     ) : (
                                                                         <div className="nav-notif-avatar-fallback">
                                                                             <Sparkles size={18} />
@@ -478,9 +506,11 @@ export function Navbar({
                                                                     <div className="nav-notif-top-row">
                                                                         <span className="nav-notif-eyebrow">
                                                                             {!n.read && <span className="nav-notif-unread-dot" />}
-                                                                            <span>
+                                                                            <span style={isWarning ? { color: '#facc15', fontWeight: 700 } : undefined}>
                                                                                 {n.type === 'anime_recommendation'
                                                                                     ? 'Recomendación de Anime'
+                                                                                    : isWarning
+                                                                                    ? 'Aviso de Moderación'
                                                                                     : 'Comunidad Animigos'}
                                                                             </span>
                                                                         </span>
@@ -496,11 +526,15 @@ export function Navbar({
                                                                     </div>
 
                                                                     <div className="nav-notif-headline">
-                                                                        <span className="nav-notif-user">
-                                                                            {n.from_display_name || `@${n.from_username}`}
-                                                                        </span>{' '}
-                                                                        {n.type === 'anime_recommendation' ? (
+                                                                        {isWarning ? (
+                                                                            <span className="text-warning fw-semibold">
+                                                                                Has recibido una advertencia administrativa
+                                                                            </span>
+                                                                        ) : n.type === 'anime_recommendation' ? (
                                                                             <>
+                                                                                <span className="nav-notif-user">
+                                                                                    {n.from_display_name || `@${n.from_username}`}
+                                                                                </span>{' '}
                                                                                 te recomendó{' '}
                                                                                 <span className="nav-notif-anime-title">
                                                                                     {n.anime_title}
@@ -511,8 +545,19 @@ export function Navbar({
                                                                         )}
                                                                     </div>
 
-                                                                    {n.type === 'anime_recommendation' && n.message && (
-                                                                        <div className="nav-notif-quote">
+                                                                    {(n.type === 'anime_recommendation' || isWarning) && n.message && (
+                                                                        <div
+                                                                            className="nav-notif-quote"
+                                                                            style={
+                                                                                isWarning
+                                                                                    ? {
+                                                                                          borderLeftColor: '#facc15',
+                                                                                          backgroundColor: 'rgba(234, 179, 8, 0.08)',
+                                                                                          color: '#fef08a',
+                                                                                      }
+                                                                                    : undefined
+                                                                            }
+                                                                        >
                                                                             “{n.message}”
                                                                         </div>
                                                                     )}
@@ -542,7 +587,24 @@ export function Navbar({
                                                                             </button>
                                                                         )}
 
-                                                                        {n.from_username && (
+                                                                        {isWarning && !n.read && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleDismissNotification(n.id)}
+                                                                                className="nav-notif-btn-primary"
+                                                                                style={{
+                                                                                    background: 'linear-gradient(135deg, #eab308, #ca8a04)',
+                                                                                    borderColor: '#facc15',
+                                                                                    color: '#000',
+                                                                                    fontWeight: 600,
+                                                                                }}
+                                                                            >
+                                                                                <Check size={12} />
+                                                                                <span>Entendido</span>
+                                                                            </button>
+                                                                        )}
+
+                                                                        {!isWarning && n.from_username && (
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => {

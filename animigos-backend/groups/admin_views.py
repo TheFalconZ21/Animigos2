@@ -1000,9 +1000,13 @@ def admin_users_list(request):
         if profile and getattr(profile, 'role', '') == 'admin':
             is_admin = True
 
-        mod_info = MODERATION_STORE.get(user_id, {'status': 'active' if u.is_active else 'suspended', 'warnings': 0, 'reason': ''})
-        mod_status = mod_info.get('status', 'active' if u.is_active else 'suspended')
-        warnings_count = mod_info.get('warnings', 0)
+        pref = getattr(profile, 'preferences', None)
+        ps_mod = (pref and isinstance(pref.privacy_settings, dict) and pref.privacy_settings.get('moderation')) or {}
+
+        mod_info = MODERATION_STORE.get(user_id, {})
+        mod_status = ps_mod.get('status') or mod_info.get('status') or ('active' if u.is_active else 'suspended')
+        warnings_count = ps_mod.get('warnings', mod_info.get('warnings', 0))
+        reason_text = ps_mod.get('reason') or mod_info.get('reason', '')
 
         if q:
             match = q in display_name.lower() or q in u.username.lower() or q in (u.email or '').lower()
@@ -1038,7 +1042,7 @@ def admin_users_list(request):
             'user_type': 'registered',
             'status': mod_status,
             'warnings': warnings_count,
-            'reason': mod_info.get('reason', ''),
+            'reason': reason_text,
             'rooms_count': rooms_count,
             'votes_count': votes_count,
             'joined_at': u.date_joined.strftime('%Y-%m-%d %H:%M'),
@@ -1090,7 +1094,7 @@ def admin_users_list(request):
             'user_type': user_type,
             'status': mod_status,
             'warnings': warnings_count,
-            'reason': mod_info.get('reason', ''),
+            'reason': reason_text,
             'rooms_count': rooms_count,
             'votes_count': votes_count,
             'joined_at': m.joined_at.strftime('%Y-%m-%d %H:%M'),
@@ -1227,30 +1231,182 @@ def admin_user_detail_or_delete(request, user_id):
 @permission_classes([AllowAny])
 def admin_moderate_user(request, user_id):
     """
-    Aplica una acción de moderación directa a un usuario (warn, suspend, activate, kick).
+    Aplica una acción de moderación directa a un usuario (warn, suspend, activate, kick)
+    y despacha la notificación a su bandeja de notificaciones en tiempo real.
     """
+    import uuid
+    from django.utils import timezone
+    from django.contrib.auth.models import User
+    from users.models import Profile, UserPreferences
+
     action = request.data.get('action', 'warn')
-    reason = request.data.get('reason', 'Acción administrativa')
+    reason = request.data.get('reason', 'Acción administrativa de moderación')
+
+    raw_id = str(user_id).strip()
+    target_user = None
+
+    # 1. user_<id> o numérico
+    if raw_id.startswith('user_') and raw_id[5:].isdigit():
+        target_user = User.objects.filter(id=int(raw_id[5:])).first()
+    elif raw_id.isdigit():
+        target_user = User.objects.filter(id=int(raw_id)).first()
+
+    # 2. Si es UUID, buscar en Profile o SharedListMember
+    if not target_user:
+        try:
+            val_uuid = uuid.UUID(raw_id)
+            prof = Profile.objects.filter(id=val_uuid).first()
+            if prof:
+                target_user = prof.user
+            else:
+                member = SharedListMember.objects.filter(id=val_uuid).first()
+                if member and member.guest_name:
+                    g_clean = member.guest_name.lstrip('@').strip()
+                    target_user = User.objects.filter(
+                        Q(username__iexact=g_clean) | Q(email__iexact=g_clean)
+                    ).first()
+        except (ValueError, TypeError):
+            pass
+
+    # 3. Búsqueda por username o email directo
+    if not target_user:
+        clean_name = raw_id.lstrip('@').strip()
+        target_user = User.objects.filter(
+            Q(username__iexact=clean_name) | Q(email__iexact=clean_name)
+        ).first()
+
+    # 4. Búsqueda por datos adicionales del payload (username, email, target_user_id)
+    if not target_user:
+        body_uname = (request.data.get('username') or '').lstrip('@').strip()
+        body_email = (request.data.get('email') or '').strip()
+        body_target_id = str(request.data.get('target_user_id') or '').strip()
+
+        if body_target_id.startswith('user_') and body_target_id[5:].isdigit():
+            target_user = User.objects.filter(id=int(body_target_id[5:])).first()
+        elif body_target_id.isdigit():
+            target_user = User.objects.filter(id=int(body_target_id)).first()
+
+        if not target_user and body_uname:
+            target_user = User.objects.filter(username__iexact=body_uname).first()
+        if not target_user and body_email:
+            target_user = User.objects.filter(email__iexact=body_email).first()
 
     current = MODERATION_STORE.get(user_id, {'status': 'active', 'warnings': 0, 'reason': ''})
 
-    if action == 'warn':
-        current['warnings'] = current.get('warnings', 0) + 1
-        current['status'] = 'warned'
-        current['reason'] = reason
-    elif action == 'suspend':
-        current['status'] = 'suspended'
-        current['reason'] = reason
-    elif action == 'activate':
-        current['status'] = 'active'
-        current['reason'] = 'Cuenta reactivada por moderador'
-    elif action == 'kick':
-        # Expulsar de salas: eliminar membresías de salas activas
-        SharedListMember.objects.filter(id=user_id).delete()
-        current['status'] = 'active'
-        current['reason'] = 'Expulsado de las salas activas'
+    if target_user:
+        target_profile, _ = Profile.objects.get_or_create(
+            user=target_user,
+            defaults={'display_name': target_user.first_name or target_user.username}
+        )
+        target_prefs, _ = UserPreferences.objects.get_or_create(profile=target_profile)
+        ps = dict(target_prefs.privacy_settings) if isinstance(target_prefs.privacy_settings, dict) else {}
+        mod_state = dict(ps.get('moderation', {})) if isinstance(ps.get('moderation'), dict) else {}
 
-    MODERATION_STORE[user_id] = current
+        current_warnings = int(mod_state.get('warnings', 0))
+
+        if action == 'warn':
+            current_warnings += 1
+            mod_state['warnings'] = current_warnings
+            mod_state['status'] = 'warned'
+            mod_state['reason'] = reason
+            current['warnings'] = current_warnings
+            current['status'] = 'warned'
+            current['reason'] = reason
+        elif action == 'suspend':
+            mod_state['status'] = 'suspended'
+            mod_state['reason'] = reason
+            target_user.is_active = False
+            target_user.save(update_fields=['is_active'])
+            current['status'] = 'suspended'
+            current['reason'] = reason
+        elif action == 'activate':
+            mod_state['status'] = 'active'
+            mod_state['reason'] = 'Cuenta reactivada por moderador'
+            target_user.is_active = True
+            target_user.save(update_fields=['is_active'])
+            current['status'] = 'active'
+            current['reason'] = 'Cuenta reactivada por moderador'
+        elif action == 'kick':
+            SharedListMember.objects.filter(
+                Q(guest_name__iexact=target_user.username) | Q(guest_name__iexact=target_profile.display_name)
+            ).delete()
+            mod_state['status'] = 'active'
+            mod_state['reason'] = 'Expulsado de las salas activas'
+            current['status'] = 'active'
+            current['reason'] = 'Expulsado de las salas activas'
+
+        mod_state['updated_at'] = timezone.now().isoformat()
+        ps['moderation'] = mod_state
+
+        # Despacho de la notificación accionable a la bandeja del usuario
+        notifs = list(ps.get('notifications', [])) if isinstance(ps.get('notifications'), list) else []
+
+        admin_sender_display = 'Equipo de Moderación'
+        if request.user and request.user.is_authenticated:
+            admin_prof = getattr(request.user, 'profile', None)
+            admin_sender_display = (admin_prof and admin_prof.display_name) or request.user.first_name or request.user.username or 'Equipo de Moderación'
+
+        if action == 'warn':
+            notif_item = {
+                'id': str(uuid.uuid4()),
+                'type': 'warning',
+                'from_username': 'moderacion',
+                'from_display_name': admin_sender_display,
+                'from_avatar': '',
+                'message': reason or 'Has recibido una advertencia administrativa por incumplimiento de las normas comunitarias.',
+                'created_at': timezone.now().isoformat(),
+                'read': False,
+            }
+            notifs.insert(0, notif_item)
+        elif action == 'suspend':
+            notif_item = {
+                'id': str(uuid.uuid4()),
+                'type': 'warning',
+                'from_username': 'moderacion',
+                'from_display_name': admin_sender_display,
+                'from_avatar': '',
+                'message': f'Tu cuenta ha sido suspendida por moderación. Motivo: {reason}',
+                'created_at': timezone.now().isoformat(),
+                'read': False,
+            }
+            notifs.insert(0, notif_item)
+        elif action == 'activate':
+            notif_item = {
+                'id': str(uuid.uuid4()),
+                'type': 'system',
+                'from_username': 'moderacion',
+                'from_display_name': admin_sender_display,
+                'from_avatar': '',
+                'message': 'Tu cuenta ha sido reactivada por el equipo de moderación. ¡Bienvenido de vuelta!',
+                'created_at': timezone.now().isoformat(),
+                'read': False,
+            }
+            notifs.insert(0, notif_item)
+
+        ps['notifications'] = notifs[:40]
+        target_prefs.privacy_settings = ps
+        target_prefs.save(update_fields=['privacy_settings'])
+
+        MODERATION_STORE[user_id] = current
+        MODERATION_STORE[f"user_{target_user.id}"] = current
+    else:
+        # Fallback para miembros no registrados (invitados de sala)
+        if action == 'warn':
+            current['warnings'] = current.get('warnings', 0) + 1
+            current['status'] = 'warned'
+            current['reason'] = reason
+        elif action == 'suspend':
+            current['status'] = 'suspended'
+            current['reason'] = reason
+        elif action == 'activate':
+            current['status'] = 'active'
+            current['reason'] = 'Cuenta reactivada por moderador'
+        elif action == 'kick':
+            SharedListMember.objects.filter(id=user_id).delete()
+            current['status'] = 'active'
+            current['reason'] = 'Expulsado de las salas activas'
+
+        MODERATION_STORE[user_id] = current
 
     return Response({
         'status': 'success',

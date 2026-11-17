@@ -560,13 +560,14 @@ export async function getAdminUsers(params?: {
 export async function moderateAdminUser(
   userId: string,
   action: 'warn' | 'suspend' | 'activate' | 'kick',
-  reason?: string
+  reason?: string,
+  extra?: { username?: string; email?: string }
 ): Promise<{ status: string; message: string; user_id: string; moderation: any }> {
   const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/moderate/`, {
     method: 'POST',
     headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     credentials: 'include',
-    body: JSON.stringify({ action, reason })
+    body: JSON.stringify({ action, reason, ...extra })
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: Error al moderar usuario`);
   return res.json();

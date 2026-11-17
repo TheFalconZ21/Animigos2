@@ -140,7 +140,10 @@ export function ModerationPage() {
 
     const handleSendWarning = async (user: AdminUserItem, reasonText: string) => {
         try {
-            await moderateAdminUser(user.id, 'warn', reasonText)
+            await moderateAdminUser(user.id, 'warn', reasonText, {
+                username: user.username,
+                email: user.email
+            })
         } catch (err) {
             console.error(err)
         }
