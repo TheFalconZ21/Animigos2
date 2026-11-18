@@ -155,8 +155,10 @@ async function handleApiResponse<T>(res: Response, fallbackPrefix: string): Prom
         }
 
         if (!errorDetail) {
-            if (res.status === 401 || res.status === 403) {
-                errorDetail = 'Debes iniciar sesión para realizar esta acción en tu lista.'
+            if (res.status === 401) {
+                errorDetail = 'Tu sesión ha expirado o no estás autenticado. Por favor vuelve a iniciar sesión para guardar cambios en tu lista.'
+            } else if (res.status === 403) {
+                errorDetail = 'No tienes permisos para modificar este elemento de la lista o las credenciales no fueron aceptadas.'
             } else if (res.status === 404) {
                 errorDetail = 'El elemento o anime solicitado no fue encontrado.'
             } else if (res.status >= 500) {
@@ -166,15 +168,9 @@ async function handleApiResponse<T>(res: Response, fallbackPrefix: string): Prom
             }
         }
 
-        // Si la sesión expiró o no está autorizada, limpiar tokens locales y emitir evento reactivo
-        if (res.status === 401 || res.status === 403) {
-            if (typeof localStorage !== 'undefined') {
-                localStorage.removeItem('animigos_session_id')
-                localStorage.removeItem('session_id')
-            }
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('animigos-auth-expired', { detail: { status: res.status } }))
-            }
+        // Si es 401 persistente (no 403), verificamos el estado sin desloguear agresivamente
+        if (res.status === 401) {
+            console.warn('[userListApi] Error 401 Unauthorized recibido del servidor al realizar acción de lista.')
         }
 
         throw new Error(errorDetail)
@@ -206,12 +202,27 @@ export async function fetchMyList(): Promise<MyListApiResponse> {
  * Agrega un nuevo anime a la colección personal
  */
 export async function addAnimeToMyList(payload: AddAnimePayload): Promise<ApiUserListEntry> {
-    const res = await fetch(`${API_BASE_URL}/users/my-list/`, {
+    let res = await fetch(`${API_BASE_URL}/users/my-list/`, {
         method: 'POST',
         headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify(payload),
     })
+
+    // Fallback de reintento ante posibles carreras de red o inicialización de cookies
+    if (res.status === 401 || res.status === 403) {
+        const retryHeaders = getAuthHeaders()
+        if (retryHeaders['Authorization'] || retryHeaders['X-Session-Id']) {
+            await new Promise((resolve) => setTimeout(resolve, 250))
+            res = await fetch(`${API_BASE_URL}/users/my-list/`, {
+                method: 'POST',
+                headers: retryHeaders,
+                credentials: 'include',
+                body: JSON.stringify(payload),
+            })
+        }
+    }
+
     return handleApiResponse<ApiUserListEntry>(res, 'Error al agregar anime a Mi Lista')
 }
 

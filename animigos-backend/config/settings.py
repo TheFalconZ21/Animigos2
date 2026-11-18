@@ -231,6 +231,7 @@ from corsheaders.defaults import default_headers
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'x-session-id',
     'x-guest-token',
+    'x-auth-token',
 ]
 
 # Session & Security Cookies (Pilar 2.3 de la Directiva de Arquitectura)

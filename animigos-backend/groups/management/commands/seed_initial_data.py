@@ -56,7 +56,8 @@ class Command(BaseCommand):
                 user.is_staff = True
                 user.is_superuser = True
                 user.is_active = True
-                user.set_password(password)
+                if not user.check_password(password):
+                    user.set_password(password)
                 user.save()
             else:
                 user = User.objects.create_user(

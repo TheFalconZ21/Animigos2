@@ -7,7 +7,9 @@ const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, '
 
 export function getAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
     const sessionId = typeof localStorage !== 'undefined'
-        ? (localStorage.getItem('animigos_session_id') || localStorage.getItem('session_id'))
+        ? (localStorage.getItem('animigos_session_id') ||
+           localStorage.getItem('session_id') ||
+           (typeof sessionStorage !== 'undefined' ? (sessionStorage.getItem('animigos_session_id') || sessionStorage.getItem('session_id')) : null))
         : null
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -15,7 +17,8 @@ export function getAuthHeaders(extraHeaders: Record<string, string> = {}): Recor
     }
     if (sessionId) {
         headers['X-Session-Id'] = sessionId
-        headers['Authorization'] = `Session ${sessionId}`
+        headers['X-Auth-Token'] = sessionId
+        headers['Authorization'] = `Bearer ${sessionId}`
     }
     return headers
 }
@@ -89,6 +92,10 @@ export async function loginUser(usernameOrEmail: string, password: string): Prom
     if (data.session_id) {
         localStorage.setItem('animigos_session_id', data.session_id)
         localStorage.setItem('session_id', data.session_id)
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('animigos_session_id', data.session_id)
+            sessionStorage.setItem('session_id', data.session_id)
+        }
     }
     return data
 }
@@ -122,6 +129,10 @@ export async function registerUser(payload: {
     if (data.session_id) {
         localStorage.setItem('animigos_session_id', data.session_id)
         localStorage.setItem('session_id', data.session_id)
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('animigos_session_id', data.session_id)
+            sessionStorage.setItem('session_id', data.session_id)
+        }
     }
     return data
 }
@@ -139,6 +150,10 @@ export async function logoutUser(): Promise<void> {
     } finally {
         localStorage.removeItem('animigos_session_id')
         localStorage.removeItem('session_id')
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('animigos_session_id')
+            sessionStorage.removeItem('session_id')
+        }
     }
 }
 
@@ -152,17 +167,32 @@ export async function getCurrentUser(): Promise<CurrentUserResponse> {
             credentials: 'include',
         })
         if (!res.ok) {
-            localStorage.removeItem('animigos_session_id')
-            localStorage.removeItem('session_id')
+            // Solo limpiar tokens si el servidor confirmó explícitamente 401 (no en caídas temporales 5xx)
+            if (res.status === 401) {
+                localStorage.removeItem('animigos_session_id')
+                localStorage.removeItem('session_id')
+                if (typeof sessionStorage !== 'undefined') {
+                    sessionStorage.removeItem('animigos_session_id')
+                    sessionStorage.removeItem('session_id')
+                }
+            }
             return { authenticated: false, user: null }
         }
         const data = await res.json()
         if (data.authenticated && data.session_id) {
             localStorage.setItem('animigos_session_id', data.session_id)
             localStorage.setItem('session_id', data.session_id)
-        } else {
+            if (typeof sessionStorage !== 'undefined') {
+                sessionStorage.setItem('animigos_session_id', data.session_id)
+                sessionStorage.setItem('session_id', data.session_id)
+            }
+        } else if (!data.authenticated) {
             localStorage.removeItem('animigos_session_id')
             localStorage.removeItem('session_id')
+            if (typeof sessionStorage !== 'undefined') {
+                sessionStorage.removeItem('animigos_session_id')
+                sessionStorage.removeItem('session_id')
+            }
         }
         return data
     } catch {
