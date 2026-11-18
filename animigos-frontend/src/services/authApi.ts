@@ -17,7 +17,6 @@ export function getAuthHeaders(extraHeaders: Record<string, string> = {}): Recor
     }
     if (sessionId) {
         headers['X-Session-Id'] = sessionId
-        headers['X-Auth-Token'] = sessionId
         headers['Authorization'] = `Bearer ${sessionId}`
     }
     return headers
