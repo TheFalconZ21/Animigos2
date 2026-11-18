@@ -718,6 +718,10 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                                                         <img
                                                             src={m.posterPath}
                                                             alt={m.title}
+                                                            loading="lazy"
+                                                            onError={(e) => {
+                                                                e.currentTarget.style.display = 'none'
+                                                            }}
                                                             style={{
                                                                 width: '32px',
                                                                 height: '46px',
@@ -802,6 +806,10 @@ export const TasteTestModal: React.FC<TasteTestModalProps> = ({
                                                         <img
                                                             src={m.posterPath}
                                                             alt={m.title}
+                                                            loading="lazy"
+                                                            onError={(e) => {
+                                                                e.currentTarget.style.display = 'none'
+                                                            }}
                                                             style={{
                                                                 width: '36px',
                                                                 height: '50px',

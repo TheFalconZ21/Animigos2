@@ -77,7 +77,7 @@ const FALLBACK_MOVIES: TmdbMovie[] = [
         title: 'La Isla Siniestra (Shutter Island)',
         originalTitle: 'Shutter Island',
         releaseYear: '2010',
-        posterPath: 'https://image.tmdb.org/t/p/w500/4BgSWFMW2v001ed0bvFvjqYp1eA.jpg',
+        posterPath: 'https://image.tmdb.org/t/p/w500/4GDy0PHYX3VRXUtwK5ysFbg3kEx.jpg',
         genres: ['Drama', 'Suspense', 'Misterio'],
         overview: 'Dos agentes judiciales investigan la misteriosa desaparición de una paciente en un hospital psiquiátrico de máxima seguridad en una isla remota.',
     },

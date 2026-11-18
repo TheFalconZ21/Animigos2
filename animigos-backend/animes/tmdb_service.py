@@ -359,6 +359,30 @@ def search_tmdb_movies(query: str, media_type: str = 'all', limit: int = 15):
 
     # 1. Búsqueda principal en base de datos PostgreSQL local (ExternalReferenceMedia)
     try:
+        # Si la tabla está vacía en este entorno (ej. despliegue en Render), auto-poblar desde el catálogo curado
+        if not ExternalReferenceMedia.objects.exists() and CURATED_TMDB_MOVIES:
+            try:
+                batch = []
+                for m in CURATED_TMDB_MOVIES:
+                    batch.append(ExternalReferenceMedia(
+                        tmdb_id=m['id'],
+                        media_type=m.get('media_type', 'movie'),
+                        title=m.get('title', ''),
+                        original_title=m.get('original_title', ''),
+                        release_year=int(m['release_year']) if str(m.get('release_year', '')).isdigit() else None,
+                        poster_path=m.get('poster_path', ''),
+                        backdrop_path=m.get('backdrop_path', ''),
+                        genres=m.get('genres', []),
+                        overview=m.get('overview', ''),
+                        vote_average=m.get('vote_average', 7.5),
+                        vote_count=m.get('vote_count', 100),
+                        number_of_seasons=m.get('number_of_seasons'),
+                        number_of_episodes=m.get('number_of_episodes')
+                    ))
+                ExternalReferenceMedia.objects.bulk_create(batch, ignore_conflicts=True)
+            except Exception:
+                pass
+
         qs = ExternalReferenceMedia.objects.all()
         if media_type in ('movie', 'tv'):
             qs = qs.filter(media_type=media_type)
