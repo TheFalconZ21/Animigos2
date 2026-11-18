@@ -120,6 +120,7 @@ export function useMyList() {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey })
+            queryClient.invalidateQueries({ queryKey: ['user-agenda'] })
         },
     })
 
@@ -171,6 +172,7 @@ export function useMyList() {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey })
+            queryClient.invalidateQueries({ queryKey: ['user-agenda'] })
         },
     })
 
@@ -197,6 +199,7 @@ export function useMyList() {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey })
+            queryClient.invalidateQueries({ queryKey: ['user-agenda'] })
         },
     })
 

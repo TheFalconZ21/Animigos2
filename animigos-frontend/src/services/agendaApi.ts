@@ -3,6 +3,8 @@
  * Proporciona el contador de episodios atrasados para animes en emisión.
  */
 
+import { getAuthHeaders } from './authApi'
+
 const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, '')
 const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
 
@@ -62,10 +64,9 @@ export interface AgendaApiResponse {
 
 export async function fetchAgenda(): Promise<AgendaApiResponse> {
     const res = await fetch(`${API_BASE_URL}/users/agenda/`, {
-        headers: {
-            'Content-Type': 'application/json',
+        headers: getAuthHeaders({
             'Accept': 'application/json',
-        },
+        }),
         credentials: 'include',
     })
 

@@ -554,15 +554,19 @@ def user_agenda_view(request):
     user_mal_ids = set()
 
     hoy = timezone.now().date()
+    ahora_unix = int(timezone.now().timestamp())
     all_user_mal_ids = set()
 
     if user.is_authenticated:
-        # Excluir explícitamente entradas con categoría 'esperando' (Esperando su estreno)
-        # y animes que no han sido estrenados
+        try:
+            verificar_estrenos_usuario(user)
+        except Exception:
+            pass
+
+        # Traer animes activos que el usuario está siguiendo (viendo, pendiente)
         entries_qs = (
-            UserAnimeEntry.objects.filter(user=user, anime__status='RELEASING')
-            .exclude(status='esperando')
-            .exclude(anime__status='NOT_YET_RELEASED')
+            UserAnimeEntry.objects.filter(user=user)
+            .exclude(status__in=['dropeado', 'visto', 'esperando'])
             .select_related('anime')
         )
         user_mal_ids = set(entries_qs.values_list('anime__mal_id', flat=True))
@@ -575,21 +579,45 @@ def user_agenda_view(request):
             anime = entry.anime
             info = airing_data.get(anime.mal_id, {})
 
-            # Si el anime aún no estrena su primer episodio o es futuro, se omite de la agenda
-            if (
-                info.get('status') == 'NOT_YET_RELEASED'
-                or (anime.release_date and anime.release_date > hoy and (info.get('latest_episode') or 0) == 0)
-                or (info.get('latest_episode') == 0 and not info.get('airing'))
-            ):
+            # Determinar si el anime es en emisión o de temporada reciente
+            is_releasing_db = (anime.status == 'RELEASING')
+            is_releasing_live = (info.get('status') == 'RELEASING')
+            has_next_airing = bool(info.get('next_airing_at') and info['next_airing_at'] > ahora_unix)
+            has_episodes_out = (info.get('latest_episode') or 0) > 0
+            is_seasonal = bool(
+                (anime.season_year and anime.season_year >= (hoy.year - 1))
+                or (anime.release_date and anime.release_date >= hoy.replace(year=hoy.year - 1))
+            )
+
+            # Si es un anime terminado antiguo y no está en emisión ni tiene estrenos futuros, omitir
+            if anime.status == 'FINISHED' and not is_releasing_live and not is_seasonal and not has_next_airing:
                 continue
 
+            # Si aún no tiene estreno confirmado y es futuro lejano (> 90 días) sin capítulos
+            if anime.status in ('NOT_YET_RELEASED', 'NOT_YET_AIRED') and not has_next_airing and not has_episodes_out:
+                import datetime
+                if anime.release_date and anime.release_date > (hoy + datetime.timedelta(days=90)):
+                    continue
+
+            # Auto-actualizar estado en DB si AniList o la fecha confirman emisión
+            if anime.status in ('NOT_YET_RELEASED', 'NOT_YET_AIRED') and (is_releasing_live or (anime.release_date and anime.release_date <= hoy)):
+                anime.status = 'RELEASING'
+                try:
+                    anime.save(update_fields=['status'])
+                except Exception:
+                    pass
+
             latest_ep = info.get('latest_episode')
-            if latest_ep is None:
-                latest_ep = anime.episodes or 1
+            if latest_ep is None or latest_ep == 0:
+                if (anime.release_date and anime.release_date <= hoy) or is_releasing_db or is_releasing_live:
+                    latest_ep = anime.episodes or 1
+                else:
+                    latest_ep = 0
+
             episodes_watched = entry.episodes_watched or 0
             episodes_behind = max(0, latest_ep - episodes_watched)
             is_up_to_date = (episodes_behind == 0)
-            progress_pct = min(100, round((episodes_watched / latest_ep) * 100)) if latest_ep > 0 else 100
+            progress_pct = min(100, round((episodes_watched / latest_ep) * 100)) if latest_ep > 0 else (0 if episodes_watched == 0 else 100)
             duration_num = int(anime.duration) if (anime.duration and anime.duration > 0) else 24
 
             items.append({
