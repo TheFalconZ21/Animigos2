@@ -44,6 +44,10 @@ class Command(BaseCommand):
         csv_path_arg = options['csv']
         clear = options['clear']
 
+        if not clear and AnimeScoreHistory.objects.count() >= 30000:
+            self.stdout.write(self.style.SUCCESS(f"Historial de puntuaciones ya poblado con {AnimeScoreHistory.objects.count():,} registros. Saltando carga."))
+            return
+
         possible_paths = []
         if csv_path_arg:
             possible_paths.append(Path(csv_path_arg))

@@ -25,6 +25,10 @@ class Command(BaseCommand):
             self.stderr.write(self.style.ERROR("No se encontró anime_recommendations.csv."))
             return
 
+        if AnimeRecommendation.objects.count() >= 30000:
+            self.stdout.write(self.style.SUCCESS(f"Recomendaciones ya pobladas con {AnimeRecommendation.objects.count():,} registros. Saltando carga."))
+            return
+
         valid_ids = set(Anime.objects.values_list('mal_id', flat=True))
         self.stdout.write(f"Cargando recomendaciones desde {csv_path.name}...")
         start_time = time.time()

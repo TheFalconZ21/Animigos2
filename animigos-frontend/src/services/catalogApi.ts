@@ -188,17 +188,21 @@ export async function fetchYears(): Promise<number[]> {
  * Obtiene recomendaciones cruzadas para un anime específico
  */
 export async function fetchAnimeRecommendations(malId: number, limit = 12): Promise<AnimeRecommendationItem[]> {
-    const response = await fetch(`${API_BASE_URL}/animes/${malId}/recommendations/?limit=${limit}`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-        credentials: 'include',
-    })
+    try {
+        const response = await fetch(`${API_BASE_URL}/animes/${malId}/recommendations/?limit=${limit}`, {
+            method: 'GET',
+            headers: getAuthHeaders(),
+            credentials: 'include',
+        })
 
-    if (!response.ok) {
-        throw new Error(`Error ${response.status} al consultar recomendaciones cruzadas.`)
+        if (!response.ok) {
+            return []
+        }
+
+        return await response.json()
+    } catch {
+        return []
     }
-
-    return response.json()
 }
 
 /**

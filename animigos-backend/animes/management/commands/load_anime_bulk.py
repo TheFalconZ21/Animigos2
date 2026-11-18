@@ -23,10 +23,20 @@ class Command(BaseCommand):
             default=2000,
             help='Tamaño del lote para inserción masiva (default: 2000)'
         )
+        parser.add_argument(
+            '--force',
+            action='store_true',
+            help='Forzar recarga masiva incluso si el catálogo ya está poblado.'
+        )
 
     def handle(self, *args, **options):
         limit = options['limit']
         batch_size = options['batch_size']
+        force = options.get('force', False)
+
+        if not force and Anime.objects.count() >= 25000:
+            self.stdout.write(self.style.SUCCESS(f"Catálogo ya poblado con {Anime.objects.count():,} animes. Saltando carga masiva."))
+            return
 
         from django.conf import settings
 

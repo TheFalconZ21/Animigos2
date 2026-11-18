@@ -328,120 +328,126 @@ def user_my_list_view(request):
     POST: Agrega un nuevo anime a la lista personal del usuario autenticado.
     Zero Trust: Estrictamente aislado por cuenta de usuario.
     """
-    user = request.user
+    try:
+        user = request.user
 
-    if request.method == 'GET':
-        verificar_estrenos_usuario(user)
+        if request.method == 'GET':
+            verificar_estrenos_usuario(user)
 
-        entries_qs = (
-            UserAnimeEntry.objects.filter(user=user)
-            .select_related('anime', 'folder')
-            .order_by('-updated_at')
-        )
-        folders_qs = UserAnimeFolder.objects.filter(user=user).prefetch_related('entries__anime')
+            entries_qs = (
+                UserAnimeEntry.objects.filter(user=user)
+                .select_related('anime', 'folder')
+                .order_by('-updated_at')
+            )
+            folders_qs = UserAnimeFolder.objects.filter(user=user).prefetch_related('entries__anime')
 
-        total_count = entries_qs.count()
-        visto_count = entries_qs.filter(status='visto').count()
-        viendo_count = entries_qs.filter(status='viendo').count()
-        pendiente_count = entries_qs.filter(status='pendiente').count()
-        dropeado_count = entries_qs.filter(status='dropeado').count()
-        esperando_count = entries_qs.filter(status='esperando').count()
+            total_count = entries_qs.count()
+            visto_count = entries_qs.filter(status='visto').count()
+            viendo_count = entries_qs.filter(status='viendo').count()
+            pendiente_count = entries_qs.filter(status='pendiente').count()
+            dropeado_count = entries_qs.filter(status='dropeado').count()
+            esperando_count = entries_qs.filter(status='esperando').count()
 
-        scores = [e.score for e in entries_qs if e.score is not None]
-        avg_score = round(sum(scores) / len(scores), 1) if scores else None
+            scores = [e.score for e in entries_qs if e.score is not None]
+            avg_score = round(sum(scores) / len(scores), 1) if scores else None
 
-        tag_counts = {}
-        for entry in entries_qs:
-            for tag in (entry.tags or []):
-                tag_counts[tag] = tag_counts.get(tag, 0) + 1
-        tags_list = [{'tag': k, 'count': v} for k, v in sorted(tag_counts.items(), key=lambda x: -x[1])]
+            tag_counts = {}
+            for entry in entries_qs:
+                for tag in (entry.tags or []):
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+            tags_list = [{'tag': k, 'count': v} for k, v in sorted(tag_counts.items(), key=lambda x: -x[1])]
 
-        return Response({
-            'entries': UserAnimeEntrySerializer(entries_qs, many=True).data,
-            'folders': UserAnimeFolderSerializer(folders_qs, many=True).data,
-            'tags': tags_list,
-            'stats': {
-                'total': total_count,
-                'visto': visto_count,
-                'viendo': viendo_count,
-                'pendiente': pendiente_count,
-                'dropeado': dropeado_count,
-                'esperando': esperando_count,
-                'average_score': avg_score,
-                'percent_completed': round((visto_count / total_count * 100)) if total_count > 0 else 0
-            }
-        })
+            return Response({
+                'entries': UserAnimeEntrySerializer(entries_qs, many=True).data,
+                'folders': UserAnimeFolderSerializer(folders_qs, many=True).data,
+                'tags': tags_list,
+                'stats': {
+                    'total': total_count,
+                    'visto': visto_count,
+                    'viendo': viendo_count,
+                    'pendiente': pendiente_count,
+                    'dropeado': dropeado_count,
+                    'esperando': esperando_count,
+                    'average_score': avg_score,
+                    'percent_completed': round((visto_count / total_count * 100)) if total_count > 0 else 0
+                }
+            })
 
-    elif request.method == 'POST':
-        raw_mal_id = request.data.get('mal_id') or request.data.get('anime_id')
-        if not raw_mal_id:
-            return Response({'error': 'mal_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+        elif request.method == 'POST':
+            raw_mal_id = request.data.get('mal_id') or request.data.get('anime_id')
+            if not raw_mal_id:
+                return Response({'error': 'mal_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            mal_id = int(raw_mal_id)
-        except (ValueError, TypeError):
-            return Response({'error': 'mal_id debe ser un número entero'}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                mal_id = int(raw_mal_id)
+            except (ValueError, TypeError):
+                return Response({'error': 'mal_id debe ser un número entero'}, status=status.HTTP_400_BAD_REQUEST)
 
-        anime = Anime.objects.filter(mal_id=mal_id).first()
-        if not anime:
-            # Resiliencia: si el cliente proporciona datos mínimos del anime (ej. desde búsqueda o franquicia)
-            anime_meta = request.data.get('anime') if isinstance(request.data.get('anime'), dict) else {}
-            title = (request.data.get('title') or anime_meta.get('title') or '').strip()
-            if title:
-                image_url = (request.data.get('image_url') or anime_meta.get('image_url') or '').strip()
-                episodes = request.data.get('episodes') or anime_meta.get('episodes')
-                anime = Anime.objects.create(
-                    mal_id=mal_id,
-                    title=title,
-                    image_url=image_url,
-                    episodes=int(episodes) if (episodes and str(episodes).isdigit()) else None,
-                    status=anime_meta.get('status', 'UNKNOWN')
-                )
-            else:
-                return Response({'error': f'Anime con mal_id {mal_id} no encontrado en el catálogo'}, status=status.HTTP_404_NOT_FOUND)
+            anime = Anime.objects.filter(mal_id=mal_id).first()
+            if not anime:
+                # Resiliencia: si el cliente proporciona datos mínimos del anime (ej. desde búsqueda o franquicia)
+                anime_meta = request.data.get('anime') if isinstance(request.data.get('anime'), dict) else {}
+                title = (request.data.get('title') or anime_meta.get('title') or '').strip()
+                if title:
+                    image_url = (request.data.get('image_url') or anime_meta.get('image_url') or '').strip()
+                    episodes = request.data.get('episodes') or anime_meta.get('episodes')
+                    anime = Anime.objects.create(
+                        mal_id=mal_id,
+                        title=title,
+                        image_url=image_url,
+                        episodes=int(episodes) if (episodes and str(episodes).isdigit()) else None,
+                        status=anime_meta.get('status', 'UNKNOWN')
+                    )
+                else:
+                    return Response({'error': f'Anime con mal_id {mal_id} no encontrado en el catálogo'}, status=status.HTTP_404_NOT_FOUND)
 
-        status_val = str(request.data.get('status', 'pendiente')).strip().lower()
-        valid_statuses = [c[0] for c in UserAnimeEntry.STATUS_CHOICES]
-        if status_val not in valid_statuses:
-            status_val = 'pendiente'
+            status_val = str(request.data.get('status', 'pendiente')).strip().lower()
+            valid_statuses = [c[0] for c in UserAnimeEntry.STATUS_CHOICES]
+            if status_val not in valid_statuses:
+                status_val = 'pendiente'
 
-        score_val = request.data.get('score')
-        try:
-            score_val = int(score_val) if score_val is not None and score_val != '' else None
-            if score_val is not None and (score_val < 1 or score_val > 10):
+            score_val = request.data.get('score')
+            try:
+                score_val = int(score_val) if score_val is not None and score_val != '' else None
+                if score_val is not None and (score_val < 1 or score_val > 10):
+                    score_val = None
+            except (ValueError, TypeError):
                 score_val = None
-        except (ValueError, TypeError):
-            score_val = None
 
-        try:
-            episodes_val = max(0, int(request.data.get('episodes_watched', 0)))
-        except (ValueError, TypeError):
-            episodes_val = 0
+            try:
+                episodes_val = max(0, int(request.data.get('episodes_watched', 0)))
+            except (ValueError, TypeError):
+                episodes_val = 0
 
-        is_fav = bool(request.data.get('is_favorite', False))
-        folder_id = request.data.get('folder_id')
-        tags_val = request.data.get('tags', [])
-        notes_val = str(request.data.get('notes', '') or '')
+            is_fav = bool(request.data.get('is_favorite', False))
+            folder_id = request.data.get('folder_id')
+            tags_val = request.data.get('tags', [])
+            notes_val = str(request.data.get('notes', '') or '')
 
-        folder = None
-        if folder_id and _is_valid_uuid(folder_id):
-            folder = UserAnimeFolder.objects.filter(id=folder_id, user=user).first()
+            folder = None
+            if folder_id and _is_valid_uuid(folder_id):
+                folder = UserAnimeFolder.objects.filter(id=folder_id, user=user).first()
 
-        entry, created = UserAnimeEntry.objects.update_or_create(
-            user=user,
-            anime=anime,
-            defaults={
-                'status': status_val,
-                'score': score_val,
-                'episodes_watched': episodes_val,
-                'is_favorite': is_fav,
-                'folder': folder,
-                'tags': tags_val if isinstance(tags_val, list) else [],
-                'notes': notes_val
-            }
-        )
+            entry, created = UserAnimeEntry.objects.update_or_create(
+                user=user,
+                anime=anime,
+                defaults={
+                    'status': status_val,
+                    'score': score_val,
+                    'episodes_watched': episodes_val,
+                    'is_favorite': is_fav,
+                    'folder': folder,
+                    'tags': tags_val if isinstance(tags_val, list) else [],
+                    'notes': notes_val
+                }
+            )
 
-        return Response(UserAnimeEntrySerializer(entry).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+            return Response(UserAnimeEntrySerializer(entry).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception(f"Error inesperado en user_my_list_view: {e}")
+        return Response({'error': f'Error al procesar tu lista: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['PATCH', 'DELETE'])

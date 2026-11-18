@@ -46,7 +46,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = []
 
     def get_queryset(self):
-        if getattr(self, 'action', None) == 'retrieve':
+        if getattr(self, 'action', None) in ('retrieve', 'recommendations', 'relations', 'history'):
             return Anime.objects.all()
 
         if Anime.objects.count() < 10000:
@@ -567,66 +567,72 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     @cached_api_response(timeout=CACHE_TTL_MEDIUM, prefix=CACHE_PREFIX_RECOMMENDATIONS)
     def recommendations(self, request, pk=None):
         """Devuelve las mejores recomendaciones cruzadas para este anime, con fallback inteligente si hay pocas."""
-        anime = self.get_object()
-        limit = int(request.query_params.get('limit', 12))
-        recoms = list(
-            AnimeRecommendation.objects.filter(source=anime)
-            .select_related('target')
-            .order_by('-strength')[:limit]
-        )
-
-        if len(recoms) < limit:
-            existing_target_ids = {r.target_id for r in recoms}
-            existing_target_ids.add(anime.mal_id)
-
-            # 1. Fallback por franquicia (ej. JoJo, Bleach, Frieren, Gintama)
-            title = anime.title or ''
-            franchise_prefix = (
-                title.split(':')[0]
-                .split(' 2nd')[0]
-                .split(' 3rd')[0]
-                .split(' 4th')[0]
-                .split(' Season')[0]
-                .split(' Part')[0]
-                .split(' Movie')[0]
-                .strip()
+        try:
+            anime = self.get_object()
+            limit = int(request.query_params.get('limit', 12))
+            recoms = list(
+                AnimeRecommendation.objects.filter(source=anime)
+                .select_related('target')
+                .order_by('-strength')[:limit]
             )
-            if len(franchise_prefix) >= 4:
-                franchise_targets = list(
-                    Anime.objects.filter(title__icontains=franchise_prefix)
-                    .exclude(mal_id__in=existing_target_ids)
-                    .exclude(score__isnull=True)
-                    .order_by('-score')[:limit - len(recoms)]
-                )
-                for ft in franchise_targets:
-                    rec_obj, _ = AnimeRecommendation.objects.get_or_create(
-                        source=anime,
-                        target=ft,
-                        defaults={'strength': 25}
-                    )
-                    recoms.append(rec_obj)
-                    existing_target_ids.add(ft.mal_id)
 
-            # 2. Fallback por afinidad temática/género y alta puntuación
-            if len(recoms) < limit and anime.genres:
-                first_genre = anime.genres[0]
-                affinity_targets = list(
-                    Anime.objects.filter(genres__contains=first_genre)
-                    .exclude(mal_id__in=existing_target_ids)
-                    .exclude(score__isnull=True)
-                    .order_by('-score')[:limit - len(recoms)]
-                )
-                for at in affinity_targets:
-                    rec_obj, _ = AnimeRecommendation.objects.get_or_create(
-                        source=anime,
-                        target=at,
-                        defaults={'strength': 10}
-                    )
-                    recoms.append(rec_obj)
-                    existing_target_ids.add(at.mal_id)
+            if len(recoms) < limit:
+                existing_target_ids = {r.target_id for r in recoms}
+                existing_target_ids.add(anime.mal_id)
 
-        serializer = AnimeRecommendationSerializer(recoms[:limit], many=True)
-        return Response(serializer.data)
+                # 1. Fallback por franquicia (ej. JoJo, Bleach, Frieren, Gintama)
+                title = anime.title or ''
+                franchise_prefix = (
+                    title.split(':')[0]
+                    .split(' 2nd')[0]
+                    .split(' 3rd')[0]
+                    .split(' 4th')[0]
+                    .split(' Season')[0]
+                    .split(' Part')[0]
+                    .split(' Movie')[0]
+                    .strip()
+                )
+                if len(franchise_prefix) >= 4:
+                    franchise_targets = list(
+                        Anime.objects.filter(title__icontains=franchise_prefix)
+                        .exclude(mal_id__in=existing_target_ids)
+                        .exclude(score__isnull=True)
+                        .order_by('-score')[:limit - len(recoms)]
+                    )
+                    for ft in franchise_targets:
+                        rec_obj = AnimeRecommendation(
+                            source=anime,
+                            target=ft,
+                            strength=25
+                        )
+                        recoms.append(rec_obj)
+                        existing_target_ids.add(ft.mal_id)
+
+                # 2. Fallback por afinidad temática/género y alta puntuación
+                if len(recoms) < limit and anime.genres and isinstance(anime.genres, list) and len(anime.genres) > 0:
+                    first_genre = str(anime.genres[0]).strip()
+                    if first_genre:
+                        affinity_targets = list(
+                            Anime.objects.filter(genres__icontains=first_genre)
+                            .exclude(mal_id__in=existing_target_ids)
+                            .exclude(score__isnull=True)
+                            .order_by('-score')[:limit - len(recoms)]
+                        )
+                        for at in affinity_targets:
+                            rec_obj = AnimeRecommendation(
+                                source=anime,
+                                target=at,
+                                strength=10
+                            )
+                            recoms.append(rec_obj)
+                            existing_target_ids.add(at.mal_id)
+
+            serializer = AnimeRecommendationSerializer(recoms[:limit], many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error en recommendations para {pk}: {e}")
+            return Response([])
 
     @action(detail=True, methods=['get'])
     @cached_api_response(timeout=CACHE_TTL_LONG, prefix='anime_relations')
