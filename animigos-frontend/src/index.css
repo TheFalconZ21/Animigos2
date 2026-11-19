@@ -1335,12 +1335,21 @@ h6 {
   }
 }
 
+@keyframes animigosViewFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .animigos-spin {
   animation: spin 0.85s linear infinite;
 }
 
 .animigos-view-enter {
-  animation: animigosFadeUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: animigosViewFade 0.18s ease-out;
 }
 
 /* Skeleton genérico con shimmer suave (Dark Slate) */
@@ -1382,14 +1391,14 @@ h6 {
    ============================================================ */
 
 .login-modal-shell {
-  position: relative;
+  /* Mantener position: fixed nativo de <dialog> para no entrar al flujo flex de .platform-layout */
   overflow: hidden;
   transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.login-modal-shell.is-closing {
-  opacity: 0;
-  transform: translateY(-10px) scale(0.98);
+.login-modal-shell[open].is-closing {
+  opacity: 0 !important;
+  transform: translateY(-10px) scale(0.98) !important;
 }
 
 .login-progress-track {
