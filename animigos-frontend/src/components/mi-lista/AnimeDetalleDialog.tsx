@@ -128,8 +128,8 @@ function Contenido({
                         title="Clic para ir a la interfaz principal del anime"
                     />
                     <div className="ml-dialog-titulares">
-                        <div className="d-flex align-items-start justify-content-between gap-2">
-                            <div>
+                        <div className="ml-dialog-titulares-top">
+                            <div className="min-w-0">
                                 <h2
                                     className="ml-dialog-titulo"
                                     onClick={handleIrAFichaPrincipal}
