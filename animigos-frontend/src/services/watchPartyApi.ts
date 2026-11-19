@@ -397,6 +397,27 @@ export async function kickRoomMemberApi(
     return res.json()
 }
 
+export async function inviteFriendToRoomApi(
+    roomId: string,
+    friend: { friend_id?: number; friend_username?: string },
+    guestToken?: string
+): Promise<{ message: string; already_in_room?: boolean; room: RoomSummary }> {
+    const res = await fetch(`${API_BASE}/${roomId}/invite_friend/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({
+            ...friend,
+            guest_token: guestToken,
+        }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+        throw new Error(data.error || 'No se pudo invitar al amigo a la sala')
+    }
+    return data
+}
+
 export async function dissolveRoomApi(
     roomId: string,
     guestToken?: string

@@ -24,8 +24,10 @@ urlpatterns = [
     path('me/friend-requests/<uuid:request_id>/respond/', views.respond_friend_request_view, name='user-friend-request-respond'),
     path('me/friend-requests/<uuid:request_id>/', views.cancel_friend_request_view, name='user-friend-request-detail'),
     path('suggested-friends/', views.suggested_friends_view, name='user-suggested-friends'),
-    # Perfiles Públicos, Recomendaciones Directas y Notificaciones
+    # Perfiles Públicos, Muro de Comentarios, Recomendaciones Directas y Notificaciones
     path('public-profile/<str:username>/', views.public_user_profile_view, name='user-public-profile'),
+    path('public-profile/<str:username>/comments/', views.profile_wall_comments_view, name='user-profile-wall-comments'),
+    path('public-profile/<str:username>/comments/<str:comment_id>/', views.profile_wall_comment_detail_view, name='user-profile-wall-comment-detail'),
     path('public-profile/<str:username>/recommend/', views.recommend_anime_to_user_view, name='user-recommend-anime'),
     path('me/notifications/', views.user_notifications_view, name='user-notifications'),
 ]

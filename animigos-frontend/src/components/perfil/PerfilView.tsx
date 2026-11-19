@@ -916,6 +916,9 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
 
                                 {/* 4º MURO DE LA COMUNIDAD */}
                                 <CommentsWall
+                                    targetUsername={activeUsername}
+                                    isProfileOwner={!isVisitingOther}
+                                    isFriendOfOwner={!isVisitingOther || publicData?.friendship_status === 'friends'}
                                     currentUser={{
                                         id: String(user?.id || 'guest'),
                                         name: displayName,
@@ -923,6 +926,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                                         avatar: avatarUrl,
                                     }}
                                     allowComments={activePrivacy.allowComments}
+                                    initialComments={isVisitingOther ? publicData?.comments : undefined}
                                 />
                             </>
                         )}

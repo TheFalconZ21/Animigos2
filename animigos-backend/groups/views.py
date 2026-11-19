@@ -674,6 +674,144 @@ class SharedListViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(shared_list).data)
 
     @action(detail=True, methods=['post'])
+    def invite_friend(self, request, pk=None):
+        """
+        Permite al creador de la sala invitar directamente a uno de sus amigos de Animigos.
+        Lo incorpora a la lista grupal, le envía una notificación accionable y actualiza la sala por WebSocket.
+        """
+        from django.contrib.auth.models import User
+        from users.models import Friendship, Profile
+        from users.views import _push_user_notification
+
+        shared_list = self.get_object()
+
+        if not self._is_owner(shared_list, request):
+            return Response(
+                {'error': 'Solo el creador de la sala puede invitar amigos directamente.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        user = request.user
+        if not user or not user.is_authenticated:
+            return Response(
+                {'error': 'Debes iniciar sesión para invitar a tus amigos.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        friend_id = request.data.get('friend_id')
+        friend_username = str(request.data.get('friend_username') or '').strip().lstrip('@')
+
+        target_user = None
+        if friend_id is not None:
+            try:
+                target_user = User.objects.filter(id=int(friend_id)).select_related('profile').first()
+            except (ValueError, TypeError):
+                target_user = None
+        if not target_user and friend_username:
+            target_user = User.objects.filter(username__iexact=friend_username).select_related('profile').first()
+
+        if not target_user:
+            return Response({'error': 'No se encontró al amigo seleccionado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not Friendship.objects.filter(user=user, friend=target_user).exists():
+            return Response(
+                {'error': 'Solo puedes invitar directamente a usuarios que estén en tu lista de amigos.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        target_prof, _ = Profile.objects.get_or_create(
+            user=target_user,
+            defaults={'display_name': target_user.first_name or target_user.username},
+        )
+        friend_display = target_prof.display_name or target_user.first_name or target_user.username
+        friend_token = f"user_{target_prof.id}" if getattr(target_prof, 'id', None) else f"user_{target_user.id}"
+
+        existing_member = shared_list.members.filter(
+            Q(guest_token=friend_token)
+            | Q(guest_token=f"user_{target_user.id}")
+            | Q(guest_name__iexact=friend_display)
+            | Q(guest_name__iexact=target_user.username)
+        ).first()
+
+        already_in_room = existing_member is not None
+        if not already_in_room:
+            current_count = shared_list.members.count()
+            if current_count >= shared_list.max_members:
+                return Response(
+                    {'error': f'La sala ha alcanzado el límite máximo de miembros ({shared_list.max_members}).'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            SharedListMember.objects.create(
+                shared_list=shared_list,
+                guest_name=friend_display,
+                guest_token=friend_token,
+                role='member',
+                invite_channel='friend_invite',
+            )
+
+        sender_prof = getattr(user, 'profile', None)
+        sender_display = (sender_prof and sender_prof.display_name) or user.first_name or user.username
+        sender_avatar = (sender_prof and sender_prof.avatar_url) or ''
+
+        _push_user_notification(
+            target_user,
+            {
+                'type': 'room_invitation',
+                'from_username': user.username,
+                'from_display_name': sender_display,
+                'from_avatar': sender_avatar,
+                'room_id': str(shared_list.id),
+                'room_name': shared_list.name,
+                'invite_code': shared_list.invite_code,
+                'message': f'te invitó a la lista grupal "{shared_list.name}".',
+            },
+        )
+
+        serialized_room = self.get_serializer(shared_list).data
+
+        try:
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    f"room_{shared_list.id}",
+                    {
+                        'type': 'broadcast_event',
+                        'event': {
+                            'type': 'room_state_updated',
+                            'room': serialized_room,
+                        },
+                    },
+                )
+                if not already_in_room:
+                    async_to_sync(channel_layer.group_send)(
+                        f"room_{shared_list.id}",
+                        {
+                            'type': 'broadcast_event',
+                            'event': {
+                                'type': 'chat_message',
+                                'sender': 'Sistema',
+                                'text': f'🎉 {friend_display} fue invitado a la sala por {sender_display}.',
+                            },
+                        },
+                    )
+        except Exception:
+            pass
+
+        return Response(
+            {
+                'message': (
+                    f'Notificación reenviada a {friend_display} (ya es miembro de la sala).'
+                    if already_in_room
+                    else f'¡{friend_display} fue invitado y agregado a "{shared_list.name}"!'
+                ),
+                'already_in_room': already_in_room,
+                'room': serialized_room,
+            },
+            status=status.HTTP_200_OK if already_in_room else status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=['post'])
     def kick_member(self, request, pk=None):
         """Expulsa a un integrante de la sala grupal. Solo accesible por el creador."""
         shared_list = self.get_object()

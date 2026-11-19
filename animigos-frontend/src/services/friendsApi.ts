@@ -5,7 +5,12 @@
 import { getAuthHeaders, type UserProfile } from './authApi'
 import type { TasteAnalyticsResponse } from './recommenderApi'
 import type { ApiUserListEntry, ApiUserFolder, ApiTagCount } from './userListApi'
-import type { PrivacyConfig, SocialLinks, LateralWallpaperConfig } from '../components/perfil/perfil-types'
+import type {
+    PrivacyConfig,
+    SocialLinks,
+    LateralWallpaperConfig,
+    ProfileComment,
+} from '../components/perfil/perfil-types'
 
 const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, ''); const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
 
@@ -57,6 +62,8 @@ export interface PublicUserProfileData {
     friendship_status?: FriendshipStatus
     friend_request_id?: string | null
     mutual_friends_count?: number
+    comments?: ProfileComment[]
+    can_comment?: boolean
     entries: ApiUserListEntry[]
     folders: ApiUserFolder[]
     tags: ApiTagCount[]
@@ -70,6 +77,8 @@ export interface UserNotificationItem {
         | 'friend_request'
         | 'friend_accepted'
         | 'friend_added'
+        | 'profile_comment'
+        | 'room_invitation'
         | 'anime_release'
         | 'warning'
         | 'system'
@@ -78,6 +87,9 @@ export interface UserNotificationItem {
     from_display_name: string
     from_avatar: string
     request_id?: string
+    room_id?: string
+    room_name?: string
+    invite_code?: string
     anime_id?: number
     anime_title?: string
     anime_poster?: string
@@ -216,6 +228,115 @@ export async function sendAnimeRecommendationToUser(
         throw new Error(data.error || 'No se pudo enviar la recomendación')
     }
     return data
+}
+
+export interface ProfileWallCommentsResponse {
+    comments: ProfileComment[]
+    allow_comments?: 'everyone' | 'friends' | 'none'
+    can_comment?: boolean
+}
+
+export async function fetchProfileComments(username: string): Promise<ProfileWallCommentsResponse> {
+    const clean = username.trim().replace(/^@/, '')
+    const res = await fetch(`${API_BASE_URL}/users/public-profile/${encodeURIComponent(clean)}/comments/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+        throw new Error(data.error || 'No se pudieron cargar los comentarios del muro')
+    }
+    return {
+        comments: Array.isArray(data.comments) ? data.comments : [],
+        allow_comments: data.allow_comments,
+        can_comment: data.can_comment,
+    }
+}
+
+export async function postProfileComment(
+    username: string,
+    payload: { content: string; hasSpoiler?: boolean }
+): Promise<ProfileWallCommentsResponse> {
+    const clean = username.trim().replace(/^@/, '')
+    const res = await fetch(`${API_BASE_URL}/users/public-profile/${encodeURIComponent(clean)}/comments/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(payload),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+        throw new Error(data.error || 'No se pudo publicar el comentario')
+    }
+    return {
+        comments: Array.isArray(data.comments) ? data.comments : [],
+        allow_comments: data.allow_comments,
+        can_comment: data.can_comment,
+    }
+}
+
+export async function toggleLikeProfileComment(
+    username: string,
+    commentId: string
+): Promise<ProfileComment[]> {
+    const clean = username.trim().replace(/^@/, '')
+    const res = await fetch(
+        `${API_BASE_URL}/users/public-profile/${encodeURIComponent(clean)}/comments/${encodeURIComponent(commentId)}/`,
+        {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            credentials: 'include',
+            body: JSON.stringify({ action: 'like' }),
+        }
+    )
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+        throw new Error(data.error || 'No se pudo registrar el me gusta')
+    }
+    return Array.isArray(data.comments) ? data.comments : []
+}
+
+export async function replyProfileComment(
+    username: string,
+    commentId: string,
+    content: string
+): Promise<ProfileComment[]> {
+    const clean = username.trim().replace(/^@/, '')
+    const res = await fetch(
+        `${API_BASE_URL}/users/public-profile/${encodeURIComponent(clean)}/comments/${encodeURIComponent(commentId)}/`,
+        {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            credentials: 'include',
+            body: JSON.stringify({ action: 'reply', content }),
+        }
+    )
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+        throw new Error(data.error || 'No se pudo publicar la respuesta')
+    }
+    return Array.isArray(data.comments) ? data.comments : []
+}
+
+export async function deleteProfileComment(
+    username: string,
+    commentId: string
+): Promise<ProfileComment[]> {
+    const clean = username.trim().replace(/^@/, '')
+    const res = await fetch(
+        `${API_BASE_URL}/users/public-profile/${encodeURIComponent(clean)}/comments/${encodeURIComponent(commentId)}/`,
+        {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+            credentials: 'include',
+        }
+    )
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+        throw new Error(data.error || 'No se pudo eliminar el comentario')
+    }
+    return Array.isArray(data.comments) ? data.comments : []
 }
 
 export async function fetchUserNotifications(): Promise<{

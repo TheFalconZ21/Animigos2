@@ -1538,6 +1538,106 @@ def _extract_user_privacy_dict(preferences_obj):
     }
 
 
+def _can_user_comment_on_wall(target_user, privacy_dict: dict, actor_user) -> tuple[bool, str]:
+    """
+    Evalúa según la privacidad del dueño del muro ('everyone', 'friends', 'none')
+    si `actor_user` tiene permiso para publicar comentarios o respuestas.
+    """
+    allow_mode = str(privacy_dict.get('allowComments', 'everyone')).strip().lower()
+    if allow_mode == 'none':
+        return False, 'Este usuario ha desactivado los comentarios en su muro.'
+
+    if not actor_user or not actor_user.is_authenticated:
+        return False, 'Debes iniciar sesión para publicar comentarios en un muro.'
+
+    if actor_user.id == target_user.id:
+        return True, ''
+
+    if allow_mode == 'friends':
+        if not Friendship.objects.filter(user=target_user, friend=actor_user).exists():
+            return False, f'Solo los amigos de @{target_user.username} pueden comentar en su muro.'
+
+    return True, ''
+
+
+def _get_hydrated_wall_comments(preferences_obj, viewer_user=None) -> list[dict]:
+    """
+    Hidrata la lista de comentarios del muro con los nombres y avatares vigentes
+    de sus autores en una sola consulta SQL, calculando likes e isLiked para `viewer_user`.
+    """
+    ps = preferences_obj.privacy_settings if (preferences_obj and isinstance(preferences_obj.privacy_settings, dict)) else {}
+    raw_comments = ps.get('wall_comments')
+    if not isinstance(raw_comments, list) or not raw_comments:
+        return []
+
+    usernames = set()
+    for c in raw_comments:
+        if isinstance(c, dict):
+            uname = str(c.get('authorUsername') or '').strip()
+            if uname:
+                usernames.add(uname)
+            for r in (c.get('replies') or []):
+                if isinstance(r, dict):
+                    runame = str(r.get('authorUsername') or '').strip()
+                    if runame:
+                        usernames.add(runame)
+
+    users_map = {}
+    if usernames:
+        for u in User.objects.filter(username__in=usernames).select_related('profile'):
+            prof = getattr(u, 'profile', None)
+            users_map[u.username.lower()] = {
+                'id': str(u.id),
+                'name': (prof and prof.display_name) or u.first_name or u.username,
+                'avatar': (prof and prof.avatar_url) or '',
+            }
+
+    viewer_id_str = str(viewer_user.id) if (viewer_user and viewer_user.is_authenticated) else None
+    hydrated = []
+
+    for c in raw_comments:
+        if not isinstance(c, dict):
+            continue
+        c_uname = str(c.get('authorUsername') or '').strip()
+        u_info = users_map.get(c_uname.lower(), {})
+        liked_by = [str(x) for x in (c.get('liked_by') or []) if x is not None]
+        raw_likes = c.get('likes', 0)
+        likes_count = len(liked_by) if 'liked_by' in c else (int(raw_likes) if isinstance(raw_likes, int) else 0)
+
+        hydrated_replies = []
+        for r in (c.get('replies') or []):
+            if not isinstance(r, dict):
+                continue
+            r_uname = str(r.get('authorUsername') or '').strip()
+            ru_info = users_map.get(r_uname.lower(), {})
+            hydrated_replies.append({
+                'id': str(r.get('id') or ''),
+                'authorId': str(r.get('authorId') or ru_info.get('id') or ''),
+                'authorName': ru_info.get('name') or r.get('authorName') or r_uname or 'Usuario',
+                'authorUsername': r_uname,
+                'authorAvatar': ru_info.get('avatar') or r.get('authorAvatar') or '',
+                'content': str(r.get('content') or ''),
+                'createdAt': str(r.get('createdAt') or 'Reciente'),
+            })
+
+        hydrated.append({
+            'id': str(c.get('id') or ''),
+            'authorId': str(c.get('authorId') or u_info.get('id') or ''),
+            'authorName': u_info.get('name') or c.get('authorName') or c_uname or 'Usuario',
+            'authorUsername': c_uname,
+            'authorAvatar': u_info.get('avatar') or c.get('authorAvatar') or '',
+            'authorBadge': c.get('authorBadge') or 'Miembro Animigos 🍿',
+            'content': str(c.get('content') or ''),
+            'hasSpoiler': bool(c.get('hasSpoiler', False)),
+            'createdAt': str(c.get('createdAt') or 'Reciente'),
+            'likes': likes_count,
+            'isLiked': bool(viewer_id_str and viewer_id_str in liked_by),
+            'replies': hydrated_replies,
+        })
+
+    return hydrated
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def public_user_profile_view(request, username):
@@ -1650,6 +1750,8 @@ def public_user_profile_view(request, username):
         except Exception:
             taste_analytics = None
 
+    can_comment, _ = _can_user_comment_on_wall(target_user, privacy, request.user)
+
     return Response({
         'user': ProfileSerializer(profile, context={'request': request}).data,
         'privacy': privacy,
@@ -1660,6 +1762,8 @@ def public_user_profile_view(request, username):
         'friendship_status': friendship_status,
         'friend_request_id': friend_request_id,
         'mutual_friends_count': mutual_friends_count,
+        'comments': _get_hydrated_wall_comments(preferences, request.user),
+        'can_comment': can_comment,
         'entries': entries_data if (is_self or privacy['isListPublic'] or privacy['showStats']) else [],
         'folders': folders_data if (is_self or privacy['isListPublic']) else [],
         'tags': tags_list if (is_self or privacy['isListPublic']) else [],
@@ -1827,6 +1931,233 @@ def user_notifications_view(request):
             'notifications': notifs,
             'unread_count': unread_count,
         })
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def profile_wall_comments_view(request, username):
+    """
+    GET: Retorna los comentarios del muro de `@username` junto con su configuración `allowComments` y `can_comment`.
+    POST: Publica un nuevo comentario en el muro de `@username`, validando estrictamente la privacidad
+          ('everyone', 'friends', 'none') en el servidor (Zero Trust).
+    """
+    import uuid
+
+    clean_uname = str(username or '').strip().lstrip('@')
+    target_user = User.objects.filter(username__iexact=clean_uname).select_related('profile').first()
+    if not target_user:
+        return Response({'error': f'El usuario @{clean_uname} no existe.'}, status=status.HTTP_404_NOT_FOUND)
+
+    target_profile, _ = Profile.objects.get_or_create(
+        user=target_user,
+        defaults={'display_name': target_user.first_name or target_user.username},
+    )
+    target_prefs, _ = UserPreferences.objects.get_or_create(profile=target_profile)
+    privacy = _extract_user_privacy_dict(target_prefs)
+    can_comment, deny_reason = _can_user_comment_on_wall(target_user, privacy, request.user)
+
+    if request.method == 'GET':
+        return Response({
+            'comments': _get_hydrated_wall_comments(target_prefs, request.user),
+            'allow_comments': privacy['allowComments'],
+            'can_comment': can_comment,
+        })
+
+    if not request.user or not request.user.is_authenticated:
+        return Response(
+            {'error': 'Debes iniciar sesión para comentar en este muro.'},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    if not can_comment:
+        return Response(
+            {'error': deny_reason or 'No tienes permiso para comentar en este muro.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    content = str(request.data.get('content') or '').strip()[:500]
+    if not content:
+        return Response({'error': 'El comentario no puede estar vacío.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    has_spoiler = bool(request.data.get('hasSpoiler') or ('[spoiler]' in content.lower()))
+    actor_prof = getattr(request.user, 'profile', None)
+    actor_name = (actor_prof and actor_prof.display_name) or request.user.first_name or request.user.username
+    actor_avatar = (actor_prof and actor_prof.avatar_url) or ''
+    now_str = timezone.now().strftime('%d/%m/%Y %H:%M')
+
+    new_comment = {
+        'id': f"c_{uuid.uuid4().hex[:12]}",
+        'authorId': str(request.user.id),
+        'authorName': actor_name,
+        'authorUsername': request.user.username,
+        'authorAvatar': actor_avatar,
+        'authorBadge': 'Otaku Veterano 🍿',
+        'content': content,
+        'hasSpoiler': has_spoiler,
+        'createdAt': now_str,
+        'liked_by': [],
+        'likes': 0,
+        'replies': [],
+    }
+
+    def _save_comment():
+        target_prefs.refresh_from_db()
+        ps = dict(target_prefs.privacy_settings) if isinstance(target_prefs.privacy_settings, dict) else {}
+        existing = list(ps.get('wall_comments', [])) if isinstance(ps.get('wall_comments'), list) else []
+        existing.insert(0, new_comment)
+        ps['wall_comments'] = existing[:100]
+        target_prefs.privacy_settings = ps
+        target_prefs.save(update_fields=['privacy_settings'])
+
+    run_with_db_retry(_save_comment)
+
+    if target_user.id != request.user.id:
+        _push_user_notification(
+            target_user,
+            {
+                'type': 'profile_comment',
+                'from_username': request.user.username,
+                'from_display_name': actor_name,
+                'from_avatar': actor_avatar,
+                'message': f'dejó un comentario en tu muro: "{content[:90]}"',
+            },
+        )
+
+    return Response(
+        {
+            'comments': _get_hydrated_wall_comments(target_prefs, request.user),
+            'allow_comments': privacy['allowComments'],
+            'can_comment': True,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def profile_wall_comment_detail_view(request, username, comment_id):
+    """
+    POST:
+      - action='like': Alterna el like del usuario autenticado sobre el comentario.
+      - action='reply': Publica una respuesta anidada (respetando la privacidad `allowComments` del dueño del muro).
+    DELETE:
+      - Elimina el comentario si quien lo solicita es el autor del comentario, el dueño del muro o un administrador.
+    """
+    import uuid
+
+    clean_uname = str(username or '').strip().lstrip('@')
+    target_user = User.objects.filter(username__iexact=clean_uname).select_related('profile').first()
+    if not target_user:
+        return Response({'error': f'El usuario @{clean_uname} no existe.'}, status=status.HTTP_404_NOT_FOUND)
+
+    target_profile, _ = Profile.objects.get_or_create(
+        user=target_user,
+        defaults={'display_name': target_user.first_name or target_user.username},
+    )
+    target_prefs, _ = UserPreferences.objects.get_or_create(profile=target_profile)
+    privacy = _extract_user_privacy_dict(target_prefs)
+    cid = str(comment_id or '').strip()
+
+    if request.method == 'DELETE':
+        ps = dict(target_prefs.privacy_settings) if isinstance(target_prefs.privacy_settings, dict) else {}
+        existing = list(ps.get('wall_comments', [])) if isinstance(ps.get('wall_comments'), list) else []
+        target_comment = next((c for c in existing if isinstance(c, dict) and str(c.get('id')) == cid), None)
+        if not target_comment:
+            return Response({'error': 'Comentario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        is_comment_author = (
+            str(target_comment.get('authorId')) == str(request.user.id)
+            or str(target_comment.get('authorUsername', '')).lower() == request.user.username.lower()
+        )
+        is_wall_owner = target_user.id == request.user.id
+        if not (is_comment_author or is_wall_owner or request.user.is_staff):
+            return Response(
+                {'error': 'No tienes permiso para eliminar este comentario.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        def _delete_comment():
+            target_prefs.refresh_from_db()
+            ps_inner = dict(target_prefs.privacy_settings) if isinstance(target_prefs.privacy_settings, dict) else {}
+            curr = list(ps_inner.get('wall_comments', [])) if isinstance(ps_inner.get('wall_comments'), list) else []
+            ps_inner['wall_comments'] = [c for c in curr if not (isinstance(c, dict) and str(c.get('id')) == cid)]
+            target_prefs.privacy_settings = ps_inner
+            target_prefs.save(update_fields=['privacy_settings'])
+
+        run_with_db_retry(_delete_comment)
+        return Response({'comments': _get_hydrated_wall_comments(target_prefs, request.user)})
+
+    action_type = str(request.data.get('action') or 'like').strip().lower()
+
+    if action_type == 'like':
+        uid_str = str(request.user.id)
+
+        def _toggle_like():
+            target_prefs.refresh_from_db()
+            ps_inner = dict(target_prefs.privacy_settings) if isinstance(target_prefs.privacy_settings, dict) else {}
+            curr = list(ps_inner.get('wall_comments', [])) if isinstance(ps_inner.get('wall_comments'), list) else []
+            for c in curr:
+                if isinstance(c, dict) and str(c.get('id')) == cid:
+                    liked_by = [str(x) for x in (c.get('liked_by') or []) if x is not None]
+                    if uid_str in liked_by:
+                        liked_by = [x for x in liked_by if x != uid_str]
+                    else:
+                        liked_by.append(uid_str)
+                    c['liked_by'] = liked_by
+                    c['likes'] = len(liked_by)
+                    break
+            ps_inner['wall_comments'] = curr
+            target_prefs.privacy_settings = ps_inner
+            target_prefs.save(update_fields=['privacy_settings'])
+
+        run_with_db_retry(_toggle_like)
+        return Response({'comments': _get_hydrated_wall_comments(target_prefs, request.user)})
+
+    if action_type == 'reply':
+        can_comment, deny_reason = _can_user_comment_on_wall(target_user, privacy, request.user)
+        if not can_comment:
+            return Response(
+                {'error': deny_reason or 'No tienes permiso para responder en este muro.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        reply_content = str(request.data.get('content') or '').strip()[:400]
+        if not reply_content:
+            return Response({'error': 'La respuesta no puede estar vacía.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        actor_prof = getattr(request.user, 'profile', None)
+        actor_name = (actor_prof and actor_prof.display_name) or request.user.first_name or request.user.username
+        actor_avatar = (actor_prof and actor_prof.avatar_url) or ''
+        now_str = timezone.now().strftime('%d/%m/%Y %H:%M')
+
+        new_reply = {
+            'id': f"r_{uuid.uuid4().hex[:12]}",
+            'authorId': str(request.user.id),
+            'authorName': actor_name,
+            'authorUsername': request.user.username,
+            'authorAvatar': actor_avatar,
+            'content': reply_content,
+            'createdAt': now_str,
+        }
+
+        def _save_reply():
+            target_prefs.refresh_from_db()
+            ps_inner = dict(target_prefs.privacy_settings) if isinstance(target_prefs.privacy_settings, dict) else {}
+            curr = list(ps_inner.get('wall_comments', [])) if isinstance(ps_inner.get('wall_comments'), list) else []
+            for c in curr:
+                if isinstance(c, dict) and str(c.get('id')) == cid:
+                    replies = list(c.get('replies') or [])
+                    replies.append(new_reply)
+                    c['replies'] = replies[:50]
+                    break
+            ps_inner['wall_comments'] = curr
+            target_prefs.privacy_settings = ps_inner
+            target_prefs.save(update_fields=['privacy_settings'])
+
+        run_with_db_retry(_save_reply)
+        return Response({'comments': _get_hydrated_wall_comments(target_prefs, request.user)}, status=status.HTTP_201_CREATED)
+
+    return Response({'error': 'Acción no soportada.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 

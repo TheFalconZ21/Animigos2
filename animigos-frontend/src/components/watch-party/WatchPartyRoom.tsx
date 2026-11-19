@@ -27,10 +27,12 @@ import {
     Star,
     Layers,
     Settings,
+    UserPlus,
     UserMinus,
     Trash2,
     AlertTriangle,
     Lock,
+    X,
 } from 'lucide-react'
 import { useWatchParty } from '../../hooks/useWatchParty'
 import {
@@ -44,11 +46,14 @@ import {
     setAnimeTargetApi,
     updateRoomSettingsApi,
     kickRoomMemberApi,
+    inviteFriendToRoomApi,
     dissolveRoomApi,
     type RoomSummary,
     type RoomMember,
     type WatchingAnimeItem,
 } from '../../services/watchPartyApi'
+import { fetchFriends, type FriendUser } from '../../services/friendsApi'
+import { resolveMediaUrl } from '../../utils/mediaUrl'
 import { useAuth } from '../../context/AuthContext'
 import { useCatalogSearch } from '../../hooks/useCatalog'
 import type { ApiAnimeData } from '../../services/userListApi'
@@ -132,6 +137,14 @@ export const WatchPartyRoom: React.FC = () => {
     const [showScheduleModal, setShowScheduleModal] = useState(false)
     const [scheduleDate, setScheduleDate] = useState('')
     const [scheduleNotes, setScheduleNotes] = useState('')
+
+    // Modal para que el creador de la sala invite a sus amigos de Animigos
+    const [showInviteFriendsModal, setShowInviteFriendsModal] = useState(false)
+    const [myFriends, setMyFriends] = useState<FriendUser[]>([])
+    const [loadingMyFriends, setLoadingMyFriends] = useState(false)
+    const [inviteFriendQuery, setInviteFriendQuery] = useState('')
+    const [invitingFriendId, setInvitingFriendId] = useState<number | null>(null)
+    const [inviteFeedback, setInviteFeedback] = useState<{ text: string; isError: boolean } | null>(null)
 
     // Mensajes y chat
     const [copiedCode, setCopiedCode] = useState<string | null>(null)
@@ -336,6 +349,51 @@ export const WatchPartyRoom: React.FC = () => {
             setSettingsFeedback(`❌ Error: ${e.message || 'No se pudo expulsar al integrante'}`)
         } finally {
             setIsKickingMember(false)
+        }
+    }
+
+    // Abrir modal para invitar amigos de Animigos a la sala (Solo Creador)
+    const handleOpenInviteFriendsModal = async () => {
+        setShowInviteFriendsModal(true)
+        setInviteFeedback(null)
+        setInviteFriendQuery('')
+        if (!user) return
+        setLoadingMyFriends(true)
+        try {
+            const list = await fetchFriends()
+            setMyFriends(list)
+        } catch {
+            setMyFriends([])
+        } finally {
+            setLoadingMyFriends(false)
+        }
+    }
+
+    // Invitar directamente a un amigo a la sala grupal
+    const handleInviteFriendToRoom = async (friend: FriendUser) => {
+        if (!room || invitingFriendId !== null) return
+        setInvitingFriendId(friend.id)
+        setInviteFeedback(null)
+        try {
+            const res = await inviteFriendToRoomApi(
+                room.id,
+                { friend_id: friend.id, friend_username: friend.username },
+                userToken
+            )
+            if (res.room) {
+                setRoom(res.room)
+            }
+            setInviteFeedback({
+                text: res.message || `¡${friend.display_name} fue invitado a la sala!`,
+                isError: false,
+            })
+        } catch (err: unknown) {
+            setInviteFeedback({
+                text: err instanceof Error ? err.message : 'No se pudo invitar al amigo.',
+                isError: true,
+            })
+        } finally {
+            setInvitingFriendId(null)
         }
     }
 
@@ -893,6 +951,23 @@ export const WatchPartyRoom: React.FC = () => {
                             <Plus size={14} />
                             <span>Postular Anime</span>
                         </button>
+
+                        {isOwner && user && (
+                            <button
+                                type="button"
+                                onClick={handleOpenInviteFriendsModal}
+                                className="ml-btn ml-btn-sm d-flex align-items-center gap-1.5"
+                                style={{
+                                    borderColor: 'color-mix(in srgb, var(--wp-accent, #a78bfa) 45%, transparent)',
+                                    background: 'color-mix(in srgb, var(--wp-accent, #a78bfa) 14%, transparent)',
+                                    color: '#ffffff',
+                                }}
+                                title="Invitar amigos de Animigos a esta lista grupal (Solo Creador)"
+                            >
+                                <UserPlus size={13} />
+                                <span>Invitar Amigos</span>
+                            </button>
+                        )}
 
                         {isOwner && (
                             <button
@@ -2415,9 +2490,20 @@ export const WatchPartyRoom: React.FC = () => {
                                     <label className="form-label small text-white fw-semibold mb-0">
                                         Integrantes de la Sala ({roomMembers.length})
                                     </label>
-                                    <span className="small text-secondary" style={{ fontSize: '0.75rem' }}>
-                                        Gestiona o expulsa miembros
-                                    </span>
+                                    {user && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowSettingsModal(false)
+                                                handleOpenInviteFriendsModal()
+                                            }}
+                                            className="ml-btn ml-btn-acento ml-btn-sm d-inline-flex align-items-center gap-1 py-1 px-2.5"
+                                            style={{ fontSize: '0.73rem' }}
+                                        >
+                                            <UserPlus size={12} />
+                                            <span>Invitar Amigos</span>
+                                        </button>
+                                    )}
                                 </div>
 
                                 <div className="wp-members-manage-list">
@@ -2619,6 +2705,219 @@ export const WatchPartyRoom: React.FC = () => {
                         </button>
                     </div>
                 </form>
+            </Dialogo>
+
+            {/* Modal para Invitar Amigos de Animigos a la Lista Grupal (Solo Creador) */}
+            <Dialogo
+                abierto={showInviteFriendsModal}
+                onCerrar={() => setShowInviteFriendsModal(false)}
+                etiqueta="Invitar Amigos a la Sala"
+                ancho={520}
+            >
+                <div className="p-4 d-flex flex-column gap-3">
+                    <div>
+                        <span className="ml-eyebrow">ANFITRIÓN DE LISTA GRUPAL</span>
+                        <h3 className="h6 fw-bold text-white mb-1 d-flex align-items-center gap-2">
+                            <UserPlus size={16} style={{ color: 'var(--wp-accent, #a78bfa)' }} />
+                            <span>Invitar Amigos a "{room?.name}"</span>
+                        </h3>
+                        <p className="small text-secondary mb-0" style={{ fontSize: '0.78rem' }}>
+                            Selecciona a tus amigos para sumarlos directamente a esta sala y enviarles una notificación con acceso directo.
+                        </p>
+                    </div>
+
+                    {/* Código rápido por si también quiere copiarlo */}
+                    {room?.invite_code && (
+                        <div
+                            className="d-flex align-items-center justify-content-between gap-2 p-2.5 rounded-3"
+                            style={{
+                                background: 'rgba(255, 255, 255, 0.03)',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                            }}
+                        >
+                            <div className="small">
+                                <span className="text-secondary">Código de invitación: </span>
+                                <strong className="text-white font-mono">{room.invite_code}</strong>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => handleCopy(room.invite_code)}
+                                className="ml-btn ml-btn-fantasma ml-btn-sm d-inline-flex align-items-center gap-1.5 py-1 px-2.5"
+                                style={{ fontSize: '0.74rem' }}
+                            >
+                                {copiedCode === room.invite_code ? <Check size={12} /> : <Share2 size={12} />}
+                                <span>{copiedCode === room.invite_code ? 'Enlace copiado' : 'Copiar enlace'}</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Buscador local entre amigos */}
+                    {myFriends.length > 0 && (
+                        <div className="position-relative">
+                            <Search
+                                size={14}
+                                className="position-absolute text-secondary"
+                                style={{ left: 12, top: '50%', transform: 'translateY(-50%)' }}
+                            />
+                            <input
+                                type="text"
+                                placeholder="Filtrar mis amigos..."
+                                value={inviteFriendQuery}
+                                onChange={(e) => setInviteFriendQuery(e.target.value)}
+                                className="form-control text-white wp-input"
+                                style={{ paddingLeft: 34, paddingRight: inviteFriendQuery ? 32 : 12, fontSize: '0.82rem' }}
+                            />
+                            {inviteFriendQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => setInviteFriendQuery('')}
+                                    className="btn btn-sm p-0 text-secondary border-0 position-absolute"
+                                    style={{ right: 12, top: '50%', transform: 'translateY(-50%)' }}
+                                >
+                                    <X size={13} />
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {inviteFeedback && (
+                        <div
+                            className={`small p-2.5 rounded-3 d-flex align-items-center gap-2 ${
+                                inviteFeedback.isError
+                                    ? 'text-danger bg-danger-subtle border border-danger'
+                                    : 'text-success bg-success-subtle border border-success'
+                            }`}
+                            style={{ fontSize: '0.78rem' }}
+                        >
+                            {inviteFeedback.isError ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
+                            <span>{inviteFeedback.text}</span>
+                        </div>
+                    )}
+
+                    {/* Lista de amigos del creador */}
+                    <div
+                        className="d-flex flex-column gap-2"
+                        style={{ maxHeight: '320px', overflowY: 'auto' }}
+                    >
+                        {loadingMyFriends ? (
+                            <div className="text-center py-4 text-secondary small">
+                                <Loader2 size={18} className="wp-spinner me-2" />
+                                <span>Cargando tu lista de amigos...</span>
+                            </div>
+                        ) : myFriends.length === 0 ? (
+                            <div
+                                className="p-3 rounded-3 text-center text-secondary small"
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.02)',
+                                    border: '1px dashed rgba(255, 255, 255, 0.1)',
+                                }}
+                            >
+                                Aún no tienes amigos confirmados en tu perfil. Puedes agregarlos desde{' '}
+                                <a
+                                    href="#perfil"
+                                    onClick={() => setShowInviteFriendsModal(false)}
+                                    className="text-white fw-semibold"
+                                >
+                                    Mi Perfil → Amigos
+                                </a>{' '}
+                                o compartir el código <strong className="text-white">{room?.invite_code}</strong>.
+                            </div>
+                        ) : (
+                            myFriends
+                                .filter((f) => {
+                                    const q = inviteFriendQuery.trim().toLowerCase()
+                                    if (!q) return true
+                                    return (
+                                        f.display_name.toLowerCase().includes(q) ||
+                                        f.username.toLowerCase().includes(q)
+                                    )
+                                })
+                                .map((friend) => {
+                                    const isAlreadyMember = roomMembers.some(
+                                        (m) =>
+                                            m.guest_token === `user_${friend.id}` ||
+                                            m.cleanName.toLowerCase() === friend.display_name.toLowerCase() ||
+                                            m.cleanName.toLowerCase() === friend.username.toLowerCase()
+                                    )
+                                    const isInvitingThis = invitingFriendId === friend.id
+
+                                    return (
+                                        <div
+                                            key={friend.id}
+                                            className="d-flex align-items-center justify-content-between gap-2 p-2.5 rounded-3"
+                                            style={{
+                                                background: 'rgba(255, 255, 255, 0.03)',
+                                                border: '1px solid rgba(255, 255, 255, 0.07)',
+                                            }}
+                                        >
+                                            <div className="d-flex align-items-center gap-2.5 min-w-0">
+                                                <img
+                                                    src={
+                                                        resolveMediaUrl(friend.avatar_url) ||
+                                                        resolveMediaUrl(
+                                                            '/media/avatars/crunchyroll_classic_collection/classic-hime-avatar-1.webp'
+                                                        )
+                                                    }
+                                                    crossOrigin="anonymous"
+                                                    alt={friend.display_name}
+                                                    className="rounded-circle flex-shrink-0"
+                                                    style={{ width: 38, height: 38, objectFit: 'cover' }}
+                                                />
+                                                <div className="min-w-0">
+                                                    <div className="small fw-bold text-white text-truncate">
+                                                        {friend.display_name}
+                                                    </div>
+                                                    <div
+                                                        className="small text-secondary font-mono text-truncate"
+                                                        style={{ fontSize: '0.72rem' }}
+                                                    >
+                                                        @{friend.username}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                disabled={isInvitingThis}
+                                                onClick={() => handleInviteFriendToRoom(friend)}
+                                                className={`ml-btn ml-btn-sm d-inline-flex align-items-center gap-1.5 flex-shrink-0 ${
+                                                    isAlreadyMember ? 'ml-btn-fantasma' : 'ml-btn-acento'
+                                                }`}
+                                                style={{ fontSize: '0.75rem', padding: '0.3rem 0.75rem' }}
+                                                title={
+                                                    isAlreadyMember
+                                                        ? 'Ya está en la sala · Clic para reenviar notificación'
+                                                        : `Invitar a ${friend.display_name} a la sala`
+                                                }
+                                            >
+                                                {isInvitingThis ? (
+                                                    <Loader2 size={13} className="wp-spinner" />
+                                                ) : isAlreadyMember ? (
+                                                    <Check size={13} />
+                                                ) : (
+                                                    <UserPlus size={13} />
+                                                )}
+                                                <span>{isAlreadyMember ? 'En la sala' : 'Invitar'}</span>
+                                            </button>
+                                        </div>
+                                    )
+                                })
+                        )}
+                    </div>
+
+                    <div
+                        className="d-flex justify-content-end pt-2 border-top"
+                        style={{ borderColor: 'var(--wp-border)' }}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setShowInviteFriendsModal(false)}
+                            className="ml-btn ml-btn-fantasma ml-btn-sm"
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
             </Dialogo>
         </div>
     )

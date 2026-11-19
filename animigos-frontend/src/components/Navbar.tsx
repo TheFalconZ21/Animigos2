@@ -505,6 +505,13 @@ export function Navbar({
                                                         const isWarning = n.type === 'warning' || n.type === 'admin_warning'
                                                         const isFriendRequest = n.type === 'friend_request'
                                                         const isFriendAccepted = n.type === 'friend_accepted'
+                                                        const isRoomInvite = n.type === 'room_invitation'
+                                                        const isProfileComment = n.type === 'profile_comment'
+                                                        const isSocialAvatarNotif =
+                                                            isFriendRequest ||
+                                                            isFriendAccepted ||
+                                                            isRoomInvite ||
+                                                            isProfileComment
                                                         const handledState = handledFriendReqNotifs[n.id]
                                                         return (
                                                             <div
@@ -518,7 +525,7 @@ export function Navbar({
                                                                             alt={n.anime_title || ''}
                                                                             className="nav-notif-poster"
                                                                         />
-                                                                    ) : (isFriendRequest || isFriendAccepted) && n.from_avatar ? (
+                                                                    ) : isSocialAvatarNotif && n.from_avatar ? (
                                                                         <img
                                                                             src={resolveMediaUrl(n.from_avatar)}
                                                                             crossOrigin="anonymous"
@@ -526,7 +533,7 @@ export function Navbar({
                                                                             className="nav-notif-poster rounded-circle"
                                                                             style={{ height: 42, width: 42, objectFit: 'cover' }}
                                                                         />
-                                                                    ) : isFriendRequest || isFriendAccepted ? (
+                                                                    ) : isSocialAvatarNotif ? (
                                                                         <div className="nav-notif-avatar-fallback">
                                                                             <Users size={18} />
                                                                         </div>
@@ -559,6 +566,10 @@ export function Navbar({
                                                                                     ? 'Solicitud de Amistad'
                                                                                     : isFriendAccepted
                                                                                     ? 'Nueva Amistad'
+                                                                                    : isRoomInvite
+                                                                                    ? 'Invitación a Lista Grupal'
+                                                                                    : isProfileComment
+                                                                                    ? 'Comentario en tu Muro'
                                                                                     : isWarning
                                                                                     ? 'Aviso de Moderación'
                                                                                     : 'Comunidad Animigos'}
@@ -590,7 +601,7 @@ export function Navbar({
                                                                                     {n.anime_title}
                                                                                 </span>
                                                                             </>
-                                                                        ) : isFriendRequest || isFriendAccepted ? (
+                                                                        ) : isSocialAvatarNotif ? (
                                                                             <>
                                                                                 <span className="nav-notif-user">
                                                                                     {n.from_display_name || `@${n.from_username}`}
@@ -621,6 +632,44 @@ export function Navbar({
 
                                                                     {/* Botones de acción directa para el evento */}
                                                                     <div className="nav-notif-actions">
+                                                                        {isRoomInvite && n.invite_code && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    setIsNotifOpen(false)
+                                                                                    void updateUserNotification({
+                                                                                        notification_id: n.id,
+                                                                                        action: 'mark_read',
+                                                                                    })
+                                                                                    window.location.hash = `#sala/${encodeURIComponent(
+                                                                                        n.invite_code!
+                                                                                    )}`
+                                                                                }}
+                                                                                className="nav-notif-btn-primary"
+                                                                            >
+                                                                                <ExternalLink size={11} />
+                                                                                <span>Entrar a la Sala</span>
+                                                                            </button>
+                                                                        )}
+
+                                                                        {isProfileComment && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    setIsNotifOpen(false)
+                                                                                    void updateUserNotification({
+                                                                                        notification_id: n.id,
+                                                                                        action: 'mark_read',
+                                                                                    })
+                                                                                    window.location.hash = '#perfil'
+                                                                                }}
+                                                                                className="nav-notif-btn-primary"
+                                                                            >
+                                                                                <ExternalLink size={11} />
+                                                                                <span>Ver mi muro</span>
+                                                                            </button>
+                                                                        )}
+
                                                                         {isFriendRequest && n.request_id && (
                                                                             handledState ? (
                                                                                 <span className="nav-notif-btn-secondary">
