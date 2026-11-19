@@ -9,7 +9,7 @@ import json
 import urllib.request
 import urllib.parse
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Q, F
 from .models import Anime, ExternalReferenceMedia
 
 TMDB_API_KEY = getattr(settings, 'TMDB_API_KEY', '') or os.getenv('TMDB_API_KEY', '')
@@ -369,7 +369,7 @@ def search_tmdb_movies(query: str, media_type: str = 'all', limit: int = 15):
                         media_type=m.get('media_type', 'movie'),
                         title=m.get('title', ''),
                         original_title=m.get('original_title', ''),
-                        release_year=int(m['release_year']) if str(m.get('release_year', '')).isdigit() else None,
+                        release_year=str(m['release_year'])[:10] if m.get('release_year') is not None else '',
                         poster_path=m.get('poster_path', ''),
                         backdrop_path=m.get('backdrop_path', ''),
                         genres=m.get('genres', []),
@@ -571,7 +571,7 @@ def cross_reference_tmdb_movies_with_anime(selected_movies: list):
     animes_qs = (
         Anime.objects.filter(score__gte=7.4, scored_by__gte=500)
         .exclude(tags_cache__contains='|_is_sequel_|')
-        .order_by('-score')[:100]
+        .order_by(F('score').desc(nulls_last=True))[:100]
     )
 
     recommendations = []

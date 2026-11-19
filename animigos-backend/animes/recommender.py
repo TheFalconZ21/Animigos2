@@ -2,7 +2,7 @@ import math
 import re
 import logging
 from typing import List, Dict, Any, Set, Optional
-from django.db.models import Q
+from django.db.models import Q, F
 from .models import Anime, AnimeRecommendation, ExternalReferenceMedia
 from .tmdb_service import TMDB_TO_ANIME_GENRES
 
@@ -529,7 +529,9 @@ def calibrate_and_recommend(
             pass
 
     # Tomar los mejores 450 candidatos que cumplen los filtros base para scoring híbrido profundo
-    candidates_list = list(candidates_qs.order_by('-score', '-scored_by')[:450])
+    candidates_list = list(
+        candidates_qs.order_by(F('score').desc(nulls_last=True), '-scored_by')[:450]
+    )
 
     scored_candidates = []
 

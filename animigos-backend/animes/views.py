@@ -3,7 +3,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
-from django.db.models import Q, Count, Avg
+from django.db.models import Q, F, Count, Avg
 from django.core.cache import cache
 
 from .models import Anime, AnimeRecommendation, AnimeScoreHistory
@@ -196,40 +196,42 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
                     pass
 
 
-        # 12. Ordenación (por defecto Nota MAL descendiente con desempate por miembros)
+        # 12. Ordenación (nulls_last=True para paridad estricta entre SQLite y PostgreSQL)
         ordering_param = params.get('ordering', '-score')
         if not ordering_param or ordering_param in ('-score', '-score_mal'):
             if not q and not min_score:
-                qs = qs.filter(Q(scored_by__gte=100) | Q(rank__isnull=False)).order_by('-score', '-scored_by')
+                qs = qs.filter(Q(scored_by__gte=100) | Q(rank__isnull=False)).order_by(
+                    F('score').desc(nulls_last=True), '-scored_by'
+                )
             else:
-                qs = qs.order_by('-score', '-scored_by')
+                qs = qs.order_by(F('score').desc(nulls_last=True), '-scored_by')
         elif ordering_param == 'score':
-            qs = qs.order_by('score', 'scored_by')
+            qs = qs.order_by(F('score').asc(nulls_last=True), 'scored_by')
         elif ordering_param in ('-popularity', '-scored_by', 'popularity_desc', '-members'):
-            qs = qs.order_by('-scored_by', '-score')
+            qs = qs.order_by('-scored_by', F('score').desc(nulls_last=True))
         elif ordering_param in ('popularity', 'scored_by', 'popularity_asc', 'members'):
-            qs = qs.order_by('scored_by', 'score')
+            qs = qs.order_by('scored_by', F('score').asc(nulls_last=True))
         elif ordering_param in ('-season_year', '-year'):
-            qs = qs.order_by('-season_year', '-score')
+            qs = qs.order_by(F('season_year').desc(nulls_last=True), F('score').desc(nulls_last=True))
         elif ordering_param in ('season_year', 'year', '+season_year'):
-            qs = qs.order_by('season_year', '-score')
+            qs = qs.order_by(F('season_year').asc(nulls_last=True), F('score').desc(nulls_last=True))
         elif ordering_param == 'title':
             qs = qs.order_by('title')
         elif ordering_param == '-title':
             qs = qs.order_by('-title')
         elif ordering_param == '-rank':
-            qs = qs.order_by('-rank')
+            qs = qs.order_by(F('rank').desc(nulls_last=True))
         elif ordering_param == 'rank':
-            qs = qs.order_by('rank')
+            qs = qs.order_by(F('rank').asc(nulls_last=True))
         elif ordering_param == '-polarization_index':
-            qs = qs.order_by('-polarization_index')
+            qs = qs.order_by(F('polarization_index').desc(nulls_last=True))
         elif ordering_param == 'polarization_index':
-            qs = qs.order_by('polarization_index')
+            qs = qs.order_by(F('polarization_index').asc(nulls_last=True))
         else:
             try:
                 qs = qs.order_by(ordering_param)
             except Exception:
-                qs = qs.order_by('-score', '-scored_by')
+                qs = qs.order_by(F('score').desc(nulls_last=True), '-scored_by')
 
         return qs
 
@@ -427,7 +429,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             .values('mal_id', 'title', 'title_english', 'image_url', 'banner_url', 'scored_by', 'score', 'season_year')
         )
         popular_by_year = defaultdict(list)
-        for a in popular_animes:
+        for a in popular_animes.iterator(chunk_size=1000):
             if len(popular_by_year[a['season_year']]) < 10:
                 popular_by_year[a['season_year']].append({
                     'mal_id': a['mal_id'],
@@ -814,11 +816,11 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         if not q or len(q) < 2:
             top_animes = Anime.objects.filter(
                 score__gte=8.2, scored_by__gte=50000
-            ).order_by('-score')[:12]
+            ).order_by(F('score').desc(nulls_last=True))[:12]
         else:
             top_animes = Anime.objects.filter(
                 Q(title__icontains=q) | Q(title_english__icontains=q)
-            ).order_by('-score', '-scored_by')[:12]
+            ).order_by(F('score').desc(nulls_last=True), '-scored_by')[:12]
 
         results = [
             {

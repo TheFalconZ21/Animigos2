@@ -1,0 +1,24 @@
+[Unit]
+Description=Animigos Backend (Daphne ASGI — HTTP + WebSockets)
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/Animigos2/animigos-backend
+EnvironmentFile=/home/ubuntu/Animigos2/animigos-backend/.env
+ExecStart=/home/ubuntu/Animigos2/animigos-backend/.venv/bin/daphne -b 127.0.0.1 -p 8000 config.asgi:application
+Restart=always
+RestartSec=3
+
+# Protección de RAM para EC2 t2.small (2 GB RAM) — evita que Python dispare OOM sobre PostgreSQL
+MemoryHigh=600M
+MemoryMax=750M
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

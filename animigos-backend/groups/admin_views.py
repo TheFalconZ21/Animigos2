@@ -1,9 +1,11 @@
 import time
+import uuid
 from datetime import timedelta
 from django.utils import timezone
-from django.db.models import Count, Avg, Q, Max
+from django.db import connection
+from django.db.models import Count, Avg, Q, Max, F
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
@@ -13,7 +15,7 @@ from animes.models import Anime
 from .services.happiness import calculate_happiness_score
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def overview_analytics(request):
     """
     Retorna métricas ejecutivas en vivo para la pestaña Pulso General (Overview).
@@ -99,7 +101,7 @@ def overview_analytics(request):
         'funnel': funnel,
         'health': {
             'status': 'operational',
-            'db_engine': 'AWS PostgreSQL 16',
+            'db_engine': 'AWS PostgreSQL 16' if connection.vendor == 'postgresql' else f'{connection.vendor.upper()} (Local)',
             'total_animes': total_animes,
             'latency_ms': latency_ms,
             'version': 'v2.4.0'
@@ -120,7 +122,7 @@ CLEANUP_POLICY = {
 }
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def rooms_analytics(request):
     """
     Lista de salas con búsquedas avanzadas (miembros, inactividad, fecha creación, quórum, votos, candidatos),
@@ -325,7 +327,8 @@ def rooms_analytics(request):
                     'image_url': c.anime.image_url or c.anime.banner_url
                 }
 
-        mod_info = ROOM_MODERATION_STORE.get(r_id, {'is_locked': False, 'note': ''})
+        criteria_mod = (r.criteria_data or {}).get('moderation') if isinstance(r.criteria_data, dict) else None
+        mod_info = criteria_mod if isinstance(criteria_mod, dict) else ROOM_MODERATION_STORE.get(r_id, {'is_locked': False, 'note': ''})
 
         rooms_data.append({
             'id': r_id,
@@ -382,7 +385,7 @@ def rooms_analytics(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def admin_moderate_room(request, room_id):
     """
     Aplica una acción de moderación directa a una sala:
@@ -398,7 +401,9 @@ def admin_moderate_room(request, room_id):
     reason = request.data.get('reason', 'Acción administrativa')
     
     r_id = str(room.id)
-    mod_info = ROOM_MODERATION_STORE.get(r_id, {'is_locked': False, 'note': ''})
+    criteria = dict(room.criteria_data) if isinstance(room.criteria_data, dict) else {}
+    existing_mod = criteria.get('moderation') if isinstance(criteria.get('moderation'), dict) else None
+    mod_info = dict(existing_mod) if existing_mod else dict(ROOM_MODERATION_STORE.get(r_id, {'is_locked': False, 'note': ''}))
 
     if action == 'pause':
         mod_info['is_locked'] = True
@@ -459,6 +464,9 @@ def admin_moderate_room(request, room_id):
         return Response({'success': False, 'message': f'Acción "{action}" no soportada.'}, status=400)
 
     ROOM_MODERATION_STORE[r_id] = mod_info
+    criteria['moderation'] = mod_info
+    room.criteria_data = criteria
+    room.save(update_fields=['criteria_data', 'updated_at'])
 
     return Response({
         'success': True,
@@ -470,7 +478,7 @@ def admin_moderate_room(request, room_id):
 
 
 @api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def admin_rooms_cleanup_policy(request):
     """
     Obtiene o actualiza la política de eliminación programada de salas inactivas,
@@ -522,7 +530,7 @@ def admin_rooms_cleanup_policy(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def admin_rooms_cleanup_run(request):
     """
     Dispara la ejecución inmediata de la eliminación programada de salas inactivas.
@@ -563,7 +571,7 @@ def admin_rooms_cleanup_run(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def ping_room(request, pk):
     """
     Emite un ping de sincronización a una sala específica.
@@ -580,7 +588,7 @@ def ping_room(request, pk):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def algorithm_analytics(request):
     """
     Métricas reales de dispersión de géneros, reglas matemáticas, calibración,
@@ -598,7 +606,7 @@ def algorithm_analytics(request):
         qs_g = Anime.objects.filter(genres__icontains=g)
         count = qs_g.count()
         avg_g = qs_g.aggregate(avg_s=Avg('score'))['avg_s']
-        top_obj = qs_g.order_by('-score', 'popularity').first()
+        top_obj = qs_g.order_by(F('score').desc(nulls_last=True), F('popularity').asc(nulls_last=True)).first()
         cand_total = SharedListCandidate.objects.filter(anime__genres__icontains=g).count()
         won_total = SharedList.objects.filter(selected_anime__genres__icontains=g).count()
         win_rate = round((won_total / cand_total) * 100, 1) if cand_total > 0 else 0.0
@@ -823,7 +831,7 @@ def algorithm_analytics(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def calibrate_algorithm(request):
     """
     Recibe la calibración de pesos matemáticos y reglas de consenso para la felicidad grupal.
@@ -840,7 +848,7 @@ def calibrate_algorithm(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def simulate_algorithm(request):
     """
     Ejecuta una simulación matemática de happiness.py con parámetros enviados.
@@ -863,7 +871,7 @@ def simulate_algorithm(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def growth_analytics(request):
     """
     Métricas reales de crecimiento, canales de invitación, actividad diaria y usuarios registrados vs invitados.
@@ -973,7 +981,7 @@ def growth_analytics(request):
 MODERATION_STORE = {}
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def admin_users_list(request):
     """
     Buscador de usuarios con filtros de rol, tipo y estado de moderación.
@@ -1108,7 +1116,7 @@ def admin_users_list(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def admin_create_user(request):
     """
     Crea un nuevo usuario directamente desde el panel de administración.
@@ -1164,7 +1172,7 @@ def admin_create_user(request):
 
 
 @api_view(['GET', 'PATCH', 'DELETE'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def admin_user_detail_or_delete(request, user_id):
     """
     Consulta, modifica o elimina una cuenta de usuario o miembro de sala.
@@ -1228,7 +1236,7 @@ def admin_user_detail_or_delete(request, user_id):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def admin_moderate_user(request, user_id):
     """
     Aplica una acción de moderación directa a un usuario (warn, suspend, activate, kick)
@@ -1402,7 +1410,11 @@ def admin_moderate_user(request, user_id):
             current['status'] = 'active'
             current['reason'] = 'Cuenta reactivada por moderador'
         elif action == 'kick':
-            SharedListMember.objects.filter(id=user_id).delete()
+            try:
+                valid_uuid = uuid.UUID(str(user_id))
+                SharedListMember.objects.filter(id=valid_uuid).delete()
+            except (ValueError, TypeError):
+                pass
             current['status'] = 'active'
             current['reason'] = 'Expulsado de las salas activas'
 
@@ -1417,7 +1429,7 @@ def admin_moderate_user(request, user_id):
 
 
 @api_view(['GET', 'PATCH', 'PUT', 'DELETE'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def admin_update_anime(request, mal_id):
     """
     Permite desde la consola de administración consultar, modificar y eliminar la ficha
@@ -1550,7 +1562,7 @@ def admin_update_anime(request, mal_id):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def admin_create_anime(request):
     """
     Permite registrar un nuevo anime manualmente desde la consola de administración.
@@ -1631,7 +1643,7 @@ def admin_create_anime(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAdminUser])
 def admin_create_room(request):
     """
     Permite crear una nueva sala de watch party desde la consola de administración.

@@ -3,7 +3,7 @@ import sys
 import django
 from pathlib import Path
 
-BASE_DIR = Path(r"D:\Codigos\Animigos2\animigos-backend")
+BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 os.chdir(str(BASE_DIR))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')

@@ -43,8 +43,15 @@ INSTALLED_APPS = [
     'users.apps.UsersConfig',
 ]
 
+import importlib.util
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    *(
+        ['whitenoise.middleware.WhiteNoiseMiddleware']
+        if importlib.util.find_spec('whitenoise') is not None
+        else []
+    ),
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',  # Debe ir antes de CommonMiddleware
     'django.middleware.common.CommonMiddleware',
@@ -54,6 +61,10 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.PartitionedCookiesMiddleware',
 ]
+
+# Proxy reverso HTTPS (Nginx / AWS ALB / Render)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 
 ROOT_URLCONF = 'config.urls'
 
@@ -75,17 +86,28 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    }
-}
+REDIS_URL = os.environ.get('REDIS_URL', '').strip()
 
+if REDIS_URL and importlib.util.find_spec('channels_redis') is not None:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [REDIS_URL],
+            },
+        }
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        }
+    }
 
 
 # Database
-# Conexión híbrida resiliente: si PostgreSQL está configurado (vía DATABASE_URL o variables individuales)
-# y el puerto responde, usa PostgreSQL (Render / AWS RDS / Supabase); de lo contrario, conmuta a SQLite local (db.sqlite3).
+# En producción (DJANGO_DEBUG=False o REQUIRE_POSTGRES=True) se exige PostgreSQL sin fallback silencioso a SQLite.
+# En desarrollo local (DJANGO_DEBUG=True), si PostgreSQL no responde, conmuta a SQLite local (db.sqlite3 con WAL).
 import socket
 import urllib.parse
 
@@ -95,6 +117,7 @@ pg_port = os.getenv('POSTGRES_PORT', '5432')
 pg_db = os.getenv('POSTGRES_DB')
 pg_user = os.getenv('POSTGRES_USER', 'postgres')
 pg_password = os.getenv('POSTGRES_PASSWORD', '')
+pg_sslmode = os.getenv('POSTGRES_SSLMODE', '').strip()
 
 if db_url:
     try:
@@ -109,6 +132,9 @@ if db_url:
             pg_user = parsed_db.username
         if parsed_db.password:
             pg_password = parsed_db.password
+        query_params = urllib.parse.parse_qs(parsed_db.query)
+        if not pg_sslmode and 'sslmode' in query_params:
+            pg_sslmode = query_params['sslmode'][0]
     except Exception:
         pass
 
@@ -119,7 +145,20 @@ def _check_db_reachable(host, port):
     except (socket.timeout, ConnectionRefusedError, OSError):
         return False
 
-if pg_db and pg_host and _check_db_reachable(pg_host, pg_port):
+REQUIRE_POSTGRES = os.getenv('REQUIRE_POSTGRES', 'False').lower() in ('true', '1', 'yes')
+ALLOW_SQLITE_FALLBACK = os.getenv(
+    'ALLOW_SQLITE_FALLBACK',
+    'True' if (DEBUG and not REQUIRE_POSTGRES) else 'False',
+).lower() in ('true', '1', 'yes')
+
+use_postgres = bool(pg_db and pg_host) and (
+    not ALLOW_SQLITE_FALLBACK or _check_db_reachable(pg_host, pg_port)
+)
+
+if use_postgres:
+    pg_options = {}
+    if pg_sslmode:
+        pg_options['sslmode'] = pg_sslmode
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -128,6 +167,9 @@ if pg_db and pg_host and _check_db_reachable(pg_host, pg_port):
             'PASSWORD': pg_password,
             'HOST': pg_host,
             'PORT': pg_port,
+            'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '60')),
+            'CONN_HEALTH_CHECKS': True,
+            'OPTIONS': pg_options,
         }
     }
 else:
@@ -185,13 +227,22 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 24,
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
-    ],
+    'DEFAULT_RENDERER_CLASSES': (
+        [
+            'rest_framework.renderers.JSONRenderer',
+            'rest_framework.renderers.BrowsableAPIRenderer',
+        ]
+        if DEBUG
+        else [
+            'rest_framework.renderers.JSONRenderer',
+        ]
+    ),
 }
 
 # CORS Configuration (Permitir conexión desde el Frontend React/Vite en local, Vercel y dominio animigos.app)
+_extra_cors = [o.strip() for o in os.getenv('EXTRA_CORS_ORIGINS', '').split(',') if o.strip()]
+_extra_csrf = [o.strip() for o in os.getenv('EXTRA_CSRF_ORIGINS', '').split(',') if o.strip()]
+
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
@@ -201,10 +252,12 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5175',
     'https://animigos.app',
     'https://www.animigos.app',
+    'https://api.animigos.app',
     'http://34.231.198.115',
     'http://34.231.198.115:80',
     'http://34.231.198.115:8000',
     'http://34.231.198.115:5173',
+    *_extra_cors,
 ]
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://(localhost|127\.0\.0\.1):(517[0-9]|3000)$",
@@ -220,12 +273,14 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:5175',
     'https://animigos.app',
     'https://www.animigos.app',
+    'https://api.animigos.app',
     'https://*.vercel.app',
     'https://*.onrender.com',
     'http://34.231.198.115',
     'http://34.231.198.115:80',
     'http://34.231.198.115:8000',
     'http://34.231.198.115:5173',
+    *_extra_csrf,
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -242,11 +297,18 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 1209600  # 14 días de persistencia de sesión
 SESSION_SAVE_EVERY_REQUEST = True
 
-# En producción (Render HTTPS cross-domain con animigos.app/vercel), SameSite=None y Secure=True son obligatorios
+# Si el backend corre en api.animigos.app y el frontend en www.animigos.app,
+# SESSION_COOKIE_DOMAIN=.animigos.app habilita cookies first-party (SameSite=Lax; Secure=True).
+_cookie_domain = os.getenv('SESSION_COOKIE_DOMAIN', '').strip() or None
+if _cookie_domain:
+    SESSION_COOKIE_DOMAIN = _cookie_domain
+    CSRF_COOKIE_DOMAIN = _cookie_domain
+
 if os.environ.get('RENDER') or not DEBUG:
-    SESSION_COOKIE_SAMESITE = 'None'
+    _default_samesite = 'Lax' if _cookie_domain else 'None'
+    SESSION_COOKIE_SAMESITE = os.getenv('SESSION_COOKIE_SAMESITE', _default_samesite)
     SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SAMESITE = 'None'
+    CSRF_COOKIE_SAMESITE = os.getenv('CSRF_COOKIE_SAMESITE', _default_samesite)
     CSRF_COOKIE_SECURE = True
 else:
     SESSION_COOKIE_SAMESITE = 'Lax'
@@ -255,8 +317,7 @@ else:
     CSRF_COOKIE_SECURE = False
 
 # Caching Layer (Pilar 4.1 y 4.3 de la Directiva de Arquitectura: Proxy & Caché Intermedia)
-REDIS_URL = os.environ.get('REDIS_URL')
-if REDIS_URL:
+if REDIS_URL and importlib.util.find_spec('redis') is not None:
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',

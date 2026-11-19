@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { getWsBaseUrl } from '../services/apiConfig'
 import type {
     RoomSummary,
     ChatMessage,
@@ -68,14 +69,12 @@ export function useWatchParty({
             wsRef.current = null
         }
 
-        const wsHost = window.location.hostname || '127.0.0.1'
-        const wsPort = 8000 // Daphne/Django ASGI port
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const wsBase = getWsBaseUrl()
         const params = new URLSearchParams({
             name: userName,
             token: userToken,
         })
-        const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}/ws/rooms/${roomId}/?${params.toString()}`
+        const wsUrl = `${wsBase}/ws/rooms/${roomId}/?${params.toString()}`
 
         try {
             const socket = new WebSocket(wsUrl)

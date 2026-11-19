@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, F
 from django.utils import timezone
 import xml.etree.ElementTree as ET
 import time
@@ -1122,7 +1122,7 @@ def suggested_friends_view(request):
 
     qs = User.objects.exclude(id__in=existing_friend_ids).select_related('profile')
     if q:
-        from django.db.models import Q
+        from django.db.models import Q, F
         qs = qs.filter(
             Q(username__icontains=q)
             | Q(email__icontains=q)
@@ -1289,7 +1289,7 @@ def recommend_anime_to_user_view(request, username):
     if not anime_id:
         return Response({'error': 'Debes seleccionar un anime para recomendar.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    anime = Anime.objects.filter(mal_id=anime_id).first() or Anime.objects.filter(id=anime_id).first()
+    anime = Anime.objects.filter(mal_id=anime_id).first()
     if not anime:
         return Response({'error': 'No se encontró el anime seleccionado.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1353,7 +1353,7 @@ def user_notifications_view(request):
 
     if 'notifications' not in ps or not isinstance(ps.get('notifications'), list):
         # Inicializamos con una notificación de ejemplo accionable si es la primera vez
-        sample_anime = Anime.objects.order_by('-score').first()
+        sample_anime = Anime.objects.filter(score__isnull=False).order_by(F('score').desc(nulls_last=True)).first()
         sample_friend = (
             User.objects.exclude(id=request.user.id).select_related('profile').first()
         )
