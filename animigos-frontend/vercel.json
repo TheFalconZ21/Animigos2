@@ -2,14 +2,14 @@
   "rewrites": [
     {
       "source": "/media/:match*",
-      "destination": "https://animigos-backend-oee1.onrender.com/media/:match*"
+      "destination": "https://api.animigos.app/media/:match*"
     },
     {
       "source": "/api/:match*",
-      "destination": "https://animigos-backend-oee1.onrender.com/api/:match*"
+      "destination": "https://api.animigos.app/api/:match*"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|api/|media/).*)",
       "destination": "/index.html"
     }
   ]

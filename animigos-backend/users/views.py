@@ -2016,6 +2016,7 @@ def profile_wall_comments_view(request, username):
             target_user,
             {
                 'type': 'profile_comment',
+                'comment_id': new_comment['id'],
                 'from_username': request.user.username,
                 'from_display_name': actor_name,
                 'from_avatar': actor_avatar,
@@ -2081,6 +2082,26 @@ def profile_wall_comment_detail_view(request, username, comment_id):
             ps_inner = dict(target_prefs.privacy_settings) if isinstance(target_prefs.privacy_settings, dict) else {}
             curr = list(ps_inner.get('wall_comments', [])) if isinstance(ps_inner.get('wall_comments'), list) else []
             ps_inner['wall_comments'] = [c for c in curr if not (isinstance(c, dict) and str(c.get('id')) == cid)]
+            # Si existía una notificación pendiente asociada a este comentario eliminado, limpiarla también
+            notifs = list(ps_inner.get('notifications', [])) if isinstance(ps_inner.get('notifications'), list) else []
+            if notifs:
+                ps_inner['notifications'] = [
+                    n for n in notifs
+                    if not (
+                        isinstance(n, dict)
+                        and n.get('type') == 'profile_comment'
+                        and (
+                            str(n.get('comment_id') or '') == cid
+                            or (
+                                not n.get('comment_id')
+                                and str(n.get('from_username') or '').lower()
+                                == str(target_comment.get('authorUsername') or '').lower()
+                                and str(target_comment.get('content') or '')[:40]
+                                in str(n.get('message') or '')
+                            )
+                        )
+                    )
+                ]
             target_prefs.privacy_settings = ps_inner
             target_prefs.save(update_fields=['privacy_settings'])
 

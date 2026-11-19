@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense, type ComponentType } from 'react'
 import { Navbar } from './components/Navbar'
 import { PlatformSidebar, type PlatformView } from './components/PlatformSidebar'
 import { LoginModal } from './components/LoginModal'
@@ -11,16 +11,38 @@ import { useAuth } from './context/AuthContext'
 import { useCatExpression } from './hooks/useCatExpression'
 import { scheduleIdleAssetPreload } from './shared/assetPreloader'
 
-const AdminPortal = lazy(() => import('./admin/AdminPortal').then((m) => ({ default: m.AdminPortal })))
-const MiLista = lazy(() => import('./components/mi-lista/MiLista').then((m) => ({ default: m.MiLista })))
-const AgendaView = lazy(() => import('./components/agenda/AgendaView').then((m) => ({ default: m.AgendaView })))
-const WatchPartyRoom = lazy(() => import('./components/watch-party/WatchPartyRoom').then((m) => ({ default: m.WatchPartyRoom })))
-const AnimeCatalog = lazy(() => import('./components/catalogo/AnimeCatalog').then((m) => ({ default: m.AnimeCatalog })))
-const Tablon = lazy(() => import('./components/tablon/Tablon').then((m) => ({ default: m.Tablon })))
-const Calendario = lazy(() => import('./components/calendario/Calendario').then((m) => ({ default: m.Calendario })))
-const PerfilView = lazy(() => import('./components/perfil/PerfilView').then((m) => ({ default: m.PerfilView })))
-const RecomendadorView = lazy(() => import('./components/recomendador/RecomendadorView').then((m) => ({ default: m.RecomendadorView })))
-const TemporadasView = lazy(() => import('./components/temporadas/TemporadasView').then((m) => ({ default: m.TemporadasView })))
+function lazyWithRetry<T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+) {
+  return lazy(async () => {
+    const storageKey = 'animigos_lazy_chunk_retry'
+    try {
+      const component = await factory()
+      sessionStorage.removeItem(storageKey)
+      return component
+    } catch (error) {
+      const alreadyRetried = sessionStorage.getItem(storageKey) === 'true'
+      if (!alreadyRetried) {
+        sessionStorage.setItem(storageKey, 'true')
+        window.location.reload()
+        return new Promise<{ default: T }>(() => {})
+      }
+      sessionStorage.removeItem(storageKey)
+      throw error
+    }
+  })
+}
+
+const AdminPortal = lazyWithRetry(() => import('./admin/AdminPortal').then((m) => ({ default: m.AdminPortal })))
+const MiLista = lazyWithRetry(() => import('./components/mi-lista/MiLista').then((m) => ({ default: m.MiLista })))
+const AgendaView = lazyWithRetry(() => import('./components/agenda/AgendaView').then((m) => ({ default: m.AgendaView })))
+const WatchPartyRoom = lazyWithRetry(() => import('./components/watch-party/WatchPartyRoom').then((m) => ({ default: m.WatchPartyRoom })))
+const AnimeCatalog = lazyWithRetry(() => import('./components/catalogo/AnimeCatalog').then((m) => ({ default: m.AnimeCatalog })))
+const Tablon = lazyWithRetry(() => import('./components/tablon/Tablon').then((m) => ({ default: m.Tablon })))
+const Calendario = lazyWithRetry(() => import('./components/calendario/Calendario').then((m) => ({ default: m.Calendario })))
+const PerfilView = lazyWithRetry(() => import('./components/perfil/PerfilView').then((m) => ({ default: m.PerfilView })))
+const RecomendadorView = lazyWithRetry(() => import('./components/recomendador/RecomendadorView').then((m) => ({ default: m.RecomendadorView })))
+const TemporadasView = lazyWithRetry(() => import('./components/temporadas/TemporadasView').then((m) => ({ default: m.TemporadasView })))
 
 function isPrivateHash(hash: string): boolean {
   return (
