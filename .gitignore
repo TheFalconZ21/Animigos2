@@ -41,6 +41,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
 db.sqlite3
 
 # Logs

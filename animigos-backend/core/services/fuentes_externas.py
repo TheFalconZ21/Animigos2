@@ -374,57 +374,67 @@ def _guardar_anime_catalogo(media: dict, fecha: dict) -> int | None:
                 season_str = 'Fall'
         season_yr = media.get('seasonYear') or fecha.get('year')
 
-        anime, created = Anime.objects.get_or_create(
-            mal_id=mid,
-            defaults={
-                'title': title_romaji,
-                'title_english': title_eng,
-                'title_japanese': title_jp,
-                'synopsis': clean_desc,
-                'image_url': img_url,
-                'banner_url': banner,
-                'type': mapped_type,
-                'episodes': media.get('episodes') or (1 if fmt == 'MOVIE' else None),
-                'duration': float(media.get('duration') or 24),
-                'status': 'NOT_YET_RELEASED',
-                'season': season_str,
-                'season_year': season_yr,
-                'studio': chosen_studio[:100],
-                'genres': ani_genres,
-                'tags_data': clean_tags,
-                'tags_cache': tags_cache_str,
-                'release_date': f_date,
-            }
-        )
-        if not created:
-            mod = False
+        from core.utils.db_resilience import run_with_db_retry
+
+        anime = Anime.objects.filter(mal_id=mid).first()
+        if anime is None:
+            anime, _ = run_with_db_retry(
+                lambda: Anime.objects.get_or_create(
+                    mal_id=mid,
+                    defaults={
+                        'title': title_romaji,
+                        'title_english': title_eng,
+                        'title_japanese': title_jp,
+                        'synopsis': clean_desc,
+                        'image_url': img_url,
+                        'banner_url': banner,
+                        'type': mapped_type,
+                        'episodes': media.get('episodes') or (1 if fmt == 'MOVIE' else None),
+                        'duration': float(media.get('duration') or 24),
+                        'status': 'NOT_YET_RELEASED',
+                        'season': season_str,
+                        'season_year': season_yr,
+                        'studio': chosen_studio[:100],
+                        'genres': ani_genres,
+                        'tags_data': clean_tags,
+                        'tags_cache': tags_cache_str,
+                        'release_date': f_date,
+                    },
+                ),
+                max_retries=2,
+            )
+        else:
+            changed_fields: list[str] = []
             if anime.release_date != f_date:
                 anime.release_date = f_date
-                mod = True
+                changed_fields.append('release_date')
             if not anime.studio and chosen_studio:
                 anime.studio = chosen_studio[:100]
-                mod = True
+                changed_fields.append('studio')
             if not anime.title_english and title_eng:
                 anime.title_english = title_eng
-                mod = True
+                changed_fields.append('title_english')
             if (not anime.genres or anime.genres == []) and ani_genres:
                 anime.genres = ani_genres
-                mod = True
+                changed_fields.append('genres')
             if (not anime.tags_data or anime.tags_data == []) and clean_tags:
                 anime.tags_data = clean_tags
                 anime.tags_cache = tags_cache_str
-                mod = True
+                changed_fields.extend(['tags_data', 'tags_cache'])
             if not anime.synopsis and clean_desc:
                 anime.synopsis = clean_desc
-                mod = True
+                changed_fields.append('synopsis')
             if not anime.season and season_str:
                 anime.season = season_str
-                mod = True
+                changed_fields.append('season')
             if not anime.season_year and season_yr:
                 anime.season_year = season_yr
-                mod = True
-            if mod:
-                anime.save()
+                changed_fields.append('season_year')
+            if changed_fields:
+                run_with_db_retry(
+                    lambda: anime.save(update_fields=changed_fields),
+                    max_retries=2,
+                )
         return mid
     except Exception:
         return media.get('idMal')

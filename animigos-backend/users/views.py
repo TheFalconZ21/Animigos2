@@ -17,6 +17,7 @@ from django.conf import settings
 import uuid
 from animes.models import Anime
 from core.services.fuentes_externas import obtener_estado_emision_animes
+from core.utils.db_resilience import run_with_db_retry
 from .models import Profile, UserPreferences, UserAnimeFolder, UserAnimeEntry, Friendship
 from .serializers import (
     ProfileSerializer,
@@ -388,18 +389,22 @@ def user_my_list_view(request):
 
             anime = Anime.objects.filter(mal_id=mal_id).first()
             if not anime:
-                # Resiliencia: si el cliente proporciona datos mínimos del anime (ej. desde búsqueda o franquicia)
+                # Resiliencia: si el cliente proporciona datos mínimos del anime (ej. desde calendario, búsqueda o franquicia)
                 anime_meta = request.data.get('anime') if isinstance(request.data.get('anime'), dict) else {}
                 title = (request.data.get('title') or anime_meta.get('title') or '').strip()
                 if title:
                     image_url = (request.data.get('image_url') or anime_meta.get('image_url') or '').strip()
                     episodes = request.data.get('episodes') or anime_meta.get('episodes')
-                    anime = Anime.objects.create(
-                        mal_id=mal_id,
-                        title=title,
-                        image_url=image_url,
-                        episodes=int(episodes) if (episodes and str(episodes).isdigit()) else None,
-                        status=anime_meta.get('status', 'UNKNOWN')
+                    anime, _ = run_with_db_retry(
+                        lambda: Anime.objects.get_or_create(
+                            mal_id=mal_id,
+                            defaults={
+                                'title': title,
+                                'image_url': image_url,
+                                'episodes': int(episodes) if (episodes and str(episodes).isdigit()) else None,
+                                'status': anime_meta.get('status', 'UNKNOWN'),
+                            },
+                        )
                     )
                 else:
                     return Response({'error': f'Anime con mal_id {mal_id} no encontrado en el catálogo'}, status=status.HTTP_404_NOT_FOUND)
@@ -431,18 +436,20 @@ def user_my_list_view(request):
             if folder_id and _is_valid_uuid(folder_id):
                 folder = UserAnimeFolder.objects.filter(id=folder_id, user=user).first()
 
-            entry, created = UserAnimeEntry.objects.update_or_create(
-                user=user,
-                anime=anime,
-                defaults={
-                    'status': status_val,
-                    'score': score_val,
-                    'episodes_watched': episodes_val,
-                    'is_favorite': is_fav,
-                    'folder': folder,
-                    'tags': tags_val if isinstance(tags_val, list) else [],
-                    'notes': notes_val
-                }
+            entry, created = run_with_db_retry(
+                lambda: UserAnimeEntry.objects.update_or_create(
+                    user=user,
+                    anime=anime,
+                    defaults={
+                        'status': status_val,
+                        'score': score_val,
+                        'episodes_watched': episodes_val,
+                        'is_favorite': is_fav,
+                        'folder': folder,
+                        'tags': tags_val if isinstance(tags_val, list) else [],
+                        'notes': notes_val
+                    }
+                )
             )
 
             return Response(UserAnimeEntrySerializer(entry).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
@@ -467,7 +474,7 @@ def user_my_list_entry_detail_view(request, entry_id):
     entry = get_object_or_404(UserAnimeEntry.objects.select_related('anime', 'folder'), id=entry_id, user=user)
 
     if request.method == 'DELETE':
-        entry.delete()
+        run_with_db_retry(entry.delete)
         return Response({'message': 'Anime eliminado de tu lista correctamente'})
 
     elif request.method == 'PATCH':
@@ -498,7 +505,7 @@ def user_my_list_entry_detail_view(request, entry_id):
             fid = request.data['folder_id']
             entry.folder = UserAnimeFolder.objects.filter(id=fid, user=user).first() if (fid and _is_valid_uuid(fid)) else None
 
-        entry.save()
+        run_with_db_retry(entry.save)
         return Response(UserAnimeEntrySerializer(entry).data)
 
 

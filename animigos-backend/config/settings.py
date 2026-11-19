@@ -114,7 +114,7 @@ if db_url:
 
 def _check_db_reachable(host, port):
     try:
-        with socket.create_connection((host, int(port)), timeout=1.2):
+        with socket.create_connection((host, int(port)), timeout=4.0):
             return True
     except (socket.timeout, ConnectionRefusedError, OSError):
         return False
@@ -135,6 +135,9 @@ else:
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+            'OPTIONS': {
+                'timeout': 30,
+            },
         }
     }
 
