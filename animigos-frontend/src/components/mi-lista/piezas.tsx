@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { ESCALA_NOTAS } from './mi-lista-data'
+import './mi-lista.css'
 
 // ============================================================
 // Piezas pequeñas reutilizadas en toda la sección Mi Lista

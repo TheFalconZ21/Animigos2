@@ -6,7 +6,8 @@
    el "Tema dinámico" desde MiLista.tsx).
    ============================================================ */
 
-.ml-root {
+.ml-root,
+.ml-dialog {
     --ml-acento: var(--theme-acento, #e8508f);
     --ml-acento-suave: color-mix(in srgb, var(--ml-acento) 14%, transparent);
     --ml-acento-borde: color-mix(in srgb, var(--ml-acento) 35%, transparent);
@@ -30,7 +31,9 @@
 
     --ml-radio: 14px;
     --ml-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
 
+.ml-root {
     position: relative;
     width: 100%;
     min-height: calc(100vh - 64px);
