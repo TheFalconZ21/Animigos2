@@ -9,6 +9,8 @@ import type { PrivacyConfig, SocialLinks, LateralWallpaperConfig } from '../comp
 
 const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, ''); const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
 
+export type FriendshipStatus = 'none' | 'friends' | 'pending_sent' | 'pending_received'
+
 export interface FriendUser {
     id: number
     username: string
@@ -16,8 +18,33 @@ export interface FriendUser {
     avatar_url: string
     bio: string
     anime_count: number
+    mutual_friends_count?: number
+    friendship_status?: FriendshipStatus
+    request_id?: string | null
     created_at?: string
     is_online?: boolean
+}
+
+export interface FriendRequestItem extends FriendUser {
+    request_id: string
+    created_at: string
+}
+
+export interface FriendsOverviewResponse {
+    friends: FriendUser[]
+    incoming_requests: FriendRequestItem[]
+    outgoing_requests: FriendRequestItem[]
+    pending_count: number
+    total: number
+}
+
+export interface SendFriendRequestResponse {
+    message: string
+    friendship_status: FriendshipStatus
+    request_id?: string | null
+    accepted?: boolean
+    friend?: FriendUser
+    request?: FriendRequestItem
 }
 
 export interface PublicUserProfileData {
@@ -27,6 +54,9 @@ export interface PublicUserProfileData {
     flag_url: string | null
     lateral_config: LateralWallpaperConfig | null
     friends: FriendUser[]
+    friendship_status?: FriendshipStatus
+    friend_request_id?: string | null
+    mutual_friends_count?: number
     entries: ApiUserListEntry[]
     folders: ApiUserFolder[]
     tags: ApiTagCount[]
@@ -35,10 +65,19 @@ export interface PublicUserProfileData {
 
 export interface UserNotificationItem {
     id: string
-    type: 'anime_recommendation' | 'friend_added' | 'anime_release' | 'warning' | 'system' | string
+    type:
+        | 'anime_recommendation'
+        | 'friend_request'
+        | 'friend_accepted'
+        | 'friend_added'
+        | 'anime_release'
+        | 'warning'
+        | 'system'
+        | string
     from_username: string
     from_display_name: string
     from_avatar: string
+    request_id?: string
     anime_id?: number
     anime_title?: string
     anime_poster?: string
@@ -47,7 +86,7 @@ export interface UserNotificationItem {
     read: boolean
 }
 
-export async function fetchFriends(): Promise<FriendUser[]> {
+export async function fetchFriendsOverview(): Promise<FriendsOverviewResponse> {
     const res = await fetch(`${API_BASE_URL}/users/me/friends/`, {
         method: 'GET',
         headers: getAuthHeaders(),
@@ -57,19 +96,66 @@ export async function fetchFriends(): Promise<FriendUser[]> {
         throw new Error(`Error al obtener amigos (${res.status})`)
     }
     const data = await res.json()
-    return data.friends || []
+    return {
+        friends: Array.isArray(data.friends) ? data.friends : [],
+        incoming_requests: Array.isArray(data.incoming_requests) ? data.incoming_requests : [],
+        outgoing_requests: Array.isArray(data.outgoing_requests) ? data.outgoing_requests : [],
+        pending_count: typeof data.pending_count === 'number' ? data.pending_count : 0,
+        total: typeof data.total === 'number' ? data.total : (Array.isArray(data.friends) ? data.friends.length : 0),
+    }
 }
 
-export async function addFriend(usernameOrEmail: string): Promise<{ message: string; friend: FriendUser }> {
-    const res = await fetch(`${API_BASE_URL}/users/me/friends/`, {
+export async function fetchFriends(): Promise<FriendUser[]> {
+    const overview = await fetchFriendsOverview()
+    return overview.friends
+}
+
+export async function sendFriendRequest(usernameOrEmail: string): Promise<SendFriendRequestResponse> {
+    const res = await fetch(`${API_BASE_URL}/users/me/friend-requests/`, {
         method: 'POST',
         headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify({ username_or_email: usernameOrEmail }),
     })
-    const data = await res.json()
+    const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-        throw new Error(data.error || 'Error al agregar amigo')
+        throw new Error(data.error || 'Error al enviar la solicitud de amistad')
+    }
+    return data as SendFriendRequestResponse
+}
+
+export async function addFriend(usernameOrEmail: string): Promise<SendFriendRequestResponse> {
+    return sendFriendRequest(usernameOrEmail)
+}
+
+export async function respondFriendRequest(
+    requestId: string,
+    action: 'accept' | 'reject'
+): Promise<{ message: string; friendship_status: FriendshipStatus; friend?: FriendUser }> {
+    const res = await fetch(`${API_BASE_URL}/users/me/friend-requests/${encodeURIComponent(requestId)}/respond/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ action }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+        throw new Error(data.error || 'Error al responder la solicitud de amistad')
+    }
+    return data
+}
+
+export async function cancelFriendRequest(
+    requestId: string
+): Promise<{ message: string; friendship_status: FriendshipStatus }> {
+    const res = await fetch(`${API_BASE_URL}/users/me/friend-requests/${encodeURIComponent(requestId)}/`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+        throw new Error(data.error || 'Error al cancelar la solicitud de amistad')
     }
     return data
 }

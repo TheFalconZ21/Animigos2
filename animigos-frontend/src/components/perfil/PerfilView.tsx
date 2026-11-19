@@ -17,7 +17,10 @@ import { useThemeAccent } from '../../hooks/useThemeAccent'
 import { updateUserProfile, updateUserPreferences, getAuthHeaders } from '../../services/authApi'
 import {
     fetchPublicProfile,
-    fetchFriends,
+    fetchFriendsOverview,
+    sendFriendRequest,
+    respondFriendRequest,
+    cancelFriendRequest,
     sendAnimeRecommendationToUser,
     type PublicUserProfileData,
 } from '../../services/friendsApi'
@@ -79,6 +82,8 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
     const [internalSubView, setInternalSubView] = useState<ProfileSubView | null>(null)
     const activeSubView = controlledSubView !== undefined ? controlledSubView : internalSubView
     const [myFriendsCount, setMyFriendsCount] = useState<number>(0)
+    const [myPendingRequestsCount, setMyPendingRequestsCount] = useState<number>(0)
+    const [visitedFriendActionLoading, setVisitedFriendActionLoading] = useState<boolean>(false)
 
     const handleOpenSubView = (subView: ProfileSubView | null) => {
         if (onChangeSubView) {
@@ -98,11 +103,25 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
     }, [visitedUsername])
 
     React.useEffect(() => {
-        if (isVisitingOther) return
-        fetchFriends()
-            .then((list) => setMyFriendsCount(list.length))
-            .catch(() => setMyFriendsCount(0))
+        if (isVisitingOther || !user?.id) return
+        fetchFriendsOverview()
+            .then((overview) => {
+                setMyFriendsCount(overview.friends.length)
+                setMyPendingRequestsCount(overview.incoming_requests.length)
+            })
+            .catch(() => {
+                setMyFriendsCount(0)
+                setMyPendingRequestsCount(0)
+            })
     }, [isVisitingOther, user?.id])
+
+    const handleFriendsSummaryChange = React.useCallback(
+        (summary: { friendsCount: number; pendingRequestsCount: number }) => {
+            setMyFriendsCount(summary.friendsCount)
+            setMyPendingRequestsCount(summary.pendingRequestsCount)
+        },
+        []
+    )
 
     // Estado para perfil público visitado (#perfil/<username>)
     const [publicData, setPublicData] = useState<PublicUserProfileData | null>(null)
@@ -583,6 +602,93 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
         }
     }
 
+    const appendCurrentUserToVisitedFriends = (existingFriends: PublicUserProfileData['friends']) => {
+        if (!user) return existingFriends
+        if (existingFriends.some((f) => f.username.toLowerCase() === user.username.toLowerCase())) {
+            return existingFriends
+        }
+        return [
+            ...existingFriends,
+            {
+                id: Number(user.id) || 0,
+                username: user.username,
+                display_name: user.display_name || user.username,
+                avatar_url: user.avatar_url || '',
+                bio: user.bio || '',
+                anime_count: filas.length,
+            },
+        ]
+    }
+
+    const handleSendFriendRequestToVisited = async () => {
+        if (!isVisitingOther || !activeUsername || !user) return
+        setVisitedFriendActionLoading(true)
+        try {
+            const res = await sendFriendRequest(activeUsername)
+            setPublicData((prev) => {
+                if (!prev) return prev
+                const nextStatus = res.friendship_status || 'pending_sent'
+                return {
+                    ...prev,
+                    friendship_status: nextStatus,
+                    friend_request_id: res.request_id ?? null,
+                    friends:
+                        nextStatus === 'friends'
+                            ? appendCurrentUserToVisitedFriends(prev.friends)
+                            : prev.friends,
+                }
+            })
+        } catch (err) {
+            console.error('Error enviando solicitud de amistad:', err)
+        } finally {
+            setVisitedFriendActionLoading(false)
+        }
+    }
+
+    const handleAcceptVisitedFriendRequest = async () => {
+        const reqId = publicData?.friend_request_id
+        if (!isVisitingOther || !reqId || !user) return
+        setVisitedFriendActionLoading(true)
+        try {
+            await respondFriendRequest(reqId, 'accept')
+            setPublicData((prev) => {
+                if (!prev) return prev
+                return {
+                    ...prev,
+                    friendship_status: 'friends',
+                    friend_request_id: null,
+                    friends: appendCurrentUserToVisitedFriends(prev.friends),
+                }
+            })
+        } catch (err) {
+            console.error('Error aceptando solicitud de amistad:', err)
+        } finally {
+            setVisitedFriendActionLoading(false)
+        }
+    }
+
+    const handleCancelVisitedFriendRequest = async () => {
+        const reqId = publicData?.friend_request_id
+        if (!isVisitingOther || !reqId || !user) return
+        setVisitedFriendActionLoading(true)
+        try {
+            await cancelFriendRequest(reqId)
+            setPublicData((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          friendship_status: 'none',
+                          friend_request_id: null,
+                      }
+                    : prev
+            )
+        } catch (err) {
+            console.error('Error cancelando solicitud de amistad:', err)
+        } finally {
+            setVisitedFriendActionLoading(false)
+        }
+    }
+
     const handleSendRecommendation = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!selectedRecAnime || !activeUsername) return
@@ -653,7 +759,9 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                                         {[
                                             {
                                                 id: 'friends' as ProfileSubView,
-                                                label: `Amigos (${isVisitingOther ? publicData?.friends?.length || 0 : myFriendsCount})`,
+                                                label: !isVisitingOther && myPendingRequestsCount > 0
+                                                    ? `Amigos (${myFriendsCount}) · +${myPendingRequestsCount}`
+                                                    : `Amigos (${isVisitingOther ? publicData?.friends?.length || 0 : myFriendsCount})`,
                                                 icon: <Users size={13} />,
                                             },
                                             {
@@ -695,6 +803,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                                         currentUserUsername={activeUsername}
                                         readOnly={isVisitingOther}
                                         initialFriends={isVisitingOther ? publicData?.friends || [] : undefined}
+                                        onFriendsSummaryChange={!isVisitingOther ? handleFriendsSummaryChange : undefined}
                                     />
                                 ) : (
                                     <AnimeStatsDashboard
@@ -728,6 +837,23 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                                     flagUrl={activeFlagUrl}
                                     bio={activeBio}
                                     friendsCount={isVisitingOther ? publicData?.friends?.length || 0 : myFriendsCount}
+                                    pendingRequestsCount={isVisitingOther ? 0 : myPendingRequestsCount}
+                                    mutualFriendsCount={isVisitingOther ? publicData?.mutual_friends_count || 0 : 0}
+                                    friendshipStatus={isVisitingOther ? publicData?.friendship_status || 'none' : 'none'}
+                                    friendActionLoading={visitedFriendActionLoading}
+                                    onSendFriendRequest={
+                                        isVisitingOther && user ? handleSendFriendRequestToVisited : undefined
+                                    }
+                                    onAcceptFriendRequest={
+                                        isVisitingOther && user && publicData?.friend_request_id
+                                            ? handleAcceptVisitedFriendRequest
+                                            : undefined
+                                    }
+                                    onCancelFriendRequest={
+                                        isVisitingOther && user && publicData?.friend_request_id
+                                            ? handleCancelVisitedFriendRequest
+                                            : undefined
+                                    }
                                     onOpenFriendsSubView={() => handleOpenSubView('friends')}
                                     memberSince={
                                         (isVisitingOther ? publicData?.user?.created_at : user?.created_at)

@@ -1,22 +1,28 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
     Users,
     UserPlus,
+    UserCheck,
     Search,
     Film,
     Sparkles,
     X,
+    Check,
+    Clock,
     UserMinus,
     Tv,
     Loader2,
 } from 'lucide-react'
 import { Dialogo } from '../mi-lista/piezas'
 import {
-    fetchFriends,
-    addFriend,
+    fetchFriendsOverview,
+    sendFriendRequest,
+    respondFriendRequest,
+    cancelFriendRequest,
     removeFriend,
     fetchSuggestedFriends,
     type FriendUser,
+    type FriendRequestItem,
 } from '../../services/friendsApi'
 import { resolveMediaUrl } from '../../utils/mediaUrl'
 
@@ -25,17 +31,26 @@ interface UserFriendsSectionProps {
     readOnly?: boolean
     initialFriends?: FriendUser[]
     onSelectUserProfile?: (username: string) => void
+    onFriendsSummaryChange?: (summary: { friendsCount: number; pendingRequestsCount: number }) => void
 }
 
 const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+
+const formatMutualLabel = (count?: number): string => {
+    const n = count || 0
+    return n === 1 ? '1 amigo en común' : `${n} amigos en común`
+}
 
 export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
     currentUserUsername,
     readOnly = false,
     initialFriends,
     onSelectUserProfile,
+    onFriendsSummaryChange,
 }) => {
     const [friends, setFriends] = useState<FriendUser[]>(initialFriends || [])
+    const [incomingRequests, setIncomingRequests] = useState<FriendRequestItem[]>([])
+    const [outgoingRequests, setOutgoingRequests] = useState<FriendRequestItem[]>([])
     const [suggested, setSuggested] = useState<FriendUser[]>([])
     const [loading, setLoading] = useState(!readOnly)
 
@@ -48,7 +63,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
         }
     }
 
-    // Filtro rápido local de "Mis Amigos" (input izquierdo)
+    // Filtro rápido local de "Mis Amigos" (aplica a solicitudes y amigos)
     const [searchQuery, setSearchQuery] = useState('')
 
     // Modales
@@ -62,26 +77,48 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
     const [modalSearchLoading, setModalSearchLoading] = useState(false)
     const [addLoading, setAddLoading] = useState(false)
     const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; isError: boolean } | null>(null)
-    const [actionLoadingId, setActionLoadingId] = useState<number | null>(null)
+    const [inlineFeedback, setInlineFeedback] = useState<{ text: string; isError: boolean } | null>(null)
+    const [actionLoadingKey, setActionLoadingKey] = useState<string | null>(null)
 
-    // Cargar amigos y sugerencias principales
-    const loadFriendsData = async () => {
+    const showInlineToast = (text: string, isError = false) => {
+        setInlineFeedback({ text, isError })
+        window.setTimeout(() => {
+            setInlineFeedback((prev) => (prev?.text === text ? null : prev))
+        }, 3200)
+    }
+
+    // Cargar amigos, solicitudes pendientes y sugerencias ordenadas por amigos en común
+    const loadFriendsData = useCallback(async () => {
         try {
             setLoading(true)
-            const [friendsRes, suggestedRes] = await Promise.all([
-                fetchFriends().catch(() => []),
+            const [overviewRes, suggestedRes] = await Promise.all([
+                fetchFriendsOverview().catch(() => ({
+                    friends: [],
+                    incoming_requests: [],
+                    outgoing_requests: [],
+                    pending_count: 0,
+                    total: 0,
+                })),
                 fetchSuggestedFriends().catch(() => []),
             ])
-            setFriends(friendsRes)
+            setFriends(overviewRes.friends)
+            setIncomingRequests(overviewRes.incoming_requests)
+            setOutgoingRequests(overviewRes.outgoing_requests)
             setSuggested(suggestedRes)
+            onFriendsSummaryChange?.({
+                friendsCount: overviewRes.friends.length,
+                pendingRequestsCount: overviewRes.incoming_requests.length,
+            })
         } finally {
             setLoading(false)
         }
-    }
+    }, [onFriendsSummaryChange])
 
     useEffect(() => {
         if (readOnly && initialFriends) {
             setFriends(initialFriends)
+            setIncomingRequests([])
+            setOutgoingRequests([])
             fetchSuggestedFriends()
                 .then((res) => setSuggested(res))
                 .catch(() => setSuggested([]))
@@ -89,7 +126,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
             return
         }
         loadFriendsData()
-    }, [currentUserUsername, readOnly, initialFriends])
+    }, [currentUserUsername, readOnly, initialFriends, loadFriendsData])
 
     // Búsqueda reactiva dentro del modal de "Agregar Amigo"
     useEffect(() => {
@@ -111,15 +148,21 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
             cancelled = true
             clearTimeout(timer)
         }
-    }, [isAddModalOpen, modalSearchInput, friends.length])
+    }, [isAddModalOpen, modalSearchInput, friends.length, outgoingRequests.length, incomingRequests.length])
 
-    const handleAddFriend = async (targetQuery: string, closeModalOnSuccess = false) => {
+    const handleSendRequest = async (targetQuery: string, closeModalOnSuccess = false, key?: string) => {
         if (!targetQuery.trim()) return
+        if (key) setActionLoadingKey(key)
         setAddLoading(true)
         setFeedbackMsg(null)
         try {
-            const res = await addFriend(targetQuery.trim())
-            setFeedbackMsg({ text: res.message || '¡Amigo agregado con éxito!', isError: false })
+            const res = await sendFriendRequest(targetQuery.trim())
+            const msg = res.message || 'Solicitud de amistad enviada.'
+            if (isAddModalOpen) {
+                setFeedbackMsg({ text: msg, isError: false })
+            } else {
+                showInlineToast(msg, false)
+            }
             await loadFriendsData()
             if (closeModalOnSuccess) {
                 setTimeout(() => {
@@ -127,19 +170,59 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                     setModalSearchInput('')
                     setIsAddModalOpen(false)
                 }, 1200)
-            } else {
-                setTimeout(() => setFeedbackMsg(null), 2500)
+            } else if (isAddModalOpen) {
+                setTimeout(() => setFeedbackMsg(null), 2600)
             }
-        } catch (err: any) {
-            setFeedbackMsg({ text: err.message || 'Error al agregar amigo.', isError: true })
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error al enviar la solicitud de amistad.'
+            if (isAddModalOpen) {
+                setFeedbackMsg({ text: message, isError: true })
+            } else {
+                showInlineToast(message, true)
+            }
         } finally {
             setAddLoading(false)
+            if (key) setActionLoadingKey(null)
+        }
+    }
+
+    const handleRespondRequest = async (requestId: string, action: 'accept' | 'reject') => {
+        const key = `${action}:${requestId}`
+        setActionLoadingKey(key)
+        try {
+            const res = await respondFriendRequest(requestId, action)
+            showInlineToast(
+                res.message || (action === 'accept' ? '¡Solicitud aceptada!' : 'Solicitud rechazada.'),
+                false
+            )
+            await loadFriendsData()
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'No se pudo procesar la solicitud.'
+            showInlineToast(message, true)
+        } finally {
+            setActionLoadingKey(null)
+        }
+    }
+
+    const handleCancelRequest = async (requestId: string) => {
+        const key = `cancel:${requestId}`
+        setActionLoadingKey(key)
+        try {
+            const res = await cancelFriendRequest(requestId)
+            showInlineToast(res.message || 'Solicitud cancelada.', false)
+            await loadFriendsData()
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'No se pudo cancelar la solicitud.'
+            showInlineToast(message, true)
+        } finally {
+            setActionLoadingKey(null)
         }
     }
 
     const handleRemoveFriend = async (id: number, name: string) => {
         if (!window.confirm(`¿Estás seguro de que deseas eliminar a ${name} de tus amigos?`)) return
-        setActionLoadingId(id)
+        const key = `remove:${id}`
+        setActionLoadingKey(key)
         try {
             await removeFriend(id)
             setFriends((prev) => prev.filter((f) => f.id !== id))
@@ -147,12 +230,22 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
         } catch (e) {
             console.error('Error eliminando amigo:', e)
         } finally {
-            setActionLoadingId(null)
+            setActionLoadingKey(null)
         }
     }
 
+    const q = searchQuery.toLowerCase().trim()
+
+    const filteredIncoming = incomingRequests.filter((req) => {
+        if (!q) return true
+        return (
+            req.display_name.toLowerCase().includes(q) ||
+            req.username.toLowerCase().includes(q) ||
+            (req.bio && req.bio.toLowerCase().includes(q))
+        )
+    })
+
     const filteredFriends = friends.filter((f) => {
-        const q = searchQuery.toLowerCase().trim()
         if (!q) return true
         return (
             f.display_name.toLowerCase().includes(q) ||
@@ -161,13 +254,137 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
         )
     })
 
-    // 4 amigos a la izquierda + 2 sugerencias a la derecha (según imagen referencial 2)
+    const visibleIncoming = !readOnly ? filteredIncoming.slice(0, 4) : []
     const topFriends = filteredFriends.slice(0, 4)
     const topSuggested = suggested.slice(0, 2)
 
+    const renderSuggestionFooter = (sug: FriendUser) => {
+        if ((sug.mutual_friends_count || 0) > 0) {
+            return (
+                <span className="perfil-friend-list-count perfil-friend-mutual-badge">
+                    <Users size={11} style={{ color: 'var(--perfil-acento)', flexShrink: 0 }} />
+                    <span className="text-truncate">{formatMutualLabel(sug.mutual_friends_count)}</span>
+                </span>
+            )
+        }
+        return (
+            <span className="perfil-friend-list-count">
+                <Film size={11} style={{ color: 'var(--perfil-acento)', flexShrink: 0 }} />
+                <span className="text-truncate">{sug.anime_count || 0} en su lista</span>
+            </span>
+        )
+    }
+
+    const renderSuggestionActionButton = (sug: FriendUser, compactIconOnly = false) => {
+        if (readOnly) return null
+        const status = sug.friendship_status || 'none'
+        const sendKey = `send:${sug.id}`
+        const acceptKey = sug.request_id ? `accept:${sug.request_id}` : ''
+        const cancelKey = sug.request_id ? `cancel:${sug.request_id}` : ''
+        const isBusy =
+            actionLoadingKey === sendKey ||
+            (acceptKey !== '' && actionLoadingKey === acceptKey) ||
+            (cancelKey !== '' && actionLoadingKey === cancelKey)
+
+        if (status === 'pending_sent') {
+            if (compactIconOnly) {
+                return (
+                    <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            if (sug.request_id) handleCancelRequest(sug.request_id)
+                        }}
+                        className="perfil-friend-quick-add-btn is-pending"
+                        title="Solicitud enviada · Haz clic para cancelar"
+                    >
+                        {isBusy ? <Loader2 size={12} className="spinner-border spinner-border-sm" /> : <Clock size={13} />}
+                    </button>
+                )
+            }
+            return (
+                <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => {
+                        if (sug.request_id) handleCancelRequest(sug.request_id)
+                    }}
+                    className="perfil-friend-req-btn-ghost py-1 px-2.5 flex-shrink-0"
+                    style={{ fontSize: '0.72rem' }}
+                    title="Cancelar solicitud enviada"
+                >
+                    <Clock size={12} />
+                    <span>Enviada</span>
+                </button>
+            )
+        }
+
+        if (status === 'pending_received' && sug.request_id) {
+            if (compactIconOnly) {
+                return (
+                    <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            handleRespondRequest(sug.request_id!, 'accept')
+                        }}
+                        className="perfil-friend-quick-add-btn is-incoming"
+                        title={`Aceptar solicitud de ${sug.display_name}`}
+                    >
+                        {isBusy ? <Loader2 size={12} className="spinner-border spinner-border-sm" /> : <UserCheck size={13} />}
+                    </button>
+                )
+            }
+            return (
+                <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => handleRespondRequest(sug.request_id!, 'accept')}
+                    className="perfil-friends-add-pill-btn py-1 px-2.5 flex-shrink-0"
+                    style={{ fontSize: '0.72rem' }}
+                >
+                    <Check size={12} />
+                    <span>Aceptar</span>
+                </button>
+            )
+        }
+
+        if (compactIconOnly) {
+            return (
+                <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        handleSendRequest(sug.username, false, sendKey)
+                    }}
+                    className="perfil-friend-quick-add-btn"
+                    title={`Enviar solicitud de amistad a ${sug.display_name}`}
+                >
+                    {isBusy ? <Loader2 size={12} className="spinner-border spinner-border-sm" /> : <UserPlus size={13} />}
+                </button>
+            )
+        }
+
+        return (
+            <button
+                type="button"
+                disabled={addLoading || isBusy}
+                onClick={() => handleSendRequest(sug.username, false, sendKey)}
+                className="perfil-friends-add-pill-btn py-1 px-2.5 flex-shrink-0"
+                style={{ fontSize: '0.72rem' }}
+            >
+                <UserPlus size={12} />
+                <span>Solicitar</span>
+            </button>
+        )
+    }
+
     return (
         <div className="perfil-friends-container">
-            {/* 1. Cabecera Principal: Icono + Mis Amigos + Contador + Subtítulo */}
+            {/* 1. Cabecera Principal: Icono + Mis Amigos + Contadores + Subtítulo */}
             <div className="d-flex align-items-center gap-2.5 mb-3">
                 <div
                     className="rounded-3 p-2 d-flex align-items-center justify-content-center flex-shrink-0"
@@ -181,9 +398,9 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                     <Users size={18} />
                 </div>
                 <div>
-                    <div className="d-flex align-items-center gap-2">
+                    <div className="d-flex flex-wrap align-items-center gap-2">
                         <h2 className="h6 fw-bold text-white ms-4 mb-0" style={{ fontSize: '1.02rem' }}>
-                            Mis Amigos
+                            {readOnly ? 'Amigos' : 'Mis Amigos'}
                         </h2>
                         <span
                             className="badge rounded-pill px-2.5 py-0.5"
@@ -196,6 +413,15 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                         >
                             {friends.length} {friends.length === 1 ? 'amigo' : 'amigos'}
                         </span>
+                        {!readOnly && incomingRequests.length > 0 && (
+                            <span className="perfil-friends-requests-counter-pill">
+                                <UserPlus size={11} />
+                                <span>
+                                    {incomingRequests.length}{' '}
+                                    {incomingRequests.length === 1 ? 'solicitud' : 'solicitudes'}
+                                </span>
+                            </span>
+                        )}
                     </div>
                     <p className="small ms-4 mb-0 text-secondary" style={{ fontSize: '0.78rem' }}>
                         Compañeros para ver anime, coordinar maratones y compartir listas.
@@ -203,9 +429,26 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                 </div>
             </div>
 
-            {/* 2. Layout Dividido: Izquierda (Mis Amigos - 4 cols) | Derecha (Sugerencias - 2 cols) */}
+            {inlineFeedback && (
+                <div
+                    className={`perfil-friends-toast mb-3 ${inlineFeedback.isError ? 'is-error' : ''}`}
+                    role="status"
+                >
+                    <span>{inlineFeedback.text}</span>
+                    <button
+                        type="button"
+                        onClick={() => setInlineFeedback(null)}
+                        className="perfil-friends-filter-clear"
+                        aria-label="Cerrar aviso"
+                    >
+                        <X size={12} />
+                    </button>
+                </div>
+            )}
+
+            {/* 2. Layout Dividido: Izquierda (Solicitudes primero + Mis Amigos) | Derecha (Sugerencias por amigos en común) */}
             <div className="perfil-friends-split-layout">
-                {/* ==================== BLOQUE IZQUIERDO: MIS AMIGOS ==================== */}
+                {/* ==================== BLOQUE IZQUIERDO: SOLICITUDES + MIS AMIGOS ==================== */}
                 <div className="perfil-friends-left-zone">
                     {/* Barra de control superior: Input de filtro rápido a la izquierda + Botones a la derecha */}
                     <div className="perfil-friends-toolbar">
@@ -213,11 +456,15 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                             <Search size={14} className="perfil-friends-filter-icon" />
                             <input
                                 type="text"
-                                placeholder="Buscar amigos..."
+                                placeholder={
+                                    !readOnly && incomingRequests.length > 0
+                                        ? 'Buscar solicitudes o amigos...'
+                                        : 'Buscar amigos...'
+                                }
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="perfil-friends-filter-input"
-                                aria-label="Filtrar mis amigos rápidamente"
+                                aria-label="Filtrar solicitudes y amigos rápidamente"
                             />
                             {searchQuery && (
                                 <button
@@ -251,92 +498,223 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                 type="button"
                                 onClick={() => setIsAllFriendsModalOpen(true)}
                                 className="perfil-friends-vermas-header-btn"
-                                title="Ver todos los amigos"
+                                title="Ver todas las solicitudes y amigos"
                             >
                                 VER MAS
                             </button>
                         </div>
                     </div>
 
-                    {/* Grilla de 4 tarjetas de amigos */}
                     {loading ? (
                         <div className="text-center py-4">
                             <Loader2 size={20} className="spinner-border text-secondary" />
                         </div>
-                    ) : topFriends.length > 0 ? (
-                        <div className="perfil-friends-grid-4">
-                            {topFriends.map((friend) => (
-                                <div
-                                    key={friend.id}
-                                    className="perfil-friend-compact-card"
-                                    style={{ cursor: 'pointer' }}
-                                    onClick={() => navigateToUserProfile(friend.username)}
-                                    title={`Visitar el perfil de ${friend.display_name} (@${friend.username})`}
-                                >
-                                    <div className="perfil-friend-card-top">
-                                        <div className="position-relative flex-shrink-0">
-                                            <img
-                                                src={resolveMediaUrl(friend.avatar_url) || DEFAULT_AVATAR}
-                                                crossOrigin="anonymous"
-                                                alt={friend.display_name}
-                                                className="perfil-friend-avatar"
-                                                onError={(e) => {
-                                                    e.currentTarget.src = DEFAULT_AVATAR
-                                                }}
-                                            />
-                                            <span
-                                                className="perfil-friend-online-dot"
-                                                title="En línea"
-                                            />
-                                        </div>
-
-                                        <div className="perfil-friend-card-info">
-                                            <span
-                                                className="perfil-friend-name"
-                                                title={friend.display_name}
+                    ) : (
+                        <div className="d-flex flex-column gap-3">
+                            {/* PRIMERO: SOLICITUDES DE AMISTAD RECIBIDAS (solo en el perfil propio) */}
+                            {!readOnly && visibleIncoming.length > 0 && (
+                                <div className="perfil-friends-requests-block">
+                                    <div className="perfil-friends-sublabel">
+                                        <span className="perfil-friends-sublabel-dot" />
+                                        <span>
+                                            Solicitudes de amistad ({filteredIncoming.length})
+                                        </span>
+                                        {filteredIncoming.length > 4 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsAllFriendsModalOpen(true)}
+                                                className="perfil-friends-sublabel-more"
                                             >
-                                                {friend.display_name}
-                                            </span>
-                                            <span className="perfil-friend-handle">
-                                                @{friend.username}
-                                            </span>
-                                            <span
-                                                className="perfil-friend-bio"
-                                                title={friend.bio || '¡Hola! Estoy usando Animigos'}
-                                            >
-                                                {friend.bio || '¡Hola! Estoy usando Animigos'}
-                                            </span>
-                                        </div>
+                                                Ver todas
+                                            </button>
+                                        )}
                                     </div>
 
-                                    <div className="perfil-friend-card-footer">
-                                        <span className="perfil-friend-list-count">
-                                            <Film size={11} style={{ color: 'var(--perfil-acento)', flexShrink: 0 }} />
-                                            <span className="text-truncate">{friend.anime_count || 0} en su lista</span>
-                                        </span>
+                                    <div className="perfil-friends-grid-4">
+                                        {visibleIncoming.map((req) => {
+                                            const isAccepting = actionLoadingKey === `accept:${req.request_id}`
+                                            const isRejecting = actionLoadingKey === `reject:${req.request_id}`
+                                            const isBusy = isAccepting || isRejecting
+                                            return (
+                                                <div
+                                                    key={req.request_id}
+                                                    className="perfil-friend-compact-card perfil-friend-request-card"
+                                                    style={{ cursor: 'pointer' }}
+                                                    onClick={() => navigateToUserProfile(req.username)}
+                                                    title={`Visitar el perfil de ${req.display_name} (@${req.username})`}
+                                                >
+                                                    <div className="perfil-friend-card-top">
+                                                        <div className="position-relative flex-shrink-0">
+                                                            <img
+                                                                src={resolveMediaUrl(req.avatar_url) || DEFAULT_AVATAR}
+                                                                crossOrigin="anonymous"
+                                                                alt={req.display_name}
+                                                                className="perfil-friend-avatar"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.src = DEFAULT_AVATAR
+                                                                }}
+                                                            />
+                                                            <span
+                                                                className="perfil-friend-request-dot"
+                                                                title="Solicitud pendiente"
+                                                            />
+                                                        </div>
+
+                                                        <div className="perfil-friend-card-info">
+                                                            <span
+                                                                className="perfil-friend-name"
+                                                                title={req.display_name}
+                                                            >
+                                                                {req.display_name}
+                                                            </span>
+                                                            <span className="perfil-friend-handle">
+                                                                @{req.username}
+                                                            </span>
+                                                            <span className="perfil-friend-bio">
+                                                                {(req.mutual_friends_count || 0) > 0
+                                                                    ? formatMutualLabel(req.mutual_friends_count)
+                                                                    : 'Quiere ser tu amigo'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div
+                                                        className="perfil-friend-request-actions"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            disabled={isBusy}
+                                                            onClick={() => handleRespondRequest(req.request_id, 'accept')}
+                                                            className="perfil-friend-req-btn-accept"
+                                                            title={`Aceptar solicitud de ${req.display_name}`}
+                                                        >
+                                                            {isAccepting ? (
+                                                                <Loader2 size={11} className="spinner-border spinner-border-sm" />
+                                                            ) : (
+                                                                <Check size={12} />
+                                                            )}
+                                                            <span>Aceptar</span>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={isBusy}
+                                                            onClick={() => handleRespondRequest(req.request_id, 'reject')}
+                                                            className="perfil-friend-req-btn-reject"
+                                                            title={`Rechazar solicitud de ${req.display_name}`}
+                                                            aria-label={`Rechazar solicitud de ${req.display_name}`}
+                                                        >
+                                                            {isRejecting ? (
+                                                                <Loader2 size={11} className="spinner-border spinner-border-sm" />
+                                                            ) : (
+                                                                <X size={12} />
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div
-                            className="p-3 rounded-3 text-center border d-flex align-items-center justify-content-center"
-                            style={{
-                                background: '#14141a',
-                                borderColor: 'rgba(255,255,255,0.06)',
-                                minHeight: '112px',
-                            }}
-                        >
-                            <span className="small text-secondary" style={{ fontSize: '0.76rem' }}>
-                                {searchQuery
-                                    ? `No se encontraron amigos que coincidan con "${searchQuery}".`
-                                    : 'Aún no tienes amigos agregados. ¡Usa el botón "Agregar Amigo" o conecta con las sugerencias!'}
-                            </span>
+                            )}
+
+                            {/* SEGUNDO: AMIGOS CONFIRMADOS */}
+                            {!readOnly && visibleIncoming.length > 0 && topFriends.length > 0 && (
+                                <div className="perfil-friends-sublabel is-muted">
+                                    <span>Tus amigos ({filteredFriends.length})</span>
+                                </div>
+                            )}
+
+                            {topFriends.length > 0 ? (
+                                <div className="perfil-friends-grid-4">
+                                    {topFriends.map((friend) => (
+                                        <div
+                                            key={friend.id}
+                                            className="perfil-friend-compact-card"
+                                            style={{ cursor: 'pointer' }}
+                                            onClick={() => navigateToUserProfile(friend.username)}
+                                            title={`Visitar el perfil de ${friend.display_name} (@${friend.username})`}
+                                        >
+                                            <div className="perfil-friend-card-top">
+                                                <div className="position-relative flex-shrink-0">
+                                                    <img
+                                                        src={resolveMediaUrl(friend.avatar_url) || DEFAULT_AVATAR}
+                                                        crossOrigin="anonymous"
+                                                        alt={friend.display_name}
+                                                        className="perfil-friend-avatar"
+                                                        onError={(e) => {
+                                                            e.currentTarget.src = DEFAULT_AVATAR
+                                                        }}
+                                                    />
+                                                    <span
+                                                        className="perfil-friend-online-dot"
+                                                        title="En línea"
+                                                    />
+                                                </div>
+
+                                                <div className="perfil-friend-card-info">
+                                                    <span
+                                                        className="perfil-friend-name"
+                                                        title={friend.display_name}
+                                                    >
+                                                        {friend.display_name}
+                                                    </span>
+                                                    <span className="perfil-friend-handle">
+                                                        @{friend.username}
+                                                    </span>
+                                                    <span
+                                                        className="perfil-friend-bio"
+                                                        title={friend.bio || '¡Hola! Estoy usando Animigos'}
+                                                    >
+                                                        {friend.bio || '¡Hola! Estoy usando Animigos'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="perfil-friend-card-footer">
+                                                <span className="perfil-friend-list-count">
+                                                    <Film size={11} style={{ color: 'var(--perfil-acento)', flexShrink: 0 }} />
+                                                    <span className="text-truncate">{friend.anime_count || 0} en su lista</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : visibleIncoming.length === 0 ? (
+                                <div
+                                    className="p-3 rounded-3 text-center border d-flex align-items-center justify-content-center"
+                                    style={{
+                                        background: '#14141a',
+                                        borderColor: 'rgba(255,255,255,0.06)',
+                                        minHeight: '112px',
+                                    }}
+                                >
+                                    <span className="small text-secondary" style={{ fontSize: '0.76rem' }}>
+                                        {searchQuery
+                                            ? `No se encontraron amigos ni solicitudes que coincidan con "${searchQuery}".`
+                                            : readOnly
+                                                ? 'Este usuario aún no tiene amigos agregados.'
+                                                : 'Aún no tienes amigos agregados. ¡Envía una solicitud con "Agregar Amigo" o conecta con las sugerencias!'}
+                                    </span>
+                                </div>
+                            ) : (
+                                <div
+                                    className="px-3 py-2 rounded-3 text-center border"
+                                    style={{
+                                        background: '#14141a',
+                                        borderColor: 'rgba(255,255,255,0.05)',
+                                    }}
+                                >
+                                    <span className="small text-secondary" style={{ fontSize: '0.74rem' }}>
+                                        Acepta una solicitud arriba para sumar tu primer amigo a esta lista.
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
 
-                {/* ==================== BLOQUE DERECHO: SUGERENCIAS ==================== */}
+                {/* ==================== BLOQUE DERECHO: SUGERENCIAS POR AMIGOS EN COMÚN ==================== */}
                 <div className="perfil-friends-right-zone">
                     <div className="perfil-friends-toolbar">
                         <h3
@@ -350,7 +728,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                             type="button"
                             onClick={() => setIsAllSuggestionsModalOpen(true)}
                             className="perfil-friends-vermas-header-btn"
-                            title="Ver todas las sugerencias de la comunidad"
+                            title="Ver todas las sugerencias ordenadas por amigos en común"
                         >
                             VER MAS
                         </button>
@@ -391,19 +769,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                                 >
                                                     {sug.display_name}
                                                 </span>
-                                                {!readOnly && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            handleAddFriend(sug.username)
-                                                        }}
-                                                        className="perfil-friend-quick-add-btn"
-                                                        title={`Agregar a ${sug.display_name} como amigo`}
-                                                    >
-                                                        <UserPlus size={13} />
-                                                    </button>
-                                                )}
+                                                {renderSuggestionActionButton(sug, true)}
                                             </div>
                                             <span className="perfil-friend-handle">
                                                 @{sug.username}
@@ -418,10 +784,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                     </div>
 
                                     <div className="perfil-friend-card-footer">
-                                        <span className="perfil-friend-list-count">
-                                            <Film size={11} style={{ color: 'var(--perfil-acento)', flexShrink: 0 }} />
-                                            <span className="text-truncate">{sug.anime_count || 0} en su lista</span>
-                                        </span>
+                                        {renderSuggestionFooter(sug)}
                                     </div>
                                 </div>
                             ))}
@@ -444,7 +807,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
             </div>
 
             {/* =========================================================================
-                MODAL 1: AGREGAR AMIGO (CON SU PROPIO BUSCADOR DE USUARIOS)
+                MODAL 1: ENVIAR SOLICITUD DE AMISTAD (CON BUSCADOR DE USUARIOS)
                ========================================================================= */}
             <Dialogo
                 abierto={isAddModalOpen}
@@ -454,13 +817,13 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
             >
                 <div className="p-4 d-flex flex-column gap-3">
                     <div>
-                        <span className="ml-eyebrow">CONECTAR CON LA COMUNIDAD</span>
+                        <span className="ml-eyebrow">SOLICITUD DE AMISTAD</span>
                         <h3 className="h5 fw-bold text-white mb-1 d-flex align-items-center gap-2">
                             <Sparkles size={16} style={{ color: 'var(--perfil-acento)' }} />
                             <span>Agregar Amigo</span>
                         </h3>
                         <p className="small mb-0 text-secondary" style={{ fontSize: '0.78rem' }}>
-                            Busca usuarios de Animigos por su nombre, <strong>@usuario</strong> o correo electrónico.
+                            Busca usuarios de Animigos por su nombre, <strong>@usuario</strong> o correo para enviarles una solicitud de amistad.
                         </p>
                     </div>
 
@@ -468,7 +831,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                     <form
                         onSubmit={(e) => {
                             e.preventDefault()
-                            handleAddFriend(modalSearchInput, true)
+                            handleSendRequest(modalSearchInput, true)
                         }}
                         className="d-flex gap-2"
                     >
@@ -502,7 +865,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                             ) : (
                                 <UserPlus size={14} />
                             )}
-                            <span>{addLoading ? 'Conectando...' : 'Conectar'}</span>
+                            <span>{addLoading ? 'Enviando...' : 'Enviar'}</span>
                         </button>
                     </form>
 
@@ -526,7 +889,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                         >
                             {modalSearchInput.trim()
                                 ? `Resultados para "${modalSearchInput.trim()}"`
-                                : 'Usuarios sugeridos para conectar'}
+                                : 'Sugeridos por amigos en común'}
                         </div>
 
                         {modalSearchLoading ? (
@@ -538,7 +901,14 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                 {modalSearchResults.map((u) => (
                                     <div key={u.id} className="col-12 col-sm-6">
                                         <div className="perfil-modal-inner-card d-flex align-items-center justify-content-between gap-2">
-                                            <div className="d-flex align-items-center gap-2 min-w-0">
+                                            <div
+                                                className="d-flex align-items-center gap-2 min-w-0"
+                                                style={{ cursor: 'pointer' }}
+                                                onClick={() => {
+                                                    setIsAddModalOpen(false)
+                                                    navigateToUserProfile(u.username)
+                                                }}
+                                            >
                                                 <img
                                                     src={resolveMediaUrl(u.avatar_url) || DEFAULT_AVATAR}
                                                     crossOrigin="anonymous"
@@ -559,18 +929,21 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                                     >
                                                         @{u.username}
                                                     </div>
+                                                    {(u.mutual_friends_count || 0) > 0 && (
+                                                        <div
+                                                            className="small text-truncate"
+                                                            style={{
+                                                                fontSize: '0.68rem',
+                                                                color: 'var(--perfil-acento)',
+                                                                fontWeight: 600,
+                                                            }}
+                                                        >
+                                                            {formatMutualLabel(u.mutual_friends_count)}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                            <button
-                                                type="button"
-                                                disabled={addLoading}
-                                                onClick={() => handleAddFriend(u.username, false)}
-                                                className="perfil-friends-add-pill-btn py-1 px-2.5 flex-shrink-0"
-                                                style={{ fontSize: '0.72rem' }}
-                                            >
-                                                <UserPlus size={12} />
-                                                <span>Agregar</span>
-                                            </button>
+                                            {renderSuggestionActionButton(u, false)}
                                         </div>
                                     </div>
                                 ))}
@@ -580,7 +953,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                 className="p-3 rounded-3 text-center border text-secondary small"
                                 style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}
                             >
-                                No se encontraron usuarios con ese criterio. Puedes ingresar su @usuario o correo exacto arriba y presionar "Conectar".
+                                No se encontraron usuarios con ese criterio. Puedes ingresar su @usuario o correo exacto arriba y presionar "Enviar".
                             </div>
                         )}
                     </div>
@@ -601,87 +974,261 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
             </Dialogo>
 
             {/* =========================================================================
-                MODAL 2: TODOS MIS AMIGOS
+                MODAL 2: TODAS LAS SOLICITUDES Y TODOS MIS AMIGOS
                ========================================================================= */}
             <Dialogo
                 abierto={isAllFriendsModalOpen}
                 onCerrar={() => setIsAllFriendsModalOpen(false)}
-                etiqueta="Todos Mis Amigos"
-                ancho={580}
+                etiqueta="Solicitudes y Amigos"
+                ancho={600}
             >
                 <div className="p-4 d-flex flex-column gap-3">
                     <div className="d-flex align-items-center justify-content-between">
                         <div>
                             <span className="ml-eyebrow">COMUNIDAD & AMISTAD</span>
-                            <h3 className="h5 fw-bold text-white mb-0">Mis Amigos ({friends.length})</h3>
+                            <h3 className="h5 fw-bold text-white mb-0">
+                                {readOnly ? `Amigos (${friends.length})` : `Mis Amigos (${friends.length})`}
+                            </h3>
                         </div>
+                        {!readOnly && incomingRequests.length > 0 && (
+                            <span className="perfil-friends-requests-counter-pill">
+                                <UserPlus size={11} />
+                                <span>
+                                    {incomingRequests.length}{' '}
+                                    {incomingRequests.length === 1 ? 'solicitud pendiente' : 'solicitudes pendientes'}
+                                </span>
+                            </span>
+                        )}
                     </div>
 
-                    <div className="row g-2 mt-1" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-                        {friends.map((f) => (
-                            <div key={f.id} className="col-12 col-sm-6">
-                                <div className="perfil-modal-inner-card d-flex align-items-center justify-content-between gap-2">
-                                    <div
-                                        className="d-flex align-items-center gap-2 min-w-0"
-                                        style={{ cursor: 'pointer' }}
-                                        onClick={() => {
-                                            setIsAllFriendsModalOpen(false)
-                                            navigateToUserProfile(f.username)
-                                        }}
-                                        title={`Visitar perfil de @${f.username}`}
-                                    >
-                                        <img
-                                            src={resolveMediaUrl(f.avatar_url) || DEFAULT_AVATAR}
-                                            crossOrigin="anonymous"
-                                            alt=""
-                                            className="rounded-circle flex-shrink-0"
-                                            style={{ width: '36px', height: '36px', objectFit: 'cover' }}
-                                            onError={(e) => {
-                                                e.currentTarget.src = DEFAULT_AVATAR
-                                            }}
-                                        />
-                                        <div className="min-w-0">
-                                            <div className="small fw-bold text-white text-truncate">{f.display_name}</div>
-                                            <div
-                                                className="small text-secondary font-mono text-truncate"
-                                                style={{ fontSize: '0.72rem' }}
-                                            >
-                                                @{f.username}
+                    <div className="d-flex flex-column gap-3" style={{ maxHeight: '440px', overflowY: 'auto' }}>
+                        {/* Solicitudes entrantes PRIMERO dentro del modal */}
+                        {!readOnly && incomingRequests.length > 0 && (
+                            <div>
+                                <div className="perfil-friends-sublabel mb-2">
+                                    <span className="perfil-friends-sublabel-dot" />
+                                    <span>Solicitudes recibidas ({incomingRequests.length})</span>
+                                </div>
+                                <div className="row g-2">
+                                    {incomingRequests.map((req) => {
+                                        const isBusy =
+                                            actionLoadingKey === `accept:${req.request_id}` ||
+                                            actionLoadingKey === `reject:${req.request_id}`
+                                        return (
+                                            <div key={req.request_id} className="col-12 col-sm-6">
+                                                <div className="perfil-modal-inner-card perfil-friend-request-card d-flex align-items-center justify-content-between gap-2">
+                                                    <div
+                                                        className="d-flex align-items-center gap-2 min-w-0"
+                                                        style={{ cursor: 'pointer' }}
+                                                        onClick={() => {
+                                                            setIsAllFriendsModalOpen(false)
+                                                            navigateToUserProfile(req.username)
+                                                        }}
+                                                    >
+                                                        <img
+                                                            src={resolveMediaUrl(req.avatar_url) || DEFAULT_AVATAR}
+                                                            crossOrigin="anonymous"
+                                                            alt=""
+                                                            className="rounded-circle flex-shrink-0"
+                                                            style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                                            onError={(e) => {
+                                                                e.currentTarget.src = DEFAULT_AVATAR
+                                                            }}
+                                                        />
+                                                        <div className="min-w-0">
+                                                            <div className="small fw-bold text-white text-truncate">
+                                                                {req.display_name}
+                                                            </div>
+                                                            <div
+                                                                className="small text-secondary font-mono text-truncate"
+                                                                style={{ fontSize: '0.72rem' }}
+                                                            >
+                                                                @{req.username}
+                                                            </div>
+                                                            {(req.mutual_friends_count || 0) > 0 && (
+                                                                <div
+                                                                    className="small text-truncate"
+                                                                    style={{
+                                                                        fontSize: '0.67rem',
+                                                                        color: 'var(--perfil-acento)',
+                                                                    }}
+                                                                >
+                                                                    {formatMutualLabel(req.mutual_friends_count)}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="d-flex align-items-center gap-1 flex-shrink-0">
+                                                        <button
+                                                            type="button"
+                                                            disabled={isBusy}
+                                                            onClick={() => handleRespondRequest(req.request_id, 'accept')}
+                                                            className="perfil-friend-req-btn-accept"
+                                                            style={{ padding: '0.28rem 0.55rem' }}
+                                                            title="Aceptar solicitud"
+                                                        >
+                                                            <Check size={12} />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={isBusy}
+                                                            onClick={() => handleRespondRequest(req.request_id, 'reject')}
+                                                            className="perfil-friend-req-btn-reject"
+                                                            style={{ padding: '0.28rem 0.5rem' }}
+                                                            title="Rechazar solicitud"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                    <div className="d-flex align-items-center gap-1.5 flex-shrink-0">
-                                        <a
-                                            href="#sala"
-                                            className="btn btn-sm p-1 px-2 rounded-2"
-                                            style={{
-                                                background: 'var(--perfil-acento-soft)',
-                                                color: 'var(--perfil-acento)',
-                                                fontSize: '0.72rem',
-                                                fontWeight: 600,
-                                            }}
-                                            title="Invitar a sala"
-                                        >
-                                            <Tv size={12} />
-                                        </a>
-                                        {!readOnly && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRemoveFriend(f.id, f.display_name)}
-                                                className="btn btn-sm p-1 text-secondary opacity-60 border-0"
-                                                title="Eliminar amigo"
-                                            >
-                                                {actionLoadingId === f.id ? (
-                                                    <Loader2 size={13} className="spinner-border spinner-border-sm" />
-                                                ) : (
-                                                    <UserMinus size={13} />
-                                                )}
-                                            </button>
-                                        )}
-                                    </div>
+                                        )
+                                    })}
                                 </div>
                             </div>
-                        ))}
+                        )}
+
+                        {/* Amigos confirmados */}
+                        <div>
+                            {!readOnly && (incomingRequests.length > 0 || outgoingRequests.length > 0) && (
+                                <div className="perfil-friends-sublabel is-muted mb-2">
+                                    <span>Amigos confirmados ({friends.length})</span>
+                                </div>
+                            )}
+
+                            {friends.length > 0 ? (
+                                <div className="row g-2">
+                                    {friends.map((f) => (
+                                        <div key={f.id} className="col-12 col-sm-6">
+                                            <div className="perfil-modal-inner-card d-flex align-items-center justify-content-between gap-2">
+                                                <div
+                                                    className="d-flex align-items-center gap-2 min-w-0"
+                                                    style={{ cursor: 'pointer' }}
+                                                    onClick={() => {
+                                                        setIsAllFriendsModalOpen(false)
+                                                        navigateToUserProfile(f.username)
+                                                    }}
+                                                    title={`Visitar perfil de @${f.username}`}
+                                                >
+                                                    <img
+                                                        src={resolveMediaUrl(f.avatar_url) || DEFAULT_AVATAR}
+                                                        crossOrigin="anonymous"
+                                                        alt=""
+                                                        className="rounded-circle flex-shrink-0"
+                                                        style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                                        onError={(e) => {
+                                                            e.currentTarget.src = DEFAULT_AVATAR
+                                                        }}
+                                                    />
+                                                    <div className="min-w-0">
+                                                        <div className="small fw-bold text-white text-truncate">{f.display_name}</div>
+                                                        <div
+                                                            className="small text-secondary font-mono text-truncate"
+                                                            style={{ fontSize: '0.72rem' }}
+                                                        >
+                                                            @{f.username}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="d-flex align-items-center gap-1.5 flex-shrink-0">
+                                                    <a
+                                                        href="#sala"
+                                                        className="btn btn-sm p-1 px-2 rounded-2"
+                                                        style={{
+                                                            background: 'var(--perfil-acento-soft)',
+                                                            color: 'var(--perfil-acento)',
+                                                            fontSize: '0.72rem',
+                                                            fontWeight: 600,
+                                                        }}
+                                                        title="Invitar a sala"
+                                                    >
+                                                        <Tv size={12} />
+                                                    </a>
+                                                    {!readOnly && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveFriend(f.id, f.display_name)}
+                                                            className="btn btn-sm p-1 text-secondary opacity-60 border-0"
+                                                            title="Eliminar amigo"
+                                                        >
+                                                            {actionLoadingKey === `remove:${f.id}` ? (
+                                                                <Loader2 size={13} className="spinner-border spinner-border-sm" />
+                                                            ) : (
+                                                                <UserMinus size={13} />
+                                                            )}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div
+                                    className="p-3 rounded-3 text-center border text-secondary small"
+                                    style={{ background: 'var(--perfil-card-2)', borderColor: 'var(--perfil-border)' }}
+                                >
+                                    Aún no hay amigos confirmados en esta lista.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Solicitudes enviadas pendientes */}
+                        {!readOnly && outgoingRequests.length > 0 && (
+                            <div>
+                                <div className="perfil-friends-sublabel is-muted mb-2">
+                                    <span>Solicitudes enviadas ({outgoingRequests.length})</span>
+                                </div>
+                                <div className="row g-2">
+                                    {outgoingRequests.map((req) => (
+                                        <div key={req.request_id} className="col-12 col-sm-6">
+                                            <div className="perfil-modal-inner-card d-flex align-items-center justify-content-between gap-2">
+                                                <div
+                                                    className="d-flex align-items-center gap-2 min-w-0"
+                                                    style={{ cursor: 'pointer' }}
+                                                    onClick={() => {
+                                                        setIsAllFriendsModalOpen(false)
+                                                        navigateToUserProfile(req.username)
+                                                    }}
+                                                >
+                                                    <img
+                                                        src={resolveMediaUrl(req.avatar_url) || DEFAULT_AVATAR}
+                                                        crossOrigin="anonymous"
+                                                        alt=""
+                                                        className="rounded-circle flex-shrink-0"
+                                                        style={{ width: '34px', height: '34px', objectFit: 'cover' }}
+                                                        onError={(e) => {
+                                                            e.currentTarget.src = DEFAULT_AVATAR
+                                                        }}
+                                                    />
+                                                    <div className="min-w-0">
+                                                        <div className="small fw-bold text-white text-truncate">
+                                                            {req.display_name}
+                                                        </div>
+                                                        <div
+                                                            className="small text-secondary font-mono text-truncate"
+                                                            style={{ fontSize: '0.7rem' }}
+                                                        >
+                                                            @{req.username}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    disabled={actionLoadingKey === `cancel:${req.request_id}`}
+                                                    onClick={() => handleCancelRequest(req.request_id)}
+                                                    className="perfil-friend-req-btn-ghost py-1 px-2 flex-shrink-0"
+                                                    style={{ fontSize: '0.7rem' }}
+                                                >
+                                                    <X size={11} />
+                                                    <span>Cancelar</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div
@@ -700,7 +1247,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
             </Dialogo>
 
             {/* =========================================================================
-                MODAL 3: TODAS LAS SUGERENCIAS
+                MODAL 3: TODAS LAS SUGERENCIAS (ORDENADAS POR AMIGOS EN COMÚN)
                ========================================================================= */}
             <Dialogo
                 abierto={isAllSuggestionsModalOpen}
@@ -713,7 +1260,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                         <span className="ml-eyebrow">EXPLORAR COMUNIDAD</span>
                         <h3 className="h5 fw-bold text-white mb-0">Miembros Sugeridos de Animigos</h3>
                         <p className="small mb-0 text-secondary" style={{ fontSize: '0.76rem' }}>
-                            Conecta con otros otakus para compartir listas y crear salas juntos.
+                            Ordenados según la cantidad de amigos en común contigo para facilitar tus conexiones.
                         </p>
                     </div>
 
@@ -750,22 +1297,24 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                             >
                                                 @{sug.username}
                                             </div>
+                                            <div
+                                                className="small text-truncate"
+                                                style={{
+                                                    fontSize: '0.68rem',
+                                                    color:
+                                                        (sug.mutual_friends_count || 0) > 0
+                                                            ? 'var(--perfil-acento)'
+                                                            : 'var(--perfil-text-dim)',
+                                                    fontWeight: (sug.mutual_friends_count || 0) > 0 ? 600 : 400,
+                                                }}
+                                            >
+                                                {(sug.mutual_friends_count || 0) > 0
+                                                    ? formatMutualLabel(sug.mutual_friends_count)
+                                                    : `${sug.anime_count || 0} en su lista`}
+                                            </div>
                                         </div>
                                     </div>
-                                    {!readOnly && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                handleAddFriend(sug.username)
-                                                setIsAllSuggestionsModalOpen(false)
-                                            }}
-                                            className="perfil-friends-add-pill-btn py-1 px-2.5 flex-shrink-0"
-                                            style={{ fontSize: '0.74rem' }}
-                                        >
-                                            <UserPlus size={12} />
-                                            <span>Agregar</span>
-                                        </button>
-                                    )}
+                                    {renderSuggestionActionButton(sug, false)}
                                 </div>
                             </div>
                         ))}

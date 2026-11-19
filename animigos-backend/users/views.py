@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Q, F
+from django.db.models import Q, F, Count
 from django.utils import timezone
 import xml.etree.ElementTree as ET
 import time
@@ -18,7 +18,7 @@ import uuid
 from animes.models import Anime
 from core.services.fuentes_externas import obtener_estado_emision_animes
 from core.utils.db_resilience import run_with_db_retry
-from .models import Profile, UserPreferences, UserAnimeFolder, UserAnimeEntry, Friendship
+from .models import Profile, UserPreferences, UserAnimeFolder, UserAnimeEntry, Friendship, FriendRequest
 from .serializers import (
     ProfileSerializer,
     UserPreferencesSerializer,
@@ -1002,127 +1002,440 @@ def get_preset_avatars(request):
     })
 
 
+def _push_user_notification(target_user, notif_payload: dict) -> None:
+    """Agrega una notificación a las preferencias del usuario destinatario."""
+    try:
+        target_prof_obj, _ = Profile.objects.get_or_create(
+            user=target_user,
+            defaults={'display_name': target_user.first_name or target_user.username}
+        )
+        target_prefs, _ = UserPreferences.objects.get_or_create(profile=target_prof_obj)
+        ps = dict(target_prefs.privacy_settings) if isinstance(target_prefs.privacy_settings, dict) else {}
+        notifs = list(ps.get('notifications', [])) if isinstance(ps.get('notifications'), list) else []
+        notifs.insert(0, {
+            'id': str(uuid.uuid4()),
+            'created_at': timezone.now().isoformat(),
+            'read': False,
+            **notif_payload,
+        })
+        ps['notifications'] = notifs[:40]
+        target_prefs.privacy_settings = ps
+        target_prefs.save(update_fields=['privacy_settings'])
+    except Exception:
+        pass
+
+
+def _compute_mutual_friends_map(user, candidate_ids: list[int]) -> dict[int, int]:
+    """Calcula en una sola query cuántos amigos en común tiene `user` con cada candidato."""
+    if not candidate_ids or not user or not user.is_authenticated:
+        return {}
+    my_friend_ids = set(Friendship.objects.filter(user=user).values_list('friend_id', flat=True))
+    if not my_friend_ids:
+        return {}
+    rows = (
+        Friendship.objects.filter(user_id__in=candidate_ids, friend_id__in=my_friend_ids)
+        .values('user_id')
+        .annotate(mutual_count=Count('friend_id', distinct=True))
+    )
+    return {row['user_id']: row['mutual_count'] for row in rows}
+
+
+def _compute_anime_counts_map(user_ids: list[int]) -> dict[int, int]:
+    """Obtiene en una sola query el conteo de animes en lista para un conjunto de usuarios."""
+    if not user_ids:
+        return {}
+    rows = (
+        UserAnimeEntry.objects.filter(user_id__in=user_ids)
+        .values('user_id')
+        .annotate(total=Count('id'))
+    )
+    return {row['user_id']: row['total'] for row in rows}
+
+
+def _serialize_social_user(user_obj, anime_counts: dict[int, int], mutual_counts: dict[int, int], extra: dict | None = None) -> dict:
+    prof = getattr(user_obj, 'profile', None)
+    data = {
+        'id': user_obj.id,
+        'username': user_obj.username,
+        'display_name': (prof and prof.display_name) or user_obj.first_name or user_obj.username,
+        'avatar_url': (prof and prof.avatar_url) or '',
+        'bio': (prof and prof.bio) or '',
+        'anime_count': anime_counts.get(user_obj.id, 0),
+        'mutual_friends_count': mutual_counts.get(user_obj.id, 0),
+    }
+    if extra:
+        data.update(extra)
+    return data
+
+
+def _resolve_target_user(raw_query: str):
+    clean_query = str(raw_query).strip()
+    if '@' in clean_query and not clean_query.startswith('@'):
+        return User.objects.filter(email__iexact=clean_query).select_related('profile').first()
+    clean_uname = clean_query.lstrip('@')
+    return (
+        User.objects.filter(username__iexact=clean_uname).select_related('profile').first()
+        or User.objects.filter(profile__display_name__iexact=clean_uname).select_related('profile').first()
+    )
+
+
+def _create_or_accept_friend_request(sender, target_user) -> tuple[dict, int]:
+    """
+    Crea una solicitud de amistad pendiente de `sender` hacia `target_user`.
+    Si `target_user` ya tenía una solicitud pendiente hacia `sender`, se acepta automáticamente.
+    """
+    if target_user.id == sender.id:
+        return {'error': 'No puedes enviarte una solicitud de amistad a ti mismo.'}, status.HTTP_400_BAD_REQUEST
+
+    target_prof = getattr(target_user, 'profile', None)
+    target_name = (target_prof and target_prof.display_name) or target_user.first_name or target_user.username
+    sender_prof = getattr(sender, 'profile', None)
+    sender_name = (sender_prof and sender_prof.display_name) or sender.first_name or sender.username
+    sender_avatar = (sender_prof and sender_prof.avatar_url) or ''
+
+    # 1. ¿Ya son amigos?
+    if Friendship.objects.filter(user=sender, friend=target_user).exists():
+        return {
+            'error': f'Ya eres amigo de {target_name}.',
+            'friendship_status': 'friends',
+        }, status.HTTP_400_BAD_REQUEST
+
+    anime_counts = _compute_anime_counts_map([target_user.id])
+    mutual_counts = _compute_mutual_friends_map(sender, [target_user.id])
+
+    # 2. ¿El otro usuario ya nos envió una solicitud pendiente? -> Aceptación mutua inmediata
+    reverse_req = FriendRequest.objects.filter(
+        from_user=target_user,
+        to_user=sender,
+        status='pending',
+    ).first()
+    if reverse_req:
+        def _accept_reverse():
+            reverse_req.status = 'accepted'
+            reverse_req.save(update_fields=['status', 'updated_at'])
+            Friendship.objects.get_or_create(user=sender, friend=target_user)
+            Friendship.objects.get_or_create(user=target_user, friend=sender)
+        run_with_db_retry(_accept_reverse)
+
+        _push_user_notification(target_user, {
+            'type': 'friend_accepted',
+            'from_username': sender.username,
+            'from_display_name': sender_name,
+            'from_avatar': sender_avatar,
+            'message': 'aceptó tu solicitud de amistad en Animigos.',
+        })
+        return {
+            'message': f'¡Solicitud aceptada! Ahora eres amigo de {target_name}.',
+            'friendship_status': 'friends',
+            'accepted': True,
+            'friend': _serialize_social_user(target_user, anime_counts, mutual_counts),
+        }, status.HTTP_201_CREATED
+
+    # 3. ¿Ya existe una solicitud enviada por nosotros?
+    existing_req = FriendRequest.objects.filter(from_user=sender, to_user=target_user).first()
+    if existing_req and existing_req.status == 'pending':
+        return {
+            'message': f'Ya tienes una solicitud pendiente con {target_name}.',
+            'friendship_status': 'pending_sent',
+            'request_id': str(existing_req.id),
+            'request': _serialize_social_user(
+                target_user,
+                anime_counts,
+                mutual_counts,
+                {'request_id': str(existing_req.id), 'created_at': existing_req.created_at.isoformat()},
+            ),
+        }, status.HTTP_200_OK
+
+    # 4. Crear o reactivar solicitud pendiente
+    def _save_request():
+        if existing_req:
+            existing_req.status = 'pending'
+            existing_req.created_at = timezone.now()
+            existing_req.save(update_fields=['status', 'created_at', 'updated_at'])
+            return existing_req
+        return FriendRequest.objects.create(from_user=sender, to_user=target_user, status='pending')
+
+    req_obj = run_with_db_retry(_save_request)
+
+    _push_user_notification(target_user, {
+        'type': 'friend_request',
+        'from_username': sender.username,
+        'from_display_name': sender_name,
+        'from_avatar': sender_avatar,
+        'request_id': str(req_obj.id),
+        'message': 'te envió una solicitud de amistad en Animigos.',
+    })
+
+    return {
+        'message': f'Solicitud de amistad enviada a {target_name}.',
+        'friendship_status': 'pending_sent',
+        'request_id': str(req_obj.id),
+        'request': _serialize_social_user(
+            target_user,
+            anime_counts,
+            mutual_counts,
+            {'request_id': str(req_obj.id), 'created_at': req_obj.created_at.isoformat()},
+        ),
+    }, status.HTTP_201_CREATED
+
+
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def user_friends_view(request, friend_id=None):
     """
-    Gestiona la lista de amigos del usuario autenticado:
-    - GET: Obtiene la lista completa de amigos con su avatar, nombre y estadísticas.
-    - POST: Agrega un nuevo amigo mediante su username o correo electrónico.
+    Gestiona amigos y solicitudes del usuario autenticado:
+    - GET: Retorna amigos confirmados + solicitudes entrantes y salientes pendientes.
+    - POST: Envía una solicitud de amistad (o acepta automáticamente si existía una inversa).
     - DELETE: Elimina a un amigo por su ID de usuario.
     """
     user = request.user
 
     if request.method == 'GET':
-        friendships = Friendship.objects.filter(user=user).select_related('friend', 'friend__profile')
-        friends_data = []
-        for f in friendships:
-            fr = f.friend
-            prof = getattr(fr, 'profile', None)
-            anime_count = UserAnimeEntry.objects.filter(user=fr).count()
-            friends_data.append({
-                'id': fr.id,
-                'username': fr.username,
-                'display_name': (prof and prof.display_name) or fr.first_name or fr.username,
-                'avatar_url': (prof and prof.avatar_url) or '',
-                'bio': (prof and prof.bio) or '',
-                'anime_count': anime_count,
-                'created_at': f.created_at.isoformat(),
-            })
-        return Response({'friends': friends_data, 'total': len(friends_data)})
+        friendships = list(
+            Friendship.objects.filter(user=user).select_related('friend', 'friend__profile')
+        )
+        incoming_qs = list(
+            FriendRequest.objects.filter(to_user=user, status='pending')
+            .select_related('from_user', 'from_user__profile')
+            .order_by('-created_at')
+        )
+        outgoing_qs = list(
+            FriendRequest.objects.filter(from_user=user, status='pending')
+            .select_related('to_user', 'to_user__profile')
+            .order_by('-created_at')
+        )
+
+        all_user_ids = list({
+            *(f.friend_id for f in friendships),
+            *(r.from_user_id for r in incoming_qs),
+            *(r.to_user_id for r in outgoing_qs),
+        })
+        anime_counts = _compute_anime_counts_map(all_user_ids)
+        mutual_counts = _compute_mutual_friends_map(user, all_user_ids)
+
+        friends_data = [
+            _serialize_social_user(
+                f.friend,
+                anime_counts,
+                mutual_counts,
+                {'created_at': f.created_at.isoformat()},
+            )
+            for f in friendships
+        ]
+        incoming_data = [
+            _serialize_social_user(
+                r.from_user,
+                anime_counts,
+                mutual_counts,
+                {'request_id': str(r.id), 'created_at': r.created_at.isoformat()},
+            )
+            for r in incoming_qs
+        ]
+        outgoing_data = [
+            _serialize_social_user(
+                r.to_user,
+                anime_counts,
+                mutual_counts,
+                {'request_id': str(r.id), 'created_at': r.created_at.isoformat()},
+            )
+            for r in outgoing_qs
+        ]
+
+        return Response({
+            'friends': friends_data,
+            'incoming_requests': incoming_data,
+            'outgoing_requests': outgoing_data,
+            'pending_count': len(incoming_data),
+            'total': len(friends_data),
+        })
 
     elif request.method == 'POST':
         query = request.data.get('username_or_email') or request.data.get('username') or request.data.get('email')
         if not query or not str(query).strip():
             return Response({'error': 'Debes ingresar un nombre de usuario o correo electrónico.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        clean_query = str(query).strip()
-        if '@' in clean_query and not clean_query.startswith('@'):
-            target_user = User.objects.filter(email__iexact=clean_query).first()
-        else:
-            clean_uname = clean_query.lstrip('@')
-            target_user = (
-                User.objects.filter(username__iexact=clean_uname).first()
-                or User.objects.filter(profile__display_name__iexact=clean_uname).first()
-            )
-
+        target_user = _resolve_target_user(query)
         if not target_user:
-            return Response({'error': f'No se encontró ningún usuario con "{clean_query}".'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': f'No se encontró ningún usuario con "{str(query).strip()}".'}, status=status.HTTP_404_NOT_FOUND)
 
-        if target_user.id == user.id:
-            return Response({'error': 'No puedes agregarte a ti mismo como amigo.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Crear amistad bidireccional
-        _, created_self = Friendship.objects.get_or_create(user=user, friend=target_user)
-        Friendship.objects.get_or_create(user=target_user, friend=user)
-
-        prof = getattr(target_user, 'profile', None)
-        sender_prof = getattr(user, 'profile', None)
-
-        if created_self:
-            try:
-                import uuid
-                from django.utils import timezone
-                target_prof_obj, _ = Profile.objects.get_or_create(
-                    user=target_user,
-                    defaults={'display_name': target_user.first_name or target_user.username}
-                )
-                target_prefs, _ = UserPreferences.objects.get_or_create(profile=target_prof_obj)
-                ps = dict(target_prefs.privacy_settings) if isinstance(target_prefs.privacy_settings, dict) else {}
-                notifs = list(ps.get('notifications', [])) if isinstance(ps.get('notifications'), list) else []
-                notifs.insert(0, {
-                    'id': str(uuid.uuid4()),
-                    'type': 'friend_added',
-                    'from_username': user.username,
-                    'from_display_name': (sender_prof and sender_prof.display_name) or user.first_name or user.username,
-                    'from_avatar': (sender_prof and sender_prof.avatar_url) or '',
-                    'message': 'te agregó a su lista de amigos en Animigos.',
-                    'created_at': timezone.now().isoformat(),
-                    'read': False,
-                })
-                ps['notifications'] = notifs[:40]
-                target_prefs.privacy_settings = ps
-                target_prefs.save(update_fields=['privacy_settings'])
-            except Exception:
-                pass
-
-        return Response({
-            'message': f'¡Ahora eres amigo de {prof.display_name if prof else target_user.username}!',
-            'friend': {
-                'id': target_user.id,
-                'username': target_user.username,
-                'display_name': (prof and prof.display_name) or target_user.first_name or target_user.username,
-                'avatar_url': (prof and prof.avatar_url) or '',
-                'bio': (prof and prof.bio) or '',
-                'anime_count': UserAnimeEntry.objects.filter(user=target_user).count(),
-            }
-        }, status=status.HTTP_201_CREATED)
+        payload, code = _create_or_accept_friend_request(user, target_user)
+        return Response(payload, status=code)
 
     elif request.method == 'DELETE':
         target_id = friend_id or request.data.get('friend_id')
         if not target_id:
             return Response({'error': 'ID de amigo requerido'}, status=status.HTTP_400_BAD_REQUEST)
 
-        Friendship.objects.filter(user=user, friend_id=target_id).delete()
-        Friendship.objects.filter(user_id=target_id, friend=user).delete()
+        def _delete_friendship():
+            Friendship.objects.filter(user=user, friend_id=target_id).delete()
+            Friendship.objects.filter(user_id=target_id, friend=user).delete()
+            FriendRequest.objects.filter(
+                Q(from_user=user, to_user_id=target_id) | Q(from_user_id=target_id, to_user=user)
+            ).delete()
+
+        run_with_db_retry(_delete_friendship)
         return Response({'message': 'Amigo eliminado correctamente'}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def user_friend_requests_view(request):
+    """
+    GET: Lista solicitudes de amistad entrantes y salientes pendientes.
+    POST: Envía una nueva solicitud de amistad por username, email o user_id.
+    """
+    user = request.user
+    if request.method == 'GET':
+        incoming_qs = list(
+            FriendRequest.objects.filter(to_user=user, status='pending')
+            .select_related('from_user', 'from_user__profile')
+            .order_by('-created_at')
+        )
+        outgoing_qs = list(
+            FriendRequest.objects.filter(from_user=user, status='pending')
+            .select_related('to_user', 'to_user__profile')
+            .order_by('-created_at')
+        )
+        all_ids = list({*(r.from_user_id for r in incoming_qs), *(r.to_user_id for r in outgoing_qs)})
+        anime_counts = _compute_anime_counts_map(all_ids)
+        mutual_counts = _compute_mutual_friends_map(user, all_ids)
+        return Response({
+            'incoming_requests': [
+                _serialize_social_user(
+                    r.from_user,
+                    anime_counts,
+                    mutual_counts,
+                    {'request_id': str(r.id), 'created_at': r.created_at.isoformat()},
+                )
+                for r in incoming_qs
+            ],
+            'outgoing_requests': [
+                _serialize_social_user(
+                    r.to_user,
+                    anime_counts,
+                    mutual_counts,
+                    {'request_id': str(r.id), 'created_at': r.created_at.isoformat()},
+                )
+                for r in outgoing_qs
+            ],
+        })
+
+    raw_uid = request.data.get('user_id')
+    target_user = None
+    if raw_uid is not None:
+        try:
+            target_user = User.objects.filter(id=int(raw_uid)).select_related('profile').first()
+        except (ValueError, TypeError):
+            target_user = None
+    if not target_user:
+        query = request.data.get('username_or_email') or request.data.get('username') or request.data.get('email')
+        if not query or not str(query).strip():
+            return Response({'error': 'Debes indicar el usuario al que deseas enviar la solicitud.'}, status=status.HTTP_400_BAD_REQUEST)
+        target_user = _resolve_target_user(query)
+        if not target_user:
+            return Response({'error': f'No se encontró ningún usuario con "{str(query).strip()}".'}, status=status.HTTP_404_NOT_FOUND)
+
+    payload, code = _create_or_accept_friend_request(user, target_user)
+    return Response(payload, status=code)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def respond_friend_request_view(request, request_id):
+    """
+    Acepta o rechaza una solicitud de amistad recibida (Zero Trust: solo el destinatario).
+    Body: { "action": "accept" | "reject" }
+    """
+    user = request.user
+    req_obj = get_object_or_404(
+        FriendRequest.objects.select_related('from_user', 'from_user__profile'),
+        id=request_id,
+        to_user=user,
+    )
+    if req_obj.status != 'pending':
+        return Response({'error': 'Esta solicitud ya fue procesada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    action = str(request.data.get('action', '')).strip().lower()
+    if action not in ('accept', 'reject'):
+        return Response({'error': 'Acción inválida. Usa "accept" o "reject".'}, status=status.HTTP_400_BAD_REQUEST)
+
+    sender = req_obj.from_user
+    sender_prof = getattr(sender, 'profile', None)
+    sender_name = (sender_prof and sender_prof.display_name) or sender.first_name or sender.username
+
+    if action == 'accept':
+        def _accept():
+            req_obj.status = 'accepted'
+            req_obj.save(update_fields=['status', 'updated_at'])
+            Friendship.objects.get_or_create(user=user, friend=sender)
+            Friendship.objects.get_or_create(user=sender, friend=user)
+            FriendRequest.objects.filter(from_user=user, to_user=sender, status='pending').update(status='accepted')
+
+        run_with_db_retry(_accept)
+
+        me_prof = getattr(user, 'profile', None)
+        _push_user_notification(sender, {
+            'type': 'friend_accepted',
+            'from_username': user.username,
+            'from_display_name': (me_prof and me_prof.display_name) or user.first_name or user.username,
+            'from_avatar': (me_prof and me_prof.avatar_url) or '',
+            'message': 'aceptó tu solicitud de amistad en Animigos.',
+        })
+
+        anime_counts = _compute_anime_counts_map([sender.id])
+        mutual_counts = _compute_mutual_friends_map(user, [sender.id])
+        return Response({
+            'message': f'¡Ahora eres amigo de {sender_name}!',
+            'friendship_status': 'friends',
+            'friend': _serialize_social_user(sender, anime_counts, mutual_counts),
+        }, status=status.HTTP_200_OK)
+
+    def _reject():
+        req_obj.status = 'rejected'
+        req_obj.save(update_fields=['status', 'updated_at'])
+
+    run_with_db_retry(_reject)
+    return Response({
+        'message': f'Solicitud de {sender_name} rechazada.',
+        'friendship_status': 'none',
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def cancel_friend_request_view(request, request_id):
+    """
+    Permite cancelar una solicitud enviada (from_user) o descartar una recibida (to_user).
+    """
+    user = request.user
+    req_obj = FriendRequest.objects.filter(
+        Q(id=request_id) & (Q(from_user=user) | Q(to_user=user))
+    ).first()
+    if not req_obj:
+        return Response({'error': 'Solicitud no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+    run_with_db_retry(req_obj.delete)
+    return Response({
+        'message': 'Solicitud cancelada correctamente.',
+        'friendship_status': 'none',
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def suggested_friends_view(request):
     """
-    Retorna usuarios registrados en la comunidad que aún no son amigos del usuario autenticado.
-    Soporta filtro opcional ?q= para el buscador propio del modal de Agregar Amigos.
+    Retorna sugerencias de usuarios ordenadas por número de AMIGOS EN COMÚN (descendente),
+    con desempate por actividad (animes en su lista).
+    Soporta filtro opcional ?q= para el buscador del modal de Agregar Amigos.
     """
     user = request.user
     q = (request.query_params.get('q') or '').strip().lstrip('@')
     existing_friend_ids = set(Friendship.objects.filter(user=user).values_list('friend_id', flat=True))
     existing_friend_ids.add(user.id)
 
-    qs = User.objects.exclude(id__in=existing_friend_ids).select_related('profile')
+    qs = User.objects.filter(is_active=True).exclude(id__in=existing_friend_ids).select_related('profile')
     if q:
-        from django.db.models import Q, F
         qs = qs.filter(
             Q(username__icontains=q)
             | Q(email__icontains=q)
@@ -1130,18 +1443,53 @@ def suggested_friends_view(request):
             | Q(profile__display_name__icontains=q)
         )
 
-    candidates = qs[:16]
+    candidates = list(qs[:120])
+    candidate_ids = [c.id for c in candidates]
+    mutual_counts = _compute_mutual_friends_map(user, candidate_ids)
+    anime_counts = _compute_anime_counts_map(candidate_ids)
+
+    # Mapear solicitudes pendientes existentes para reflejar estado exacto en UI
+    sent_map = {
+        r.to_user_id: str(r.id)
+        for r in FriendRequest.objects.filter(from_user=user, to_user_id__in=candidate_ids, status='pending')
+    }
+    received_map = {
+        r.from_user_id: str(r.id)
+        for r in FriendRequest.objects.filter(to_user=user, from_user_id__in=candidate_ids, status='pending')
+    }
+
+    # Ordenar primero por mayor número de amigos en común, luego por animes en lista
+    candidates.sort(
+        key=lambda c: (
+            -mutual_counts.get(c.id, 0),
+            -anime_counts.get(c.id, 0),
+            c.username.lower(),
+        )
+    )
+
     results = []
-    for c in candidates:
-        prof = getattr(c, 'profile', None)
-        results.append({
-            'id': c.id,
-            'username': c.username,
-            'display_name': (prof and prof.display_name) or c.first_name or c.username,
-            'avatar_url': (prof and prof.avatar_url) or '',
-            'bio': (prof and prof.bio) or '',
-            'anime_count': UserAnimeEntry.objects.filter(user=c).count(),
-        })
+    for c in candidates[:20]:
+        if c.id in sent_map:
+            f_status = 'pending_sent'
+            req_id = sent_map[c.id]
+        elif c.id in received_map:
+            f_status = 'pending_received'
+            req_id = received_map[c.id]
+        else:
+            f_status = 'none'
+            req_id = None
+
+        results.append(
+            _serialize_social_user(
+                c,
+                anime_counts,
+                mutual_counts,
+                {
+                    'friendship_status': f_status,
+                    'request_id': req_id,
+                },
+            )
+        )
     return Response({'suggested': results})
 
 
@@ -1183,21 +1531,50 @@ def public_user_profile_view(request, username):
 
     is_self = bool(request.user and request.user.is_authenticated and request.user.id == target_user.id)
 
-    # Amigos del usuario visitado
-    friendships = Friendship.objects.filter(user=target_user).select_related('friend', 'friend__profile')
-    friends_data = []
-    for f in friendships:
-        fr = f.friend
-        f_prof = getattr(fr, 'profile', None)
-        friends_data.append({
-            'id': fr.id,
-            'username': fr.username,
-            'display_name': (f_prof and f_prof.display_name) or fr.first_name or fr.username,
-            'avatar_url': (f_prof and f_prof.avatar_url) or '',
-            'bio': (f_prof and f_prof.bio) or '',
-            'anime_count': UserAnimeEntry.objects.filter(user=fr).count(),
-            'created_at': f.created_at.isoformat(),
-        })
+    # Estado de amistad y amigos en común con el visitante autenticado
+    friendship_status = 'none'
+    friend_request_id = None
+    mutual_friends_count = 0
+    if request.user and request.user.is_authenticated and not is_self:
+        if Friendship.objects.filter(user=request.user, friend=target_user).exists():
+            friendship_status = 'friends'
+        else:
+            pending_req = FriendRequest.objects.filter(
+                Q(from_user=request.user, to_user=target_user)
+                | Q(from_user=target_user, to_user=request.user),
+                status='pending',
+            ).first()
+            if pending_req:
+                friend_request_id = str(pending_req.id)
+                friendship_status = (
+                    'pending_sent'
+                    if pending_req.from_user_id == request.user.id
+                    else 'pending_received'
+                )
+        mutual_friends_count = _compute_mutual_friends_map(
+            request.user, [target_user.id]
+        ).get(target_user.id, 0)
+
+    # Amigos del usuario visitado (sin N+1 en conteo de animes)
+    friendships = list(
+        Friendship.objects.filter(user=target_user).select_related('friend', 'friend__profile')
+    )
+    friend_ids = [f.friend_id for f in friendships]
+    anime_counts = _compute_anime_counts_map(friend_ids)
+    mutual_for_friends = (
+        _compute_mutual_friends_map(request.user, friend_ids)
+        if (request.user and request.user.is_authenticated)
+        else {}
+    )
+    friends_data = [
+        _serialize_social_user(
+            f.friend,
+            anime_counts,
+            mutual_for_friends,
+            {'created_at': f.created_at.isoformat()},
+        )
+        for f in friendships
+    ]
 
     entries_data = []
     folders_data = []
@@ -1250,6 +1627,9 @@ def public_user_profile_view(request, username):
         'flag_url': ps.get('flag_url', None),
         'lateral_config': ps.get('lateral_config', None),
         'friends': friends_data,
+        'friendship_status': friendship_status,
+        'friend_request_id': friend_request_id,
+        'mutual_friends_count': mutual_friends_count,
         'entries': entries_data if (is_self or privacy['isListPublic'] or privacy['showStats']) else [],
         'folders': folders_data if (is_self or privacy['isListPublic']) else [],
         'tags': tags_list if (is_self or privacy['isListPublic']) else [],

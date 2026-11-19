@@ -28,6 +28,7 @@ import { useCatExpression } from '../hooks/useCatExpression'
 import {
     fetchUserNotifications,
     updateUserNotification,
+    respondFriendRequest,
     type UserNotificationItem,
 } from '../services/friendsApi'
 import { addAnimeToMyList } from '../services/userListApi'
@@ -73,6 +74,7 @@ export function Navbar({
     const [unreadCount, setUnreadCount] = useState(0)
     const [isNotifOpen, setIsNotifOpen] = useState(false)
     const [addedNotifIds, setAddedNotifIds] = useState<Record<string, boolean>>({})
+    const [handledFriendReqNotifs, setHandledFriendReqNotifs] = useState<Record<string, 'accepted' | 'rejected'>>({})
     const notifWrapRef = useRef<HTMLDivElement | null>(null)
 
     useEffect(() => {
@@ -143,6 +145,25 @@ export function Navbar({
                 dialog?.showModal()
             }
             console.error('Error agregando anime recomendado:', err)
+        }
+    }
+
+    const handleRespondFriendRequestNotif = async (notif: UserNotificationItem, action: 'accept' | 'reject') => {
+        if (!notif.request_id) return
+        try {
+            await respondFriendRequest(notif.request_id, action)
+            setHandledFriendReqNotifs((prev) => ({
+                ...prev,
+                [notif.id]: action === 'accept' ? 'accepted' : 'rejected',
+            }))
+            const res = await updateUserNotification({ notification_id: notif.id, action: 'mark_read' })
+            setNotifications(res.notifications)
+            setUnreadCount(res.unread_count)
+        } catch (err) {
+            console.error('Error respondiendo solicitud de amistad:', err)
+            const res = await updateUserNotification({ notification_id: notif.id, action: 'dismiss' })
+            setNotifications(res.notifications)
+            setUnreadCount(res.unread_count)
         }
     }
 
@@ -482,6 +503,9 @@ export function Navbar({
                                                     {notifications.map((n) => {
                                                         const isAdded = Boolean(addedNotifIds[n.id])
                                                         const isWarning = n.type === 'warning' || n.type === 'admin_warning'
+                                                        const isFriendRequest = n.type === 'friend_request'
+                                                        const isFriendAccepted = n.type === 'friend_accepted'
+                                                        const handledState = handledFriendReqNotifs[n.id]
                                                         return (
                                                             <div
                                                                 key={n.id}
@@ -494,6 +518,18 @@ export function Navbar({
                                                                             alt={n.anime_title || ''}
                                                                             className="nav-notif-poster"
                                                                         />
+                                                                    ) : (isFriendRequest || isFriendAccepted) && n.from_avatar ? (
+                                                                        <img
+                                                                            src={resolveMediaUrl(n.from_avatar)}
+                                                                            crossOrigin="anonymous"
+                                                                            alt={n.from_display_name || n.from_username || ''}
+                                                                            className="nav-notif-poster rounded-circle"
+                                                                            style={{ height: 42, width: 42, objectFit: 'cover' }}
+                                                                        />
+                                                                    ) : isFriendRequest || isFriendAccepted ? (
+                                                                        <div className="nav-notif-avatar-fallback">
+                                                                            <Users size={18} />
+                                                                        </div>
                                                                     ) : isWarning ? (
                                                                         <div
                                                                             className="nav-notif-avatar-fallback warning-fallback"
@@ -519,6 +555,10 @@ export function Navbar({
                                                                             <span style={isWarning ? { color: '#facc15', fontWeight: 700 } : undefined}>
                                                                                 {n.type === 'anime_recommendation'
                                                                                     ? 'Recomendación de Anime'
+                                                                                    : isFriendRequest
+                                                                                    ? 'Solicitud de Amistad'
+                                                                                    : isFriendAccepted
+                                                                                    ? 'Nueva Amistad'
                                                                                     : isWarning
                                                                                     ? 'Aviso de Moderación'
                                                                                     : 'Comunidad Animigos'}
@@ -550,6 +590,13 @@ export function Navbar({
                                                                                     {n.anime_title}
                                                                                 </span>
                                                                             </>
+                                                                        ) : isFriendRequest || isFriendAccepted ? (
+                                                                            <>
+                                                                                <span className="nav-notif-user">
+                                                                                    {n.from_display_name || `@${n.from_username}`}
+                                                                                </span>{' '}
+                                                                                {n.message}
+                                                                            </>
                                                                         ) : (
                                                                             <span>{n.message}</span>
                                                                         )}
@@ -574,6 +621,42 @@ export function Navbar({
 
                                                                     {/* Botones de acción directa para el evento */}
                                                                     <div className="nav-notif-actions">
+                                                                        {isFriendRequest && n.request_id && (
+                                                                            handledState ? (
+                                                                                <span className="nav-notif-btn-secondary">
+                                                                                    <Check size={11} />
+                                                                                    <span>
+                                                                                        {handledState === 'accepted'
+                                                                                            ? '¡Aceptada!'
+                                                                                            : 'Rechazada'}
+                                                                                    </span>
+                                                                                </span>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() =>
+                                                                                            handleRespondFriendRequestNotif(n, 'accept')
+                                                                                        }
+                                                                                        className="nav-notif-btn-primary"
+                                                                                    >
+                                                                                        <Check size={12} />
+                                                                                        <span>Aceptar</span>
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() =>
+                                                                                            handleRespondFriendRequestNotif(n, 'reject')
+                                                                                        }
+                                                                                        className="nav-notif-btn-secondary"
+                                                                                    >
+                                                                                        <X size={11} />
+                                                                                        <span>Rechazar</span>
+                                                                                    </button>
+                                                                                </>
+                                                                            )
+                                                                        )}
+
                                                                         {n.type === 'anime_recommendation' && n.anime_id && (
                                                                             <button
                                                                                 type="button"

@@ -10,8 +10,13 @@ import {
     Send,
     ArrowLeft,
     Users,
+    UserPlus,
+    UserCheck,
+    Clock,
+    Loader2,
 } from 'lucide-react'
 import type { SocialLinks, PrivacyConfig } from './perfil-types'
+import type { FriendshipStatus } from '../../services/friendsApi'
 import { resolveMediaUrl } from '../../utils/mediaUrl'
 
 interface ProfileHeaderProps {
@@ -22,6 +27,13 @@ interface ProfileHeaderProps {
     bio: string
     memberSince: string
     friendsCount?: number
+    pendingRequestsCount?: number
+    mutualFriendsCount?: number
+    friendshipStatus?: FriendshipStatus
+    friendActionLoading?: boolean
+    onSendFriendRequest?: () => void
+    onAcceptFriendRequest?: () => void
+    onCancelFriendRequest?: () => void
     onOpenFriendsSubView?: () => void
     socials: SocialLinks
     privacy: PrivacyConfig
@@ -44,6 +56,13 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     bio,
     memberSince,
     friendsCount = 0,
+    pendingRequestsCount = 0,
+    mutualFriendsCount = 0,
+    friendshipStatus = 'none',
+    friendActionLoading = false,
+    onSendFriendRequest,
+    onAcceptFriendRequest,
+    onCancelFriendRequest,
     onOpenFriendsSubView,
     socials,
     privacy,
@@ -153,6 +172,73 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                                     <Sparkles size={12} />
                                     <span>Otaku Veterano 🍿</span>
                                 </span>
+
+                                {!isCurrentUser && onSendFriendRequest && (
+                                    <>
+                                        {friendshipStatus === 'none' && (
+                                            <button
+                                                type="button"
+                                                onClick={onSendFriendRequest}
+                                                disabled={friendActionLoading}
+                                                className="perfil-rank-friend-btn"
+                                                title={`Enviar solicitud de amistad a @${username}`}
+                                                aria-label={`Enviar solicitud de amistad a @${username}`}
+                                            >
+                                                {friendActionLoading ? (
+                                                    <Loader2 size={14} className="spinner-border spinner-border-sm" />
+                                                ) : (
+                                                    <UserPlus size={14} />
+                                                )}
+                                            </button>
+                                        )}
+
+                                        {friendshipStatus === 'pending_sent' && (
+                                            <button
+                                                type="button"
+                                                onClick={onCancelFriendRequest}
+                                                disabled={friendActionLoading || !onCancelFriendRequest}
+                                                className="perfil-rank-friend-btn is-pending"
+                                                title="Solicitud enviada · Haz clic para cancelar"
+                                                aria-label="Cancelar solicitud de amistad enviada"
+                                            >
+                                                {friendActionLoading ? (
+                                                    <Loader2 size={12} className="spinner-border spinner-border-sm" />
+                                                ) : (
+                                                    <Clock size={12} />
+                                                )}
+                                                <span>Solicitud enviada</span>
+                                            </button>
+                                        )}
+
+                                        {friendshipStatus === 'pending_received' && (
+                                            <button
+                                                type="button"
+                                                onClick={onAcceptFriendRequest}
+                                                disabled={friendActionLoading || !onAcceptFriendRequest}
+                                                className="perfil-rank-friend-btn is-incoming"
+                                                title={`Aceptar solicitud de amistad de @${username}`}
+                                                aria-label={`Aceptar solicitud de amistad de @${username}`}
+                                            >
+                                                {friendActionLoading ? (
+                                                    <Loader2 size={12} className="spinner-border spinner-border-sm" />
+                                                ) : (
+                                                    <UserCheck size={13} />
+                                                )}
+                                                <span>Aceptar solicitud</span>
+                                            </button>
+                                        )}
+
+                                        {friendshipStatus === 'friends' && (
+                                            <span
+                                                className="perfil-rank-friend-btn is-friends"
+                                                title={`Ya eres amigo de @${username}`}
+                                            >
+                                                <UserCheck size={13} />
+                                                <span>Amigos</span>
+                                            </span>
+                                        )}
+                                    </>
+                                )}
                             </div>
 
                             <div className="d-flex flex-wrap align-items-center gap-2 text-secondary small mb-2">
@@ -163,6 +249,19 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                                 <span className="d-inline-flex align-items-center gap-1">
                                     <Calendar size={13} /> Miembro desde {memberSince}
                                 </span>
+                                {!isCurrentUser && mutualFriendsCount > 0 && (
+                                    <>
+                                        <span>·</span>
+                                        <span
+                                            className="d-inline-flex align-items-center gap-1 fw-semibold"
+                                            style={{ color: 'var(--perfil-acento)' }}
+                                        >
+                                            <Users size={13} />
+                                            {mutualFriendsCount}{' '}
+                                            {mutualFriendsCount === 1 ? 'amigo en común' : 'amigos en común'}
+                                        </span>
+                                    </>
+                                )}
                                 {!privacy.isListPublic && (
                                     <>
                                         <span>·</span>
@@ -281,10 +380,21 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                                 type="button"
                                 onClick={onOpenFriendsSubView}
                                 className="perfil-header-action-btn"
-                                title={isCurrentUser ? 'Ver mis amigos' : `Ver amigos de @${username}`}
+                                title={
+                                    isCurrentUser
+                                        ? pendingRequestsCount > 0
+                                            ? `Ver mis amigos (${pendingRequestsCount} ${pendingRequestsCount === 1 ? 'solicitud pendiente' : 'solicitudes pendientes'})`
+                                            : 'Ver mis amigos'
+                                        : `Ver amigos de @${username}`
+                                }
                             >
                                 <Users size={14} />
                                 <span>{friendsCount} {friendsCount === 1 ? 'amigo' : 'amigos'}</span>
+                                {isCurrentUser && pendingRequestsCount > 0 && (
+                                    <span className="perfil-pending-req-pill">
+                                        +{pendingRequestsCount}
+                                    </span>
+                                )}
                             </button>
                         )}
 

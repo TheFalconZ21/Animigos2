@@ -164,3 +164,29 @@ class Friendship(models.Model):
 
     def __str__(self):
         return f"{self.user.username} <-> {self.friend.username}"
+
+
+class FriendRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pendiente'),
+        ('accepted', 'Aceptada'),
+        ('rejected', 'Rechazada'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    from_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_friend_requests')
+    to_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_friend_requests')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Solicitud de Amistad"
+        verbose_name_plural = "Solicitudes de Amistad"
+        constraints = [
+            models.UniqueConstraint(fields=['from_user', 'to_user'], name='unique_friend_request_pair')
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.from_user.username} -> {self.to_user.username} [{self.status}]"

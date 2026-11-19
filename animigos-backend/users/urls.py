@@ -17,9 +17,12 @@ urlpatterns = [
     path('my-list/folders/<uuid:folder_id>/', views.user_my_list_folder_detail_view, name='user-my-list-folder-detail'),
     # Catálogo de Avatares Predefinidos
     path('preset-avatars/', views.get_preset_avatars, name='preset-avatars'),
-    # Sistema de Amigos
+    # Sistema de Amigos y Solicitudes de Amistad
     path('me/friends/', views.user_friends_view, name='user-friends'),
     path('me/friends/<int:friend_id>/', views.user_friends_view, name='user-friend-detail'),
+    path('me/friend-requests/', views.user_friend_requests_view, name='user-friend-requests'),
+    path('me/friend-requests/<uuid:request_id>/respond/', views.respond_friend_request_view, name='user-friend-request-respond'),
+    path('me/friend-requests/<uuid:request_id>/', views.cancel_friend_request_view, name='user-friend-request-detail'),
     path('suggested-friends/', views.suggested_friends_view, name='user-suggested-friends'),
     # Perfiles Públicos, Recomendaciones Directas y Notificaciones
     path('public-profile/<str:username>/', views.public_user_profile_view, name='user-public-profile'),

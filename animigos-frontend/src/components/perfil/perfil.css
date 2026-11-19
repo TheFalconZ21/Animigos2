@@ -242,6 +242,94 @@
     color: var(--perfil-acento);
 }
 
+/* Botón de solicitud de amistad junto al rango en perfiles visitados */
+.perfil-rank-friend-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    height: 27px;
+    min-width: 27px;
+    padding: 0 0.48rem;
+    border-radius: 999px;
+    font-size: 0.73rem;
+    font-weight: 600;
+    background: var(--perfil-card-2);
+    border: 1px solid var(--perfil-acento-border);
+    color: var(--perfil-acento);
+    cursor: pointer;
+    transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease,
+        transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.perfil-rank-friend-btn:hover:not(:disabled) {
+    background: var(--perfil-acento);
+    border-color: var(--perfil-acento);
+    color: #080808;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px var(--perfil-acento-glow);
+}
+
+.perfil-rank-friend-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.perfil-rank-friend-btn.is-pending {
+    padding: 0 0.68rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--perfil-border-strong);
+    color: var(--perfil-text-muted);
+}
+
+.perfil-rank-friend-btn.is-pending:hover:not(:disabled) {
+    background: rgba(244, 63, 94, 0.14);
+    border-color: rgba(244, 63, 94, 0.45);
+    color: #fda4af;
+    box-shadow: none;
+}
+
+.perfil-rank-friend-btn.is-incoming {
+    padding: 0 0.72rem;
+    background: var(--perfil-acento);
+    border-color: var(--perfil-acento);
+    color: #080808;
+    font-weight: 700;
+}
+
+.perfil-rank-friend-btn.is-incoming:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+.perfil-rank-friend-btn.is-friends {
+    padding: 0 0.68rem;
+    background: rgba(52, 211, 153, 0.12);
+    border-color: rgba(52, 211, 153, 0.35);
+    color: var(--perfil-green);
+    cursor: default;
+}
+
+.perfil-rank-friend-btn.is-friends:hover {
+    background: rgba(52, 211, 153, 0.12);
+    border-color: rgba(52, 211, 153, 0.35);
+    color: var(--perfil-green);
+    transform: none;
+    box-shadow: none;
+}
+
+.perfil-pending-req-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.05rem 0.42rem;
+    border-radius: 999px;
+    background: var(--perfil-acento);
+    color: #080808;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
 .perfil-social-link {
     width: 34px;
     height: 34px;
@@ -1398,6 +1486,18 @@
     transform: scale(1.1);
 }
 
+.perfil-friend-quick-add-btn.is-pending {
+    color: var(--perfil-text-dim);
+}
+
+.perfil-friend-quick-add-btn.is-pending:hover {
+    color: #fda4af;
+}
+
+.perfil-friend-quick-add-btn.is-incoming {
+    color: var(--perfil-acento);
+}
+
 .perfil-friend-card-footer {
     display: flex;
     align-items: center;
@@ -1414,6 +1514,199 @@
     font-size: 0.68rem;
     color: #9ca3af;
     min-width: 0;
+}
+
+.perfil-friend-mutual-badge {
+    color: var(--perfil-acento);
+    font-weight: 600;
+}
+
+/* Solicitudes de amistad dentro del panel Mis Amigos */
+.perfil-friends-requests-counter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.16rem 0.62rem;
+    border-radius: 999px;
+    background: var(--perfil-acento);
+    color: #080808;
+    font-size: 0.71rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+}
+
+.perfil-friends-toast {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: 10px;
+    background: var(--perfil-acento-soft);
+    border: 1px solid var(--perfil-acento-border);
+    color: var(--perfil-text);
+    font-size: 0.77rem;
+    font-weight: 500;
+}
+
+.perfil-friends-toast.is-error {
+    background: var(--perfil-pink-soft);
+    border-color: rgba(244, 63, 94, 0.4);
+    color: #fecdd3;
+}
+
+.perfil-friends-requests-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.perfil-friends-sublabel {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--perfil-acento);
+}
+
+.perfil-friends-sublabel.is-muted {
+    color: var(--perfil-text-dim);
+}
+
+.perfil-friends-sublabel-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--perfil-acento);
+    box-shadow: 0 0 8px var(--perfil-acento);
+    flex-shrink: 0;
+}
+
+.perfil-friends-sublabel-more {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--perfil-acento);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: pointer;
+}
+
+.perfil-friends-sublabel-more:hover {
+    text-decoration: underline;
+}
+
+.perfil-friend-request-card {
+    border-color: var(--perfil-acento-border);
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--perfil-acento) 8%, #14141a) 0%,
+        #14141a 100%
+    );
+}
+
+.perfil-friend-request-card:hover {
+    border-color: var(--perfil-acento);
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--perfil-acento) 12%, #181822) 0%,
+        #181822 100%
+    );
+}
+
+.perfil-friend-request-dot {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--perfil-acento);
+    border: 1.5px solid #14141a;
+}
+
+.perfil-friend-request-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.perfil-friend-req-btn-accept {
+    flex: 1 1 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.28rem 0.55rem;
+    border-radius: 7px;
+    background: var(--perfil-acento);
+    border: 1px solid var(--perfil-acento);
+    color: #080808;
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.perfil-friend-req-btn-accept:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+
+.perfil-friend-req-btn-accept:disabled,
+.perfil-friend-req-btn-reject:disabled,
+.perfil-friend-req-btn-ghost:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.perfil-friend-req-btn-reject {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.28rem 0.48rem;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--perfil-border-strong);
+    color: var(--perfil-text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.perfil-friend-req-btn-reject:hover:not(:disabled) {
+    background: var(--perfil-pink-soft);
+    border-color: rgba(244, 63, 94, 0.45);
+    color: #fda4af;
+}
+
+.perfil-friend-req-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--perfil-border-strong);
+    color: var(--perfil-text-muted);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.perfil-friend-req-btn-ghost:hover:not(:disabled) {
+    background: var(--perfil-pink-soft);
+    border-color: rgba(244, 63, 94, 0.4);
+    color: #fda4af;
 }
 
 /* Breakpoints Responsivos */
