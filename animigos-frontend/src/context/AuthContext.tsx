@@ -6,6 +6,7 @@ import {
     registerUser,
     type UserProfile,
 } from '../services/authApi'
+import { queryClient } from '../shared/queryClient'
 
 interface AuthContextType {
     user: UserProfile | null
@@ -54,10 +55,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => window.removeEventListener('animigos-auth-expired', handleAuthExpired)
     }, [])
 
+    const invalidateUserScopedQueries = () => {
+        queryClient.invalidateQueries({ queryKey: ['my-list'] })
+        queryClient.invalidateQueries({ queryKey: ['user-agenda'] })
+    }
+
     const handleLogin = async (usernameOrEmail: string, password: string): Promise<UserProfile> => {
         const res = await loginUser(usernameOrEmail, password)
         setUser(res.user)
         setIsAuthenticated(true)
+        invalidateUserScopedQueries()
         return res.user
     }
 
@@ -65,12 +72,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const res = await registerUser(payload)
         setUser(res.user)
         setIsAuthenticated(true)
+        invalidateUserScopedQueries()
     }
 
     const handleLogout = async () => {
         await logoutUser()
         setUser(null)
         setIsAuthenticated(false)
+        invalidateUserScopedQueries()
     }
 
     return (

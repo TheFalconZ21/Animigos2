@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 import xml.etree.ElementTree as ET
 import time
@@ -69,31 +70,7 @@ def login_user(request):
     if not clean_user or not clean_password:
         return Response({'error': 'Usuario o correo y contraseña requeridos'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # 1. Búsqueda exhaustiva de usuarios candidatos en la base de datos
-    candidate_users = []
-
-    def add_candidate(u):
-        if u and u not in candidate_users:
-            candidate_users.append(u)
-
-    # A. Búsqueda exacta por email insensible a mayúsculas
-    add_candidate(User.objects.filter(email__iexact=clean_user).first())
-
-    # B. Búsqueda exacta por username insensible a mayúsculas
-    add_candidate(User.objects.filter(username__iexact=clean_user).first())
-
-    # C. Si contiene '@', buscar por prefijo de correo o coincidencia de dominio
-    if '@' in clean_user:
-        email_prefix = clean_user.split('@')[0].strip()
-        email_domain = clean_user.split('@')[1].strip()
-        add_candidate(User.objects.filter(username__iexact=email_prefix).first())
-        add_candidate(User.objects.filter(username__istartswith=email_prefix).first())
-        add_candidate(User.objects.filter(email__istartswith=email_prefix, email__iendswith=email_domain).first())
-    else:
-        add_candidate(User.objects.filter(username__istartswith=clean_user).first())
-        add_candidate(User.objects.filter(email__istartswith=clean_user).first())
-
-    # 2. Generación de variantes de contraseña para tolerancia a teclados móviles
+    # 1. Generación de variantes de contraseña (exacta primero para evitar PBKDF2 innecesarios)
     password_variants = []
     def add_pw_variant(pw):
         if pw and pw not in password_variants:
@@ -112,22 +89,48 @@ def login_user(request):
 
     authenticated_user = None
 
-    # 3. Validación directa contra usuarios candidatos mediante check_password
-    for cand_user in candidate_users:
-        for pw_var in password_variants:
-            if cand_user.check_password(pw_var):
-                authenticated_user = cand_user
-                break
-        if authenticated_user:
-            break
+    def _try_authenticate_candidates(users_list):
+        for cand_user in users_list:
+            for pw_var in password_variants:
+                if cand_user.check_password(pw_var):
+                    return cand_user
+        return None
 
-    # 4. Fallback: autenticación estándar de Django si no se resolvió por candidatos directos
+    # 2. Camino rápido: una sola query exacta por email o username (cubre >95% de logins)
+    exact_candidates = list(
+        User.objects.filter(Q(email__iexact=clean_user) | Q(username__iexact=clean_user))[:5]
+    )
+    authenticated_user = _try_authenticate_candidates(exact_candidates)
+
+    # 3. Fallback tolerante (solo si la coincidencia exacta no resolvió): una sola query por prefijo
     if not authenticated_user:
-        for pw_var in password_variants:
-            for uname in [clean_user, clean_user.split('@')[0] if '@' in clean_user else clean_user]:
-                authenticated_user = authenticate(request, username=uname, password=pw_var)
-                if authenticated_user:
-                    break
+        exact_ids = [u.pk for u in exact_candidates]
+        if '@' in clean_user:
+            email_prefix, email_domain = clean_user.split('@', 1)
+            email_prefix = email_prefix.strip()
+            email_domain = email_domain.strip()
+            fallback_q = (
+                Q(username__iexact=email_prefix)
+                | Q(username__istartswith=email_prefix)
+                | Q(email__istartswith=email_prefix, email__iendswith=email_domain)
+            )
+        else:
+            fallback_q = Q(username__istartswith=clean_user) | Q(email__istartswith=clean_user)
+
+        fallback_candidates = list(
+            User.objects.filter(fallback_q).exclude(pk__in=exact_ids)[:5]
+        )
+        authenticated_user = _try_authenticate_candidates(fallback_candidates)
+
+    # 4. Último fallback: autenticación estándar de Django
+    if not authenticated_user:
+        fallback_usernames = [clean_user]
+        if '@' in clean_user:
+            prefix = clean_user.split('@', 1)[0].strip()
+            if prefix and prefix not in fallback_usernames:
+                fallback_usernames.append(prefix)
+        for uname in fallback_usernames:
+            authenticated_user = authenticate(request, username=uname, password=trimmed_pw or clean_password)
             if authenticated_user:
                 break
 

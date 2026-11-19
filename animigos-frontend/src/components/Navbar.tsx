@@ -61,7 +61,7 @@ export function Navbar({
     onBackFromProfileSubView,
     profileUsername,
 }: NavbarProps) {
-    const { user, isAuthenticated, logout } = useAuth()
+    const { user, isAuthenticated, loading: authLoading, logout } = useAuth()
     const { setExpression } = useCatExpression()
     const queryClient = useQueryClient()
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -383,8 +383,13 @@ export function Navbar({
 
                 {/* Acciones del usuario a la derecha */}
                 <div className="d-flex align-items-center gap-2 ms-auto">
-                    {/* CASO: USUARIO AUTENTICADO */}
-                    {isAuthenticated && user ? (
+                    {/* CASO: VERIFICANDO SESIÓN (SKELETON SIN PARPADEO) */}
+                    {authLoading ? (
+                        <div className="nav-auth-skeleton-wrap" aria-label="Verificando sesión" role="status">
+                            <span className="animigos-skeleton nav-auth-skeleton-circle nav-desktop-only" />
+                            <span className="animigos-skeleton nav-auth-skeleton-pill" />
+                        </div>
+                    ) : isAuthenticated && user ? (
                         <>
                             {/* Escritorio (>= 992px): Admin + Perfil + Logout */}
                             <div className="nav-desktop-only align-items-center gap-2">

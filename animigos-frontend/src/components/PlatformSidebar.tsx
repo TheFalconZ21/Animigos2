@@ -53,7 +53,7 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
     isCollapsed,
     onToggleCollapse
 }) => {
-    const { isAuthenticated } = useAuth()
+    const { isAuthenticated, loading: authLoading } = useAuth()
     const { setExpression } = useCatExpression()
 
     const handleItemClick = (item: NavItemConfig) => {
@@ -276,8 +276,8 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                 ))}
             </nav>
 
-            {/* Footer del Sidebar: Solo visible para usuarios no autenticados */}
-            {!isAuthenticated && (
+            {/* Footer del Sidebar: Solo visible para usuarios no autenticados (sin parpadeo en carga) */}
+            {!authLoading && !isAuthenticated && (
                 <div className="platform-sidebar-footer">
                     {!isCollapsed ? (
                         <button

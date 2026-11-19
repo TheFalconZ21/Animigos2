@@ -1,4 +1,5 @@
 import { SHOWCASE_ROW_1, SHOWCASE_ROW_2 } from '../data/showcase-animes'
+import { ProgressiveImage } from './shared/ProgressiveImage'
 
 export function HeroShowcaseBg() {
     // Duplicamos las filas para que el bucle de scroll sea infinito y sin saltos
@@ -12,12 +13,12 @@ export function HeroShowcaseBg() {
                 <div className="marquee-row">
                     <div className="marquee-track-left">
                         {row1.map((anime, index) => (
-                            <img
+                            <ProgressiveImage
                                 key={`r1-${index}`}
                                 src={anime.cover}
                                 alt={anime.title}
-                                className="showcase-poster"
-                                loading="lazy"
+                                wrapperClassName="showcase-poster"
+                                loading={index < 6 ? 'eager' : 'lazy'}
                             />
                         ))}
                     </div>
@@ -27,12 +28,12 @@ export function HeroShowcaseBg() {
                 <div className="marquee-row">
                     <div className="marquee-track-right">
                         {row2.map((anime, index) => (
-                            <img
+                            <ProgressiveImage
                                 key={`r2-${index}`}
                                 src={anime.cover}
                                 alt={anime.title}
-                                className="showcase-poster"
-                                loading="lazy"
+                                wrapperClassName="showcase-poster"
+                                loading={index < 6 ? 'eager' : 'lazy'}
                             />
                         ))}
                     </div>

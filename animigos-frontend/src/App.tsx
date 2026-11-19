@@ -1,23 +1,41 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { Navbar } from './components/Navbar'
 import { PlatformSidebar, type PlatformView } from './components/PlatformSidebar'
 import { LoginModal } from './components/LoginModal'
 import { AssociatedLinkSelectorModal } from './components/links/AssociatedLinkSelectorModal'
 import { HeroShowcaseBg } from './components/HeroShowcaseBg'
-import { AdminPortal } from './admin/AdminPortal'
-import { MiLista } from './components/mi-lista/MiLista'
-import { AgendaView } from './components/agenda/AgendaView'
-import { WatchPartyRoom } from './components/watch-party/WatchPartyRoom'
-import { AnimeCatalog } from './components/catalogo/AnimeCatalog'
-import { Tablon } from './components/tablon/Tablon'
-import { Calendario } from './components/calendario/Calendario'
-import { PerfilView } from './components/perfil/PerfilView'
-import { RecomendadorView } from './components/recomendador/RecomendadorView'
-import { TemporadasView } from './components/temporadas/TemporadasView'
+import { ViewLoader } from './components/shared/ViewLoader'
 import type { ProfileSubView } from './components/perfil/perfil-types'
 import { useThemeAccent } from './hooks/useThemeAccent'
 import { useAuth } from './context/AuthContext'
 import { useCatExpression } from './hooks/useCatExpression'
+import { scheduleIdleAssetPreload } from './shared/assetPreloader'
+
+const AdminPortal = lazy(() => import('./admin/AdminPortal').then((m) => ({ default: m.AdminPortal })))
+const MiLista = lazy(() => import('./components/mi-lista/MiLista').then((m) => ({ default: m.MiLista })))
+const AgendaView = lazy(() => import('./components/agenda/AgendaView').then((m) => ({ default: m.AgendaView })))
+const WatchPartyRoom = lazy(() => import('./components/watch-party/WatchPartyRoom').then((m) => ({ default: m.WatchPartyRoom })))
+const AnimeCatalog = lazy(() => import('./components/catalogo/AnimeCatalog').then((m) => ({ default: m.AnimeCatalog })))
+const Tablon = lazy(() => import('./components/tablon/Tablon').then((m) => ({ default: m.Tablon })))
+const Calendario = lazy(() => import('./components/calendario/Calendario').then((m) => ({ default: m.Calendario })))
+const PerfilView = lazy(() => import('./components/perfil/PerfilView').then((m) => ({ default: m.PerfilView })))
+const RecomendadorView = lazy(() => import('./components/recomendador/RecomendadorView').then((m) => ({ default: m.RecomendadorView })))
+const TemporadasView = lazy(() => import('./components/temporadas/TemporadasView').then((m) => ({ default: m.TemporadasView })))
+
+function isPrivateHash(hash: string): boolean {
+  return (
+    hash === '#agenda' ||
+    hash === '#pendientes' ||
+    hash === '#mi-lista' ||
+    hash.startsWith('#mi-lista/') ||
+    hash === '#tablon' ||
+    hash === '#dashboard' ||
+    hash === '#perfil' ||
+    hash === '#profile' ||
+    hash.startsWith('#perfil/') ||
+    hash === '#admin'
+  )
+}
 
 function App() {
   useThemeAccent()
@@ -178,18 +196,27 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHash)
   }, [isAuthenticated, isAdmin, loading])
 
+  // Precarga silenciosa en segundo plano de assets clave cuando el navegador queda libre
+  useEffect(() => {
+    scheduleIdleAssetPreload()
+  }, [])
 
   // 1. Si estamos en modo administración, mostramos el Admin Portal completo
   if (currentView === 'admin' && isAdmin) {
     return (
-      <AdminPortal
-        onBackToLanding={() => {
-          window.location.hash = ''
-          setCurrentView('landing')
-        }}
-      />
+      <Suspense fallback={<ViewLoader message="Cargando Admin Console..." />}>
+        <AdminPortal
+          onBackToLanding={() => {
+            window.location.hash = ''
+            setCurrentView('landing')
+          }}
+        />
+      </Suspense>
     )
   }
+
+  const isCheckingPrivateRoute =
+    loading && typeof window !== 'undefined' && isPrivateHash(window.location.hash)
 
   // 2. Vistas de la plataforma (incluyendo Landing, con Sidebar lateral dedicado y Navbar desaturado)
   const renderPlatformContent = () => {
@@ -374,7 +401,15 @@ function App() {
           profileUsername={visitedUsername || user?.username || 'usuario'}
         />
         <main className="flex-grow-1" style={{ minWidth: 0 }}>
-          {renderPlatformContent()}
+          {isCheckingPrivateRoute ? (
+            <ViewLoader message="Verificando tu sesión..." />
+          ) : (
+            <Suspense fallback={<ViewLoader />}>
+              <div key={currentView} className="animigos-view-enter">
+                {renderPlatformContent()}
+              </div>
+            </Suspense>
+          )}
         </main>
       </div>
 
