@@ -44,21 +44,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }
 
+    const invalidateUserScopedQueries = () => {
+        queryClient.invalidateQueries({ queryKey: ['my-list'] })
+        queryClient.invalidateQueries({ queryKey: ['user-agenda'] })
+    }
+
+    const clearUserScopedQueries = async () => {
+        await Promise.all([
+            queryClient.cancelQueries({ queryKey: ['my-list'] }),
+            queryClient.cancelQueries({ queryKey: ['user-agenda'] }),
+        ])
+        queryClient.removeQueries({ queryKey: ['my-list'] })
+        queryClient.removeQueries({ queryKey: ['user-agenda'] })
+    }
+
     useEffect(() => {
         refreshUser()
 
         const handleAuthExpired = () => {
             setUser(null)
             setIsAuthenticated(false)
+            void clearUserScopedQueries()
         }
         window.addEventListener('animigos-auth-expired', handleAuthExpired)
         return () => window.removeEventListener('animigos-auth-expired', handleAuthExpired)
     }, [])
-
-    const invalidateUserScopedQueries = () => {
-        queryClient.invalidateQueries({ queryKey: ['my-list'] })
-        queryClient.invalidateQueries({ queryKey: ['user-agenda'] })
-    }
 
     const handleLogin = async (usernameOrEmail: string, password: string): Promise<UserProfile> => {
         const res = await loginUser(usernameOrEmail, password)
@@ -76,10 +86,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const handleLogout = async () => {
+        await queryClient.cancelQueries({ queryKey: ['my-list'] })
+        await queryClient.cancelQueries({ queryKey: ['user-agenda'] })
         await logoutUser()
         setUser(null)
         setIsAuthenticated(false)
-        invalidateUserScopedQueries()
+        queryClient.removeQueries({ queryKey: ['my-list'] })
+        queryClient.removeQueries({ queryKey: ['user-agenda'] })
     }
 
     return (

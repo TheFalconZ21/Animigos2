@@ -31,7 +31,7 @@ import {
 } from '../components/mi-lista/mi-lista-data'
 
 export function useMyList() {
-    const { user } = useAuth()
+    const { user, isAuthenticated } = useAuth()
     const queryClient = useQueryClient()
     const queryKey = ['my-list', user?.id ?? 'guest']
     const [tagsLocales, setTagsLocales] = useState<string[]>([])
@@ -46,7 +46,7 @@ export function useMyList() {
     } = useQuery<MyListApiResponse, Error>({
         queryKey,
         queryFn: fetchMyList,
-        enabled: Boolean(user),
+        enabled: Boolean(user && isAuthenticated),
         staleTime: 1000 * 60 * 3, // 3 minutos de caché activa
     })
 
