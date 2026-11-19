@@ -609,7 +609,7 @@ def calibrate_and_recommend(
                 for sg in shared_ref_g[:2]:
                     if sg not in ref_matched_features:
                         ref_matched_features.append(sg)
-            if anime.mal_id in ref_co_recs:
+            if anime.mal_id in ref_co_recs and ref_co_recs[anime.mal_id] > 0:
                 total_affinity += min(24.0, math.log2(ref_co_recs[anime.mal_id] + 1) * 6.0)
             if ref_studio and anime.studio == ref_studio:
                 total_affinity += 8.0
@@ -625,7 +625,7 @@ def calibrate_and_recommend(
         total_affinity += min(20.0, genre_pts)
 
         # C) Co-recomendaciones comunitarias y Estudio (hasta 22 pts)
-        if anime.mal_id in co_rec_scores:
+        if anime.mal_id in co_rec_scores and co_rec_scores[anime.mal_id] > 0:
             co_pts = min(14.0, math.log2(co_rec_scores[anime.mal_id] + 1) * 3.8)
             total_affinity += co_pts
             if not netflix_mode:

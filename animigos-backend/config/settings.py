@@ -91,7 +91,7 @@ REDIS_URL = os.environ.get('REDIS_URL', '').strip()
 if REDIS_URL and importlib.util.find_spec('channels_redis') is not None:
     CHANNEL_LAYERS = {
         'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'BACKEND': 'channels_redis.pubsub.RedisPubSubChannelLayer',
             'CONFIG': {
                 'hosts': [REDIS_URL],
             },
