@@ -255,22 +255,41 @@ export interface PresetAvatarCategory {
     slug: string
     name: string
     count: number
+    preview_avatar?: PresetAvatarItem | null
     avatars: PresetAvatarItem[]
 }
 
 export interface PresetAvatarsResponse {
     total_categories: number
     total_avatars: number
+    summary?: boolean
     categories: PresetAvatarCategory[]
 }
 
+export interface FetchPresetAvatarsOptions {
+    search?: string
+    category?: string
+    summary?: boolean
+}
+
 /**
- * Obtiene el catálogo de avatares oficiales organizados por series de anime
+ * Obtiene el catálogo de avatares oficiales organizados por series/lotes de anime.
+ * Con `summary: true`, descarga únicamente 1 avatar representativo por lote.
+ * Con `category: slug`, descarga todos los avatares del lote seleccionado bajo demanda.
  */
-export async function fetchPresetAvatars(search?: string, category?: string): Promise<PresetAvatarsResponse> {
+export async function fetchPresetAvatars(
+    optionsOrSearch?: FetchPresetAvatarsOptions | string,
+    categoryArg?: string
+): Promise<PresetAvatarsResponse> {
     const params = new URLSearchParams()
-    if (search) params.append('search', search)
-    if (category) params.append('category', category)
+    if (typeof optionsOrSearch === 'string') {
+        if (optionsOrSearch) params.append('search', optionsOrSearch)
+        if (categoryArg) params.append('category', categoryArg)
+    } else if (optionsOrSearch) {
+        if (optionsOrSearch.search) params.append('search', optionsOrSearch.search)
+        if (optionsOrSearch.category) params.append('category', optionsOrSearch.category)
+        if (optionsOrSearch.summary) params.append('summary', 'true')
+    }
     const queryString = params.toString() ? `?${params.toString()}` : ''
     const res = await fetch(`${API_BASE_URL}/users/preset-avatars/${queryString}`)
     if (!res.ok) {

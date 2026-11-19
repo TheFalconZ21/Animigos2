@@ -948,9 +948,11 @@ _CACHED_PRESET_AVATARS = None
 @permission_classes([AllowAny])
 def get_preset_avatars(request):
     """
-    Retorna el catálogo completo de 835 avatares optimizados en WebP,
-    agrupados por series de anime (74 categorías).
-    Permite filtrado opcional por 'search' o 'category'.
+    Retorna el catálogo de avatares optimizados en WebP agrupados por series/lotes de anime.
+    - ?summary=true: Retorna solo 1 avatar representativo (preview_avatar) por cada anime/lote
+      para evitar cargar los ~845 avatares de golpe en la vista inicial.
+    - ?category=<slug>: Retorna todos los avatares del anime/lote seleccionado.
+    - ?search=<texto>: Filtra lotes y avatares por nombre de serie o personaje.
     """
     global _CACHED_PRESET_AVATARS
 
@@ -967,38 +969,66 @@ def get_preset_avatars(request):
 
     search_query = request.query_params.get('search', '').strip().lower()
     category_slug = request.query_params.get('category', '').strip().lower()
+    summary_only = request.query_params.get('summary', '').strip().lower() in ('1', 'true', 'yes')
+
+    total_all_categories = len(_CACHED_PRESET_AVATARS)
+    total_all_avatars = sum(c.get('count', len(c.get('avatars', []))) for c in _CACHED_PRESET_AVATARS)
+
+    if summary_only and not category_slug and not search_query:
+        summary_categories = []
+        for cat in _CACHED_PRESET_AVATARS:
+            avatars_list = cat.get('avatars', [])
+            first_avatar = avatars_list[0] if avatars_list else None
+            summary_categories.append({
+                'slug': cat.get('slug'),
+                'name': cat.get('name'),
+                'count': cat.get('count', len(avatars_list)),
+                'preview_avatar': first_avatar,
+                'avatars': [first_avatar] if first_avatar else [],
+            })
+        return Response({
+            'total_categories': total_all_categories,
+            'total_avatars': total_all_avatars,
+            'summary': True,
+            'categories': summary_categories,
+        })
 
     if not search_query and not category_slug:
         return Response({
-            'total_categories': len(_CACHED_PRESET_AVATARS),
-            'total_avatars': sum(c.get('count', 0) for c in _CACHED_PRESET_AVATARS),
-            'categories': _CACHED_PRESET_AVATARS
+            'total_categories': total_all_categories,
+            'total_avatars': total_all_avatars,
+            'summary': False,
+            'categories': _CACHED_PRESET_AVATARS,
         })
 
     filtered_categories = []
     for cat in _CACHED_PRESET_AVATARS:
-        if category_slug and cat.get('slug') != category_slug:
+        if category_slug and str(cat.get('slug', '')).lower() != category_slug:
             continue
 
+        avatars_list = cat.get('avatars', [])
         matched_avatars = []
         cat_name_matches = search_query and search_query in cat.get('name', '').lower()
 
-        for av in cat.get('avatars', []):
+        for av in avatars_list:
             if not search_query or cat_name_matches or search_query in av.get('name', '').lower():
                 matched_avatars.append(av)
 
         if matched_avatars:
+            first_avatar = matched_avatars[0]
             filtered_categories.append({
                 'slug': cat.get('slug'),
                 'name': cat.get('name'),
                 'count': len(matched_avatars),
-                'avatars': matched_avatars
+                'preview_avatar': first_avatar,
+                'avatars': [first_avatar] if (summary_only and not category_slug) else matched_avatars,
             })
 
     return Response({
         'total_categories': len(filtered_categories),
         'total_avatars': sum(c.get('count', 0) for c in filtered_categories),
-        'categories': filtered_categories
+        'summary': bool(summary_only and not category_slug),
+        'categories': filtered_categories,
     })
 
 
