@@ -325,14 +325,22 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
         const pctDropeado = totalEntries > 0 ? (dropeados / totalEntries) * 100 : 0
         const pctEsperando = totalEntries > 0 ? (esperando / totalEntries) * 100 : 0
 
-        // Hall of Fame: Animes marcados como favoritos ordenados por la nota más alta
-        const favsMarcados = [...filas]
-            .filter((f) => f.favorito)
-            .sort((a, b) => (b.nota ?? b.anime.score ?? 0) - (a.nota ?? a.anime.score ?? 0))
-        const restantes = [...filas]
-            .filter((f) => !f.favorito)
-            .sort((a, b) => (b.nota ?? b.anime.score ?? 0) - (a.nota ?? a.anime.score ?? 0))
-        const top10 = [...favsMarcados, ...restantes].slice(0, 10)
+        // Hall of Fame (Vitrina Personal): Exclusivamente animes vistos o viendo con calificación personal del usuario,
+        // ordenados por la nota más alta otorgada por el usuario (desempate por marcado como favorito).
+        const top10 = [...filas]
+            .filter(
+                (f) =>
+                    (f.estado === 'visto' || f.estado === 'viendo') &&
+                    typeof f.nota === 'number' &&
+                    f.nota > 0
+            )
+            .sort((a, b) => {
+                const diff = (b.nota as number) - (a.nota as number)
+                if (diff !== 0) return diff
+                if (a.favorito !== b.favorito) return b.favorito ? 1 : -1
+                return (b.anime.score ?? 0) - (a.anime.score ?? 0)
+            })
+            .slice(0, 10)
 
         // Contrastes con la Comunidad y Joyas Ocultas
         const theyHatedIEnjoyed = [...filas]
@@ -1808,7 +1816,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                     <img src={f.anime.imageUrl} alt={f.anime.title} loading="lazy" />
                                     <span className="perfil-fav-rank">#{index + 1}</span>
                                     <span className="perfil-fav-score">
-                                        ★ {f.nota ?? f.anime.score}
+                                        ★ {f.nota}
                                     </span>
                                 </div>
                             ))}
