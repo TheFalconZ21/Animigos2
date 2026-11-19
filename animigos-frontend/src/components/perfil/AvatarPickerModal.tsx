@@ -363,7 +363,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                                     </div>
 
                                     {/* Filtro rápido dentro del lote seleccionado */}
-                                    <div className="perfil-friends-filter-input-wrap" style={{ maxWidth: 230 }}>
+                                    <div className="perfil-avatar-search-wrap" style={{ maxWidth: 240 }}>
                                         <Search size={13} className="perfil-friends-filter-icon" />
                                         <input
                                             type="text"
@@ -384,8 +384,8 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
                                     </div>
                                 </div>
                             ) : (
-                                <div className="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2">
-                                    <div className="perfil-friends-filter-input-wrap flex-grow-1" style={{ maxWidth: 'none' }}>
+                                <div className="perfil-avatar-toolbar-row">
+                                    <div className="perfil-avatar-search-wrap">
                                         <Search size={14} className="perfil-friends-filter-icon" />
                                         <input
                                             type="text"
@@ -408,7 +408,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
 
                                     <span
                                         className="small text-secondary d-none d-md-inline-flex align-items-center gap-1.5 flex-shrink-0"
-                                        style={{ fontSize: '0.73rem' }}
+                                        style={{ fontSize: '0.73rem', whiteSpace: 'nowrap' }}
                                     >
                                         <Layers size={13} style={{ color: 'var(--perfil-acento)' }} />
                                         <span>Selecciona un anime para ver su lote</span>
