@@ -26,9 +26,9 @@ class Command(BaseCommand):
         file_path = options['file']
 
         if not file_path:
-            # Buscar en el directorio de datasets de Animigos2
-            base_dir = Path(__file__).resolve().parent.parent.parent.parent.parent
-            file_path = base_dir / 'anime_dataset_2018_2026' / 'csv' / 'anime_master_catalogo.csv'
+            # Buscar en el directorio animes/data/ del backend
+            animes_app_dir = Path(__file__).resolve().parent.parent.parent
+            file_path = animes_app_dir / 'data' / 'anime_master_catalogo.csv'
 
         csv_path = Path(file_path)
         if not csv_path.exists():
