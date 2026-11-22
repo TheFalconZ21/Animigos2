@@ -2031,16 +2031,20 @@
 }
 
 .ml-lateral-img {
-    display: block;
+    position: absolute;
+    inset: 0;
     width: 100%;
-    height: auto;
-    max-height: 100%;
-    object-fit: contain;
-    object-position: center center;
+    height: 100%;
+    object-fit: cover;
     pointer-events: none;
-    /* Difuminado suave superior e inferior sobre el propio afiche */
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%);
-    mask-image: linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%);
+}
+
+.ml-lateral-izq .ml-lateral-img {
+    object-position: left center;
+}
+
+.ml-lateral-der .ml-lateral-img {
+    object-position: right center;
 }
 
 @keyframes ml-lateral-fade-in {
