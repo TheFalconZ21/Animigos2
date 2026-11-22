@@ -10,6 +10,7 @@ import { useThemeAccent } from './hooks/useThemeAccent'
 import { useAuth } from './context/AuthContext'
 import { useCatExpression } from './hooks/useCatExpression'
 import { scheduleIdleAssetPreload } from './shared/assetPreloader'
+import { getCurrentPath, navigate, subscribeNavigation } from './utils/navigation'
 
 function lazyWithRetry<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>
@@ -44,18 +45,18 @@ const PerfilView = lazyWithRetry(() => import('./components/perfil/PerfilView').
 const RecomendadorView = lazyWithRetry(() => import('./components/recomendador/RecomendadorView').then((m) => ({ default: m.RecomendadorView })))
 const TemporadasView = lazyWithRetry(() => import('./components/temporadas/TemporadasView').then((m) => ({ default: m.TemporadasView })))
 
-function isPrivateHash(hash: string): boolean {
+function isPrivatePath(path: string): boolean {
   return (
-    hash === '#agenda' ||
-    hash === '#pendientes' ||
-    hash === '#mi-lista' ||
-    hash.startsWith('#mi-lista/') ||
-    hash === '#tablon' ||
-    hash === '#dashboard' ||
-    hash === '#perfil' ||
-    hash === '#profile' ||
-    hash.startsWith('#perfil/') ||
-    hash === '#admin'
+    path === '/agenda' ||
+    path === '/pendientes' ||
+    path === '/mi-lista' ||
+    path.startsWith('/mi-lista/') ||
+    path === '/tablon' ||
+    path === '/dashboard' ||
+    path === '/perfil' ||
+    path === '/profile' ||
+    path.startsWith('/perfil/') ||
+    path === '/admin'
   )
 }
 
@@ -94,13 +95,13 @@ function App() {
   const handleGlobalSearch = (query: string) => {
     setCatalogSearchQuery(query)
     setSelectedAnimeId(null)
-    window.location.hash = '#catalogo'
+    navigate('/catalogo')
     setCurrentView('catalogo')
   }
 
   const handleSelectAnime = (malId: number) => {
     setSelectedAnimeId(malId)
-    window.location.hash = `#anime/${malId}`
+    navigate(`/anime/${malId}`)
     setCurrentView('catalogo')
   }
 
@@ -109,76 +110,76 @@ function App() {
     if (loading) return
     if (!isAuthenticated && (currentView === 'tablon' || currentView === 'mi-lista' || currentView === 'agenda' || currentView === 'perfil')) {
       setCurrentView('catalogo')
-      window.location.hash = '#catalogo'
+      navigate('/catalogo', { replace: true })
     } else if (!isAdmin && currentView === 'admin') {
       setCurrentView('catalogo')
-      window.location.hash = '#catalogo'
+      navigate('/catalogo', { replace: true })
     }
   }, [isAuthenticated, isAdmin, currentView, loading])
 
-  // Soporte de navegación por hash (ej: /#catalogo, /#anime/<id>, /#mi-lista, /#mi-lista/<username>, /#perfil, /#perfil/<username>)
+  // Soporte de navegación por rutas limpias (ej: /catalogo, /anime/<id>, /mi-lista, /mi-lista/<username>, /perfil, /perfil/<username>)
   useEffect(() => {
     if (loading) return
-    const handleHash = () => {
-      const hash = window.location.hash
-      if (hash.startsWith('#anime/')) {
-        const rawId = Number(hash.slice('#anime/'.length).trim())
+    const handleRoute = () => {
+      const path = getCurrentPath()
+      if (path.startsWith('/anime/')) {
+        const rawId = Number(path.slice('/anime/'.length).trim())
         if (Number.isFinite(rawId) && rawId > 0) {
           setSelectedAnimeId(rawId)
           setVisitedUsername(undefined)
           setCurrentView('catalogo')
         }
-      } else if (hash === '#agenda' || hash === '#pendientes') {
+      } else if (path === '/agenda' || path === '/pendientes') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         if (!isAuthenticatedRef.current) {
-          window.location.hash = '#catalogo'
+          navigate('/catalogo', { replace: true })
           setCurrentView('catalogo')
           const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
           dialog?.showModal()
         } else {
           setCurrentView('agenda')
         }
-      } else if (hash === '#mi-lista' || hash.startsWith('#mi-lista/')) {
+      } else if (path === '/mi-lista' || path.startsWith('/mi-lista/')) {
         setSelectedAnimeId(null)
         if (!isAuthenticatedRef.current) {
-          window.location.hash = '#catalogo'
+          navigate('/catalogo', { replace: true })
           setCurrentView('catalogo')
           const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
           dialog?.showModal()
         } else {
-          const uname = hash.startsWith('#mi-lista/') ? decodeURIComponent(hash.slice('#mi-lista/'.length).trim()) : undefined
+          const uname = path.startsWith('/mi-lista/') ? decodeURIComponent(path.slice('/mi-lista/'.length).trim()) : undefined
           setVisitedUsername(uname || undefined)
           setCurrentView('mi-lista')
         }
-      } else if (hash === '#tablon' || hash === '#dashboard') {
+      } else if (path === '/tablon' || path === '/dashboard') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         if (!isAuthenticatedRef.current) {
-          window.location.hash = '#catalogo'
+          navigate('/catalogo', { replace: true })
           setCurrentView('catalogo')
           const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
           dialog?.showModal()
         } else {
           setCurrentView('tablon')
         }
-      } else if (hash === '#recomendador' || hash === '#recomendar') {
+      } else if (path === '/recomendador' || path === '/recomendar') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('recomendador')
-      } else if (hash === '#temporadas' || hash === '#seasons' || hash.startsWith('#temporadas/')) {
+      } else if (path === '/temporadas' || path === '/seasons' || path.startsWith('/temporadas/')) {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('temporadas')
-      } else if (hash === '#calendario' || hash === '#estrenos') {
+      } else if (path === '/calendario' || path === '/estrenos') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('calendario')
-      } else if (hash === '#admin') {
+      } else if (path === '/admin') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         if (!isAdminRef.current) {
-          window.location.hash = '#catalogo'
+          navigate('/catalogo', { replace: true })
           setCurrentView('catalogo')
           if (!isAuthenticatedRef.current) {
             const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
@@ -187,35 +188,34 @@ function App() {
         } else {
           setCurrentView('admin')
         }
-      } else if (hash === '#sala' || hash === '#votacion' || hash === '#listas' || hash.startsWith('#sala/')) {
+      } else if (path === '/sala' || path === '/votacion' || path === '/listas' || path.startsWith('/sala/')) {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('sala')
-      } else if (hash === '#perfil' || hash === '#profile' || hash.startsWith('#perfil/')) {
+      } else if (path === '/perfil' || path === '/profile' || path.startsWith('/perfil/')) {
         setSelectedAnimeId(null)
         if (!isAuthenticatedRef.current) {
-          window.location.hash = '#catalogo'
+          navigate('/catalogo', { replace: true })
           setCurrentView('catalogo')
           const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
           dialog?.showModal()
         } else {
-          const uname = hash.startsWith('#perfil/') ? decodeURIComponent(hash.slice('#perfil/'.length).trim()) : undefined
+          const uname = path.startsWith('/perfil/') ? decodeURIComponent(path.slice('/perfil/'.length).trim()) : undefined
           setVisitedUsername(uname || undefined)
           setCurrentView('perfil')
         }
-      } else if (hash === '#catalogo' || hash === '#animes' || hash === '#top') {
+      } else if (path === '/catalogo' || path === '/animes' || path === '/top') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('catalogo')
-      } else if (hash === '#landing' || hash === '' || hash === '#') {
+      } else if (path === '/landing' || path === '/' || path === '') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('landing')
       }
     }
-    handleHash()
-    window.addEventListener('hashchange', handleHash)
-    return () => window.removeEventListener('hashchange', handleHash)
+    handleRoute()
+    return subscribeNavigation(handleRoute)
   }, [isAuthenticated, isAdmin, loading])
 
   // Precarga silenciosa en segundo plano de assets clave cuando el navegador queda libre
@@ -229,7 +229,7 @@ function App() {
       <Suspense fallback={<ViewLoader message="Cargando Admin Console..." />}>
         <AdminPortal
           onBackToLanding={() => {
-            window.location.hash = ''
+            navigate('/')
             setCurrentView('landing')
           }}
         />
@@ -238,7 +238,7 @@ function App() {
   }
 
   const isCheckingPrivateRoute =
-    loading && typeof window !== 'undefined' && isPrivateHash(window.location.hash)
+    loading && typeof window !== 'undefined' && isPrivatePath(getCurrentPath())
 
   // 2. Vistas de la plataforma (incluyendo Landing, con Sidebar lateral dedicado y Navbar desaturado)
   const renderPlatformContent = () => {
@@ -290,7 +290,7 @@ function App() {
                     <button
                       type="button"
                       onClick={() => {
-                        window.location.hash = '#sala'
+                        navigate('/sala')
                         setCurrentView('sala')
                       }}
                       className="btn btn-primary btn-sm px-4 py-2 fw-semibold shadow-sm d-flex align-items-center gap-1.5"
@@ -302,7 +302,7 @@ function App() {
                       <button
                         type="button"
                         onClick={() => {
-                          window.location.hash = '#mi-lista'
+                          navigate('/mi-lista')
                           setCurrentView('mi-lista')
                         }}
                         className="btn btn-outline-light btn-sm px-4 py-2 fw-semibold shadow-sm"
@@ -310,7 +310,15 @@ function App() {
                         Explorar Mi Lista
                       </button>
                     )}
-                    <a href="#catalogo" className="btn btn-outline-secondary btn-sm px-4 py-2">
+                    <a
+                      href="/catalogo"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        navigate('/catalogo')
+                        setCurrentView('catalogo')
+                      }}
+                      className="btn btn-outline-secondary btn-sm px-4 py-2"
+                    >
                       Ver Catálogo
                     </a>
                   </div>
@@ -347,7 +355,7 @@ function App() {
               onNavigateToCatalog={({ year, season, genre, ordering }) => {
                 setCatalogInitialFilters({ year, season, genre, ordering })
                 setSelectedAnimeId(null)
-                window.location.hash = '#catalogo'
+                navigate('/catalogo')
                 setCurrentView('catalogo')
               }}
               onOpenAnimeDetail={(malId) => {
@@ -395,10 +403,10 @@ function App() {
         onSelectView={(v) => {
           setProfileSubView(null)
           if (v === 'landing') {
-            window.location.hash = ''
+            navigate('/')
             setCurrentView('landing')
           } else {
-            window.location.hash = `#${v}`
+            navigate(`/${v}`)
             setCurrentView(v)
           }
         }}

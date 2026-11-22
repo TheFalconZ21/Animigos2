@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
+import { navigate } from '../../utils/navigation'
 import {
     Search,
     SlidersHorizontal,
@@ -338,14 +339,14 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
     const handleOpenAnimeProfile = (anime: ApiAnimeData) => {
         setActiveProfileAnime(anime)
         setActiveProfileMalId(anime.mal_id)
-        window.location.hash = `#anime/${anime.mal_id}`
+        navigate(`/anime/${anime.mal_id}`)
         window.scrollTo({ top: 0, behavior: 'smooth' })
     }
 
     const handleCloseAnimeProfile = () => {
         setActiveProfileMalId(null)
         setActiveProfileAnime(null)
-        window.location.hash = '#catalogo'
+        navigate('/catalogo')
     }
 
     const handleQuickAdd = async (anime: ApiAnimeData, e?: React.MouseEvent) => {
@@ -395,7 +396,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                 onSelectAnime={(nextId, nextAnime) => {
                     setActiveProfileAnime(nextAnime || null)
                     setActiveProfileMalId(nextId)
-                    window.location.hash = `#anime/${nextId}`
+                    navigate(`/anime/${nextId}`)
                     window.scrollTo({ top: 0, behavior: 'smooth' })
                 }}
                 onFilterByGenreOrTag={(term) => {

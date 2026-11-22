@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { navigate } from '../../utils/navigation'
 import {
     Sparkles,
     RotateCcw,
@@ -431,7 +432,7 @@ export const RecomendadorView: React.FC = () => {
         const inList = myListIds.has(rec.anime_id) || justAddedIds.includes(rec.anime_id)
         const openDetail = () => {
             setSelectedProfileMalId(rec.anime_id)
-            window.location.hash = `#anime/${rec.anime_id}`
+            navigate(`/anime/${rec.anime_id}`)
             window.scrollTo({ top: 0, behavior: 'smooth' })
         }
 
@@ -579,12 +580,12 @@ export const RecomendadorView: React.FC = () => {
                 backLabel="Volver al Recomendador"
                 onBack={() => {
                     setSelectedProfileMalId(null)
-                    window.location.hash = '#recomendador'
+                    navigate('/recomendador')
                     window.scrollTo({ top: 0, behavior: 'smooth' })
                 }}
                 onSelectAnime={(nextId) => {
                     setSelectedProfileMalId(nextId)
-                    window.location.hash = `#anime/${nextId}`
+                    navigate(`/anime/${nextId}`)
                     window.scrollTo({ top: 0, behavior: 'smooth' })
                 }}
             />

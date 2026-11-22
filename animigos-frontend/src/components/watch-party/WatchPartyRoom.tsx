@@ -55,6 +55,7 @@ import {
 import { fetchFriends, type FriendUser } from '../../services/friendsApi'
 import { resolveMediaUrl } from '../../utils/mediaUrl'
 import { useAuth } from '../../context/AuthContext'
+import { buildShareableUrl, getCurrentPath, navigate, subscribeNavigation } from '../../utils/navigation'
 import { useCatalogSearch } from '../../hooks/useCatalog'
 import type { ApiAnimeData } from '../../services/userListApi'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
@@ -156,23 +157,22 @@ export const WatchPartyRoom: React.FC = () => {
         loadRooms()
     }, [userToken])
 
-    // Soporte de navegación por hash: #sala/<codigo> o #sala / #listas
+    // Soporte de navegación por rutas limpias: /sala/<codigo> o /sala / /listas
     useEffect(() => {
-        const handleHashChange = () => {
-            const hash = window.location.hash
-            const match = hash.match(/sala[=/]([a-zA-Z0-9_-]+)/i)
+        const handleRouteChange = () => {
+            const path = getCurrentPath()
+            const match = path.match(/^\/sala\/([a-zA-Z0-9_-]+)/i)
             const initialCode = match ? match[1] : ''
 
             if (initialCode) {
                 handleOpenByCode(initialCode)
-            } else if (hash === '#sala' || hash === '#listas' || hash === '#votacion') {
+            } else if (path === '/sala' || path === '/listas' || path === '/votacion') {
                 setSelectedRoomId(null)
             }
         }
 
-        handleHashChange()
-        window.addEventListener('hashchange', handleHashChange)
-        return () => window.removeEventListener('hashchange', handleHashChange)
+        handleRouteChange()
+        return subscribeNavigation(handleRouteChange)
     }, [])
 
     const loadRooms = async () => {
@@ -203,7 +203,7 @@ export const WatchPartyRoom: React.FC = () => {
             setShowCreateModal(false)
             setNewRoomName('')
             setNewRoomDesc('')
-            window.location.hash = `#sala/${created.invite_code}`
+            navigate(`/sala/${created.invite_code}`)
         } catch (e) {
             console.error('Error creando lista grupal:', e)
         }
@@ -232,7 +232,7 @@ export const WatchPartyRoom: React.FC = () => {
             const joined = await joinRoomApi(cleanCode, userName, userToken)
             if (joined) {
                 setSelectedRoomId(joined.id)
-                window.location.hash = `#sala/${joined.invite_code}`
+                navigate(`/sala/${joined.invite_code}`)
                 setSearchCodeInput('')
                 loadRooms()
             } else {
@@ -406,7 +406,7 @@ export const WatchPartyRoom: React.FC = () => {
             setShowDissolveConfirm(false)
             setShowSettingsModal(false)
             setSelectedRoomId(null)
-            window.location.hash = '#listas'
+            navigate('/listas')
             await loadRooms()
         } catch (e: any) {
             alert(e.message || 'No se pudo disolver la sala grupal')
@@ -440,7 +440,7 @@ export const WatchPartyRoom: React.FC = () => {
 
     const handleCopy = (code: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation()
-        const fullUrl = `${window.location.origin}/#sala/${code}`
+        const fullUrl = buildShareableUrl(`/sala/${code}`)
         navigator.clipboard.writeText(fullUrl)
         setCopiedCode(code)
         setTimeout(() => setCopiedCode(null), 2500)
@@ -819,7 +819,7 @@ export const WatchPartyRoom: React.FC = () => {
                                                 type="button"
                                                 onClick={() => {
                                                     setSelectedRoomId(r.id)
-                                                    window.location.hash = `#sala/${r.invite_code}`
+                                                    navigate(`/sala/${r.invite_code}`)
                                                 }}
                                                 className="ml-btn ml-btn-acento w-100 justify-content-center d-flex align-items-center gap-2"
                                             >
@@ -908,7 +908,7 @@ export const WatchPartyRoom: React.FC = () => {
                             type="button"
                             onClick={() => {
                                 setSelectedRoomId(null)
-                                window.location.hash = '#listas'
+                                navigate('/listas')
                             }}
                             className="ml-btn ml-btn-fantasma ml-btn-sm d-flex align-items-center gap-1.5"
                             title="Volver a listas"
@@ -998,7 +998,7 @@ export const WatchPartyRoom: React.FC = () => {
                             type="button"
                             onClick={() => {
                                 setSelectedRoomId(null)
-                                window.location.hash = '#listas'
+                                navigate('/listas')
                             }}
                             className="ml-btn ml-btn-fantasma ml-btn-sm text-danger"
                             title="Salir de la sala"
@@ -2814,8 +2814,12 @@ export const WatchPartyRoom: React.FC = () => {
                             >
                                 Aún no tienes amigos confirmados en tu perfil. Puedes agregarlos desde{' '}
                                 <a
-                                    href="#perfil"
-                                    onClick={() => setShowInviteFriendsModal(false)}
+                                    href="/perfil"
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        setShowInviteFriendsModal(false)
+                                        navigate('/perfil')
+                                    }}
                                     className="text-white fw-semibold"
                                 >
                                     Mi Perfil → Amigos

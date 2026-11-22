@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { navigate } from '../../utils/navigation'
 import { MessagesSquare, Newspaper } from 'lucide-react'
 import { useTablon } from '../../hooks/useTablon'
 import { useHorario } from '../../hooks/useCalendario'
@@ -80,7 +81,7 @@ export function Tablon() {
         publicar({ modo: 'recomendar', destinatarioId: a.autor.usuario, nota: `Por lo que pediste (“${a.busqueda!.pedido.slice(0, 60)}…”), te sugiero este:` })
 
     const entrarSala = (codigo?: string) => {
-        window.location.hash = codigo ? `#sala/${codigo}` : '#listas'
+        navigate(codigo ? `/sala/${codigo}` : '/listas')
     }
 
     return (
@@ -177,12 +178,12 @@ export function Tablon() {
                     </div>
 
                     <div className="tb-columna">
-                        <AgendaInicioWidget onVerAgenda={() => { window.location.hash = '#agenda' }} />
+                        <AgendaInicioWidget onVerAgenda={() => { navigate('/agenda') }} />
                         <SalasLateral salas={tablon.salas} cargando={tablon.cargandoSalas} error={tablon.errorSalas} onEntrar={entrarSala} />
                         <HoyEnEmision
                             emisiones={horario.emisiones}
                             cargando={horario.cargando}
-                            onVerSemana={() => { window.location.hash = '#calendario' }}
+                            onVerSemana={() => { navigate('/calendario') }}
                         />
                     </div>
                 </div>

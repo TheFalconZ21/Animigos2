@@ -1,4 +1,5 @@
 import React, { useState, type CSSProperties } from 'react'
+import { navigate } from '../../utils/navigation'
 import {
     Search,
     Send,
@@ -596,9 +597,9 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
 
     const handleNavigateToList = () => {
         if (isVisitingOther && activeUsername) {
-            window.location.hash = `#mi-lista/${encodeURIComponent(activeUsername)}`
+            navigate(`/mi-lista/${encodeURIComponent(activeUsername)}`)
         } else {
-            window.location.hash = '#mi-lista'
+            navigate('/mi-lista')
         }
     }
 
@@ -743,7 +744,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                             type="button"
                             className="ml-btn ml-btn-acento ml-btn-sm"
                             onClick={() => {
-                                window.location.hash = '#perfil'
+                                navigate('/perfil')
                             }}
                         >
                             Volver a mi perfil
@@ -887,7 +888,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                                     onBackToOwnProfile={
                                         isVisitingOther
                                             ? () => {
-                                                  window.location.hash = '#perfil'
+                                                  navigate('/perfil')
                                               }
                                             : undefined
                                     }

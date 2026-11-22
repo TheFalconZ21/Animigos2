@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { navigate } from '../../utils/navigation'
 import { TrendingUp, TrendingDown, Minus, Calendar, Users, Award, Loader2, ArrowRight } from 'lucide-react'
 import { fetchAnimeScoreHistory, type AnimeScoreHistoryItem } from '../../services/catalogApi'
 import type { ApiAnimeRelationItem } from '../../services/userListApi'
@@ -185,7 +186,7 @@ export const AnimeScoreHistoryChart: React.FC<AnimeScoreHistoryChartProps> = ({
                         onClick={() =>
                             onSelectAnime
                                 ? onSelectAnime(prequel.mal_id!)
-                                : (window.location.hash = `#anime/${prequel.mal_id}`)
+                                : navigate(`/anime/${prequel.mal_id}`)
                         }
                         className="btn btn-sm d-inline-flex align-items-center gap-2 mt-1"
                         style={{
@@ -249,7 +250,7 @@ export const AnimeScoreHistoryChart: React.FC<AnimeScoreHistoryChartProps> = ({
                             onClick={() =>
                                 onSelectAnime
                                     ? onSelectAnime(prequel.mal_id!)
-                                    : (window.location.hash = `#anime/${prequel.mal_id}`)
+                                    : navigate(`/anime/${prequel.mal_id}`)
                             }
                             className="btn btn-sm d-inline-flex align-items-center gap-2"
                             style={{

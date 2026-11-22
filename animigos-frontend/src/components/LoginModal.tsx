@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertCircle, CheckCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { getCurrentPath } from '../utils/navigation'
 
 export function LoginModal() {
     const { login, register } = useAuth()
@@ -109,7 +110,7 @@ export function LoginModal() {
                 const loggedUser = await login(usernameOrEmail.trim(), password.trim())
                 const isAdminUser = Boolean(loggedUser?.is_staff || loggedUser?.is_superuser)
 
-                if (isAdminUser && window.location.hash === '#admin') {
+                if (isAdminUser && getCurrentPath() === '/admin') {
                     setSuccessMsg('¡Bienvenido Administrador! Ingresando a Admin Console...')
                 } else if (isAdminUser) {
                     setSuccessMsg(`¡Bienvenido ${loggedUser.display_name || loggedUser.username}!`)

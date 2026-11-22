@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { navigate } from '../../utils/navigation'
 import { Compass, Ellipsis, Folder, FolderInput, Heart, MessageSquare, Send, Tag, Trash2, X, Play, ExternalLink } from 'lucide-react'
 import { ESTADOS, medioDe, type Carpeta, type EntradaLista, type EstadoLista, type FilaLista, alFallarPoster } from './mi-lista-data'
 import { Menu, SelloNota } from './piezas'
@@ -273,7 +274,7 @@ export function AnimeFila({
                             type="button"
                             className="ml-menu-item"
                             onClick={() => {
-                                window.location.hash = `#anime/${fila.malId || anime.malId}`
+                                navigate(`/anime/${fila.malId || anime.malId}`)
                                 cerrar()
                             }}
                         >

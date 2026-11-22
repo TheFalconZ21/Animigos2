@@ -25,6 +25,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { AnimigosLogo } from './AnimigosLogo'
 import { useCatExpression } from '../hooks/useCatExpression'
+import { navigate } from '../utils/navigation'
 import {
     fetchUserNotifications,
     updateUserNotification,
@@ -186,8 +187,8 @@ export function Navbar({
     }, [currentView])
 
     const handleNavClick = (view: NonNullable<NavbarProps['currentView']>) => {
-        const hash = view === 'sala' ? 'listas' : view
-        window.location.hash = `#${hash}`
+        const path = view === 'landing' ? '/' : view === 'sala' ? '/listas' : `/${view}`
+        navigate(path)
         onSelectView?.(view)
         setIsMobileMenuOpen(false)
     }
@@ -217,7 +218,7 @@ export function Navbar({
                 <div className="d-lg-none me-2 flex-shrink-0">
                     <a
                         className="navbar-brand text-decoration-none p-0 d-flex align-items-center"
-                        href="#landing"
+                        href="/"
                         onClick={(e) => {
                             e.preventDefault()
                             handleNavClick('landing')
@@ -293,7 +294,7 @@ export function Navbar({
                     /* Logo / Marca — Modo Landing o barra superior clásica */
                     <a
                         className="navbar-brand text-decoration-none me-3 me-md-4 me-xl-5"
-                        href="#landing"
+                        href="/"
                         onClick={(e) => {
                             e.preventDefault()
                             handleNavClick('landing')
@@ -318,7 +319,7 @@ export function Navbar({
                                 <li className="nav-item">
                                     <a
                                         className={`nav-link ${currentView === 'tablon' ? 'active' : ''}`}
-                                        href="#tablon"
+                                        href="/tablon"
                                         onClick={(e) => {
                                             e.preventDefault()
                                             handleNavClick('tablon')
@@ -331,7 +332,7 @@ export function Navbar({
                             <li className="nav-item">
                                 <a
                                     className={`nav-link ${currentView === 'catalogo' ? 'active' : ''}`}
-                                    href="#catalogo"
+                                    href="/catalogo"
                                     onClick={(e) => {
                                         e.preventDefault()
                                         handleNavClick('catalogo')
@@ -343,7 +344,7 @@ export function Navbar({
                             <li className="nav-item">
                                 <a
                                     className={`nav-link d-inline-flex align-items-center gap-1 ${currentView === 'recomendador' ? 'active' : ''}`}
-                                    href="#recomendador"
+                                    href="/recomendador"
                                     onClick={(e) => {
                                         e.preventDefault()
                                         handleNavClick('recomendador')
@@ -356,7 +357,7 @@ export function Navbar({
                                 <li className="nav-item">
                                     <a
                                         className={`nav-link ${currentView === 'mi-lista' ? 'active' : ''}`}
-                                        href="#mi-lista"
+                                        href="/mi-lista"
                                         onClick={(e) => {
                                             e.preventDefault()
                                             handleNavClick('mi-lista')
@@ -369,7 +370,7 @@ export function Navbar({
                             <li className="nav-item">
                                 <a
                                     className={`nav-link ${currentView === 'sala' ? 'active' : ''}`}
-                                    href="#listas"
+                                    href="/listas"
                                     onClick={(e) => {
                                         e.preventDefault()
                                         handleNavClick('sala')
@@ -381,7 +382,7 @@ export function Navbar({
                             <li className="nav-item">
                                 <a
                                     className={`nav-link ${currentView === 'calendario' ? 'active' : ''}`}
-                                    href="#calendario"
+                                    href="/calendario"
                                     onClick={(e) => {
                                         e.preventDefault()
                                         handleNavClick('calendario')
@@ -416,7 +417,7 @@ export function Navbar({
                             <div className="nav-desktop-only align-items-center gap-2">
                                 {(user.is_staff || user.is_superuser) && (
                                     <a
-                                        href="#admin"
+                                        href="/admin"
                                         onClick={(e) => {
                                             e.preventDefault()
                                             handleNavClick('admin')
@@ -641,9 +642,9 @@ export function Navbar({
                                                                                         notification_id: n.id,
                                                                                         action: 'mark_read',
                                                                                     })
-                                                                                    window.location.hash = `#sala/${encodeURIComponent(
+                                                                                    navigate(`/sala/${encodeURIComponent(
                                                                                         n.invite_code!
-                                                                                    )}`
+                                                                                    )}`)
                                                                                 }}
                                                                                 className="nav-notif-btn-primary"
                                                                             >
@@ -661,7 +662,7 @@ export function Navbar({
                                                                                         notification_id: n.id,
                                                                                         action: 'mark_read',
                                                                                     })
-                                                                                    window.location.hash = '#perfil'
+                                                                                    navigate('/perfil')
                                                                                 }}
                                                                                 className="nav-notif-btn-primary"
                                                                             >
@@ -751,9 +752,9 @@ export function Navbar({
                                                                                 type="button"
                                                                                 onClick={() => {
                                                                                     setIsNotifOpen(false)
-                                                                                    window.location.hash = `#perfil/${encodeURIComponent(
+                                                                                    navigate(`/perfil/${encodeURIComponent(
                                                                                         n.from_username
-                                                                                    )}`
+                                                                                    )}`)
                                                                                 }}
                                                                                 className="nav-notif-btn-secondary"
                                                                             >
@@ -773,7 +774,7 @@ export function Navbar({
                                 </div>
 
                                 <a
-                                    href="#perfil"
+                                    href="/perfil"
                                     onClick={(e) => {
                                         e.preventDefault()
                                         handleNavClick('perfil')
@@ -835,7 +836,7 @@ export function Navbar({
                             {/* Pantallas pequeñas (< 992px): Avatar a perfil + Menú hamburguesa */}
                             <div className="nav-mobile-only align-items-center gap-2">
                                 <a
-                                    href="#perfil"
+                                    href="/perfil"
                                     onClick={(e) => {
                                         e.preventDefault()
                                         handleNavClick('perfil')
@@ -918,7 +919,7 @@ export function Navbar({
                     <div className="d-flex flex-column gap-1">
                         {isAuthenticated && (
                             <a
-                                href="#tablon"
+                                href="/tablon"
                                 onClick={(e) => {
                                     e.preventDefault()
                                     handleNavClick('tablon')
@@ -930,7 +931,7 @@ export function Navbar({
                             </a>
                         )}
                         <a
-                            href="#calendario"
+                            href="/calendario"
                             onClick={(e) => {
                                 e.preventDefault()
                                 handleNavClick('calendario')
@@ -942,7 +943,7 @@ export function Navbar({
                         </a>
                         {isAuthenticated && (
                             <a
-                                href="#agenda"
+                                href="/agenda"
                                 onClick={(e) => {
                                     e.preventDefault()
                                     handleNavClick('agenda')
@@ -954,7 +955,7 @@ export function Navbar({
                             </a>
                         )}
                         <a
-                            href="#listas"
+                            href="/listas"
                             onClick={(e) => {
                                 e.preventDefault()
                                 handleNavClick('sala')
@@ -965,7 +966,7 @@ export function Navbar({
                             <span>Listas Grupales</span>
                         </a>
                         <a
-                            href="#catalogo"
+                            href="/catalogo"
                             onClick={(e) => {
                                 e.preventDefault()
                                 handleNavClick('catalogo')
@@ -976,7 +977,7 @@ export function Navbar({
                             <span>Catálogo</span>
                         </a>
                         <a
-                            href="#recomendador"
+                            href="/recomendador"
                             onClick={(e) => {
                                 e.preventDefault()
                                 handleNavClick('recomendador')
@@ -987,7 +988,7 @@ export function Navbar({
                             <span>Recomendador</span>
                         </a>
                         <a
-                            href="#temporadas"
+                            href="/temporadas"
                             onClick={(e) => {
                                 e.preventDefault()
                                 handleNavClick('temporadas')
@@ -999,7 +1000,7 @@ export function Navbar({
                         </a>
                         {isAuthenticated && (
                             <a
-                                href="#mi-lista"
+                                href="/mi-lista"
                                 onClick={(e) => {
                                     e.preventDefault()
                                     handleNavClick('mi-lista')
@@ -1018,7 +1019,7 @@ export function Navbar({
                         <div className="d-flex flex-column gap-2">
                             {(user.is_staff || user.is_superuser) && (
                                 <a
-                                    href="#admin"
+                                    href="/admin"
                                     onClick={(e) => {
                                         e.preventDefault()
                                         handleNavClick('admin')
@@ -1031,7 +1032,7 @@ export function Navbar({
                             )}
 
                             <a
-                                href="#perfil"
+                                href="/perfil"
                                 onClick={(e) => {
                                     e.preventDefault()
                                     handleNavClick('perfil')

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { navigate } from '../../utils/navigation'
 import {
     Bold,
     Italic,
@@ -428,7 +429,7 @@ export const CommentsWall: React.FC<CommentsWallProps> = ({
                                         style={{ cursor: c.authorUsername ? 'pointer' : 'default' }}
                                         onClick={() => {
                                             if (c.authorUsername) {
-                                                window.location.hash = `#perfil/${encodeURIComponent(c.authorUsername)}`
+                                                navigate(`/perfil/${encodeURIComponent(c.authorUsername)}`)
                                             }
                                         }}
                                     >

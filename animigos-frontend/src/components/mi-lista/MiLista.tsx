@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, type CSSProperties } from 'react'
+import { navigate } from '../../utils/navigation'
 import { ArrowLeft, Eye, Folder, Hash, LayoutGrid, LayoutList, Loader2, Lock, Plus, Search, Send, SlidersHorizontal, Upload, X } from 'lucide-react'
 import {
     apiEntryToFila,
@@ -353,9 +354,9 @@ export function MiLista({
                                         type="button"
                                         className="ml-btn ml-btn-acento"
                                         onClick={() => {
-                                            window.location.hash = `#perfil/${encodeURIComponent(
+                                            navigate(`/perfil/${encodeURIComponent(
                                                 visitedProfile?.user?.username || visitedUsername || ''
-                                            )}`
+                                            )}`)
                                         }}
                                     >
                                         <ArrowLeft size={16} /> Volver al perfil de @{visitedProfile?.user?.username || visitedUsername}
@@ -593,7 +594,7 @@ export function MiLista({
                                     type="button"
                                     className="ml-btn ml-btn-acento"
                                     onClick={() => {
-                                        window.location.hash = `#perfil/${encodeURIComponent(visitedProfile.user.username)}`
+                                        navigate(`/perfil/${encodeURIComponent(visitedProfile.user.username)}`)
                                     }}
                                 >
                                     <ArrowLeft size={16} /> Volver al perfil
@@ -725,7 +726,7 @@ export function MiLista({
                     if (onOpenAnimeDetail) {
                         onOpenAnimeDetail(malId)
                     } else {
-                        window.location.hash = `#anime/${malId}`
+                        navigate(`/anime/${malId}`)
                     }
                 }}
             />

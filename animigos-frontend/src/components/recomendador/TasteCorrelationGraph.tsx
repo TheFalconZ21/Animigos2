@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { navigate } from '../../utils/navigation'
 import {
     Network,
     Flame,
@@ -613,7 +614,11 @@ export const TasteCorrelationGraph: React.FC<TasteCorrelationGraphProps> = ({
                     Añade animes a tu lista o realiza el test en la sección <strong>Recomendador</strong> para visualizar tu diagrama de cuerdas con la taxonomía de AniList.
                 </p>
                 <a
-                    href="#recomendador"
+                    href="/recomendador"
+                    onClick={(e) => {
+                        e.preventDefault()
+                        navigate('/recomendador')
+                    }}
                     className="rec-inspector-filter-btn d-inline-flex text-decoration-none"
                     style={{ width: 'auto', borderColor: accentColor, color: '#ffffff' }}
                 >

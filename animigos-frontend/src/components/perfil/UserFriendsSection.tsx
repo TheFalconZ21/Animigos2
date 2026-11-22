@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { navigate } from '../../utils/navigation'
 import {
     Users,
     UserPlus,
@@ -59,7 +60,7 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
         if (onSelectUserProfile) {
             onSelectUserProfile(uname)
         } else {
-            window.location.hash = `#perfil/${encodeURIComponent(uname)}`
+            navigate(`/perfil/${encodeURIComponent(uname)}`)
         }
     }
 
@@ -1132,7 +1133,11 @@ export const UserFriendsSection: React.FC<UserFriendsSectionProps> = ({
                                                 </div>
                                                 <div className="d-flex align-items-center gap-1.5 flex-shrink-0">
                                                     <a
-                                                        href="#sala"
+                                                        href="/sala"
+                                                        onClick={(e) => {
+                                                            e.preventDefault()
+                                                            navigate('/sala')
+                                                        }}
                                                         className="btn btn-sm p-1 px-2 rounded-2"
                                                         style={{
                                                             background: 'var(--perfil-acento-soft)',

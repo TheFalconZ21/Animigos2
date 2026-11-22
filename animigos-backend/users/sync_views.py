@@ -75,16 +75,16 @@ def mal_callback_view(request):
 
     if error or not code or not state:
         reason = urllib.parse.quote(error or 'missing_params')
-        return redirect(f'{frontend}/?sync=mal_error&reason={reason}#perfil')
+        return redirect(f'{frontend}/perfil?sync=mal_error&reason={reason}')
 
     user = _resolve_user_from_oauth_state(state)
     if not user:
-        return redirect(f'{frontend}/?sync=mal_error&reason=invalid_state#perfil')
+        return redirect(f'{frontend}/perfil?sync=mal_error&reason=invalid_state')
 
     ok, detail = sync_services.exchange_mal_code(user, code, state)
     if not ok:
         reason = urllib.parse.quote(detail[:160])
-        return redirect(f'{frontend}/?sync=mal_error&reason={reason}#perfil')
+        return redirect(f'{frontend}/perfil?sync=mal_error&reason={reason}')
 
     # Sincronización inicial automática tras vincular
     try:
@@ -92,7 +92,7 @@ def mal_callback_view(request):
     except Exception:
         pass
 
-    return redirect(f'{frontend}/?sync=mal_ok#perfil')
+    return redirect(f'{frontend}/perfil?sync=mal_ok')
 
 
 @api_view(['POST'])
@@ -144,23 +144,23 @@ def anilist_callback_view(request):
 
     if error or not code or not state:
         reason = urllib.parse.quote(error or 'missing_params')
-        return redirect(f'{frontend}/?sync=anilist_error&reason={reason}#perfil')
+        return redirect(f'{frontend}/perfil?sync=anilist_error&reason={reason}')
 
     user = _resolve_user_from_oauth_state(state)
     if not user:
-        return redirect(f'{frontend}/?sync=anilist_error&reason=invalid_state#perfil')
+        return redirect(f'{frontend}/perfil?sync=anilist_error&reason=invalid_state')
 
     ok, detail = sync_services.exchange_anilist_code(user, code, state)
     if not ok:
         reason = urllib.parse.quote(detail[:160])
-        return redirect(f'{frontend}/?sync=anilist_error&reason={reason}#perfil')
+        return redirect(f'{frontend}/perfil?sync=anilist_error&reason={reason}')
 
     try:
         sync_services.pull_anilist_list(user)
     except Exception:
         pass
 
-    return redirect(f'{frontend}/?sync=anilist_ok#perfil')
+    return redirect(f'{frontend}/perfil?sync=anilist_ok')
 
 
 @api_view(['POST'])

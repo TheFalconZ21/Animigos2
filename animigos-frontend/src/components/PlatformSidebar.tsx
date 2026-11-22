@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { AnimigosLogo } from './AnimigosLogo'
 import { useCatExpression } from '../hooks/useCatExpression'
+import { navigate } from '../utils/navigation'
 import './platform-sidebar.css'
 
 export type PlatformView =
@@ -62,7 +63,7 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
             dialog?.showModal()
             return
         }
-        window.location.hash = `#${item.hash}`
+        navigate(`/${item.hash}`)
         onSelectView(item.id)
     }
 
@@ -178,10 +179,10 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                 {!isCollapsed ? (
                     <div className="d-flex align-items-center gap-2.5 overflow-hidden">
                         <a
-                            href="#landing"
+                            href="/"
                             onClick={(e) => {
                                 e.preventDefault()
-                                window.location.hash = ''
+                                navigate('/')
                                 onSelectView('landing')
                             }}
                             onMouseEnter={() => setExpression('happy')}
@@ -195,10 +196,10 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                 ) : (
                     <div className="mx-auto d-flex align-items-center justify-content-center">
                         <a
-                            href="#landing"
+                            href="/"
                             onClick={(e) => {
                                 e.preventDefault()
-                                window.location.hash = ''
+                                navigate('/')
                                 onSelectView('landing')
                             }}
                             onMouseEnter={() => setExpression('happy')}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { navigate } from '../../utils/navigation'
 import { Award, Compass, Heart, Send, Star, Trash2, Users, Play, ExternalLink, Plus } from 'lucide-react'
 import { ESTADOS, type EntradaLista, type FilaLista, alFallarPoster } from './mi-lista-data'
 import { Dialogo, ProgresoEpisodios, SelloNota } from './piezas'
@@ -83,7 +84,7 @@ function Contenido({
         if (onVerFichaCompleta) {
             onVerFichaCompleta(malId)
         } else {
-            window.location.hash = `#anime/${malId}`
+            navigate(`/anime/${malId}`)
         }
     }
 

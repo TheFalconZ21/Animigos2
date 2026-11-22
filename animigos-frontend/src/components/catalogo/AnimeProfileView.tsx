@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
+import { navigate } from '../../utils/navigation'
 import {
     ArrowLeft,
     Building2,
@@ -230,7 +231,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                     <button
                         type="button"
                         className="cat-btn-search py-2 px-4 mt-2"
-                        onClick={() => (onBack ? onBack() : (window.location.hash = '#catalogo'))}
+                        onClick={() => (onBack ? onBack() : navigate('/catalogo'))}
                     >
                         {backLabel || 'Volver al Catálogo'}
                     </button>
@@ -251,7 +252,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                 <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                     <button
                         type="button"
-                        onClick={() => (onBack ? onBack() : (window.location.hash = '#catalogo'))}
+                        onClick={() => (onBack ? onBack() : navigate('/catalogo'))}
                         className="anime-profile-back-btn"
                     >
                         <ArrowLeft size={15} />
@@ -926,7 +927,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                                     if (onSelectAnime) {
                                                                         onSelectAnime(rel.mal_id)
                                                                     } else {
-                                                                        window.location.hash = `#anime/${rel.mal_id}`
+                                                                        navigate(`/anime/${rel.mal_id}`)
                                                                     }
                                                                     window.scrollTo({ top: 0, behavior: 'smooth' })
                                                                 }
@@ -1015,7 +1016,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                         if (onSelectAnime) {
                                                             onSelectAnime(tgt.mal_id, tgt)
                                                         } else {
-                                                            window.location.hash = `#anime/${tgt.mal_id}`
+                                                            navigate(`/anime/${tgt.mal_id}`)
                                                         }
                                                     }}
                                                     role="button"
