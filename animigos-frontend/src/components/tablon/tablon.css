@@ -1559,3 +1559,45 @@
     font-size: 0.76rem;
     color: #94a3b8;
 }
+
+
+/* Pills de animes de referencia ("Parecido a") en tarjeta de sugerencias */
+.tb-nota-refs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.tb-nota-refs-label {
+    font-size: 0.76rem;
+    color: #94a3b8;
+}
+
+.tb-nota-ref-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.18rem 0.55rem 0.18rem 0.22rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.05);
+    color: #f8fafc;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.tb-nota-ref-pill:hover {
+    border-color: var(--ml-acento, #a78bfa);
+    background: color-mix(in srgb, var(--ml-acento, #a78bfa) 16%, transparent);
+}
+
+.tb-nota-ref-pill img {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}

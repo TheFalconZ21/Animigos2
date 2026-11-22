@@ -40,7 +40,13 @@ const GENEROS_SUGERIDOS = [
 
 interface Acciones {
     onRecomendar: (datos: NuevaRecomendacion) => Promise<unknown>
-    onBuscar: (datos: { pedido: string; referencia?: string; generos?: string[]; tags?: string[] }) => Promise<unknown>
+    onBuscar: (datos: {
+        pedido: string
+        referencia?: string
+        generos?: string[]
+        tags?: string[]
+        referenciasAnimes?: AnimeResumen[]
+    }) => Promise<unknown>
     onEncuesta: (datos: { pregunta: string; opciones: AnimeResumen[] }) => Promise<unknown>
 }
 
@@ -66,9 +72,11 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
     const [destinatario, setDestinatario] = useState<string>(borrador.destinatarioId ?? '')
     const [nota, setNota] = useState(borrador.nota ?? '')
 
-    // Pedir sugerencia (con géneros y tags)
+    // Pedir sugerencia (con géneros, tags y animes de referencia del catálogo)
     const [pedido, setPedido] = useState('')
-    const [referencia, setReferencia] = useState('')
+    const [referenciasAnimes, setReferenciasAnimes] = useState<AnimeResumen[]>([])
+    const [busquedaRef, setBusquedaRef] = useState('')
+    const [textoBuscadoRef, setTextoBuscadoRef] = useState('')
     const [generosSeleccionados, setGenerosSeleccionados] = useState<string[]>([])
     const [tagsSeleccionados, setTagsSeleccionados] = useState<string[]>([])
     const [tagInput, setTagInput] = useState('')
@@ -106,6 +114,25 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
         return () => clearTimeout(t)
     }, [busquedaEncuesta])
     const resultadosEncuesta = useBuscarAnimes(textoBuscadoEncuesta)
+
+    // Debounce búsqueda para "Parecido a" (animes de referencia)
+    useEffect(() => {
+        const t = setTimeout(() => setTextoBuscadoRef(busquedaRef), 300)
+        return () => clearTimeout(t)
+    }, [busquedaRef])
+    const resultadosRef = useBuscarAnimes(textoBuscadoRef)
+
+    const agregarReferenciaAnime = (elegido: AnimeResumen) => {
+        if (referenciasAnimes.length >= 3) return
+        if (referenciasAnimes.some((r) => r.malId === elegido.malId)) return
+        setReferenciasAnimes((prev) => [...prev, elegido])
+        setBusquedaRef('')
+        setTextoBuscadoRef('')
+    }
+
+    const quitarReferenciaAnime = (malId: number) => {
+        setReferenciasAnimes((prev) => prev.filter((r) => r.malId !== malId))
+    }
 
     const toggleGenero = (g: string) => {
         setGenerosSeleccionados((prev) =>
@@ -173,7 +200,8 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
             if (modo === 'buscar') {
                 await onBuscar({
                     pedido: pedido.trim(),
-                    referencia: referencia.trim(),
+                    referencia: referenciasAnimes.map((a) => a.titulo).join(', '),
+                    referenciasAnimes,
                     generos: generosSeleccionados,
                     tags: tagsSeleccionados,
                 })
@@ -376,9 +404,95 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
                             )}
                         </div>
 
+                        {/* Buscador de animes "Parecido a" desde la base de datos */}
                         <div>
-                            <label className="ml-label" htmlFor="tb-ref">Parecido a (opcional)</label>
-                            <input id="tb-ref" className="ml-input w-100" placeholder="Ej: Monster, Death Note" value={referencia} onChange={(e) => setReferencia(e.target.value)} />
+                            <div className="d-flex align-items-center justify-content-between mb-1.5">
+                                <label className="ml-label mb-0" htmlFor="tb-ref">
+                                    Parecido a (opcional · máx. 3 animes)
+                                </label>
+                                {referenciasAnimes.length > 0 && (
+                                    <span className="small text-secondary" style={{ fontSize: '0.72rem' }}>
+                                        {referenciasAnimes.length}/3
+                                    </span>
+                                )}
+                            </div>
+
+                            {referenciasAnimes.length > 0 && (
+                                <div className="d-flex flex-column gap-1.5 mb-2">
+                                    {referenciasAnimes.map((refAnime) => (
+                                        <div key={refAnime.malId} className="tb-elegido">
+                                            <img src={refAnime.imagenUrl} alt="" onError={alFallarPoster} />
+                                            <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                                                <div className="fw-semibold text-white text-truncate">
+                                                    {refAnime.titulo}
+                                                </div>
+                                                <div className="small">
+                                                    {refAnime.nota !== null ? `★ ${refAnime.nota}` : 'Sin nota'}
+                                                    {refAnime.generos.length > 0
+                                                        ? ` · ${refAnime.generos.slice(0, 2).join(', ')}`
+                                                        : ''}
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="ml-icon-btn"
+                                                onClick={() => quitarReferenciaAnime(refAnime.malId)}
+                                                aria-label={`Quitar ${refAnime.titulo}`}
+                                            >
+                                                <X size={15} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {referenciasAnimes.length < 3 && (
+                                <div>
+                                    <div className="ml-buscador">
+                                        <Search size={15} />
+                                        <input
+                                            id="tb-ref"
+                                            className="ml-input"
+                                            placeholder="Busca un anime de referencia (ej: Monster, Death Note)…"
+                                            value={busquedaRef}
+                                            onChange={(e) => setBusquedaRef(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="ml-resultados">
+                                        {resultadosRef.isFetching && (
+                                            <p className="small mb-0 mt-2">Buscando en el catálogo…</p>
+                                        )}
+                                        {resultadosRef.isError && (
+                                            <p className="small mb-0 mt-2">No se pudo buscar en el catálogo.</p>
+                                        )}
+                                        {(resultadosRef.data ?? [])
+                                            .filter((r) => !referenciasAnimes.some((a) => a.malId === r.malId))
+                                            .map((r) => (
+                                                <button
+                                                    key={r.malId}
+                                                    type="button"
+                                                    className="ml-resultado"
+                                                    onClick={() => agregarReferenciaAnime(r)}
+                                                >
+                                                    <img
+                                                        src={r.imagenUrl}
+                                                        alt=""
+                                                        loading="lazy"
+                                                        onError={alFallarPoster}
+                                                    />
+                                                    <span style={{ minWidth: 0 }}>
+                                                        <span className="d-block fw-semibold text-truncate">
+                                                            {r.titulo}
+                                                        </span>
+                                                        <span className="small text-secondary">
+                                                            {r.nota !== null ? `★ ${r.nota}` : 'Sin nota'}
+                                                        </span>
+                                                    </span>
+                                                </button>
+                                            ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </>
                 )}

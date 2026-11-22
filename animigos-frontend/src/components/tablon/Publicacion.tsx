@@ -1,6 +1,7 @@
 import { BookmarkCheck, BookmarkPlus, Heart, Lightbulb, Ticket, Trophy, Users, Vote, Send, Sparkles, Handshake, Star, Clapperboard } from 'lucide-react'
 import type { Actividad, TipoActividad } from '../../services/feedApi'
 import { alFallarPoster } from '../mi-lista/mi-lista-data'
+import { navigate } from '../../utils/navigation'
 
 const ETIQUETA_TIPO: Record<TipoActividad, { texto: string; icono: typeof Send }> = {
     recomendacion_directa: { texto: 'Te recomienda', icono: Send },
@@ -145,7 +146,25 @@ function CuerpoBusqueda({ actividad: a, onSugerir }: { actividad: Actividad; onS
                 </div>
             )}
             <div className="tb-nota-pie">
-                {b.referencia && <span>Referencia: <strong>{b.referencia}</strong></span>}
+                {b.referenciasAnimes && b.referenciasAnimes.length > 0 ? (
+                    <div className="tb-nota-refs">
+                        <span className="tb-nota-refs-label">Parecido a:</span>
+                        {b.referenciasAnimes.map((refAnime) => (
+                            <button
+                                key={refAnime.malId}
+                                type="button"
+                                className="tb-nota-ref-pill"
+                                onClick={() => navigate(`/anime/${refAnime.malId}`)}
+                                title={`Ver ficha de ${refAnime.titulo}`}
+                            >
+                                <img src={refAnime.imagenUrl} alt="" onError={alFallarPoster} />
+                                <span>{refAnime.titulo}</span>
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    b.referencia && <span>Referencia: <strong>{b.referencia}</strong></span>
+                )}
                 <button type="button" className="ml-btn ml-btn-sm" onClick={() => onSugerir(a)}>
                     <Lightbulb size={14} /> Sugerir un anime
                 </button>

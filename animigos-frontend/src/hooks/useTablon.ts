@@ -69,12 +69,14 @@ export function useTablon() {
             referencia,
             generos,
             tags,
+            referenciasAnimes,
         }: {
             pedido: string
             referencia?: string
             generos?: string[]
             tags?: string[]
-        }) => publicarBusqueda(autor, pedido, referencia, generos, tags),
+            referenciasAnimes?: AnimeResumen[]
+        }) => publicarBusqueda(autor, pedido, referencia, generos, tags, referenciasAnimes),
         onSettled: refrescarFeed,
     })
     const encuesta = useMutation({

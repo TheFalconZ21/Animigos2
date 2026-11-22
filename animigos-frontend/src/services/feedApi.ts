@@ -49,7 +49,13 @@ export interface Actividad {
     agradecidoPorMi: boolean
     recomendacion?: { anime: AnimeResumen; nota: string; paraMi: boolean }
     invitacion?: { codigoSala: string; nombreSala: string; integrantes: number; candidatoTop?: string }
-    busqueda?: { pedido: string; referencia?: string; generos?: string[]; tags?: string[] }
+    busqueda?: {
+        pedido: string
+        referencia?: string
+        referenciasAnimes?: AnimeResumen[]
+        generos?: string[]
+        tags?: string[]
+    }
     encuesta?: { pregunta: string; opciones: OpcionEncuesta[]; miVoto?: string }
     hito?: { titulo: string; descripcion: string; icono: 'trofeo' | 'amistad' | 'estrella' }
 }
@@ -229,9 +235,14 @@ export async function publicarBusqueda(
     referencia?: string,
     generos?: string[],
     tags?: string[],
+    referenciasAnimes?: AnimeResumen[],
 ): Promise<Actividad> {
     const cleanGeneros = (generos ?? []).map((g) => g.trim()).filter(Boolean)
     const cleanTags = (tags ?? []).map((t) => t.trim()).filter(Boolean)
+    const cleanRefs = (referenciasAnimes ?? []).filter((a) => a && a.malId)
+    const fallbackRefText =
+        referencia ||
+        (cleanRefs.length > 0 ? cleanRefs.map((a) => a.titulo).join(', ') : undefined)
     const act: Actividad = {
         id: nuevoId(),
         tipo: 'busco_anime',
@@ -241,7 +252,8 @@ export async function publicarBusqueda(
         agradecidoPorMi: false,
         busqueda: {
             pedido,
-            referencia: referencia || undefined,
+            referencia: fallbackRefText,
+            referenciasAnimes: cleanRefs.length > 0 ? cleanRefs : undefined,
             generos: cleanGeneros.length > 0 ? cleanGeneros : undefined,
             tags: cleanTags.length > 0 ? cleanTags : undefined,
         },
