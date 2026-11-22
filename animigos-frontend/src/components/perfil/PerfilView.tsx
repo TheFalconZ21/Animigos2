@@ -900,9 +900,12 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                                     }
                                 />
 
-                                {/* 2º FILA DE 4 KPIs GENERALES CLICKEABLES + 3º HALL OF FAME DEL USUARIO */}
+                                {/* 2º FILA DE 4 KPIs GENERALES CLICKEABLES + 2.5º RADAR ADN OTAKU + 3º HALL OF FAME */}
                                 <AnimeStatsDashboard
                                     filas={activeFilas}
+                                    viewerFilas={isVisitingOther ? filas : undefined}
+                                    profileLabel={activeDisplayName}
+                                    viewerLabel={displayName}
                                     activeSubView={null}
                                     onSelectSubView={handleOpenSubView}
                                     showStats={!isVisitingOther || activePrivacy.showStats}

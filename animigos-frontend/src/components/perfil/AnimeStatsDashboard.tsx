@@ -29,11 +29,15 @@ import { ESCALA_NOTAS } from '../mi-lista/mi-lista-data'
 import { AnimeDetalleDialog } from '../mi-lista/AnimeDetalleDialog'
 import { TasteCorrelationGraph } from '../recomendador/TasteCorrelationGraph'
 import { AnimeTimeWatchedView } from './AnimeTimeWatchedView'
+import { OtakuDnaRadarChart } from './OtakuDnaRadarChart'
 import type { TasteAnalyticsResponse } from '../../services/recommenderApi'
 import type { ProfileSubView } from './perfil-types'
 
 interface AnimeStatsDashboardProps {
     filas: FilaLista[]
+    viewerFilas?: FilaLista[]
+    profileLabel?: string
+    viewerLabel?: string
     activeSubView?: ProfileSubView | null
     onSelectSubView?: (view: ProfileSubView | null) => void
     showStats?: boolean
@@ -208,6 +212,9 @@ function calculateTagStatsForFilas(
 
 export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
     filas,
+    viewerFilas,
+    profileLabel = 'Usuario',
+    viewerLabel = 'Tú',
     activeSubView = null,
     onSelectSubView,
     showStats = true,
@@ -1774,6 +1781,17 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                     </div>
                 </div>
             </div>
+
+            {/* =======================================================================
+                2.5º RADAR DE ADN OTAKU (CONSUMO VS. NOTA MEDIA / COMPARATIVA CON AMIGO)
+               ======================================================================= */}
+            <OtakuDnaRadarChart
+                filas={filas}
+                viewerFilas={viewerFilas}
+                profileLabel={profileLabel}
+                viewerLabel={viewerLabel}
+                accentColor={accentColor}
+            />
 
             {/* =======================================================================
                 3º HALL OF FAME DEL USUARIO (ANIMES FAVORITOS CON LA NOTA MÁS ALTA)
