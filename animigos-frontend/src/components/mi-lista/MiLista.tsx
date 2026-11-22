@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, type CSSProperties } from 'react'
 import { navigate } from '../../utils/navigation'
-import { ArrowLeft, Eye, Folder, Hash, LayoutGrid, LayoutList, Loader2, Lock, Plus, Search, Send, SlidersHorizontal, Upload, X } from 'lucide-react'
+import { ArrowLeft, Eye, Folder, Hash, Image as ImageIcon, LayoutGrid, LayoutList, Loader2, Lock, Plus, Search, Send, SlidersHorizontal, Upload, X } from 'lucide-react'
 import {
     apiEntryToFila,
     ESCALA_NOTAS,
@@ -25,7 +25,14 @@ import { RecomendarDialog, type Paquete } from './RecomendarDialog'
 import { AgregarDialog } from './AgregarDialog'
 import { ImportarMalXmlDialog } from './ImportarMalXmlDialog'
 import { VerTodosDialog } from './VerTodosDialog'
-import { LateralesAnime } from './LateralesAnime'
+import {
+    LateralesAnime,
+    LateralBannerModal,
+    DEFAULT_MILISTA_LATERAL_CONFIG,
+    type MiListaLateralConfig,
+} from './LateralesAnime'
+import { API_BASE_URL } from '../../services/apiConfig'
+import { getAuthHeaders } from '../../services/authApi'
 import { SelloNota } from './piezas'
 import './mi-lista.css'
 
@@ -169,7 +176,68 @@ export function MiLista({
     const [paquete, setPaquete] = useState<Paquete | null>(null)
     const [agregarAbierto, setAgregarAbierto] = useState(false)
     const [importarAbierto, setImportarAbierto] = useState(false)
+    const [lateralesAbierto, setLateralesAbierto] = useState(false)
     const [verTodos, setVerTodos] = useState<string | null>(null)
+
+    // --- Configuración de banners laterales personalizables (IMG / GIF) ---
+    const [lateralConfig, setLateralConfig] = useState<MiListaLateralConfig>(DEFAULT_MILISTA_LATERAL_CONFIG)
+
+    useEffect(() => {
+        if (isReadOnlyVisit) {
+            setLateralConfig(DEFAULT_MILISTA_LATERAL_CONFIG)
+            return
+        }
+        const uid = user?.id ?? 'guest'
+        const storageKey = `animigos_milista_laterales_${uid}`
+        const ps = (user?.preferences?.privacy_settings || {}) as Record<string, unknown>
+        const backendCfg = ps.mi_lista_laterales as Partial<MiListaLateralConfig> | undefined
+
+        try {
+            const raw = localStorage.getItem(storageKey)
+            const localCfg = raw ? (JSON.parse(raw) as Partial<MiListaLateralConfig>) : null
+            const merged: MiListaLateralConfig = {
+                ...DEFAULT_MILISTA_LATERAL_CONFIG,
+                ...(backendCfg && typeof backendCfg === 'object' ? backendCfg : {}),
+                ...(localCfg && typeof localCfg === 'object' ? localCfg : {}),
+            }
+            setLateralConfig(merged)
+        } catch {
+            if (backendCfg && typeof backendCfg === 'object') {
+                setLateralConfig({ ...DEFAULT_MILISTA_LATERAL_CONFIG, ...backendCfg })
+            }
+        }
+    }, [user?.id, user?.preferences?.privacy_settings, isReadOnlyVisit])
+
+    const handleGuardarLaterales = async (nextConfig: MiListaLateralConfig) => {
+        setLateralConfig(nextConfig)
+        const uid = user?.id ?? 'guest'
+        try {
+            localStorage.setItem(`animigos_milista_laterales_${uid}`, JSON.stringify(nextConfig))
+        } catch {
+            // Si el GIF local supera la cuota de localStorage, se mantiene en memoria para la sesión
+        }
+
+        // Sincronizar con backend cuando no supere ~1.5MB (URLs o imágenes ligeras)
+        const serializedLen = (nextConfig.leftUrl?.length || 0) + (nextConfig.rightUrl?.length || 0)
+        if (isAuthenticated && user && serializedLen < 1_500_000) {
+            try {
+                const existingPs = (user.preferences?.privacy_settings || {}) as Record<string, unknown>
+                await fetch(`${API_BASE_URL}/users/me/preferences/`, {
+                    method: 'PATCH',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        privacy_settings: {
+                            ...existingPs,
+                            mi_lista_laterales: nextConfig,
+                        },
+                    }),
+                })
+            } catch {
+                // Silencioso; ya persistido en localStorage
+            }
+        }
+    }
 
     // --- Interacción con afiches laterales ---
     const [hoveredFila, setHoveredFila] = useState<FilaLista | null>(null)
@@ -328,7 +396,12 @@ export function MiLista({
 
     return (
         <section className="ml-root ml-seccion-lista flex-grow-1" style={{ '--ml-acento': acento } as CSSProperties}>
-            <LateralesAnime filas={filas} visibles={visibles} activeFila={activeFila} />
+            <LateralesAnime
+                filas={filas}
+                visibles={visibles}
+                activeFila={activeFila}
+                customConfig={lateralConfig}
+            />
 
             <div className="container flex-grow-1 d-flex flex-column">
                 {/* ---------- Cabecera ---------- */}
@@ -408,6 +481,19 @@ export function MiLista({
                                         title="Importa tu lista oficial desde animelist.xml de MyAnimeList"
                                     >
                                         <Upload size={15} /> Importar MyAnimeList (.xml)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="ml-btn"
+                                        style={{
+                                            background: 'var(--cat-surface-2, #18181f)',
+                                            border: '1px solid var(--cat-border, rgba(255, 255, 255, 0.1))',
+                                            color: '#f4f4f5',
+                                        }}
+                                        onClick={() => setLateralesAbierto(true)}
+                                        title="Personaliza los banners laterales con imágenes o GIFs animados"
+                                    >
+                                        <ImageIcon size={15} /> Personalizar laterales
                                     </button>
                                 </>
                             )}
@@ -752,6 +838,12 @@ export function MiLista({
                         abierto={importarAbierto}
                         onCerrar={() => setImportarAbierto(false)}
                         onExito={() => refetch()}
+                    />
+                    <LateralBannerModal
+                        abierto={lateralesAbierto}
+                        onCerrar={() => setLateralesAbierto(false)}
+                        config={lateralConfig}
+                        onGuardar={handleGuardarLaterales}
                     />
                 </>
             )}

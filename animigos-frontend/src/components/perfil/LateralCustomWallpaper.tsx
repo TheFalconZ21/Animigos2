@@ -311,7 +311,7 @@ export const LateralCustomWallpaper: React.FC<LateralCustomWallpaperProps> = ({
 
                     {/* Acciones */}
                     <div className="d-flex justify-content-end gap-2 pt-3 border-top" style={{ borderColor: 'var(--perfil-border)' }}>
-                        <button type="button" onClick={() => setModalOpen(false)} className="ml-btn ml-btn-fantasma ml-btn-sm">
+                        <button type="button" onClick={handleClose} className="ml-btn ml-btn-fantasma ml-btn-sm">
                             Cancelar
                         </button>
                         <button type="button" onClick={handleSave} className="ml-btn ml-btn-acento ml-btn-sm">
