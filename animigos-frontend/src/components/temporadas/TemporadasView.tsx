@@ -34,6 +34,8 @@ interface TemporadasViewProps {
 
 type WindowStage = 'timeline' | 'year' | 'season'
 
+const SEASON_ORDER = ['Winter', 'Spring', 'Summer', 'Fall'] as const
+
 const SEASON_THEMES: Record<string, {
     name: string
     icon: React.ReactNode
@@ -215,6 +217,51 @@ export const TemporadasView: React.FC<TemporadasViewProps> = ({
     const handleSelectSeason = (seasonKey: string) => {
         changeStage('season', undefined, seasonKey)
     }
+
+    // Navegación consecutiva entre años y temporadas (incluyendo cambio de año)
+    const availableYears = useMemo(
+        () => [...timeline].map((t) => t.year).sort((a, b) => a - b),
+        [timeline],
+    )
+
+    const { prevYear, nextYear } = useMemo(() => {
+        if (availableYears.length === 0) {
+            return { prevYear: selectedYear - 1, nextYear: selectedYear + 1 }
+        }
+        const idx = availableYears.indexOf(selectedYear)
+        if (idx !== -1) {
+            return {
+                prevYear: idx > 0 ? availableYears[idx - 1] : null,
+                nextYear: idx < availableYears.length - 1 ? availableYears[idx + 1] : null,
+            }
+        }
+        const lower = [...availableYears].reverse().find((y) => y < selectedYear) ?? null
+        const higher = availableYears.find((y) => y > selectedYear) ?? null
+        return { prevYear: lower, nextYear: higher }
+    }, [availableYears, selectedYear])
+
+    const { prevSeasonTarget, nextSeasonTarget } = useMemo(() => {
+        if (!selectedSeasonKey) {
+            return { prevSeasonTarget: null, nextSeasonTarget: null }
+        }
+        const idx = SEASON_ORDER.indexOf(selectedSeasonKey as (typeof SEASON_ORDER)[number])
+        if (idx === -1) {
+            return { prevSeasonTarget: null, nextSeasonTarget: null }
+        }
+        const prev =
+            idx > 0
+                ? { year: selectedYear, seasonKey: SEASON_ORDER[idx - 1] }
+                : prevYear !== null
+                  ? { year: prevYear, seasonKey: 'Fall' as const }
+                  : null
+        const next =
+            idx < SEASON_ORDER.length - 1
+                ? { year: selectedYear, seasonKey: SEASON_ORDER[idx + 1] }
+                : nextYear !== null
+                  ? { year: nextYear, seasonKey: 'Winter' as const }
+                  : null
+        return { prevSeasonTarget: prev, nextSeasonTarget: next }
+    }, [selectedSeasonKey, selectedYear, prevYear, nextYear])
 
     const handleBackToTimeline = () => {
         changeStage('timeline')
@@ -515,7 +562,29 @@ export const TemporadasView: React.FC<TemporadasViewProps> = ({
 
                         <div className="window-topbar-center">
                             <span className="window-current-badge">AÑO EN REVISIÓN</span>
-                            <h2 className="window-current-title">{selectedYear}</h2>
+                            <div className="window-title-nav">
+                                <button
+                                    type="button"
+                                    className="window-nav-arrow"
+                                    disabled={prevYear === null}
+                                    onClick={() => prevYear !== null && setSelectedYear(prevYear)}
+                                    title={prevYear !== null ? `Ir al año ${prevYear}` : 'Primer año disponible'}
+                                    aria-label={prevYear !== null ? `Año anterior (${prevYear})` : 'No hay año anterior'}
+                                >
+                                    <ChevronLeft size={18} />
+                                </button>
+                                <h2 className="window-current-title">{selectedYear}</h2>
+                                <button
+                                    type="button"
+                                    className="window-nav-arrow"
+                                    disabled={nextYear === null}
+                                    onClick={() => nextYear !== null && setSelectedYear(nextYear)}
+                                    title={nextYear !== null ? `Ir al año ${nextYear}` : 'Último año disponible'}
+                                    aria-label={nextYear !== null ? `Año siguiente (${nextYear})` : 'No hay año siguiente'}
+                                >
+                                    <ChevronRight size={18} />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Espaciador para centrado balanceado */}
@@ -725,11 +794,49 @@ export const TemporadasView: React.FC<TemporadasViewProps> = ({
 
                         <div className="window-topbar-center">
                             <span className="window-current-badge">ESTACIÓN SELECCIONADA</span>
-                            <div className="d-flex align-items-center justify-content-center gap-2">
-                                {SEASON_THEMES[selectedSeasonKey]?.icon}
-                                <h2 className="window-current-title">
-                                    {SEASON_THEMES[selectedSeasonKey]?.name} {selectedYear}
-                                </h2>
+                            <div className="window-title-nav">
+                                <button
+                                    type="button"
+                                    className="window-nav-arrow"
+                                    disabled={!prevSeasonTarget}
+                                    onClick={() => {
+                                        if (!prevSeasonTarget) return
+                                        setSelectedYear(prevSeasonTarget.year)
+                                        setSelectedSeasonKey(prevSeasonTarget.seasonKey)
+                                    }}
+                                    title={
+                                        prevSeasonTarget
+                                            ? `Ir a ${SEASON_THEMES[prevSeasonTarget.seasonKey]?.name} ${prevSeasonTarget.year}`
+                                            : 'Primera temporada disponible'
+                                    }
+                                    aria-label="Temporada anterior"
+                                >
+                                    <ChevronLeft size={18} />
+                                </button>
+                                <div className="d-flex align-items-center justify-content-center gap-2">
+                                    {SEASON_THEMES[selectedSeasonKey]?.icon}
+                                    <h2 className="window-current-title">
+                                        {SEASON_THEMES[selectedSeasonKey]?.name} {selectedYear}
+                                    </h2>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="window-nav-arrow"
+                                    disabled={!nextSeasonTarget}
+                                    onClick={() => {
+                                        if (!nextSeasonTarget) return
+                                        setSelectedYear(nextSeasonTarget.year)
+                                        setSelectedSeasonKey(nextSeasonTarget.seasonKey)
+                                    }}
+                                    title={
+                                        nextSeasonTarget
+                                            ? `Ir a ${SEASON_THEMES[nextSeasonTarget.seasonKey]?.name} ${nextSeasonTarget.year}`
+                                            : 'Última temporada disponible'
+                                    }
+                                    aria-label="Temporada siguiente"
+                                >
+                                    <ChevronRight size={18} />
+                                </button>
                             </div>
                         </div>
 

@@ -1256,3 +1256,39 @@
         display: none;
     }
 }
+
+
+/* Flechas sutiles izquierda/derecha para navegar años y temporadas consecutivas */
+.window-title-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+}
+
+.window-nav-arrow {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.58);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.16s ease;
+    padding: 0;
+}
+
+.window-nav-arrow:hover:not(:disabled) {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.24);
+    transform: scale(1.06);
+}
+
+.window-nav-arrow:disabled {
+    opacity: 0.22;
+    cursor: not-allowed;
+}
