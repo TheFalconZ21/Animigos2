@@ -25,10 +25,10 @@ export const NormalDistributionChart: React.FC<NormalDistributionChartProps> = (
 
     const chart = useMemo(() => {
         const width = 760
-        const height = 240
+        const height = 256
         const padLeft = 42
         const padRight = 28
-        const padTop = 34
+        const padTop = 52
         const padBottom = 42
         const plotW = width - padLeft - padRight
         const plotH = height - padTop - padBottom
@@ -197,8 +197,8 @@ export const NormalDistributionChart: React.FC<NormalDistributionChartProps> = (
                         strokeWidth="1.2"
                     />
                     <text
-                        x={chart.meanX}
-                        y={Math.max(16, chart.meanY - 10)}
+                        x={Math.min(chart.width - 56, Math.max(56, chart.meanX))}
+                        y={Math.max(30, chart.meanY - 12)}
                         textAnchor="middle"
                         fill="rgba(255, 255, 255, 0.68)"
                         fontSize="11"
@@ -208,43 +208,50 @@ export const NormalDistributionChart: React.FC<NormalDistributionChartProps> = (
                     </text>
 
                     {/* Marcador de posición del usuario actual */}
-                    {currentUser && (
-                        <g>
-                            <line
-                                x1={chart.userX}
-                                y1={chart.userY}
-                                x2={chart.userX}
-                                y2={chart.baseY}
-                                stroke={highlightColor}
-                                strokeWidth="2.2"
-                            />
-                            <circle
-                                cx={chart.userX}
-                                cy={chart.userY}
-                                r="7"
-                                fill={highlightColor}
-                                fillOpacity="0.28"
-                            />
-                            <circle
-                                cx={chart.userX}
-                                cy={chart.userY}
-                                r="4.2"
-                                fill={highlightColor}
-                                stroke="#0d0f14"
-                                strokeWidth="1.6"
-                            />
-                            <text
-                                x={Math.min(chart.width - 70, Math.max(70, chart.userX))}
-                                y={Math.max(16, chart.userY - 12)}
-                                textAnchor="middle"
-                                fill={highlightColor}
-                                fontSize="11.5"
-                                fontWeight="700"
-                            >
-                                Tú ({currentUser.total_hours.toLocaleString()} h)
-                            </text>
-                        </g>
-                    )}
+                    {currentUser && (() => {
+                        const labelsClose = Math.abs(chart.userX - chart.meanX) < 95
+                        const userLabelX = Math.min(chart.width - 70, Math.max(70, chart.userX))
+                        const userLabelY = labelsClose
+                            ? Math.max(14, Math.min(chart.userY, chart.meanY) - 30)
+                            : Math.max(16, chart.userY - 12)
+                        return (
+                            <g>
+                                <line
+                                    x1={chart.userX}
+                                    y1={chart.userY}
+                                    x2={chart.userX}
+                                    y2={chart.baseY}
+                                    stroke={highlightColor}
+                                    strokeWidth="2.2"
+                                />
+                                <circle
+                                    cx={chart.userX}
+                                    cy={chart.userY}
+                                    r="7"
+                                    fill={highlightColor}
+                                    fillOpacity="0.28"
+                                />
+                                <circle
+                                    cx={chart.userX}
+                                    cy={chart.userY}
+                                    r="4.2"
+                                    fill={highlightColor}
+                                    stroke="#0d0f14"
+                                    strokeWidth="1.6"
+                                />
+                                <text
+                                    x={userLabelX}
+                                    y={userLabelY}
+                                    textAnchor="middle"
+                                    fill={highlightColor}
+                                    fontSize="11.5"
+                                    fontWeight="700"
+                                >
+                                    Tú ({currentUser.total_hours.toLocaleString()} h)
+                                </text>
+                            </g>
+                        )
+                    })()}
 
                     {/* Ticks eje X */}
                     {chart.xTicks.map((t, idx) => (
