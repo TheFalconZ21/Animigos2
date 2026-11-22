@@ -1453,3 +1453,46 @@
     align-items: center;
     gap: 0.5rem;
 }
+
+
+/* Popover de información de Géneros y Tags de AniList (autocontenido en catalogo.css) */
+.anime-tag-info-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: 265px;
+    max-width: min(265px, 82vw);
+    background: rgba(16, 17, 25, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 11px;
+    padding: 0.8rem 0.92rem;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.72);
+    z-index: 60;
+    pointer-events: none;
+    text-align: left;
+    animation: animeTagPopoverIn 0.14s ease-out;
+}
+
+@keyframes animeTagPopoverIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.anime-tag-info-popover-title {
+    font-size: 0.86rem;
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: 0.3rem;
+}
+
+.anime-tag-info-popover-desc {
+    font-size: 0.75rem;
+    line-height: 1.48;
+    color: #d4d4d8;
+}

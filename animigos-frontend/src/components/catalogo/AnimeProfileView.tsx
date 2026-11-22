@@ -761,15 +761,18 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                                     setHoveredTag(`genre_${g}`)
                                                                 }}
                                                                 onMouseLeave={() => setHoveredTag(null)}
-                                                                onClick={(e) => e.stopPropagation()}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    setHoveredTag((prev) => (prev === `genre_${g}` ? null : `genre_${g}`))
+                                                                }}
                                                             >
                                                                 i
                                                             </span>
                                                         </button>
                                                         {hoveredTag === `genre_${g}` && (
-                                                            <div className="rec-tag-info-popover rec-tag-info-popover-tax">
-                                                                <div className="rec-tag-info-popover-title">{g}</div>
-                                                                <p className="rec-tag-info-popover-desc mb-0">
+                                                            <div className="anime-tag-info-popover">
+                                                                <div className="anime-tag-info-popover-title">{g}</div>
+                                                                <p className="anime-tag-info-popover-desc mb-0">
                                                                     {getTagDescription(g, 'Genre', true)}
                                                                 </p>
                                                             </div>
@@ -808,17 +811,20 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                                     setHoveredTag(`main_${t.name}`)
                                                                 }}
                                                                 onMouseLeave={() => setHoveredTag(null)}
-                                                                onClick={(e) => e.stopPropagation()}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    setHoveredTag((prev) => (prev === `main_${t.name}` ? null : `main_${t.name}`))
+                                                                }}
                                                             >
                                                                 i
                                                             </span>
                                                         </button>
                                                         {hoveredTag === `main_${t.name}` && (
-                                                            <div className="rec-tag-info-popover rec-tag-info-popover-tax">
-                                                                <div className="rec-tag-info-popover-title">
+                                                            <div className="anime-tag-info-popover">
+                                                                <div className="anime-tag-info-popover-title">
                                                                     {t.name} ({t.rank ?? 80}%)
                                                                 </div>
-                                                                <p className="rec-tag-info-popover-desc mb-0">
+                                                                <p className="anime-tag-info-popover-desc mb-0">
                                                                     {getTagDescription(t.name, t.category, true)}
                                                                 </p>
                                                             </div>
@@ -856,17 +862,20 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                                     setHoveredTag(`sec_${t.name}`)
                                                                 }}
                                                                 onMouseLeave={() => setHoveredTag(null)}
-                                                                onClick={(e) => e.stopPropagation()}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    setHoveredTag((prev) => (prev === `sec_${t.name}` ? null : `sec_${t.name}`))
+                                                                }}
                                                             >
                                                                 i
                                                             </span>
                                                         </button>
                                                         {hoveredTag === `sec_${t.name}` && (
-                                                            <div className="rec-tag-info-popover rec-tag-info-popover-tax">
-                                                                <div className="rec-tag-info-popover-title">
+                                                            <div className="anime-tag-info-popover">
+                                                                <div className="anime-tag-info-popover-title">
                                                                     {t.name} ({t.rank ?? 60}%)
                                                                 </div>
-                                                                <p className="rec-tag-info-popover-desc mb-0">
+                                                                <p className="anime-tag-info-popover-desc mb-0">
                                                                     {getTagDescription(t.name, t.category, false)}
                                                                 </p>
                                                             </div>
