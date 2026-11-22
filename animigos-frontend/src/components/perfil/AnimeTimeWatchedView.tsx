@@ -363,7 +363,19 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
 
     // 3. DIMENSIÓN DE TU TIEMPO (EQUIVALENCIAS EN LA VIDA REAL)
     const timeEquivalences = useMemo(() => {
-        const hours = Math.max(1, kpis.totalHours)
+        if (kpis.totalMinutes <= 0 || kpis.totalHours <= 0) {
+            return {
+                books: 0,
+                languages: 0,
+                vocabWords: 0,
+                collegePct: 0,
+                semestres: 0,
+                ectsCredits: 0,
+                worldTours: 0,
+            }
+        }
+
+        const hours = kpis.totalHours
 
         // 1. Libros leídos (~300 páginas con lectura reflexiva de 250 palabras/min = 5.2 horas/libro)
         const books = Math.max(1, Math.round(hours / 5.2))
@@ -389,11 +401,30 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
             ectsCredits,
             worldTours,
         }
-    }, [kpis.totalHours])
+    }, [kpis.totalHours, kpis.totalMinutes])
 
     // Tarjetas temáticas con comentarios del Profesor Doki Doki
     // El dato principal está incorporado directamente dentro del diálogo en su color respectivo
     const dokiCards = useMemo(() => {
+        if (kpis.totalMinutes <= 0 || kpis.totalHours <= 0) {
+            return [
+                {
+                    id: 'sin-datos',
+                    title: 'Sin tiempo registrado',
+                    category: 'Inicio',
+                    icon: <Clock size={16} style={{ color: '#94a3b8' }} />,
+                    color: '#94a3b8',
+                    expression: 'pensando' as DokiExpression,
+                    dialogue: (
+                        <>
+                            ¡Todavía hay{' '}
+                            <strong style={{ color: '#e2e8f0' }}>0 horas registradas</strong> en esta lista! En cuanto se marquen los primeros capítulos vistos o en progreso, aquí calcularé a cuántas novelas, idiomas, viajes y habilidades equivale todo ese tiempo de anime.
+                        </>
+                    ),
+                },
+            ]
+        }
+
         return [
             {
                 id: 'libros',
@@ -485,11 +516,11 @@ export const AnimeTimeWatchedView: React.FC<AnimeTimeWatchedViewProps> = ({
                 ),
             },
         ]
-    }, [kpis.totalHours, timeEquivalences])
+    }, [kpis.totalHours, kpis.totalMinutes, timeEquivalences])
 
     // Iteración automática cada 10 segundos para Profesor Doki (se pausa al pasar el ratón)
     useEffect(() => {
-        if (isDokiPaused) return
+        if (isDokiPaused || dokiCards.length <= 1) return
         const timer = setInterval(() => {
             setActiveDokiCard((prev) => (prev + 1) % dokiCards.length)
         }, 10000)
