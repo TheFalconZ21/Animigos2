@@ -132,41 +132,29 @@ export const RankingView: React.FC = () => {
             )}
 
             {isOptInRequired && !isLoading && (
-                <section
-                    className="ranking-dist-card text-center align-items-center py-5 px-4"
-                    style={{ maxWidth: 620, margin: '0.5rem auto' }}
-                >
-                    <div
-                        className="rounded-circle d-inline-flex align-items-center justify-content-center mb-1"
-                        style={{
-                            width: 56,
-                            height: 56,
-                            background: 'rgba(251, 191, 36, 0.14)',
-                            border: '1px solid rgba(251, 191, 36, 0.4)',
-                            color: '#fbbf24',
-                        }}
-                    >
+                <section className="ranking-optin-card">
+                    <div className="ranking-optin-icon">
                         <Lock size={24} />
                     </div>
-                    <h2 className="h5 fw-bold text-white mb-1">
+                    <h2 className="ranking-optin-title">
                         El Ranking Otaku requiere tu consentimiento
                     </h2>
-                    <p className="small mb-3" style={{ color: '#94a3b8', maxWidth: 460 }}>
-                        Por privacidad, solo los usuarios que activan la opción{' '}
+                    <p className="ranking-optin-desc">
+                        Por privacidad, solo los usuarios que activan{' '}
                         <strong className="text-white">Participar en el Ranking Otaku</strong> en{' '}
-                        <em>Configuración → Privacidad</em> aparecen en la tabla y pueden ver la clasificación de la comunidad y de sus amigos.
+                        <em>Configuración → Privacidad</em> aparecen en la tabla y pueden consultar la clasificación global y de sus amigos.
                     </p>
                     {optInError && (
-                        <div className="small text-danger mb-2">{optInError}</div>
+                        <div className="small text-danger">{optInError}</div>
                     )}
-                    <div className="d-flex flex-wrap justify-content-center gap-2">
+                    <div className="ranking-optin-actions">
                         <button
                             type="button"
                             onClick={handleEnableParticipation}
                             disabled={enablingOptIn}
-                            className="ml-btn ml-btn-acento ml-btn-sm d-inline-flex align-items-center gap-1.5"
+                            className="ranking-btn-primary"
                         >
-                            <Trophy size={14} />
+                            <Trophy size={15} />
                             <span>
                                 {enablingOptIn
                                     ? 'Activando...'
@@ -176,10 +164,10 @@ export const RankingView: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => navigate('/perfil')}
-                            className="ml-btn ml-btn-fantasma ml-btn-sm d-inline-flex align-items-center gap-1.5"
+                            className="ranking-btn-secondary"
                         >
-                            <Settings size={14} />
-                            <span>Ir a Configuración → Privacidad</span>
+                            <Settings size={15} />
+                            <span>Configuración → Privacidad</span>
                         </button>
                     </div>
                 </section>

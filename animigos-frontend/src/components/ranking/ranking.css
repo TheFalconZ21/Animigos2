@@ -388,3 +388,107 @@
         display: none;
     }
 }
+
+
+/* Tarjeta Opt-In de Consentimiento para Ranking Otaku */
+.ranking-optin-card {
+    max-width: 560px;
+    width: 100%;
+    margin: 1.5rem auto;
+    padding: 2.25rem 2rem;
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), #13151c 45%);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.9rem;
+}
+
+.ranking-optin-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: rgba(251, 191, 36, 0.14);
+    border: 1px solid rgba(251, 191, 36, 0.42);
+    color: #fbbf24;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 24px rgba(251, 191, 36, 0.18);
+}
+
+.ranking-optin-title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.ranking-optin-desc {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: #94a3b8;
+    max-width: 440px;
+}
+
+.ranking-optin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 0.4rem;
+    width: 100%;
+}
+
+.ranking-btn-primary {
+    border: 0;
+    border-radius: 12px;
+    padding: 0.65rem 1.25rem;
+    background: var(--theme-acento, #a78bfa);
+    color: #080808;
+    font-size: 0.84rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--theme-acento, #a78bfa) 30%, transparent);
+}
+
+.ranking-btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+}
+
+.ranking-btn-primary:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.ranking-btn-secondary {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    padding: 0.65rem 1.2rem;
+    background: rgba(255, 255, 255, 0.04);
+    color: #e2e8f0;
+    font-size: 0.84rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.ranking-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.28);
+    color: #ffffff;
+}
