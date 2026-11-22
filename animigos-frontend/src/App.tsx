@@ -57,6 +57,7 @@ function isPrivatePath(path: string): boolean {
     path === '/perfil' ||
     path === '/profile' ||
     path.startsWith('/perfil/') ||
+    path === '/ranking' ||
     path === '/admin'
   )
 }
@@ -109,7 +110,7 @@ function App() {
   // Redirigir si un usuario sin permisos intenta ver secciones privadas (Tablón, Mi Lista, Agenda, Perfil, Admin)
   useEffect(() => {
     if (loading) return
-    if (!isAuthenticated && (currentView === 'tablon' || currentView === 'mi-lista' || currentView === 'agenda' || currentView === 'perfil')) {
+    if (!isAuthenticated && (currentView === 'tablon' || currentView === 'mi-lista' || currentView === 'agenda' || currentView === 'perfil' || currentView === 'ranking')) {
       setCurrentView('catalogo')
       navigate('/catalogo', { replace: true })
     } else if (!isAdmin && currentView === 'admin') {
@@ -179,7 +180,14 @@ function App() {
       } else if (path === '/ranking') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
-        setCurrentView('ranking')
+        if (!isAuthenticatedRef.current) {
+          navigate('/catalogo', { replace: true })
+          setCurrentView('catalogo')
+          const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+          dialog?.showModal()
+        } else {
+          setCurrentView('ranking')
+        }
       } else if (path === '/admin') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)

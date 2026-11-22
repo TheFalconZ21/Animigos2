@@ -73,11 +73,11 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
         category: string
         items: NavItemConfig[]
     }[] = [
-        {
-            category: 'Social',
-            items: [
-                ...(isAuthenticated
-                    ? [
+        ...(isAuthenticated
+            ? [
+                  {
+                      category: 'Social',
+                      items: [
                           {
                               id: 'tablon' as PlatformView,
                               label: 'Tablón Social',
@@ -85,20 +85,21 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                               hash: 'tablon',
                               requiresAuth: true,
                               description: 'Feed de amigos, noticias y watch parties'
+                          },
+                          {
+                              id: 'ranking' as PlatformView,
+                              label: 'Ranking',
+                              icon: <Trophy size={17} />,
+                              hash: 'ranking',
+                              badge: 'Tiers',
+                              badgeColor: 'rgba(251, 191, 36, 0.22)',
+                              requiresAuth: true,
+                              description: 'Clasificación de usuarios por horas vistas'
                           }
                       ]
-                    : []),
-                {
-                    id: 'ranking',
-                    label: 'Ranking',
-                    icon: <Trophy size={17} />,
-                    hash: 'ranking',
-                    badge: 'Tiers',
-                    badgeColor: 'rgba(251, 191, 36, 0.22)',
-                    description: 'Clasificación de usuarios por horas vistas'
-                }
-            ]
-        },
+                  }
+              ]
+            : []),
         {
             category: 'De todos los días',
             items: [

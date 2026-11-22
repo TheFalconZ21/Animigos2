@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Friendship, Profile, UserAnimeEntry
@@ -85,7 +85,7 @@ def _get_friend_ids(user) -> set[int]:
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def user_ranking_view(request):
     """
     GET /api/users/ranking/?scope=all|friends

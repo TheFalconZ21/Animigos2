@@ -999,17 +999,19 @@ export function Navbar({
                             <History size={18} />
                             <span>Temporadas</span>
                         </a>
-                        <a
-                            href="/ranking"
-                            onClick={(e) => {
-                                e.preventDefault()
-                                handleNavClick('ranking')
-                            }}
-                            className={`mobile-nav-link ${currentView === 'ranking' ? 'active' : ''}`}
-                        >
-                            <Trophy size={18} />
-                            <span>Ranking</span>
-                        </a>
+                        {isAuthenticated && (
+                            <a
+                                href="/ranking"
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    handleNavClick('ranking')
+                                }}
+                                className={`mobile-nav-link ${currentView === 'ranking' ? 'active' : ''}`}
+                            >
+                                <Trophy size={18} />
+                                <span>Ranking</span>
+                            </a>
+                        )}
                         {isAuthenticated && (
                             <a
                                 href="/mi-lista"
