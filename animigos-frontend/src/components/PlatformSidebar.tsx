@@ -74,7 +74,7 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
         items: NavItemConfig[]
     }[] = [
         {
-            category: 'De todos los días',
+            category: 'Social',
             items: [
                 ...(isAuthenticated
                     ? [
@@ -88,6 +88,20 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                           }
                       ]
                     : []),
+                {
+                    id: 'ranking',
+                    label: 'Ranking',
+                    icon: <Trophy size={17} />,
+                    hash: 'ranking',
+                    badge: 'Tiers',
+                    badgeColor: 'rgba(251, 191, 36, 0.22)',
+                    description: 'Clasificación de usuarios por horas vistas'
+                }
+            ]
+        },
+        {
+            category: 'De todos los días',
+            items: [
                 {
                     id: 'calendario',
                     label: 'Calendario',
@@ -110,29 +124,11 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                               description: 'Seguimiento de capítulos pendientes'
                           }
                       ]
-                    : []),
-                {
-                    id: 'sala',
-                    label: 'Listas Grupales',
-                    icon: <Users size={17} />,
-                    hash: 'listas',
-                    badge: 'En vivo',
-                    badgeColor: 'rgba(16, 185, 129, 0.25)',
-                    description: 'Votación por consenso y watch parties'
-                },
-                {
-                    id: 'ranking',
-                    label: 'Ranking',
-                    icon: <Trophy size={17} />,
-                    hash: 'ranking',
-                    badge: 'Tiers',
-                    badgeColor: 'rgba(251, 191, 36, 0.22)',
-                    description: 'Clasificación de usuarios por horas vistas'
-                }
+                    : [])
             ]
         },
         {
-            category: 'Repertorio & Descubrimiento',
+            category: 'Repertorio y Descubrimiento',
             items: [
                 {
                     id: 'catalogo',
@@ -161,11 +157,11 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                 }
             ]
         },
-        ...(isAuthenticated
-            ? [
-                  {
-                      category: 'Mi Espacio',
-                      items: [
+        {
+            category: 'Mi espacio',
+            items: [
+                ...(isAuthenticated
+                    ? [
                           {
                               id: 'mi-lista' as PlatformView,
                               label: 'Mi Lista',
@@ -175,9 +171,18 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                               description: 'Seguimiento personal y notas de animes'
                           }
                       ]
-                  }
-              ]
-            : [])
+                    : []),
+                {
+                    id: 'sala',
+                    label: 'Listas Grupales',
+                    icon: <Users size={17} />,
+                    hash: 'listas',
+                    badge: 'En vivo',
+                    badgeColor: 'rgba(16, 185, 129, 0.25)',
+                    description: 'Votación por consenso y watch parties'
+                }
+            ]
+        }
     ]
 
     return (
