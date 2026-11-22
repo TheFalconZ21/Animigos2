@@ -54,6 +54,16 @@ class Command(BaseCommand):
             help='Pausa en segundos entre lotes para respetar el rate-limit de AniList.',
         )
         parser.add_argument(
+            '--include-active',
+            action='store_true',
+            help='Incluye además todos los animes en emisión (RELEASING) y por estrenarse (NOT_YET_AIRED / NOT_YET_RELEASED).',
+        )
+        parser.add_argument(
+            '--skip-hd',
+            action='store_true',
+            help='Omite animes cuya image_url ya apunta a anilistcdn/media/anime/cover/large.',
+        )
+        parser.add_argument(
             '--dry-run',
             action='store_true',
             help='Simula el proceso sin escribir cambios en la base de datos.',
@@ -63,22 +73,51 @@ class Command(BaseCommand):
         limit = max(1, int(options['limit']))
         batch_size = max(1, min(50, int(options['batch_size'])))
         delay = max(0.2, float(options['delay']))
+        include_active = bool(options['include_active'])
+        skip_hd = bool(options['skip_hd'])
         dry_run = bool(options['dry_run'])
 
-        qs = (
-            Anime.objects.exclude(mal_id__isnull=True)
-            .order_by(F('scored_by').desc(nulls_last=True), F('popularity').asc(nulls_last=True), F('score').desc(nulls_last=True))[:limit]
+        base_qs = Anime.objects.exclude(mal_id__isnull=True)
+        top_animes = list(
+            base_qs.order_by(
+                F('scored_by').desc(nulls_last=True),
+                F('popularity').asc(nulls_last=True),
+                F('score').desc(nulls_last=True),
+            )[:limit]
         )
-        animes = list(qs)
+
+        by_id = {a.mal_id: a for a in top_animes}
+        active_added = 0
+        if include_active:
+            active_qs = base_qs.filter(
+                status__in=['RELEASING', 'NOT_YET_AIRED', 'NOT_YET_RELEASED']
+            )
+            for a in active_qs:
+                if a.mal_id not in by_id:
+                    by_id[a.mal_id] = a
+                    active_added += 1
+
+        animes = list(by_id.values())
+        skipped_hd = 0
+        if skip_hd:
+            filtered = []
+            for a in animes:
+                if 'anilistcdn/media/anime/cover/large' in (a.image_url or ''):
+                    skipped_hd += 1
+                else:
+                    filtered.append(a)
+            animes = filtered
+
         total = len(animes)
         if total == 0:
-            self.stdout.write(self.style.WARNING('No se encontraron animes en la base de datos.'))
+            self.stdout.write(self.style.SUCCESS(f'Todos los animes objetivo ya tienen portada HD (omitidos: {skipped_hd}).'))
             return
 
         self.stdout.write(
             self.style.NOTICE(
-                f'Iniciando mejora de afiches HD para Top {total} animes '
-                f'(lotes de {batch_size}, dry_run={dry_run})...'
+                f'Iniciando mejora de afiches HD para {total} animes '
+                f'(Top {limit} + {active_added} en emisión/estreno, omitidos ya HD: {skipped_hd}, '
+                f'lotes de {batch_size}, dry_run={dry_run})...'
             )
         )
 
