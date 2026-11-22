@@ -349,44 +349,71 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
             })
             .slice(0, 10)
 
-        // Contrastes con la Comunidad y Joyas Ocultas
+        // Contrastes reales con la Comunidad Global y Joyas Ocultas
+        // Referencias globales del catálogo (media comunitaria ~7.0★, popularidad mainstream < #1500 / >= 50k votos)
+        const COMMUNITY_LOW_THRESHOLD = 7.0
+        const COMMUNITY_HIGH_THRESHOLD = 7.5
+        const HIDDEN_GEM_MAX_SCORED_BY = 50000
+        const HIDDEN_GEM_MIN_POPULARITY_RANK = 1500
+
+        // 1. Me gustaron y a la mayoría no: nota personal alta (>= 7) vs media global BAJO el promedio (< 7.0)
         const theyHatedIEnjoyed = [...filas]
             .filter((f) => {
-                const uScore = f.nota ?? (f.favorito ? 8.5 : null)
-                if (uScore === null) return false
-                const cScore = f.anime.score || 7.5
-                return uScore >= 6 && (uScore > cScore || cScore < 7.6)
+                if (typeof f.nota !== 'number' || f.nota <= 0) return false
+                const cScore = typeof f.anime.score === 'number' ? f.anime.score : 0
+                if (cScore <= 0) return false
+                return f.nota >= 7 && cScore < COMMUNITY_LOW_THRESHOLD && f.nota - cScore >= 0.8
             })
             .sort((a, b) => {
-                const diffA = (a.nota ?? 8.5) - (a.anime.score || 7.5)
-                const diffB = (b.nota ?? 8.5) - (b.anime.score || 7.5)
+                const diffA = (a.nota as number) - (a.anime.score || 0)
+                const diffB = (b.nota as number) - (b.anime.score || 0)
                 return diffB - diffA
             })
             .slice(0, 12)
 
+        // 2. No me gustaron y a la mayoría sí: nota personal baja (<= 6) vs media global ALTA (>= 7.5)
         const theyLovedIDidnt = [...filas]
             .filter((f) => {
                 if (typeof f.nota !== 'number' || f.nota <= 0) return false
-                const cScore = f.anime.score || 7.5
-                return f.nota < cScore && (f.nota <= 6 || cScore - f.nota >= 0.5)
+                const cScore = typeof f.anime.score === 'number' ? f.anime.score : 0
+                if (cScore <= 0) return false
+                return f.nota <= 6 && cScore >= COMMUNITY_HIGH_THRESHOLD && cScore - f.nota >= 1.0
             })
             .sort((a, b) => {
-                const diffA = (a.anime.score || 7.5) - (a.nota as number)
-                const diffB = (b.anime.score || 7.5) - (b.nota as number)
+                const diffA = (a.anime.score || 0) - (a.nota as number)
+                const diffB = (b.anime.score || 0) - (b.nota as number)
                 return diffB - diffA
             })
             .slice(0, 12)
 
+        // 3. Joyas Ocultas: nota personal alta (>= 8, o >= 7 si es favorito) + miembros/popularidad BAJO la media
         const hiddenGems = [...filas]
             .filter((f) => {
-                const uScore = f.nota ?? (f.favorito ? 9 : null)
-                return (uScore !== null && uScore >= 7) || f.favorito
+                if (typeof f.nota !== 'number' || f.nota <= 0) return false
+                const highPersonalRating = f.nota >= 8 || (f.nota >= 7 && f.favorito)
+                if (!highPersonalRating) return false
+
+                const scoredBy = typeof f.anime.scoredBy === 'number' && f.anime.scoredBy > 0 ? f.anime.scoredBy : null
+                const popularity = typeof f.anime.popularity === 'number' && f.anime.popularity > 0 ? f.anime.popularity : null
+
+                if (scoredBy !== null) {
+                    const lowMembers = scoredBy < HIDDEN_GEM_MAX_SCORED_BY
+                    const notMainstreamRank = popularity === null || popularity >= HIDDEN_GEM_MIN_POPULARITY_RANK
+                    return lowMembers && notMainstreamRank
+                }
+                if (popularity !== null) {
+                    return popularity >= HIDDEN_GEM_MIN_POPULARITY_RANK
+                }
+                return false
             })
             .sort((a, b) => {
-                const rankA = a.anime.popularity || a.anime.rank || 1
-                const rankB = b.anime.popularity || b.anime.rank || 1
-                if (rankB !== rankA) return rankB - rankA
-                return (b.nota ?? b.anime.score) - (a.nota ?? a.anime.score)
+                const memA = a.anime.scoredBy ?? Number.MAX_SAFE_INTEGER
+                const memB = b.anime.scoredBy ?? Number.MAX_SAFE_INTEGER
+                if (memA !== memB) return memA - memB
+                const popA = a.anime.popularity ?? 0
+                const popB = b.anime.popularity ?? 0
+                if (popB !== popA) return popB - popA
+                return (b.nota ?? 0) - (a.nota ?? 0)
             })
             .slice(0, 12)
 
@@ -1563,7 +1590,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                     {renderContrastRow(
                                         stats.theyHatedIEnjoyed,
                                         'hated_enjoyed',
-                                        'Aún no hay animes donde tu calificación supere a la media global de la comunidad (☆ MAL < ★ Tu Nota).'
+                                        'Aún no tienes animes con nota alta (★ 7+) cuya media global esté bajo el promedio (< 7.0☆).'
                                     )}
                                 </div>
                             )}
@@ -1577,7 +1604,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                     {renderContrastRow(
                                         stats.theyLovedIDidnt,
                                         'loved_didnt',
-                                        'No tienes animes calificados por debajo del consenso de la comunidad (☆ MAL > ★ Tu Nota).'
+                                        'No tienes animes con nota baja (★ 6 o menos) entre los mejor valorados por la comunidad (≥ 7.5☆).'
                                     )}
                                 </div>
                             )}
@@ -1591,7 +1618,7 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                     {renderContrastRow(
                                         stats.hiddenGems,
                                         'hidden_gems',
-                                        'Califica con ★ 7 o más tus animes favoritos para descubrir tus joyas ocultas aquí.'
+                                        'Aún no tienes joyas ocultas: califica con ★ 8+ animes poco conocidos (< 50k votos o popularidad #1500+).'
                                     )}
                                 </div>
                             )}
