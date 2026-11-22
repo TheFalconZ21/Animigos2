@@ -1546,6 +1546,7 @@ def _extract_user_privacy_dict(preferences_obj):
         'showStats': bool(nested_priv.get('showStats', ps.get('showStats', True))),
         'allowComments': str(nested_priv.get('allowComments', ps.get('allowComments', 'everyone'))),
         'allowRecommendations': bool(nested_priv.get('allowRecommendations', ps.get('allowRecommendations', True))),
+        'participateInRanking': bool(nested_priv.get('participateInRanking', ps.get('participateInRanking', False))),
     }
 
 

@@ -281,8 +281,9 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                 showStats: ps.showStats ?? true,
                 allowComments: ps.allowComments ?? 'everyone',
                 allowRecommendations: ps.allowRecommendations ?? true,
+                participateInRanking: Boolean(ps.participateInRanking),
             } : null)
-            setPrivacy(backendPriv || (savedPriv ? JSON.parse(savedPriv) : { isListPublic: true, showStats: true, allowComments: 'everyone' }))
+            setPrivacy(backendPriv ? { ...backendPriv, participateInRanking: Boolean(backendPriv.participateInRanking ?? ps.participateInRanking ?? false) } : (savedPriv ? JSON.parse(savedPriv) : { isListPublic: true, showStats: true, allowComments: 'everyone', participateInRanking: false }))
         } catch {
             setPrivacy({ isListPublic: true, showStats: true, allowComments: 'everyone' })
         }
@@ -543,6 +544,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                             showStats: newConfig.showStats,
                             allowComments: newConfig.allowComments,
                             allowRecommendations: newConfig.allowRecommendations !== false,
+                            participateInRanking: Boolean(newConfig.participateInRanking),
                             socials,
                             flag_url: flagUrl,
                             lateral_config: lateralConfig,

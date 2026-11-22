@@ -16,6 +16,7 @@ import {
     CheckCircle2,
     Settings,
     RefreshCw,
+    Trophy,
 } from 'lucide-react'
 import { Dialogo } from '../mi-lista/piezas'
 import { ProfileIntegrationsTab } from './ProfileIntegrationsTab'
@@ -636,7 +637,61 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                             </button>
                         </div>
 
-                        {/* 4. Permisos de Comentarios en el Muro */}
+                        {/* 4. Participación en Ranking Otaku (Opt-In) */}
+                        <div
+                            className="p-3 border d-flex align-items-center justify-content-between gap-3"
+                            style={{
+                                borderRadius: 12,
+                                background: 'var(--perfil-card-2)',
+                                borderColor: 'var(--perfil-border)',
+                            }}
+                        >
+                            <div className="d-flex align-items-center gap-3">
+                                <div
+                                    style={{
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: 8,
+                                        background: 'rgba(255, 255, 255, 0.05)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color:
+                                            privacy.participateInRanking === true
+                                                ? '#fbbf24'
+                                                : 'var(--perfil-text-dim)',
+                                    }}
+                                >
+                                    <Trophy size={18} />
+                                </div>
+                                <div>
+                                    <div className="text-white fw-semibold small">Participar en el Ranking Otaku</div>
+                                    <div
+                                        className="small"
+                                        style={{ color: 'var(--perfil-text-dim)', fontSize: '0.74rem' }}
+                                    >
+                                        {privacy.participateInRanking === true
+                                            ? 'Apareces en el ranking por horas vistas y puedes ver la clasificación global y de amigos'
+                                            : 'Desactivado: no apareces ni puedes ver el Ranking Otaku'}
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                className={`perfil-pill-toggle ${privacy.participateInRanking === true ? 'is-on' : ''}`}
+                                onClick={() =>
+                                    setPrivacy({
+                                        ...privacy,
+                                        participateInRanking: privacy.participateInRanking !== true,
+                                    })
+                                }
+                                aria-label="Alternar participación en el Ranking Otaku"
+                            >
+                                <span className="perfil-pill-handle" />
+                            </button>
+                        </div>
+
+                        {/* 5. Permisos de Comentarios en el Muro */}
                         <div>
                             <label className="form-label small fw-semibold text-white d-flex align-items-center gap-1.5 mb-2">
                                 <MessageSquare size={14} style={{ color: 'var(--perfil-acento)' }} />

@@ -10,6 +10,7 @@ export interface PrivacyConfig {
     showStats: boolean
     allowComments: 'everyone' | 'friends' | 'none'
     allowRecommendations?: boolean
+    participateInRanking?: boolean
 }
 
 export interface TmdbMovie {

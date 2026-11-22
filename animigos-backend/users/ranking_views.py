@@ -13,7 +13,27 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Friendship, Profile, UserAnimeEntry
+from .models import Friendship, Profile, UserAnimeEntry, UserPreferences
+
+
+def _is_prefs_opted_in_ranking(prefs_obj) -> bool:
+    if not prefs_obj or not isinstance(prefs_obj.privacy_settings, dict):
+        return False
+    ps = prefs_obj.privacy_settings
+    nested = ps.get('privacy') if isinstance(ps.get('privacy'), dict) else {}
+    return bool(nested.get('participateInRanking', ps.get('participateInRanking', False)))
+
+
+def _user_opted_in_ranking(user, use_cached: bool = False) -> bool:
+    if use_cached:
+        try:
+            prefs = user.profile.preferences
+        except (Profile.DoesNotExist, UserPreferences.DoesNotExist):
+            return False
+        return _is_prefs_opted_in_ranking(prefs)
+
+    prefs = UserPreferences.objects.filter(profile__user_id=user.id).only('privacy_settings').first()
+    return _is_prefs_opted_in_ranking(prefs)
 
 
 def _entry_minutes_and_episodes(entry_status: str, episodes_watched: int | None, anime_episodes: int | None, anime_duration: int | None) -> tuple[int, int]:
@@ -98,20 +118,23 @@ def user_ranking_view(request):
         scope = 'all'
 
     is_auth = bool(request.user and request.user.is_authenticated)
-    if scope == 'friends' and not is_auth:
+    if not _user_opted_in_ranking(request.user):
         return Response(
-            {'error': 'Inicia sesión para ver el ranking de tus amigos.'},
-            status=status.HTTP_401_UNAUTHORIZED,
+            {
+                'error': 'Para ver y aparecer en el Ranking Otaku debes activar la opción en Configuración → Privacidad.',
+                'code': 'ranking_opt_in_required',
+            },
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     friend_ids = _get_friend_ids(request.user) if is_auth else set()
 
-    users_qs = User.objects.filter(is_active=True).select_related('profile')
+    users_qs = User.objects.filter(is_active=True).select_related('profile', 'profile__preferences')
     if scope == 'friends':
         allowed_ids = friend_ids | {request.user.id}
         users_qs = users_qs.filter(id__in=allowed_ids)
 
-    users_list = list(users_qs)
+    users_list = [u for u in users_qs if _user_opted_in_ranking(u, use_cached=True)]
     user_ids = [u.id for u in users_list]
     stats_map = compute_user_watch_stats(user_ids)
 

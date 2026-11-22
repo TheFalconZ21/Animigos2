@@ -1,8 +1,13 @@
 import React, { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Globe, Loader2, Search, Trophy, Users } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Globe, Loader2, Lock, Search, Settings, Trophy, Users } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { fetchUserRanking, type RankingScope } from '../../services/rankingApi'
+import {
+    enableRankingParticipation,
+    fetchUserRanking,
+    RankingOptInRequiredError,
+    type RankingScope,
+} from '../../services/rankingApi'
 import { getUserTier } from '../../utils/userTiers'
 import { resolveMediaUrl } from '../../utils/mediaUrl'
 import { navigate } from '../../utils/navigation'
@@ -10,15 +15,37 @@ import { NormalDistributionChart } from './NormalDistributionChart'
 import './ranking.css'
 
 export const RankingView: React.FC = () => {
-    const { isAuthenticated } = useAuth()
+    const { isAuthenticated, user, refreshUser } = useAuth()
+    const queryClient = useQueryClient()
     const [scope, setScope] = useState<RankingScope>('all')
     const [searchQuery, setSearchQuery] = useState('')
+    const [enablingOptIn, setEnablingOptIn] = useState(false)
+    const [optInError, setOptInError] = useState<string | null>(null)
 
     const { data, isLoading, error } = useQuery({
         queryKey: ['user-ranking', scope],
         queryFn: () => fetchUserRanking(scope),
         staleTime: 60_000,
+        retry: (failureCount, err) => !(err instanceof RankingOptInRequiredError) && failureCount < 1,
     })
+
+    const isOptInRequired = error instanceof RankingOptInRequiredError
+
+    const handleEnableParticipation = async () => {
+        setEnablingOptIn(true)
+        setOptInError(null)
+        try {
+            await enableRankingParticipation(user?.preferences?.privacy_settings)
+            await refreshUser()
+            await queryClient.invalidateQueries({ queryKey: ['user-ranking'] })
+        } catch (err) {
+            setOptInError(
+                err instanceof Error ? err.message : 'No se pudo activar tu participación.',
+            )
+        } finally {
+            setEnablingOptIn(false)
+        }
+    }
 
     const handleSelectScope = (nextScope: RankingScope) => {
         if (nextScope === 'friends' && !isAuthenticated) {
@@ -104,7 +131,61 @@ export const RankingView: React.FC = () => {
                 </div>
             )}
 
-            {error && !isLoading && (
+            {isOptInRequired && !isLoading && (
+                <section
+                    className="ranking-dist-card text-center align-items-center py-5 px-4"
+                    style={{ maxWidth: 620, margin: '0.5rem auto' }}
+                >
+                    <div
+                        className="rounded-circle d-inline-flex align-items-center justify-content-center mb-1"
+                        style={{
+                            width: 56,
+                            height: 56,
+                            background: 'rgba(251, 191, 36, 0.14)',
+                            border: '1px solid rgba(251, 191, 36, 0.4)',
+                            color: '#fbbf24',
+                        }}
+                    >
+                        <Lock size={24} />
+                    </div>
+                    <h2 className="h5 fw-bold text-white mb-1">
+                        El Ranking Otaku requiere tu consentimiento
+                    </h2>
+                    <p className="small mb-3" style={{ color: '#94a3b8', maxWidth: 460 }}>
+                        Por privacidad, solo los usuarios que activan la opción{' '}
+                        <strong className="text-white">Participar en el Ranking Otaku</strong> en{' '}
+                        <em>Configuración → Privacidad</em> aparecen en la tabla y pueden ver la clasificación de la comunidad y de sus amigos.
+                    </p>
+                    {optInError && (
+                        <div className="small text-danger mb-2">{optInError}</div>
+                    )}
+                    <div className="d-flex flex-wrap justify-content-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleEnableParticipation}
+                            disabled={enablingOptIn}
+                            className="ml-btn ml-btn-acento ml-btn-sm d-inline-flex align-items-center gap-1.5"
+                        >
+                            <Trophy size={14} />
+                            <span>
+                                {enablingOptIn
+                                    ? 'Activando...'
+                                    : 'Activar participación ahora'}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => navigate('/perfil')}
+                            className="ml-btn ml-btn-fantasma ml-btn-sm d-inline-flex align-items-center gap-1.5"
+                        >
+                            <Settings size={14} />
+                            <span>Ir a Configuración → Privacidad</span>
+                        </button>
+                    </div>
+                </section>
+            )}
+
+            {error && !isOptInRequired && !isLoading && (
                 <div className="p-3 rounded-3 small text-danger" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)' }}>
                     {error instanceof Error ? error.message : 'No se pudo cargar el ranking.'}
                 </div>
