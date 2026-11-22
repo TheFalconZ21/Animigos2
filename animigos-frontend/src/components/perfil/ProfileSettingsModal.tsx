@@ -15,8 +15,10 @@ import {
     ArrowLeft,
     CheckCircle2,
     Settings,
+    RefreshCw,
 } from 'lucide-react'
 import { Dialogo } from '../mi-lista/piezas'
+import { ProfileIntegrationsTab } from './ProfileIntegrationsTab'
 import { useThemeAccent, OPCIONES_ACENTO } from '../../hooks/useThemeAccent'
 import {
     useAssociatedLinks,
@@ -98,7 +100,7 @@ export interface ProfileSettingsModalProps {
     }) => Promise<void>
     onSavePrivacy: (config: PrivacyConfig) => Promise<void>
     onOpenAvatarPicker?: () => void
-    defaultTab?: 'general' | 'perfil' | 'privacidad' | 'links'
+    defaultTab?: 'general' | 'perfil' | 'privacidad' | 'links' | 'integraciones'
 }
 
 export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
@@ -115,7 +117,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     defaultTab = 'general',
 }) => {
     const { acentoModo, setAcentoModo } = useThemeAccent()
-    const [activeTab, setActiveTab] = useState<'general' | 'perfil' | 'privacidad' | 'links'>(defaultTab)
+    const [activeTab, setActiveTab] = useState<'general' | 'perfil' | 'privacidad' | 'links' | 'integraciones'>(defaultTab)
 
     // Estado Perfil
     const [name, setName] = useState(initialName || '')
@@ -271,6 +273,22 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                     >
                         <LinkIcon size={13} />
                         <span>Links Asociados</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('integraciones')}
+                        className={`flex-grow-1 py-1.5 px-2 rounded-2 btn btn-sm border-0 d-inline-flex align-items-center justify-content-center gap-1.5 fw-semibold transition-all ${
+                            activeTab === 'integraciones' ? 'text-white shadow-sm' : 'text-secondary'
+                        }`}
+                        style={{
+                            background: activeTab === 'integraciones' ? 'var(--perfil-acento)' : 'transparent',
+                            color: activeTab === 'integraciones' ? '#080808' : undefined,
+                            fontSize: '0.78rem',
+                        }}
+                    >
+                        <RefreshCw size={13} />
+                        <span>Integraciones</span>
                     </button>
                 </div>
 
@@ -1507,6 +1525,8 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                     </div>
                 )}
 
+                {/* CONTENIDO TAB 5: Integraciones Externas (MAL, AniList, Extensión Crunchyroll/Netflix, Netflix CSV) */}
+                {activeTab === 'integraciones' && <ProfileIntegrationsTab />}
 
                 {/* Acciones del formulario */}
                 <div

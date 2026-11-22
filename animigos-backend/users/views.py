@@ -452,6 +452,12 @@ def user_my_list_view(request):
                 )
             )
 
+            try:
+                from .sync_services import sync_entry_to_linked_providers_async
+                sync_entry_to_linked_providers_async(user, entry)
+            except Exception:
+                pass
+
             return Response(UserAnimeEntrySerializer(entry).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     except Exception as e:
@@ -506,6 +512,11 @@ def user_my_list_entry_detail_view(request, entry_id):
             entry.folder = UserAnimeFolder.objects.filter(id=fid, user=user).first() if (fid and _is_valid_uuid(fid)) else None
 
         run_with_db_retry(entry.save)
+        try:
+            from .sync_services import sync_entry_to_linked_providers_async
+            sync_entry_to_linked_providers_async(user, entry)
+        except Exception:
+            pass
         return Response(UserAnimeEntrySerializer(entry).data)
 
 

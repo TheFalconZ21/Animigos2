@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "Animigos Sync — Crunchyroll & Netflix Auto-Tracker",
+  "version": "1.0.0",
+  "description": "Detecta automáticamente los capítulos de anime que ves en Crunchyroll y Netflix y los sincroniza con tu lista de Animigos (y tus cuentas vinculadas de MAL/AniList).",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.animigos.app/*",
+    "https://www.animigos.app/*",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*",
+    "https://www.crunchyroll.com/*",
+    "https://www.netflix.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Animigos Sync",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.crunchyroll.com/*"
+      ],
+      "js": [
+        "content_crunchyroll.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.netflix.com/*"
+      ],
+      "js": [
+        "content_netflix.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "sync@animigos.app",
+      "strict_min_version": "109.0"
+    }
+  }
+}

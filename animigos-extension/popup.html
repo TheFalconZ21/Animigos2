@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Animigos Sync</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand">
+        <span class="dot"></span>
+        <h1>Animigos Sync</h1>
+      </div>
+      <label class="toggle" title="Activar/Desactivar auto-tracking">
+        <input type="checkbox" id="enabledToggle" checked />
+        <span class="slider"></span>
+      </label>
+    </header>
+
+    <p class="subtitle">
+      Sincroniza capítulos vistos en Crunchyroll y Netflix con tu lista de Animigos.
+    </p>
+
+    <div class="field">
+      <label for="apiBase">URL del servidor Animigos</label>
+      <input
+        id="apiBase"
+        type="url"
+        placeholder="https://api.animigos.app"
+        autocomplete="off"
+      />
+    </div>
+
+    <div class="field">
+      <label for="syncToken">Token de sincronización (desde Perfil &rarr; Integraciones)</label>
+      <input
+        id="syncToken"
+        type="password"
+        placeholder="animigos_sync_..."
+        autocomplete="off"
+      />
+    </div>
+
+    <div class="actions">
+      <button id="saveBtn" class="btn primary">Guardar</button>
+      <button id="clearLogsBtn" class="btn ghost">Limpiar historial</button>
+    </div>
+
+    <div id="statusMsg" class="status" hidden></div>
+
+    <section class="logs-section">
+      <h2>Últimos episodios detectados</h2>
+      <ul id="logsList" class="logs-list">
+        <li class="empty">Aún no se han registrado episodios.</li>
+      </ul>
+    </section>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

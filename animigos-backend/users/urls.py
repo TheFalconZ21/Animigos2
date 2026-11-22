@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views, sync_views
 
 urlpatterns = [
     path('register/', views.register_user, name='user-register'),
@@ -12,9 +12,22 @@ urlpatterns = [
     path('my-list/', views.user_my_list_view, name='user-my-list'),
     path('agenda/', views.user_agenda_view, name='user-agenda'),
     path('my-list/import-mal-xml/', views.import_mal_xml_view, name='user-my-list-import-mal-xml'),
+    path('my-list/import-netflix-csv/', sync_views.import_netflix_csv_view, name='user-my-list-import-netflix-csv'),
     path('my-list/<uuid:entry_id>/', views.user_my_list_entry_detail_view, name='user-my-list-entry-detail'),
     path('my-list/folders/', views.user_my_list_folders_view, name='user-my-list-folders'),
     path('my-list/folders/<uuid:folder_id>/', views.user_my_list_folder_detail_view, name='user-my-list-folder-detail'),
+    # Integraciones Externas y Auto-Tracking (MAL, AniList, Extensión Crunchyroll/Netflix)
+    path('integrations/status/', sync_views.integrations_status_view, name='user-integrations-status'),
+    path('integrations/mal/connect/', sync_views.mal_connect_view, name='user-integrations-mal-connect'),
+    path('integrations/mal/callback/', sync_views.mal_callback_view, name='user-integrations-mal-callback'),
+    path('integrations/mal/sync/', sync_views.mal_sync_view, name='user-integrations-mal-sync'),
+    path('integrations/mal/disconnect/', sync_views.mal_disconnect_view, name='user-integrations-mal-disconnect'),
+    path('integrations/anilist/connect/', sync_views.anilist_connect_view, name='user-integrations-anilist-connect'),
+    path('integrations/anilist/callback/', sync_views.anilist_callback_view, name='user-integrations-anilist-callback'),
+    path('integrations/anilist/sync/', sync_views.anilist_sync_view, name='user-integrations-anilist-sync'),
+    path('integrations/anilist/disconnect/', sync_views.anilist_disconnect_view, name='user-integrations-anilist-disconnect'),
+    path('integrations/extension/token/', sync_views.extension_token_view, name='user-integrations-extension-token'),
+    path('integrations/extension/track/', sync_views.extension_track_view, name='user-integrations-extension-track'),
     # Catálogo de Avatares Predefinidos
     path('preset-avatars/', views.get_preset_avatars, name='preset-avatars'),
     # Sistema de Amigos y Solicitudes de Amistad
