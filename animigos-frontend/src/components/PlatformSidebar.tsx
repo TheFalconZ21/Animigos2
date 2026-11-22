@@ -10,6 +10,7 @@ import {
     History,
     CalendarCheck,
     LogIn,
+    Trophy,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { AnimigosLogo } from './AnimigosLogo'
@@ -27,6 +28,7 @@ export type PlatformView =
     | 'sala'
     | 'tablon'
     | 'calendario'
+    | 'ranking'
     | 'perfil'
     | 'admin'
 
@@ -117,6 +119,15 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     badge: 'En vivo',
                     badgeColor: 'rgba(16, 185, 129, 0.25)',
                     description: 'Votación por consenso y watch parties'
+                },
+                {
+                    id: 'ranking',
+                    label: 'Ranking',
+                    icon: <Trophy size={17} />,
+                    hash: 'ranking',
+                    badge: 'Tiers',
+                    badgeColor: 'rgba(251, 191, 36, 0.22)',
+                    description: 'Clasificación de usuarios por horas vistas'
                 }
             ]
         },

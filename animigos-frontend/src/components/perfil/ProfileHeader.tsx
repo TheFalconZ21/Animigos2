@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
     Camera,
     Pencil,
@@ -18,6 +18,8 @@ import {
 import type { SocialLinks, PrivacyConfig } from './perfil-types'
 import type { FriendshipStatus } from '../../services/friendsApi'
 import { resolveMediaUrl } from '../../utils/mediaUrl'
+import { getUserTierProgress } from '../../utils/userTiers'
+import { UserTierModal } from './UserTierModal'
 
 interface ProfileHeaderProps {
     displayName: string
@@ -26,6 +28,7 @@ interface ProfileHeaderProps {
     flagUrl: string
     bio: string
     memberSince: string
+    totalWatchHours?: number
     friendsCount?: number
     pendingRequestsCount?: number
     mutualFriendsCount?: number
@@ -55,6 +58,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     flagUrl,
     bio,
     memberSince,
+    totalWatchHours = 0,
     friendsCount = 0,
     pendingRequestsCount = 0,
     mutualFriendsCount = 0,
@@ -76,6 +80,13 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     onRecommendAnime,
     onBackToOwnProfile,
 }) => {
+    const [tierModalOpen, setTierModalOpen] = useState(false)
+    const tierProgress = getUserTierProgress(totalWatchHours)
+    const activeTier = tierProgress.current
+    const tierTooltip = tierProgress.next
+        ? `${activeTier.name} · ${tierProgress.hours.toLocaleString()} h vistas (faltan ${tierProgress.hoursToNext.toLocaleString()} h para ${tierProgress.next.name}) · Haz clic para ver progreso`
+        : `${activeTier.name} · ${tierProgress.hours.toLocaleString()} h vistas (Rango máximo) · Haz clic para ver detalles`
+
     return (
         <div className="perfil-header-card">
             {/* Banner superior con imagen tipo Flag */}
@@ -168,10 +179,23 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                         <div className="pt-2">
                             <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
                                 <h1 className="h4 fw-bold text-white mb-0">{displayName}</h1>
-                                <span className="perfil-badge-status">
+                                <button
+                                    type="button"
+                                    onClick={() => setTierModalOpen(true)}
+                                    className={`perfil-badge-status ${activeTier.isMax ? 'is-god-tier' : ''}`}
+                                    style={{
+                                        background: activeTier.bg,
+                                        borderColor: activeTier.border,
+                                        color: activeTier.color,
+                                        boxShadow: activeTier.glow,
+                                    }}
+                                    title={tierTooltip}
+                                >
                                     <Sparkles size={12} />
-                                    <span>Otaku Veterano 🍿</span>
-                                </span>
+                                    <span>
+                                        {activeTier.name} {activeTier.emoji}
+                                    </span>
+                                </button>
 
                                 {!isCurrentUser && onSendFriendRequest && (
                                     <>
@@ -424,6 +448,13 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                     </div>
                 </div>
             </div>
+
+            <UserTierModal
+                open={tierModalOpen}
+                onClose={() => setTierModalOpen(false)}
+                displayName={displayName}
+                totalWatchHours={totalWatchHours}
+            />
         </div>
     )
 }

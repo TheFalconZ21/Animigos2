@@ -44,6 +44,7 @@ const Calendario = lazyWithRetry(() => import('./components/calendario/Calendari
 const PerfilView = lazyWithRetry(() => import('./components/perfil/PerfilView').then((m) => ({ default: m.PerfilView })))
 const RecomendadorView = lazyWithRetry(() => import('./components/recomendador/RecomendadorView').then((m) => ({ default: m.RecomendadorView })))
 const TemporadasView = lazyWithRetry(() => import('./components/temporadas/TemporadasView').then((m) => ({ default: m.TemporadasView })))
+const RankingView = lazyWithRetry(() => import('./components/ranking/RankingView').then((m) => ({ default: m.RankingView })))
 
 function isPrivatePath(path: string): boolean {
   return (
@@ -175,6 +176,10 @@ function App() {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
         setCurrentView('calendario')
+      } else if (path === '/ranking') {
+        setSelectedAnimeId(null)
+        setVisitedUsername(undefined)
+        setCurrentView('ranking')
       } else if (path === '/admin') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
@@ -368,6 +373,8 @@ function App() {
         return <Tablon />
       case 'calendario':
         return <Calendario onOpenAnimeDetail={(malId) => handleSelectAnime(malId)} />
+      case 'ranking':
+        return <RankingView />
       case 'agenda':
         return (
           <div className="py-4">

@@ -68,6 +68,7 @@ export interface PublicUserProfileData {
     folders: ApiUserFolder[]
     tags: ApiTagCount[]
     taste_analytics: TasteAnalyticsResponse | null
+    total_watch_hours?: number
 }
 
 export interface UserNotificationItem {

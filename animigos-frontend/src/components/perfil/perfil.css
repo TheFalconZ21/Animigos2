@@ -240,6 +240,26 @@
     background: var(--perfil-acento-soft);
     border: 1px solid var(--perfil-acento-border);
     color: var(--perfil-acento);
+    cursor: pointer;
+    transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.2s ease;
+}
+
+.perfil-badge-status:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.12);
+}
+
+.perfil-badge-status.is-god-tier {
+    animation: perfilGodTierPulse 2.8s ease-in-out infinite;
+}
+
+@keyframes perfilGodTierPulse {
+    0%, 100% {
+        box-shadow: 0 0 12px rgba(251, 191, 36, 0.28);
+    }
+    50% {
+        box-shadow: 0 0 22px rgba(251, 191, 36, 0.52);
+    }
 }
 
 /* Botón de solicitud de amistad junto al rango en perfiles visitados */

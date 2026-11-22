@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { ProfesorDoki, type DokiExpression } from '../doki/ProfesorDoki'
 import type { FilaLista } from '../mi-lista/mi-lista-data'
+import { getEntryWatchMinutes } from '../../utils/userTiers'
 
 export interface AnimeTimeWatchedViewProps {
     filas: FilaLista[]
@@ -36,12 +37,7 @@ export interface TimeBarItem {
 }
 
 function getEntryMinutes(f: FilaLista): number {
-    const epDuration = f.anime.durationMinutes && f.anime.durationMinutes > 0 ? f.anime.durationMinutes : 24
-    const eps =
-        f.estado === 'visto'
-            ? f.anime.episodes || f.episodiosVistos || 12
-            : f.episodiosVistos || (f.estado === 'viendo' ? 1 : 0)
-    return eps * epDuration
+    return getEntryWatchMinutes(f)
 }
 
 function getEntryWatchedEpisodes(f: FilaLista): number {

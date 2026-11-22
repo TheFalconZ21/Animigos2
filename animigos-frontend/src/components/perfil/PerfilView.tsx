@@ -1,5 +1,6 @@
 import React, { useState, type CSSProperties } from 'react'
 import { navigate } from '../../utils/navigation'
+import { calculateTotalWatchHours } from '../../utils/userTiers'
 import {
     Search,
     Send,
@@ -865,6 +866,11 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                                                   year: 'numeric',
                                               })
                                             : 'Reciente'
+                                    }
+                                    totalWatchHours={
+                                        isVisitingOther && activeFilas.length === 0 && typeof publicData?.total_watch_hours === 'number'
+                                            ? publicData.total_watch_hours
+                                            : calculateTotalWatchHours(activeFilas)
                                     }
                                     socials={activeSocials}
                                     privacy={activePrivacy}
