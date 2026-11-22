@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Lightbulb, Plus, Search, Send, Tag, Vote, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Lightbulb, Search, Send, Tag, Vote, X } from 'lucide-react'
 import { fetchFriends, type FriendUser } from '../../services/friendsApi'
 import type { AnimeResumen, NuevaRecomendacion } from '../../services/feedApi'
 import { useBuscarAnimes } from '../../hooks/useTablon'
+import { searchRegisteredTags } from '../../shared/tagDescriptions'
 import { Dialogo } from '../mi-lista/piezas'
 import { alFallarPoster } from '../mi-lista/mi-lista-data'
 
@@ -35,17 +36,6 @@ const GENEROS_SUGERIDOS = [
     'Psicológico',
     'Seinen',
     'Shounen',
-]
-
-const TAGS_SUGERIDOS = [
-    'Giros inesperados',
-    'Oscuro',
-    'Animación top',
-    'Final cerrado',
-    'Protagonista OP',
-    'Viajes en el tiempo',
-    'Isekai',
-    'Banda sonora',
 ]
 
 interface Acciones {
@@ -135,13 +125,23 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
         )
     }
 
-    const agregarTagManual = () => {
-        const clean = tagInput.trim().replace(/^#/, '')
-        if (!clean) return
-        if (!tagsSeleccionados.some((x) => x.toLowerCase() === clean.toLowerCase()) && tagsSeleccionados.length < 6) {
-            setTagsSeleccionados((prev) => [...prev, clean])
+    const sugerenciasTag = useMemo(
+        () => searchRegisteredTags(tagInput, tagsSeleccionados, 7),
+        [tagInput, tagsSeleccionados],
+    )
+
+    const agregarTagRegistrado = (tagName: string) => {
+        if (tagsSeleccionados.length >= 6) return
+        if (!tagsSeleccionados.some((x) => x.toLowerCase() === tagName.toLowerCase())) {
+            setTagsSeleccionados((prev) => [...prev, tagName])
         }
         setTagInput('')
+    }
+
+    const agregarPrimerTagSugerido = () => {
+        if (sugerenciasTag.length > 0) {
+            agregarTagRegistrado(sugerenciasTag[0].name)
+        }
     }
 
     const agregarOpcionAnime = (elegido: AnimeResumen) => {
@@ -291,10 +291,10 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
                             </div>
                         </div>
 
-                        {/* Selector y creación de Tags */}
+                        {/* Autocompletado inteligente de Main Tags & Secondary Tags (ES / EN) */}
                         <div>
                             <div className="d-flex align-items-center justify-content-between mb-1.5">
-                                <span className="ml-label mb-0">Tags / Temáticas (opcional · máx. 6)</span>
+                                <span className="ml-label mb-0">Tags de AniList (opcional · máx. 6)</span>
                                 {tagsSeleccionados.length > 0 && (
                                     <span className="small text-secondary" style={{ fontSize: '0.72rem' }}>
                                         {tagsSeleccionados.length}/6
@@ -320,46 +320,60 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
                                 </div>
                             )}
 
-                            <div className="d-flex gap-2 mb-2">
-                                <input
-                                    type="text"
-                                    className="ml-input flex-grow-1"
-                                    maxLength={32}
-                                    placeholder="Agrega un tag propio (ej: trama política) y presiona Enter…"
-                                    value={tagInput}
-                                    onChange={(e) => setTagInput(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            e.preventDefault()
-                                            agregarTagManual()
-                                        }
-                                    }}
-                                />
-                                <button
-                                    type="button"
-                                    className="ml-btn ml-btn-fantasma ml-btn-sm"
-                                    onClick={agregarTagManual}
-                                    disabled={!tagInput.trim() || tagsSeleccionados.length >= 6}
-                                >
-                                    <Plus size={14} />
-                                </button>
-                            </div>
+                            {tagsSeleccionados.length < 6 && (
+                                <div className="position-relative">
+                                    <div className="ml-buscador">
+                                        <Search size={15} />
+                                        <input
+                                            type="text"
+                                            className="ml-input"
+                                            maxLength={40}
+                                            placeholder="Escribe en español o inglés (ej: deportes, venganza, tiempo, oscuro)…"
+                                            value={tagInput}
+                                            onChange={(e) => setTagInput(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault()
+                                                    agregarPrimerTagSugerido()
+                                                }
+                                            }}
+                                        />
+                                    </div>
 
-                            <div className="tb-chip-picker">
-                                {TAGS_SUGERIDOS.map((t) => {
-                                    const activo = tagsSeleccionados.some((x) => x.toLowerCase() === t.toLowerCase())
-                                    return (
-                                        <button
-                                            key={t}
-                                            type="button"
-                                            onClick={() => toggleTag(t)}
-                                            className={`tb-picker-chip is-tag ${activo ? 'is-selected' : ''}`}
-                                        >
-                                            #{t}
-                                        </button>
-                                    )
-                                })}
-                            </div>
+                                    {tagInput.trim().length > 0 && (
+                                        <div className="tb-tag-autocomplete" role="listbox" aria-label="Sugerencias de tags">
+                                            {sugerenciasTag.length > 0 ? (
+                                                sugerenciasTag.map((sug) => (
+                                                    <button
+                                                        key={sug.name}
+                                                        type="button"
+                                                        role="option"
+                                                        className="tb-tag-suggestion-item"
+                                                        onClick={() => agregarTagRegistrado(sug.name)}
+                                                    >
+                                                        <div className="tb-tag-suggestion-top">
+                                                            <span className="tb-tag-suggestion-name">#{sug.name}</span>
+                                                            {sug.spanishLabel &&
+                                                                sug.spanishLabel.toLowerCase() !== sug.name.toLowerCase() && (
+                                                                    <span className="tb-tag-suggestion-es">
+                                                                        {sug.spanishLabel}
+                                                                    </span>
+                                                                )}
+                                                        </div>
+                                                        <span className="tb-tag-suggestion-desc">
+                                                            {sug.description}
+                                                        </span>
+                                                    </button>
+                                                ))
+                                            ) : (
+                                                <div className="tb-tag-suggestion-empty">
+                                                    Sin tags registrados que coincidan con “{tagInput.trim()}”.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div>

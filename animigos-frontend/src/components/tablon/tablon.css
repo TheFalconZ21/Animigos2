@@ -1490,3 +1490,72 @@
     font-size: 0.72rem;
     color: #fbbf24;
 }
+
+
+/* Autocompletado inteligente de tags registrados (ES / EN) */
+.tb-tag-autocomplete {
+    margin-top: 0.45rem;
+    background: #141620;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    overflow: hidden;
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.tb-tag-suggestion-item {
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: transparent;
+    padding: 0.55rem 0.8rem;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    cursor: pointer;
+    transition: background 0.14s ease;
+}
+
+.tb-tag-suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.tb-tag-suggestion-item:hover {
+    background: rgba(56, 189, 248, 0.12);
+}
+
+.tb-tag-suggestion-top {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.tb-tag-suggestion-name {
+    color: #7dd3fc;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.tb-tag-suggestion-es {
+    color: #94a3b8;
+    font-size: 0.72rem;
+    font-weight: 500;
+}
+
+.tb-tag-suggestion-desc {
+    color: #cbd5e1;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.tb-tag-suggestion-empty {
+    padding: 0.7rem 0.85rem;
+    font-size: 0.76rem;
+    color: #94a3b8;
+}

@@ -345,3 +345,153 @@ export function getTagDescription(tagName: string, category?: string, isMainTag?
 
     return `Tropo o temática narrativa ("${clean}") registrada en la base de datos de Media Tags de AniList. Identifica un motivo recurrente en la trama de tus obras vistas. ${tierText}`
 }
+
+export interface RegisteredTagSuggestion {
+    name: string
+    spanishLabel?: string
+    description: string
+}
+
+/** Sinónimos y traducciones al español para búsqueda inteligente ES <-> EN */
+const SPANISH_TAG_ALIASES: Record<string, { label: string; aliases: string[] }> = {
+    Action: { label: 'Acción', aliases: ['accion', 'peleas', 'combate', 'batallas', 'adrenalina'] },
+    Adventure: { label: 'Aventura', aliases: ['aventura', 'aventuras', 'viaje', 'exploracion'] },
+    Comedy: { label: 'Comedia', aliases: ['comedia', 'humor', 'risa', 'gracioso', 'divertido'] },
+    Drama: { label: 'Drama', aliases: ['drama', 'emocional', 'triste', 'llorar'] },
+    Fantasy: { label: 'Fantasía', aliases: ['fantasia', 'magia', 'reinos', 'medieval'] },
+    'Sci-Fi': { label: 'Ciencia Ficción', aliases: ['ciencia ficcion', 'scifi', 'futuro', 'tecnologia', 'espacio'] },
+    Romance: { label: 'Romance', aliases: ['romance', 'amor', 'romantico', 'pareja'] },
+    'Slice of Life': { label: 'Recuentos de la vida', aliases: ['vida diaria', 'cotidiano', 'tranquilo', 'chill'] },
+    Mystery: { label: 'Misterio', aliases: ['misterio', 'enigma', 'detective', 'crimen', 'investigacion'] },
+    Suspense: { label: 'Suspenso', aliases: ['suspenso', 'intriga', 'tension', 'suspense'] },
+    Thriller: { label: 'Thriller', aliases: ['thriller', 'giros', 'giros inesperados', 'persecucion'] },
+    Psychological: { label: 'Psicológico', aliases: ['psicologico', 'mente', 'mental', 'duelo mental', 'trauma'] },
+    Supernatural: { label: 'Sobrenatural', aliases: ['sobrenatural', 'espiritus', 'fantasmas', 'maldiciones'] },
+    Horror: { label: 'Terror', aliases: ['terror', 'miedo', 'horror', 'macabro', 'monstruos'] },
+    Sports: { label: 'Deportes', aliases: ['deporte', 'deportes', 'futbol', 'basquet', 'voley', 'torneo', 'atletismo'] },
+    Mecha: { label: 'Mecha', aliases: ['mecha', 'robots', 'robot', 'armaduras'] },
+    Music: { label: 'Música', aliases: ['musica', 'banda', 'banda sonora', 'canciones', 'instrumentos', 'idols'] },
+    Gourmet: { label: 'Gastronomía', aliases: ['comida', 'cocina', 'gastronomia', 'chef'] },
+    'Dark Fantasy': { label: 'Fantasía Oscura', aliases: ['fantasia oscura', 'oscuro', 'sombrio', 'grimdark'] },
+    'Time Manipulation': { label: 'Manipulación del Tiempo', aliases: ['viajes en el tiempo', 'tiempo', 'bucle temporal', 'time travel'] },
+    'Time Skip': { label: 'Salto Temporal', aliases: ['salto temporal', 'paso del tiempo'] },
+    Isekai: { label: 'Isekai', aliases: ['isekai', 'otro mundo', 'reencarnacion', 'transportado'] },
+    Revenge: { label: 'Venganza', aliases: ['venganza', 'revancha'] },
+    School: { label: 'Escolar', aliases: ['escuela', 'colegio', 'instituto', 'escolar', 'estudiantes'] },
+    Magic: { label: 'Magia', aliases: ['magia', 'hechizos', 'magos', 'hechiceria'] },
+    'Martial Arts': { label: 'Artes Marciales', aliases: ['artes marciales', 'pelea', 'lucha', 'karate', 'boxeo'] },
+    Swordplay: { label: 'Combate con Espadas', aliases: ['espadas', 'samurai', 'katanas', 'espadachin'] },
+    Military: { label: 'Militar', aliases: ['militar', 'guerra', 'ejercito', 'soldados', 'estrategia'] },
+    Politics: { label: 'Política', aliases: ['politica', 'trama politica', 'gobierno', 'conspiracion', 'realeza'] },
+    Survival: { label: 'Supervivencia', aliases: ['supervivencia', 'sobrevivir', 'juego mortal', 'battle royale'] },
+    Tragedy: { label: 'Tragedia', aliases: ['tragedia', 'tragico', 'triste', 'muerte'] },
+    Gore: { label: 'Gore / Violencia', aliases: ['gore', 'sangre', 'violencia', 'brutal'] },
+    'Post-Apocalyptic': { label: 'Post-Apocalíptico', aliases: ['postapocaliptico', 'apocalipsis', 'fin del mundo'] },
+    Dystopian: { label: 'Distopía', aliases: ['distopia', 'distopico', 'totalitario'] },
+    Cyberpunk: { label: 'Cyberpunk', aliases: ['cyberpunk', 'hackers', 'cibernetico', 'futurista'] },
+    Dungeon: { label: 'Mazmorras', aliases: ['mazmorra', 'mazmorras', 'calabozo', 'torre'] },
+    Space: { label: 'Espacio', aliases: ['espacio', 'naves', 'planetas', 'galaxia'] },
+    'Anti-Hero': { label: 'Antihéroe', aliases: ['antiheroe', 'protagonista oscuro', 'villano'] },
+    'Primarily Adult Cast': { label: 'Elenco Adulto', aliases: ['adultos', 'adulto', 'trabajo', 'oficina', 'universitarios'] },
+    'Male Protagonist': { label: 'Protagonista Masculino', aliases: ['protagonista hombre', 'protagonista masculino'] },
+    'Female Protagonist': { label: 'Protagonista Femenina', aliases: ['protagonista mujer', 'protagonista femenina'] },
+    Seinen: { label: 'Seinen', aliases: ['seinen', 'maduro', 'adulto'] },
+    Shounen: { label: 'Shounen', aliases: ['shounen', 'shonen', 'juvenil'] },
+    Shoujo: { label: 'Shoujo', aliases: ['shoujo', 'shojo'] },
+    Josei: { label: 'Josei', aliases: ['josei'] },
+    'Achronological Order': { label: 'Orden no lineal', aliases: ['no lineal', 'rompecabezas', 'flashbacks'] },
+    Episodic: { label: 'Episódico', aliases: ['episodico', 'autoconclusivo'] },
+}
+
+const DUPLICATE_ES_KEYS = new Set([
+    'Acción',
+    'Aventura',
+    'Comedia',
+    'Fantasía',
+    'Misterio',
+    'Suspenso',
+    'Psicológico',
+    'Sobrenatural',
+    'Deportes',
+    'Música',
+])
+
+function normalizeSearchText(str: string): string {
+    return str
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+}
+
+const REGISTERED_TAGS_INDEX: Array<{
+    name: string
+    nameNorm: string
+    spanishLabel?: string
+    aliasesNorm: string[]
+    description: string
+    descNorm: string
+}> = Object.entries(TAG_DESCRIPTIONS_MAP)
+    .filter(([key]) => !DUPLICATE_ES_KEYS.has(key))
+    .map(([name, description]) => {
+        const meta = SPANISH_TAG_ALIASES[name]
+        return {
+            name,
+            nameNorm: normalizeSearchText(name),
+            spanishLabel: meta?.label,
+            aliasesNorm: (meta?.aliases ?? []).map(normalizeSearchText),
+            description,
+            descNorm: normalizeSearchText(description),
+        }
+    })
+
+/**
+ * Busca tags registrados (Main Tags y Secondary Tags de AniList) entendiendo consultas
+ * tanto en inglés como en español (ej. "deportes" -> "Sports", "viajes en el tiempo" -> "Time Manipulation").
+ */
+export function searchRegisteredTags(
+    query: string,
+    exclude: string[] = [],
+    limit = 8,
+): RegisteredTagSuggestion[] {
+    const q = normalizeSearchText(query)
+    if (!q) return []
+
+    const excludedSet = new Set(exclude.map((e) => normalizeSearchText(e)))
+    const scored: Array<{ item: RegisteredTagSuggestion; score: number }> = []
+
+    for (const entry of REGISTERED_TAGS_INDEX) {
+        if (excludedSet.has(entry.nameNorm)) continue
+
+        let score = 0
+        if (entry.nameNorm === q || entry.aliasesNorm.includes(q)) {
+            score = 100
+        } else if (
+            entry.nameNorm.startsWith(q) ||
+            entry.aliasesNorm.some((a) => a.startsWith(q))
+        ) {
+            score = 80
+        } else if (
+            entry.nameNorm.includes(q) ||
+            entry.aliasesNorm.some((a) => a.includes(q))
+        ) {
+            score = 60
+        } else if (q.length >= 3 && entry.descNorm.includes(q)) {
+            score = 35
+        }
+
+        if (score > 0) {
+            scored.push({
+                score,
+                item: {
+                    name: entry.name,
+                    spanishLabel: entry.spanishLabel,
+                    description: entry.description,
+                },
+            })
+        }
+    }
+
+    scored.sort((a, b) => b.score - a.score || a.item.name.localeCompare(b.item.name))
+    return scored.slice(0, limit).map((s) => s.item)
+}
