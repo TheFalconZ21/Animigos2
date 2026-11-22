@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, type CSSProperties } from 'react'
 import { navigate } from '../../utils/navigation'
-import { ArrowLeft, Eye, Folder, Hash, Image as ImageIcon, LayoutGrid, LayoutList, Loader2, Lock, Plus, Search, Send, SlidersHorizontal, Upload, X } from 'lucide-react'
+import { ArrowLeft, Eye, Folder, Hash, Image as ImageIcon, LayoutList, Loader2, Lock, Plus, Search, Send, SlidersHorizontal, Upload, X } from 'lucide-react'
 import {
     apiEntryToFila,
     ESCALA_NOTAS,
@@ -24,7 +24,6 @@ import { AnimeDetalleDialog } from './AnimeDetalleDialog'
 import { RecomendarDialog, type Paquete } from './RecomendarDialog'
 import { AgregarDialog } from './AgregarDialog'
 import { ImportarMalXmlDialog } from './ImportarMalXmlDialog'
-import { VerTodosDialog } from './VerTodosDialog'
 import {
     LateralesAnime,
     LateralBannerModal,
@@ -177,7 +176,6 @@ export function MiLista({
     const [agregarAbierto, setAgregarAbierto] = useState(false)
     const [importarAbierto, setImportarAbierto] = useState(false)
     const [lateralesAbierto, setLateralesAbierto] = useState(false)
-    const [verTodos, setVerTodos] = useState<string | null>(null)
 
     // --- Configuración de banners laterales personalizables (IMG / GIF) ---
     const [lateralConfig, setLateralConfig] = useState<MiListaLateralConfig>(DEFAULT_MILISTA_LATERAL_CONFIG)
@@ -633,16 +631,6 @@ export function MiLista({
                                     </button>
                                 ))}
                             </div>
-                            <button
-                                type="button"
-                                className="ml-btn ml-btn-sm"
-                                onClick={() => setVerTodos(CHIPS_ESTADO.find((c) => c.id === filtroEstado)!.label)}
-                                disabled={conteoEstado(filtroEstado) === 0}
-                                title="Ver esta categoría como estantería de pósters"
-                                aria-label="Ver todos"
-                            >
-                                <LayoutGrid size={14} /> <span className="ml-solo-escritorio">Ver todos</span>
-                            </button>
                         </div>
 
                         {activos.length > 0 && (
@@ -815,14 +803,6 @@ export function MiLista({
                         navigate(`/anime/${malId}`)
                     }
                 }}
-            />
-            <VerTodosDialog
-                categoria={verTodos}
-                filas={filas.filter((f) =>
-                    filtroEstado === 'todos' ? true : filtroEstado === 'favoritos' ? f.favorito : f.estado === filtroEstado,
-                )}
-                onCerrar={() => setVerTodos(null)}
-                onVerDetalle={setDetalleId}
             />
             <RecomendarDialog paquete={paquete} carpetas={carpetas} onCerrar={() => setPaquete(null)} />
             {!isReadOnlyVisit && (
