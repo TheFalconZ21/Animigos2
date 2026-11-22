@@ -51,6 +51,15 @@ const FALLBACK_ANIMES: LateralAnimeItem[] = [
     ...SHOWCASE_ROW_3,
 ].map((a) => ({ title: a.title, imageUrl: a.cover }))
 
+/** Mejora automáticamente URLs de AniList CDN de /cover/medium/ a /cover/large/ */
+function toHdPosterUrl(url: string): string {
+    if (!url) return url
+    if (url.includes('anilistcdn/media/anime/cover/medium/')) {
+        return url.replace('/cover/medium/', '/cover/large/')
+    }
+    return url
+}
+
 export function LateralesAnime({ filas = [], visibles = [], activeFila, customConfig }: Props) {
     const cfg = customConfig ?? DEFAULT_MILISTA_LATERAL_CONFIG
 
@@ -61,7 +70,7 @@ export function LateralesAnime({ filas = [], visibles = [], activeFila, customCo
             .filter((f) => Boolean(f.anime?.imageUrl))
             .map((f) => ({
                 title: f.anime.title,
-                imageUrl: f.anime.imageUrl,
+                imageUrl: toHdPosterUrl(f.anime.imageUrl),
             }))
         return items.length > 0 ? items : FALLBACK_ANIMES
     }, [visibles, filas])
@@ -90,7 +99,7 @@ export function LateralesAnime({ filas = [], visibles = [], activeFila, customCo
         if (activeFila?.anime?.imageUrl) {
             return {
                 title: activeFila.anime.title,
-                imageUrl: activeFila.anime.imageUrl,
+                imageUrl: toHdPosterUrl(activeFila.anime.imageUrl),
             }
         }
         return pool[idleIndex % pool.length] || FALLBACK_ANIMES[0]
