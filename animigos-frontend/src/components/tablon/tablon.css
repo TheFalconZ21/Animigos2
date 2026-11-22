@@ -1344,3 +1344,147 @@
         grid-template-columns: 96px minmax(0, 1fr);
     }
 }
+
+
+/* Selector de géneros y tags en Pedir Sugerencia */
+.tb-chip-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.tb-picker-chip {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: #cbd5e1;
+    border-radius: 999px;
+    padding: 0.24rem 0.68rem;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tb-picker-chip:hover {
+    border-color: rgba(255, 255, 255, 0.28);
+    color: #ffffff;
+}
+
+.tb-picker-chip.is-selected {
+    background: color-mix(in srgb, var(--ml-acento, #a78bfa) 22%, transparent);
+    border-color: var(--ml-acento, #a78bfa);
+    color: #ffffff;
+}
+
+.tb-picker-chip.is-tag.is-selected {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: rgba(56, 189, 248, 0.65);
+    color: #7dd3fc;
+}
+
+.tb-tag-selected {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.16);
+    border: 1px solid rgba(56, 189, 248, 0.48);
+    color: #7dd3fc;
+    font-size: 0.73rem;
+    font-weight: 600;
+}
+
+.tb-tag-selected button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    display: inline-flex;
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.tb-tag-selected button:hover {
+    opacity: 1;
+}
+
+/* Chips en la tarjeta de "Pedir sugerencias" */
+.tb-nota-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 0 0 0.8rem;
+}
+
+.tb-nota-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.71rem;
+    font-weight: 700;
+}
+
+.tb-nota-chip-genero {
+    background: #18181b;
+    color: #f4f4f5;
+}
+
+.tb-nota-chip-tag {
+    background: rgba(24, 24, 27, 0.1);
+    color: #27272a;
+    border: 1px solid rgba(24, 24, 27, 0.18);
+}
+
+/* Opciones de encuesta con póster de anime */
+.tb-opcion-num {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--ml-acento, #a78bfa);
+    min-width: 20px;
+}
+
+.tb-opcion-con-anime {
+    padding: 0.45rem 0.75rem;
+}
+
+.tb-opcion-anime-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+    text-align: left;
+}
+
+.tb-opcion-poster {
+    width: 32px;
+    height: 44px;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tb-opcion-anime-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 1px;
+}
+
+.tb-opcion-anime-titulo {
+    font-weight: 600;
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tb-opcion-anime-nota {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    color: #fbbf24;
+}

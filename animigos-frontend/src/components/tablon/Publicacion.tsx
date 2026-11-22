@@ -125,10 +125,25 @@ function CuerpoInvitacion({ actividad: a, onEntrarSala }: { actividad: Actividad
 // "Busco anime parecido a…": nota adhesiva con 求む ("se busca")
 function CuerpoBusqueda({ actividad: a, onSugerir }: { actividad: Actividad; onSugerir: (a: Actividad) => void }) {
     const b = a.busqueda!
+    const hasChips = Boolean((b.generos && b.generos.length > 0) || (b.tags && b.tags.length > 0))
     return (
         <div className="tb-nota">
             <span className="tb-nota-sello" lang="ja" aria-hidden="true">求む</span>
             <p className="tb-nota-texto">{b.pedido}</p>
+            {hasChips && (
+                <div className="tb-nota-chips">
+                    {(b.generos ?? []).map((g) => (
+                        <span key={`g-${g}`} className="tb-nota-chip tb-nota-chip-genero">
+                            {g}
+                        </span>
+                    ))}
+                    {(b.tags ?? []).map((t) => (
+                        <span key={`t-${t}`} className="tb-nota-chip tb-nota-chip-tag">
+                            #{t}
+                        </span>
+                    ))}
+                </div>
+            )}
             <div className="tb-nota-pie">
                 {b.referencia && <span>Referencia: <strong>{b.referencia}</strong></span>}
                 <button type="button" className="ml-btn ml-btn-sm" onClick={() => onSugerir(a)}>
@@ -139,7 +154,7 @@ function CuerpoBusqueda({ actividad: a, onSugerir }: { actividad: Actividad; onS
     )
 }
 
-// Encuesta: se vota tocando una opción; después se ven los porcentajes
+// Encuesta: se vota tocando una opción de anime; después se ven los porcentajes
 function CuerpoEncuesta({ actividad: a, onVotar }: { actividad: Actividad; onVotar: (id: string, opcionId: string) => void }) {
     const e = a.encuesta!
     const total = e.opciones.reduce((s, o) => s + o.votos, 0)
@@ -154,19 +169,37 @@ function CuerpoEncuesta({ actividad: a, onVotar }: { actividad: Actividad; onVot
                         <button
                             key={o.id}
                             type="button"
-                            className="tb-opcion"
+                            className={`tb-opcion ${o.anime ? 'tb-opcion-con-anime' : ''}`}
                             aria-pressed={e.miVoto === o.id}
                             disabled={votada}
                             onClick={() => onVotar(a.id, o.id)}
                         >
                             {votada && <span className="tb-opcion-barra" style={{ width: `${pct}%` }} />}
-                            <span className="tb-opcion-texto">{o.texto}</span>
+                            <span className="tb-opcion-texto tb-opcion-anime-wrap">
+                                {o.anime && (
+                                    <img
+                                        src={o.anime.imagenUrl}
+                                        alt=""
+                                        className="tb-opcion-poster"
+                                        loading="lazy"
+                                        onError={alFallarPoster}
+                                    />
+                                )}
+                                <span className="tb-opcion-anime-info">
+                                    <span className="tb-opcion-anime-titulo">{o.texto}</span>
+                                    {o.anime && o.anime.nota !== null && (
+                                        <span className="tb-opcion-anime-nota">
+                                            <Star size={11} fill="currentColor" /> {o.anime.nota}
+                                        </span>
+                                    )}
+                                </span>
+                            </span>
                             {votada && <span className="tb-opcion-pct">{pct}%</span>}
                         </button>
                     )
                 })}
             </div>
-            <p className="tb-encuesta-total">{total} {total === 1 ? 'voto' : 'votos'}{!votada && ' · toca una opción para votar'}</p>
+            <p className="tb-encuesta-total">{total} {total === 1 ? 'voto' : 'votos'}{!votada && ' · toca un anime para votar'}</p>
         </div>
     )
 }

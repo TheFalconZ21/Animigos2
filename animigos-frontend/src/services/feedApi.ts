@@ -37,6 +37,7 @@ export interface OpcionEncuesta {
     id: string
     texto: string
     votos: number
+    anime?: AnimeResumen
 }
 
 export interface Actividad {
@@ -48,7 +49,7 @@ export interface Actividad {
     agradecidoPorMi: boolean
     recomendacion?: { anime: AnimeResumen; nota: string; paraMi: boolean }
     invitacion?: { codigoSala: string; nombreSala: string; integrantes: number; candidatoTop?: string }
-    busqueda?: { pedido: string; referencia?: string }
+    busqueda?: { pedido: string; referencia?: string; generos?: string[]; tags?: string[] }
     encuesta?: { pregunta: string; opciones: OpcionEncuesta[]; miVoto?: string }
     hito?: { titulo: string; descripcion: string; icono: 'trofeo' | 'amistad' | 'estrella' }
 }
@@ -222,7 +223,15 @@ export async function publicarRecomendacion(autor: AutorActividad, datos: NuevaR
     return act
 }
 
-export async function publicarBusqueda(autor: AutorActividad, pedido: string, referencia?: string): Promise<Actividad> {
+export async function publicarBusqueda(
+    autor: AutorActividad,
+    pedido: string,
+    referencia?: string,
+    generos?: string[],
+    tags?: string[],
+): Promise<Actividad> {
+    const cleanGeneros = (generos ?? []).map((g) => g.trim()).filter(Boolean)
+    const cleanTags = (tags ?? []).map((t) => t.trim()).filter(Boolean)
     const act: Actividad = {
         id: nuevoId(),
         tipo: 'busco_anime',
@@ -230,7 +239,12 @@ export async function publicarBusqueda(autor: AutorActividad, pedido: string, re
         creadoHace: 'Ahora mismo',
         agradecimientos: 0,
         agradecidoPorMi: false,
-        busqueda: { pedido, referencia: referencia || undefined },
+        busqueda: {
+            pedido,
+            referencia: referencia || undefined,
+            generos: cleanGeneros.length > 0 ? cleanGeneros : undefined,
+            tags: cleanTags.length > 0 ? cleanTags : undefined,
+        },
     }
     const feedActual = getLocalFeed()
     const actualizado = [act, ...feedActual]
@@ -238,7 +252,11 @@ export async function publicarBusqueda(autor: AutorActividad, pedido: string, re
     return act
 }
 
-export async function publicarEncuesta(autor: AutorActividad, pregunta: string, opciones: string[]): Promise<Actividad> {
+export async function publicarEncuesta(
+    autor: AutorActividad,
+    pregunta: string,
+    opciones: AnimeResumen[],
+): Promise<Actividad> {
     const act: Actividad = {
         id: nuevoId(),
         tipo: 'encuesta',
@@ -248,7 +266,12 @@ export async function publicarEncuesta(autor: AutorActividad, pregunta: string, 
         agradecidoPorMi: false,
         encuesta: {
             pregunta,
-            opciones: opciones.map((texto, i) => ({ id: `o${i + 1}`, texto, votos: 0 })),
+            opciones: opciones.map((anime, i) => ({
+                id: `o${i + 1}`,
+                texto: anime.titulo,
+                votos: 0,
+                anime,
+            })),
         },
     }
     const feedActual = getLocalFeed()

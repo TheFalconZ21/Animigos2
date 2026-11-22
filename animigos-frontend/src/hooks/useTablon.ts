@@ -64,11 +64,22 @@ export function useTablon() {
         onSettled: refrescarFeed,
     })
     const buscar = useMutation({
-        mutationFn: ({ pedido, referencia }: { pedido: string; referencia?: string }) => publicarBusqueda(autor, pedido, referencia),
+        mutationFn: ({
+            pedido,
+            referencia,
+            generos,
+            tags,
+        }: {
+            pedido: string
+            referencia?: string
+            generos?: string[]
+            tags?: string[]
+        }) => publicarBusqueda(autor, pedido, referencia, generos, tags),
         onSettled: refrescarFeed,
     })
     const encuesta = useMutation({
-        mutationFn: ({ pregunta, opciones }: { pregunta: string; opciones: string[] }) => publicarEncuesta(autor, pregunta, opciones),
+        mutationFn: ({ pregunta, opciones }: { pregunta: string; opciones: AnimeResumen[] }) =>
+            publicarEncuesta(autor, pregunta, opciones),
         onSettled: refrescarFeed,
     })
     const votar = useMutation({

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Lightbulb, Plus, Search, Send, Vote, X } from 'lucide-react'
+import { Lightbulb, Plus, Search, Send, Tag, Vote, X } from 'lucide-react'
 import { fetchFriends, type FriendUser } from '../../services/friendsApi'
 import type { AnimeResumen, NuevaRecomendacion } from '../../services/feedApi'
 import { useBuscarAnimes } from '../../hooks/useTablon'
@@ -20,16 +20,44 @@ const MODOS: { id: ModoPublicar; label: string; icono: typeof Send }[] = [
     { id: 'encuesta', label: 'Encuesta', icono: Vote },
 ]
 
+const GENEROS_SUGERIDOS = [
+    'Acción',
+    'Aventura',
+    'Comedia',
+    'Drama',
+    'Fantasía',
+    'Misterio',
+    'Romance',
+    'Sci-Fi',
+    'Slice of Life',
+    'Suspenso',
+    'Deportes',
+    'Psicológico',
+    'Seinen',
+    'Shounen',
+]
+
+const TAGS_SUGERIDOS = [
+    'Giros inesperados',
+    'Oscuro',
+    'Animación top',
+    'Final cerrado',
+    'Protagonista OP',
+    'Viajes en el tiempo',
+    'Isekai',
+    'Banda sonora',
+]
+
 interface Acciones {
     onRecomendar: (datos: NuevaRecomendacion) => Promise<unknown>
-    onBuscar: (datos: { pedido: string; referencia?: string }) => Promise<unknown>
-    onEncuesta: (datos: { pregunta: string; opciones: string[] }) => Promise<unknown>
+    onBuscar: (datos: { pedido: string; referencia?: string; generos?: string[]; tags?: string[] }) => Promise<unknown>
+    onEncuesta: (datos: { pregunta: string; opciones: AnimeResumen[] }) => Promise<unknown>
 }
 
 // Un solo diálogo para las tres formas de publicar en el tablón
 export function PublicarDialog({ borrador, onCerrar, ...acciones }: Acciones & { borrador: Borrador | null; onCerrar: () => void }) {
     return (
-        <Dialogo abierto={borrador !== null} onCerrar={onCerrar} etiqueta="Publicar en el tablón" ancho={580}>
+        <Dialogo abierto={borrador !== null} onCerrar={onCerrar} etiqueta="Publicar en el tablón" ancho={600}>
             {borrador && <Contenido borrador={borrador} onCerrar={onCerrar} {...acciones} />}
         </Dialogo>
     )
@@ -47,12 +75,19 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
     const [anime, setAnime] = useState<AnimeResumen | null>(null)
     const [destinatario, setDestinatario] = useState<string>(borrador.destinatarioId ?? '')
     const [nota, setNota] = useState(borrador.nota ?? '')
-    // Pedir sugerencia
+
+    // Pedir sugerencia (con géneros y tags)
     const [pedido, setPedido] = useState('')
     const [referencia, setReferencia] = useState('')
-    // Encuesta
+    const [generosSeleccionados, setGenerosSeleccionados] = useState<string[]>([])
+    const [tagsSeleccionados, setTagsSeleccionados] = useState<string[]>([])
+    const [tagInput, setTagInput] = useState('')
+
+    // Encuesta de animes (opciones reales del catálogo)
     const [pregunta, setPregunta] = useState('')
-    const [opciones, setOpciones] = useState(['', ''])
+    const [opcionesAnime, setOpcionesAnime] = useState<AnimeResumen[]>([])
+    const [busquedaEncuesta, setBusquedaEncuesta] = useState('')
+    const [textoBuscadoEncuesta, setTextoBuscadoEncuesta] = useState('')
 
     useEffect(() => {
         let montado = true
@@ -68,26 +103,84 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
         }
     }, [])
 
-    // Espera a que el usuario deje de escribir antes de buscar
+    // Debounce búsqueda para Recomendar
     useEffect(() => {
         const t = setTimeout(() => setTextoBuscado(busqueda), 300)
         return () => clearTimeout(t)
     }, [busqueda])
     const resultados = useBuscarAnimes(textoBuscado)
 
-    const opcionesValidas = opciones.map((o) => o.trim()).filter(Boolean)
+    // Debounce búsqueda para Encuesta de animes
+    useEffect(() => {
+        const t = setTimeout(() => setTextoBuscadoEncuesta(busquedaEncuesta), 300)
+        return () => clearTimeout(t)
+    }, [busquedaEncuesta])
+    const resultadosEncuesta = useBuscarAnimes(textoBuscadoEncuesta)
+
+    const toggleGenero = (g: string) => {
+        setGenerosSeleccionados((prev) =>
+            prev.includes(g) ? prev.filter((x) => x !== g) : prev.length < 5 ? [...prev, g] : prev,
+        )
+    }
+
+    const toggleTag = (t: string) => {
+        const clean = t.trim()
+        if (!clean) return
+        setTagsSeleccionados((prev) =>
+            prev.some((x) => x.toLowerCase() === clean.toLowerCase())
+                ? prev.filter((x) => x.toLowerCase() !== clean.toLowerCase())
+                : prev.length < 6
+                  ? [...prev, clean]
+                  : prev,
+        )
+    }
+
+    const agregarTagManual = () => {
+        const clean = tagInput.trim().replace(/^#/, '')
+        if (!clean) return
+        if (!tagsSeleccionados.some((x) => x.toLowerCase() === clean.toLowerCase()) && tagsSeleccionados.length < 6) {
+            setTagsSeleccionados((prev) => [...prev, clean])
+        }
+        setTagInput('')
+    }
+
+    const agregarOpcionAnime = (elegido: AnimeResumen) => {
+        if (opcionesAnime.length >= 4) return
+        if (opcionesAnime.some((o) => o.malId === elegido.malId)) return
+        setOpcionesAnime((prev) => [...prev, elegido])
+        setBusquedaEncuesta('')
+        setTextoBuscadoEncuesta('')
+    }
+
+    const quitarOpcionAnime = (malId: number) => {
+        setOpcionesAnime((prev) => prev.filter((o) => o.malId !== malId))
+    }
+
     const listo =
-        modo === 'recomendar' ? anime !== null && nota.trim() !== ''
-            : modo === 'buscar' ? pedido.trim() !== ''
-                : pregunta.trim() !== '' && opcionesValidas.length >= 2
+        modo === 'recomendar'
+            ? anime !== null && nota.trim() !== ''
+            : modo === 'buscar'
+              ? pedido.trim() !== ''
+              : pregunta.trim() !== '' && opcionesAnime.length >= 2
 
     const publicar = async () => {
         setEnviando(true)
         setError(null)
         try {
-            if (modo === 'recomendar' && anime) await onRecomendar({ anime, nota: nota.trim(), destinatarioId: destinatario || null })
-            if (modo === 'buscar') await onBuscar({ pedido: pedido.trim(), referencia: referencia.trim() })
-            if (modo === 'encuesta') await onEncuesta({ pregunta: pregunta.trim(), opciones: opcionesValidas })
+            if (modo === 'recomendar' && anime) {
+                await onRecomendar({ anime, nota: nota.trim(), destinatarioId: destinatario || null })
+            }
+            if (modo === 'buscar') {
+                await onBuscar({
+                    pedido: pedido.trim(),
+                    referencia: referencia.trim(),
+                    generos: generosSeleccionados,
+                    tags: tagsSeleccionados,
+                })
+            }
+            if (modo === 'encuesta') {
+                await onEncuesta({ pregunta: pregunta.trim(), opciones: opcionesAnime })
+            }
             onCerrar()
         } catch {
             setError('No se pudo publicar. Inténtalo de nuevo.')
@@ -170,6 +263,105 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
                             <label className="ml-label" htmlFor="tb-pedido">¿Qué tipo de anime buscas?</label>
                             <textarea id="tb-pedido" data-autofocus className="ml-input w-100" rows={3} maxLength={280} placeholder="Algo de misterio oscuro, con giros inesperados…" value={pedido} onChange={(e) => setPedido(e.target.value)} />
                         </div>
+
+                        {/* Selector de Géneros */}
+                        <div>
+                            <div className="d-flex align-items-center justify-content-between mb-1.5">
+                                <span className="ml-label mb-0">Géneros (opcional · máx. 5)</span>
+                                {generosSeleccionados.length > 0 && (
+                                    <span className="small text-secondary" style={{ fontSize: '0.72rem' }}>
+                                        {generosSeleccionados.length}/5 seleccionados
+                                    </span>
+                                )}
+                            </div>
+                            <div className="tb-chip-picker">
+                                {GENEROS_SUGERIDOS.map((g) => {
+                                    const activo = generosSeleccionados.includes(g)
+                                    return (
+                                        <button
+                                            key={g}
+                                            type="button"
+                                            onClick={() => toggleGenero(g)}
+                                            className={`tb-picker-chip ${activo ? 'is-selected' : ''}`}
+                                        >
+                                            {g}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Selector y creación de Tags */}
+                        <div>
+                            <div className="d-flex align-items-center justify-content-between mb-1.5">
+                                <span className="ml-label mb-0">Tags / Temáticas (opcional · máx. 6)</span>
+                                {tagsSeleccionados.length > 0 && (
+                                    <span className="small text-secondary" style={{ fontSize: '0.72rem' }}>
+                                        {tagsSeleccionados.length}/6
+                                    </span>
+                                )}
+                            </div>
+
+                            {tagsSeleccionados.length > 0 && (
+                                <div className="d-flex flex-wrap gap-1.5 mb-2">
+                                    {tagsSeleccionados.map((t) => (
+                                        <span key={t} className="tb-tag-selected">
+                                            <Tag size={11} />
+                                            <span>#{t}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleTag(t)}
+                                                aria-label={`Quitar tag ${t}`}
+                                            >
+                                                <X size={11} />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="d-flex gap-2 mb-2">
+                                <input
+                                    type="text"
+                                    className="ml-input flex-grow-1"
+                                    maxLength={32}
+                                    placeholder="Agrega un tag propio (ej: trama política) y presiona Enter…"
+                                    value={tagInput}
+                                    onChange={(e) => setTagInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault()
+                                            agregarTagManual()
+                                        }
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    className="ml-btn ml-btn-fantasma ml-btn-sm"
+                                    onClick={agregarTagManual}
+                                    disabled={!tagInput.trim() || tagsSeleccionados.length >= 6}
+                                >
+                                    <Plus size={14} />
+                                </button>
+                            </div>
+
+                            <div className="tb-chip-picker">
+                                {TAGS_SUGERIDOS.map((t) => {
+                                    const activo = tagsSeleccionados.some((x) => x.toLowerCase() === t.toLowerCase())
+                                    return (
+                                        <button
+                                            key={t}
+                                            type="button"
+                                            onClick={() => toggleTag(t)}
+                                            className={`tb-picker-chip is-tag ${activo ? 'is-selected' : ''}`}
+                                        >
+                                            #{t}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
                         <div>
                             <label className="ml-label" htmlFor="tb-ref">Parecido a (opcional)</label>
                             <input id="tb-ref" className="ml-input w-100" placeholder="Ej: Monster, Death Note" value={referencia} onChange={(e) => setReferencia(e.target.value)} />
@@ -180,32 +372,89 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
                 {modo === 'encuesta' && (
                     <>
                         <div>
-                            <label className="ml-label" htmlFor="tb-pregunta">Pregunta</label>
-                            <input id="tb-pregunta" data-autofocus className="ml-input w-100" maxLength={160} placeholder="¿Qué vemos este sábado?" value={pregunta} onChange={(e) => setPregunta(e.target.value)} />
+                            <label className="ml-label" htmlFor="tb-pregunta">Pregunta sobre animes</label>
+                            <input
+                                id="tb-pregunta"
+                                data-autofocus
+                                className="ml-input w-100"
+                                maxLength={160}
+                                placeholder="Ej: ¿Qué me recomiendan ver primero?"
+                                value={pregunta}
+                                onChange={(e) => setPregunta(e.target.value)}
+                            />
                         </div>
+
                         <div className="d-flex flex-column gap-2">
-                            <span className="ml-label mb-0">Opciones</span>
-                            {opciones.map((o, i) => (
-                                <div key={i} className="d-flex gap-2">
-                                    <input
-                                        className="ml-input flex-grow-1"
-                                        maxLength={60}
-                                        placeholder={`Opción ${i + 1}`}
-                                        value={o}
-                                        onChange={(e) => setOpciones(opciones.map((x, j) => (j === i ? e.target.value : x)))}
-                                        aria-label={`Opción ${i + 1}`}
-                                    />
-                                    {opciones.length > 2 && (
-                                        <button type="button" className="ml-icon-btn" onClick={() => setOpciones(opciones.filter((_, j) => j !== i))} aria-label={`Quitar opción ${i + 1}`}>
-                                            <X size={15} />
-                                        </button>
-                                    )}
+                            <div className="d-flex align-items-center justify-content-between">
+                                <span className="ml-label mb-0">Opciones de anime (mín. 2, máx. 4)</span>
+                                <span className="small text-secondary" style={{ fontSize: '0.72rem' }}>
+                                    {opcionesAnime.length}/4 animes
+                                </span>
+                            </div>
+
+                            {/* Animes ya elegidos como opciones */}
+                            {opcionesAnime.length > 0 && (
+                                <div className="d-flex flex-column gap-1.5">
+                                    {opcionesAnime.map((op, idx) => (
+                                        <div key={op.malId} className="tb-elegido">
+                                            <span className="tb-opcion-num">#{idx + 1}</span>
+                                            <img src={op.imagenUrl} alt="" onError={alFallarPoster} />
+                                            <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                                                <div className="fw-semibold text-white text-truncate">{op.titulo}</div>
+                                                <div className="small">
+                                                    {op.nota !== null ? `★ ${op.nota}` : 'Sin nota'}
+                                                    {op.generos.length > 0 ? ` · ${op.generos.slice(0, 2).join(', ')}` : ''}
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="ml-icon-btn"
+                                                onClick={() => quitarOpcionAnime(op.malId)}
+                                                aria-label={`Quitar ${op.titulo}`}
+                                            >
+                                                <X size={15} />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                            {opciones.length < 4 && (
-                                <button type="button" className="ml-link align-self-start" onClick={() => setOpciones([...opciones, ''])}>
-                                    <Plus size={13} /> Agregar opción
-                                </button>
+                            )}
+
+                            {/* Buscador del catálogo para añadir opciones de anime */}
+                            {opcionesAnime.length < 4 && (
+                                <div>
+                                    <div className="ml-buscador">
+                                        <Search size={16} />
+                                        <input
+                                            id="tb-buscar-encuesta"
+                                            className="ml-input"
+                                            placeholder={`Buscar anime para opción ${opcionesAnime.length + 1} (ej: Frieren, Fullmetal)…`}
+                                            value={busquedaEncuesta}
+                                            onChange={(e) => setBusquedaEncuesta(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="ml-resultados">
+                                        {resultadosEncuesta.isFetching && <p className="small mb-0 mt-2">Buscando…</p>}
+                                        {resultadosEncuesta.isError && <p className="small mb-0 mt-2">No se pudo buscar en el catálogo.</p>}
+                                        {(resultadosEncuesta.data ?? [])
+                                            .filter((r) => !opcionesAnime.some((o) => o.malId === r.malId))
+                                            .map((r) => (
+                                                <button
+                                                    key={r.malId}
+                                                    type="button"
+                                                    className="ml-resultado"
+                                                    onClick={() => agregarOpcionAnime(r)}
+                                                >
+                                                    <img src={r.imagenUrl} alt="" loading="lazy" onError={alFallarPoster} />
+                                                    <span style={{ minWidth: 0 }}>
+                                                        <span className="d-block fw-semibold text-truncate">{r.titulo}</span>
+                                                        <span className="small text-secondary">
+                                                            {r.nota !== null ? `★ ${r.nota}` : 'Sin nota'}
+                                                        </span>
+                                                    </span>
+                                                </button>
+                                            ))}
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </>
