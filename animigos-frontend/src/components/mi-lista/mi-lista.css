@@ -1963,16 +1963,15 @@
     position: absolute;
     top: 0;
     bottom: 0;
-    min-height: 100%;
     z-index: 0;
-    overflow: hidden;
+    overflow: clip;
     pointer-events: none;
-    opacity: 0.58;
+    opacity: 0.62;
     transition: opacity 0.4s ease, width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ml-lateral.is-active {
-    opacity: 0.88;
+    opacity: 0.9;
 }
 
 /* 
@@ -1995,11 +1994,10 @@
     top: 64px;
     width: 100%;
     height: calc(100vh - 64px);
-    min-height: 100%;
     overflow: hidden;
-    /* Difuminado vertical suave en extremos superior e inferior */
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.4) 4%, #000 12%, #000 80%, rgba(0, 0, 0, 0.3) 94%, transparent 100%);
-    mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.4) 4%, #000 12%, #000 80%, rgba(0, 0, 0, 0.3) 94%, transparent 100%);
+    /* Difuminado vertical suave en extremos superior e inferior del viewport */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.5) 5%, #000 14%, #000 84%, rgba(0, 0, 0, 0.4) 94%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.5) 5%, #000 14%, #000 84%, rgba(0, 0, 0, 0.4) 94%, transparent 100%);
 }
 
 /* 
@@ -2007,22 +2005,25 @@
    - Lateral IZQUIERDO: se difumina gradualmente hacia la derecha (hacia la lista)
    - Lateral DERECHO: se difumina gradualmente hacia la izquierda (hacia la lista)
 */
-.ml-lateral-izq .ml-lateral-capa {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    -webkit-mask-image: linear-gradient(to right, #000 0%, #000 35%, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.2) 80%, transparent 100%);
-    mask-image: linear-gradient(to right, #000 0%, #000 35%, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.2) 80%, transparent 100%);
-}
-
+.ml-lateral-izq .ml-lateral-capa,
 .ml-lateral-der .ml-lateral-capa {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    -webkit-mask-image: linear-gradient(to left, #000 0%, #000 35%, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.2) 80%, transparent 100%);
-    mask-image: linear-gradient(to left, #000 0%, #000 35%, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.2) 80%, transparent 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ml-lateral-izq .ml-lateral-capa {
+    -webkit-mask-image: linear-gradient(to right, #000 0%, #000 58%, rgba(0, 0, 0, 0.72) 78%, rgba(0, 0, 0, 0.25) 91%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 0%, #000 58%, rgba(0, 0, 0, 0.72) 78%, rgba(0, 0, 0, 0.25) 91%, transparent 100%);
+}
+
+.ml-lateral-der .ml-lateral-capa {
+    -webkit-mask-image: linear-gradient(to left, #000 0%, #000 58%, rgba(0, 0, 0, 0.72) 78%, rgba(0, 0, 0, 0.25) 91%, transparent 100%);
+    mask-image: linear-gradient(to left, #000 0%, #000 58%, rgba(0, 0, 0, 0.72) 78%, rgba(0, 0, 0, 0.25) 91%, transparent 100%);
 }
 
 .ml-lateral-capa.ml-lateral-entra {
@@ -2030,26 +2031,22 @@
 }
 
 .ml-lateral-img {
-    position: absolute;
-    inset: 0;
+    display: block;
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    height: auto;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center center;
     pointer-events: none;
-}
-
-.ml-lateral-izq .ml-lateral-img {
-    object-position: right center;
-}
-
-.ml-lateral-der .ml-lateral-img {
-    object-position: left center;
+    /* Difuminado suave superior e inferior sobre el propio afiche */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%);
 }
 
 @keyframes ml-lateral-fade-in {
     from {
         opacity: 0;
-        transform: scale(1.03);
+        transform: scale(1.02);
     }
     to {
         opacity: 1;
@@ -2066,13 +2063,13 @@
 }
 
 .ml-lateral-izq .ml-lateral-overlay {
-    background: linear-gradient(to right, transparent 35%, rgba(8, 8, 12, 0.6) 70%, #08080c 100%),
-                linear-gradient(to bottom, rgba(8, 8, 12, 0.4) 0%, transparent 20%, transparent 80%, rgba(8, 8, 12, 0.6) 100%);
+    background: linear-gradient(to right, transparent 52%, rgba(8, 8, 12, 0.45) 82%, #08080c 100%),
+                linear-gradient(to bottom, rgba(8, 8, 12, 0.35) 0%, transparent 18%, transparent 82%, rgba(8, 8, 12, 0.5) 100%);
 }
 
 .ml-lateral-der .ml-lateral-overlay {
-    background: linear-gradient(to left, transparent 35%, rgba(8, 8, 12, 0.6) 70%, #08080c 100%),
-                linear-gradient(to bottom, rgba(8, 8, 12, 0.4) 0%, transparent 20%, transparent 80%, rgba(8, 8, 12, 0.6) 100%);
+    background: linear-gradient(to left, transparent 52%, rgba(8, 8, 12, 0.45) 82%, #08080c 100%),
+                linear-gradient(to bottom, rgba(8, 8, 12, 0.35) 0%, transparent 18%, transparent 82%, rgba(8, 8, 12, 0.5) 100%);
 }
 
 /* ---------- Responsive ---------- */
