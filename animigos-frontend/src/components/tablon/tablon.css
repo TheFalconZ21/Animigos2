@@ -695,40 +695,41 @@
     color: var(--ml-texto);
 }
 
-/* "Busco anime…": nota adhesiva de papel claro con sello 求む */
+/* "Busco anime…": tarjeta oscura integrada con sello 求む */
 .tb-nota {
     position: relative;
-    padding: 1.1rem 1.2rem 1rem;
-    border-radius: 4px 4px 14px 4px;
-    background: #f4f4f5;
-    color: #27272a;
-    transform: rotate(-0.6deg);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+    padding: 1.15rem 1.25rem 1.05rem;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+    border: 1px solid color-mix(in srgb, var(--ml-acento, #a78bfa) 28%, rgba(255, 255, 255, 0.08));
+    color: #f1f5f9;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
 .tb-nota-sello {
     position: absolute;
-    top: -12px;
+    top: 12px;
     right: 14px;
     display: grid;
     place-items: center;
-    width: 48px;
-    height: 48px;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
-    border: 2px solid var(--ml-acento);
-    background: #f4f4f5;
-    color: var(--ml-acento);
+    border: 1.5px solid color-mix(in srgb, var(--ml-acento, #a78bfa) 55%, transparent);
+    background: color-mix(in srgb, var(--ml-acento, #a78bfa) 14%, #11131a);
+    color: var(--ml-acento, #a78bfa);
     font-family: var(--font-heading);
-    font-size: 0.9rem;
+    font-size: 0.84rem;
     font-weight: 800;
-    transform: rotate(12deg);
+    transform: rotate(8deg);
 }
 
 .tb-nota-texto {
-    margin: 0 3rem 0.85rem 0;
-    font-size: 0.95rem;
+    margin: 0 3.2rem 0.85rem 0;
+    font-size: 0.96rem;
     font-weight: 600;
     line-height: 1.5;
+    color: #ffffff;
 }
 
 .tb-nota-pie {
@@ -738,11 +739,11 @@
     justify-content: space-between;
     gap: 0.6rem;
     font-size: 0.8rem;
-    color: #52525b;
+    color: #94a3b8;
 }
 
 .tb-nota-pie strong {
-    color: #18181b;
+    color: #f8fafc;
 }
 
 /* Encuesta */
@@ -1427,14 +1428,15 @@
 }
 
 .tb-nota-chip-genero {
-    background: #18181b;
-    color: #f4f4f5;
+    background: color-mix(in srgb, var(--ml-acento, #a78bfa) 18%, transparent);
+    color: #ffffff;
+    border: 1px solid color-mix(in srgb, var(--ml-acento, #a78bfa) 48%, transparent);
 }
 
 .tb-nota-chip-tag {
-    background: rgba(24, 24, 27, 0.1);
-    color: #27272a;
-    border: 1px solid rgba(24, 24, 27, 0.18);
+    background: rgba(56, 189, 248, 0.12);
+    color: #7dd3fc;
+    border: 1px solid rgba(56, 189, 248, 0.35);
 }
 
 /* Opciones de encuesta con póster de anime */
