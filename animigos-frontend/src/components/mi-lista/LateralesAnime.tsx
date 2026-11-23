@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Eye, EyeOff, Image as ImageIcon, RotateCcw, Sliders, Sparkles, Upload } from 'lucide-react'
+import { Eye, EyeOff, Image as ImageIcon, RotateCcw, Sliders, Sparkles, Trash2, Upload } from 'lucide-react'
 import { SHOWCASE_ROW_1, SHOWCASE_ROW_2, SHOWCASE_ROW_3 } from '../../data/showcase-animes'
 import { Dialogo } from './piezas'
 import type { FilaLista } from './mi-lista-data'
@@ -30,7 +30,7 @@ export const DEFAULT_MILISTA_LATERAL_CONFIG: MiListaLateralConfig = {
     enabled: true,
     leftUrl: '',
     rightUrl: '',
-    mirrorBoth: true,
+    mirrorBoth: false,
     opacity: 65,
 }
 
@@ -109,40 +109,44 @@ export function LateralesAnime({ filas = [], visibles = [], activeFila, customCo
         return null
     }
 
-    // Modo personalizado (Imagen o GIF)
+    // Modo personalizado (2 imágenes o GIFs completamente independientes: izquierda y derecha)
     if (cfg.mode === 'custom' && (cfg.leftUrl || cfg.rightUrl)) {
-        const leftSrc = cfg.leftUrl || cfg.rightUrl
-        const rightSrc = cfg.mirrorBoth ? leftSrc : (cfg.rightUrl || cfg.leftUrl)
+        const leftSrc = (cfg.leftUrl || '').trim()
+        const rightSrc = (cfg.rightUrl || '').trim()
         const opacityStyle = Math.max(0.1, Math.min(1, (cfg.opacity || 65) / 100))
 
         return (
             <div className="ml-laterales-wrap">
-                <div className="ml-lateral ml-lateral-izq is-active" aria-hidden="true">
-                    <div className="ml-lateral-contenedor">
-                        <div className="ml-lateral-capa">
-                            <img
-                                className="ml-lateral-img"
-                                src={leftSrc}
-                                alt=""
-                                style={{ opacity: opacityStyle }}
-                            />
+                {leftSrc && (
+                    <div className="ml-lateral ml-lateral-izq is-active" aria-hidden="true">
+                        <div className="ml-lateral-contenedor">
+                            <div className="ml-lateral-capa">
+                                <img
+                                    className="ml-lateral-img"
+                                    src={leftSrc}
+                                    alt=""
+                                    style={{ opacity: opacityStyle }}
+                                />
+                            </div>
+                            <div className="ml-lateral-overlay" />
                         </div>
-                        <div className="ml-lateral-overlay" />
                     </div>
-                </div>
-                <div className="ml-lateral ml-lateral-der is-active" aria-hidden="true">
-                    <div className="ml-lateral-contenedor">
-                        <div className="ml-lateral-capa">
-                            <img
-                                className="ml-lateral-img"
-                                src={rightSrc}
-                                alt=""
-                                style={{ opacity: opacityStyle }}
-                            />
+                )}
+                {rightSrc && (
+                    <div className="ml-lateral ml-lateral-der is-active" aria-hidden="true">
+                        <div className="ml-lateral-contenedor">
+                            <div className="ml-lateral-capa">
+                                <img
+                                    className="ml-lateral-img"
+                                    src={rightSrc}
+                                    alt=""
+                                    style={{ opacity: opacityStyle }}
+                                />
+                            </div>
+                            <div className="ml-lateral-overlay" />
                         </div>
-                        <div className="ml-lateral-overlay" />
                     </div>
-                </div>
+                )}
             </div>
         )
     }
@@ -274,8 +278,9 @@ export function LateralBannerModal({
                     ...prev,
                     mode: 'custom',
                     enabled: true,
+                    mirrorBoth: false,
                     leftUrl: side === 'left' ? dataUrl : prev.leftUrl,
-                    rightUrl: side === 'right' ? dataUrl : prev.mirrorBoth ? dataUrl : prev.rightUrl,
+                    rightUrl: side === 'right' ? dataUrl : prev.rightUrl,
                 }))
             }
         }
@@ -283,7 +288,7 @@ export function LateralBannerModal({
     }
 
     const handleSave = () => {
-        onGuardar(draft)
+        onGuardar({ ...draft, mirrorBoth: false })
         onCerrar()
     }
 
@@ -292,7 +297,7 @@ export function LateralBannerModal({
             abierto={abierto}
             onCerrar={onCerrar}
             etiqueta="Personalizar banners laterales (Imagen / GIF)"
-            ancho={560}
+            ancho={680}
         >
             <div className="ml-dialog-cuerpo d-flex flex-column gap-3">
                 <div>
@@ -344,95 +349,112 @@ export function LateralBannerModal({
 
                 {draft.mode === 'custom' && (
                     <>
-                        {/* Opción mismo banner o diferentes por lado */}
-                        <label
-                            className="d-flex align-items-center gap-2 small text-light"
-                            style={{ cursor: 'pointer', fontSize: '0.8rem' }}
-                        >
-                            <input
-                                type="checkbox"
-                                className="form-check-input m-0"
-                                checked={draft.mirrorBoth}
-                                onChange={(e) => setDraft((prev) => ({ ...prev, mirrorBoth: e.target.checked }))}
-                            />
-                            <span>Usar la misma imagen o GIF en ambos lados</span>
-                        </label>
-
-                        {/* Lateral Izquierdo (o ambos) */}
-                        <div
-                            className="p-3 rounded-3 d-flex flex-column gap-2"
-                            style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)' }}
-                        >
-                            <div className="d-flex align-items-center justify-content-between gap-2">
-                                <span className="ml-label mb-0">
-                                    {draft.mirrorBoth ? 'Imagen o GIF (Ambos lados)' : 'Banner Izquierdo'}
-                                </span>
-                                <label className="ml-btn ml-btn-fantasma ml-btn-sm mb-0" style={{ cursor: 'pointer' }}>
-                                    <Upload size={13} /> Subir IMG / GIF
-                                    <input
-                                        type="file"
-                                        accept="image/gif,image/png,image/jpeg,image/webp,image/*"
-                                        onChange={(e) => handleFileUpload('left', e)}
-                                        style={{ display: 'none' }}
-                                    />
-                                </label>
-                            </div>
-                            <input
-                                type="url"
-                                className="ml-input w-100"
-                                placeholder="O pega una URL directa (https://...gif / .webp / .png / .jpg)"
-                                value={draft.leftUrl.startsWith('data:') ? 'Archivo local cargado (IMG / GIF)' : draft.leftUrl}
-                                onChange={(e) => setDraft((prev) => ({ ...prev, leftUrl: e.target.value }))}
-                            />
-                            {draft.leftUrl && (
-                                <div className="d-flex align-items-center gap-2 mt-1">
-                                    <img
-                                        src={draft.leftUrl}
-                                        alt="Vista previa lateral"
-                                        style={{ width: 54, height: 74, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(255,255,255,0.16)' }}
-                                    />
-                                    <span className="small text-secondary">Vista previa activa (soporta GIF animado)</span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Lateral Derecho independiente */}
-                        {!draft.mirrorBoth && (
-                            <div
-                                className="p-3 rounded-3 d-flex flex-column gap-2"
-                                style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)' }}
-                            >
-                                <div className="d-flex align-items-center justify-content-between gap-2">
-                                    <span className="ml-label mb-0">Banner Derecho</span>
-                                    <label className="ml-btn ml-btn-fantasma ml-btn-sm mb-0" style={{ cursor: 'pointer' }}>
-                                        <Upload size={13} /> Subir IMG / GIF
-                                        <input
-                                            type="file"
-                                            accept="image/gif,image/png,image/jpeg,image/webp,image/*"
-                                            onChange={(e) => handleFileUpload('right', e)}
-                                            style={{ display: 'none' }}
-                                        />
-                                    </label>
-                                </div>
-                                <input
-                                    type="url"
-                                    className="ml-input w-100"
-                                    placeholder="O pega una URL directa (https://...gif / .webp / .png / .jpg)"
-                                    value={draft.rightUrl.startsWith('data:') ? 'Archivo local cargado (IMG / GIF)' : draft.rightUrl}
-                                    onChange={(e) => setDraft((prev) => ({ ...prev, rightUrl: e.target.value }))}
-                                />
-                                {draft.rightUrl && (
-                                    <div className="d-flex align-items-center gap-2 mt-1">
-                                        <img
-                                            src={draft.rightUrl}
-                                            alt="Vista previa lateral derecho"
-                                            style={{ width: 54, height: 74, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(255,255,255,0.16)' }}
-                                        />
-                                        <span className="small text-secondary">Vista previa activa</span>
+                        {/* Dos paneles independientes: Banner Izquierdo y Banner Derecho */}
+                        <div className="row g-3">
+                            {/* Lateral Izquierdo */}
+                            <div className="col-12 col-md-6">
+                                <div
+                                    className="p-3 rounded-3 d-flex flex-column gap-2 h-100"
+                                    style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                >
+                                    <div className="d-flex align-items-center justify-content-between gap-2">
+                                        <span className="ml-label mb-0">Banner Izquierdo</span>
+                                        <label className="ml-btn ml-btn-fantasma ml-btn-sm mb-0" style={{ cursor: 'pointer' }}>
+                                            <Upload size={13} /> Subir
+                                            <input
+                                                type="file"
+                                                accept="image/gif,image/png,image/jpeg,image/webp,image/*"
+                                                onChange={(e) => handleFileUpload('left', e)}
+                                                style={{ display: 'none' }}
+                                            />
+                                        </label>
                                     </div>
-                                )}
+                                    <input
+                                        type="url"
+                                        className="ml-input w-100"
+                                        placeholder="URL directa (IMG o GIF)..."
+                                        value={draft.leftUrl.startsWith('data:') ? 'Archivo local cargado' : draft.leftUrl}
+                                        onChange={(e) => setDraft((prev) => ({ ...prev, leftUrl: e.target.value }))}
+                                    />
+                                    {draft.leftUrl ? (
+                                        <div className="d-flex align-items-center justify-content-between gap-2 mt-1">
+                                            <div className="d-flex align-items-center gap-2">
+                                                <img
+                                                    src={draft.leftUrl}
+                                                    alt="Vista previa banner izquierdo"
+                                                    style={{ width: 48, height: 68, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(255,255,255,0.16)' }}
+                                                />
+                                                <span className="small text-secondary" style={{ fontSize: '0.74rem' }}>Izquierdo activo</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="ml-btn ml-btn-fantasma ml-btn-sm text-danger"
+                                                onClick={() => setDraft((prev) => ({ ...prev, leftUrl: '' }))}
+                                                title="Quitar banner izquierdo"
+                                            >
+                                                <Trash2 size={13} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <span className="small text-secondary opacity-75 mt-1" style={{ fontSize: '0.74rem' }}>
+                                            Sin imagen asignada en el lado izquierdo.
+                                        </span>
+                                    )}
+                                </div>
                             </div>
-                        )}
+
+                            {/* Lateral Derecho */}
+                            <div className="col-12 col-md-6">
+                                <div
+                                    className="p-3 rounded-3 d-flex flex-column gap-2 h-100"
+                                    style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                >
+                                    <div className="d-flex align-items-center justify-content-between gap-2">
+                                        <span className="ml-label mb-0">Banner Derecho</span>
+                                        <label className="ml-btn ml-btn-fantasma ml-btn-sm mb-0" style={{ cursor: 'pointer' }}>
+                                            <Upload size={13} /> Subir
+                                            <input
+                                                type="file"
+                                                accept="image/gif,image/png,image/jpeg,image/webp,image/*"
+                                                onChange={(e) => handleFileUpload('right', e)}
+                                                style={{ display: 'none' }}
+                                            />
+                                        </label>
+                                    </div>
+                                    <input
+                                        type="url"
+                                        className="ml-input w-100"
+                                        placeholder="URL directa (IMG o GIF)..."
+                                        value={draft.rightUrl.startsWith('data:') ? 'Archivo local cargado' : draft.rightUrl}
+                                        onChange={(e) => setDraft((prev) => ({ ...prev, rightUrl: e.target.value }))}
+                                    />
+                                    {draft.rightUrl ? (
+                                        <div className="d-flex align-items-center justify-content-between gap-2 mt-1">
+                                            <div className="d-flex align-items-center gap-2">
+                                                <img
+                                                    src={draft.rightUrl}
+                                                    alt="Vista previa banner derecho"
+                                                    style={{ width: 48, height: 68, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(255,255,255,0.16)' }}
+                                                />
+                                                <span className="small text-secondary" style={{ fontSize: '0.74rem' }}>Derecho activo</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="ml-btn ml-btn-fantasma ml-btn-sm text-danger"
+                                                onClick={() => setDraft((prev) => ({ ...prev, rightUrl: '' }))}
+                                                title="Quitar banner derecho"
+                                            >
+                                                <Trash2 size={13} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <span className="small text-secondary opacity-75 mt-1" style={{ fontSize: '0.74rem' }}>
+                                            Sin imagen asignada en el lado derecho.
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
 
                         {/* Opacidad */}
                         <div>
