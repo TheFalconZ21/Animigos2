@@ -16,7 +16,7 @@ export type TipoActividad =
     | 'hito'
     | 'estreno_anime'
 
-export type FiltroTablon = 'todo' | 'recomendaciones' | 'invitaciones' | 'publicaciones'
+export type FiltroTablon = 'todo' | 'mios' | 'recomendaciones' | 'invitaciones' | 'publicaciones'
 
 export interface AutorActividad {
     id: string
@@ -40,6 +40,14 @@ export interface OpcionEncuesta {
     anime?: AnimeResumen
 }
 
+export interface RespuestaActividad {
+    id: string
+    autor: AutorActividad
+    nota: string
+    anime?: AnimeResumen
+    creadoHace: string
+}
+
 export interface Actividad {
     id: string
     tipo: TipoActividad
@@ -47,6 +55,7 @@ export interface Actividad {
     creadoHace: string
     agradecimientos: number
     agradecidoPorMi: boolean
+    respuestas?: RespuestaActividad[]
     recomendacion?: { anime: AnimeResumen; nota: string; paraMi: boolean }
     invitacion?: { codigoSala: string; nombreSala: string; integrantes: number; candidatoTop?: string }
     busqueda?: {
@@ -64,6 +73,7 @@ export interface NuevaRecomendacion {
     anime: AnimeResumen
     nota: string
     destinatarioId: string | null // null = recomendación general para todos; o username de un amigo
+    respuestaAId?: string | null // si responde a un post "busco_anime" del tablón
 }
 
 const STORAGE_KEY = 'animigos_tablon_feed_v1'
@@ -91,12 +101,24 @@ function saveLocalFeed(acts: Actividad[]) {
 
 const TIPOS_POR_FILTRO: Record<FiltroTablon, TipoActividad[] | null> = {
     todo: null,
+    mios: null,
     recomendaciones: ['recomendacion_directa', 'recomendacion_general'],
     invitaciones: ['invitacion_sala'],
     publicaciones: ['busco_anime', 'encuesta', 'hito', 'estreno_anime'],
 }
 
-export function filtrarActividades(actividades: Actividad[], filtro: FiltroTablon): Actividad[] {
+export function filtrarActividades(
+    actividades: Actividad[],
+    filtro: FiltroTablon,
+    currentUsername?: string
+): Actividad[] {
+    if (filtro === 'mios') {
+        const cleanUser = (currentUsername || '').trim().toLowerCase()
+        if (!cleanUser) return []
+        return actividades.filter(
+            (a) => (a.autor.usuario || '').trim().toLowerCase() === cleanUser
+        )
+    }
     const tipos = TIPOS_POR_FILTRO[filtro]
     return tipos ? actividades.filter((a) => tipos.includes(a.tipo)) : actividades
 }
@@ -224,7 +246,24 @@ export async function publicarRecomendacion(autor: AutorActividad, datos: NuevaR
     }
 
     const feedActual = getLocalFeed()
-    const actualizado = [act, ...feedActual]
+    const feedConRespuesta = datos.respuestaAId
+        ? feedActual.map((item) => {
+              if (item.id !== datos.respuestaAId) return item
+              const nuevaResp: RespuestaActividad = {
+                  id: `resp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                  autor,
+                  nota: datos.nota,
+                  anime: datos.anime,
+                  creadoHace: 'Ahora mismo',
+              }
+              return {
+                  ...item,
+                  respuestas: [nuevaResp, ...(item.respuestas ?? [])],
+              }
+          })
+        : feedActual
+
+    const actualizado = [act, ...feedConRespuesta]
     saveLocalFeed(actualizado)
     return act
 }

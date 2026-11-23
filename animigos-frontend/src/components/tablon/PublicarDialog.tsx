@@ -13,6 +13,7 @@ export interface Borrador {
     modo: ModoPublicar
     destinatarioId?: string | null
     nota?: string
+    respuestaAId?: string | null
 }
 
 const MODOS: { id: ModoPublicar; label: string; icono: typeof Send }[] = [
@@ -195,7 +196,12 @@ function Contenido({ borrador, onCerrar, onRecomendar, onBuscar, onEncuesta }: A
         setError(null)
         try {
             if (modo === 'recomendar' && anime) {
-                await onRecomendar({ anime, nota: nota.trim(), destinatarioId: destinatario || null })
+                await onRecomendar({
+                    anime,
+                    nota: nota.trim(),
+                    destinatarioId: destinatario || null,
+                    respuestaAId: borrador.respuestaAId || null,
+                })
             }
             if (modo === 'buscar') {
                 await onBuscar({

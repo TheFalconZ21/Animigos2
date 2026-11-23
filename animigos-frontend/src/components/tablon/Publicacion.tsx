@@ -1,4 +1,4 @@
-import { BookmarkCheck, BookmarkPlus, Flag, Heart, Lightbulb, Ticket, Trophy, Users, Vote, Send, Sparkles, Handshake, Star, Clapperboard } from 'lucide-react'
+import { BookmarkCheck, BookmarkPlus, Flag, Heart, Lightbulb, MessageSquare, Ticket, Trophy, Users, Vote, Send, Sparkles, Handshake, Star, Clapperboard } from 'lucide-react'
 import type { Actividad, TipoActividad } from '../../services/feedApi'
 import { alFallarPoster } from '../mi-lista/mi-lista-data'
 import { navigate } from '../../utils/navigation'
@@ -22,6 +22,7 @@ interface Props {
     onSugerir: (actividad: Actividad) => void
     onEntrarSala: (codigo: string) => void
     onReportar?: (actividad: Actividad) => void
+    onVerFeedback?: (actividad: Actividad) => void
     esPropia?: boolean
 }
 
@@ -43,19 +44,54 @@ export function Publicacion({
     onSugerir,
     onEntrarSala,
     onReportar,
+    onVerFeedback,
     esPropia = false,
 }: Props) {
     const { texto, icono: Icono } = ETIQUETA_TIPO[a.tipo]
     const puedeReportar = Boolean(onReportar && !esPropia && TIPOS_REPORTABLES.has(a.tipo))
+    const puedeVerFeedback = Boolean(esPropia && onVerFeedback)
+    const feedbackCount =
+        (a.respuestas?.length ?? 0) +
+        (a.encuesta ? a.encuesta.opciones.reduce((s, o) => s + o.votos, 0) : 0) +
+        (a.agradecimientos || 0)
+
+    const handleCardClick = (e: React.MouseEvent<HTMLElement>) => {
+        if (!puedeVerFeedback) return
+        const target = e.target as HTMLElement | null
+        if (target?.closest('button, a, input, textarea, select')) return
+        onVerFeedback?.(a)
+    }
 
     return (
-        <article className={`tb-post tb-post-${a.tipo}`}>
+        <article
+            className={`tb-post tb-post-${a.tipo} ${puedeVerFeedback ? 'tb-post-propia-clickable' : ''}`}
+            onClick={handleCardClick}
+            style={puedeVerFeedback ? { cursor: 'pointer' } : undefined}
+            title={puedeVerFeedback ? 'Haz click para ver el feedback de tus amigos' : undefined}
+        >
             <header className="tb-post-cabecera">
                 <Avatar src={a.autor.avatarUrl} nombre={a.autor.nombre} />
                 <div className="tb-post-autor">
                     <strong>{a.autor.nombre}</strong>
                     <span>@{a.autor.usuario} · {a.creadoHace}</span>
                 </div>
+                {puedeVerFeedback && (
+                    <button
+                        type="button"
+                        onClick={() => onVerFeedback?.(a)}
+                        className="ml-btn ml-btn-fantasma ml-btn-sm d-inline-flex align-items-center gap-1"
+                        style={{
+                            fontSize: '0.72rem',
+                            padding: '0.2rem 0.55rem',
+                            borderColor: 'color-mix(in srgb, var(--ml-acento, #a78bfa) 38%, transparent)',
+                            color: 'var(--ml-acento, #a78bfa)',
+                        }}
+                        title="Ver recomendaciones, votos y opiniones recibidas"
+                    >
+                        <MessageSquare size={12} />
+                        <span>Feedback{feedbackCount > 0 ? ` (${feedbackCount})` : ''}</span>
+                    </button>
+                )}
                 <span className="tb-post-tipo"><Icono size={13} /> {texto}</span>
                 {puedeReportar && (
                     <button

@@ -6,10 +6,11 @@ import { useHorario } from '../../hooks/useCalendario'
 import { useAhora } from '../../hooks/useAhora'
 import { useMyList } from '../../hooks/useMyList'
 import { useAuth } from '../../context/AuthContext'
-import { filtrarActividades, type Actividad, type FiltroTablon } from '../../services/feedApi'
+import { filtrarActividades, type Actividad, type AnimeResumen, type FiltroTablon } from '../../services/feedApi'
 import { TablonBanner, type PosterBanner } from './TablonBanner'
 import { NoticiaFijada } from './NoticiaFijada'
 import { Publicacion } from './Publicacion'
+import { PostFeedbackDialog } from './PostFeedbackDialog'
 import { SalasLateral } from './SalasLateral'
 import { PublicarDialog, type Borrador, type ModoPublicar } from './PublicarDialog'
 import { PestanaNoticias } from './PestanaNoticias'
@@ -30,8 +31,9 @@ import './tablon.css'
 
 type Seccion = 'actividad' | 'noticias'
 
-const FILTROS: { id: FiltroTablon; label: string }[] = [
+const FILTROS: { id: FiltroTablon; label: string; soloConSesion?: boolean }[] = [
     { id: 'todo', label: 'Todo' },
+    { id: 'mios', label: 'Solo míos', soloConSesion: true },
     { id: 'recomendaciones', label: 'Recomendaciones' },
     { id: 'invitaciones', label: 'Invitaciones' },
     { id: 'publicaciones', label: 'Encuestas y logros' },
@@ -49,6 +51,7 @@ export function Tablon() {
     const [filtro, setFiltro] = useState<FiltroTablon>('todo')
     const [borrador, setBorrador] = useState<Borrador | null>(null)
     const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null)
+    const [feedbackPostId, setFeedbackPostId] = useState<string | null>(null)
 
     const reportarPublicacion = (a: Actividad) => {
         let contentType: ReportContentType = 'other'
@@ -84,7 +87,11 @@ export function Tablon() {
 
     // Sin sesión no hay lista propia: no marcamos nada como "En tu lista"
     const idsEnLista = useMemo(() => new Set(isAuthenticated ? filas.map((f) => f.malId) : []), [filas, isAuthenticated])
-    const visibles = filtrarActividades(tablon.actividades, filtro)
+    const visibles = filtrarActividades(tablon.actividades, filtro, user?.username)
+    const feedbackPost = useMemo(
+        () => (feedbackPostId ? tablon.actividades.find((x) => x.id === feedbackPostId) ?? null : null),
+        [feedbackPostId, tablon.actividades]
+    )
     const salasEsperando = tablon.salas.filter((s) => s.status === 'voting' || s.status === 'candidates').length
 
     // Portadas del corcho: animes recomendados reales en el tablón (sin datos falsos)
@@ -111,9 +118,21 @@ export function Tablon() {
         })
     }
 
-    // Responder a un "busco anime": recomendación directa al autor, con la nota ya iniciada
+    const guardarAnimeResumen = (anime: AnimeResumen) => {
+        if (!isAuthenticated) return abrirLogin()
+        agregarAnime({ malId: anime.malId, estado: 'pendiente', nota: null, episodiosVistos: 0, favorito: false, tags: [] }).catch((err) => {
+            console.error('Error al guardar anime desde tablón:', err)
+        })
+    }
+
+    // Responder a un "busco anime": recomendación directa al autor, enlazada al post original
     const sugerir = (a: Actividad) =>
-        publicar({ modo: 'recomendar', destinatarioId: a.autor.usuario, nota: `Por lo que pediste (“${a.busqueda!.pedido.slice(0, 60)}…”), te sugiero este:` })
+        publicar({
+            modo: 'recomendar',
+            destinatarioId: a.autor.usuario,
+            respuestaAId: a.id,
+            nota: `Por lo que pediste (“${a.busqueda!.pedido.slice(0, 60)}…”), te sugiero este:`,
+        })
 
     const entrarSala = (codigo?: string) => {
         navigate(codigo ? `/sala/${codigo}` : '/listas')
@@ -168,9 +187,9 @@ export function Tablon() {
                         {seccion === 'actividad' && (
                             <div className="ml-panel">
                                 <div className="ml-chips mb-3" role="group" aria-label="Filtrar la actividad">
-                                    {FILTROS.map(({ id, label }) => (
+                                    {FILTROS.filter((f) => !f.soloConSesion || isAuthenticated).map(({ id, label }) => (
                                         <button key={id} type="button" className="ml-chip" aria-pressed={filtro === id} onClick={() => setFiltro(id)}>
-                                            {label} <span className="ml-chip-num">{filtrarActividades(tablon.actividades, id).length}</span>
+                                            {label} <span className="ml-chip-num">{filtrarActividades(tablon.actividades, id, user?.username).length}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -199,6 +218,7 @@ export function Tablon() {
                                             onSugerir={sugerir}
                                             onEntrarSala={entrarSala}
                                             onReportar={reportarPublicacion}
+                                            onVerFeedback={(act) => setFeedbackPostId(act.id)}
                                             esPropia={Boolean(
                                                 user?.username &&
                                                 a.autor.usuario &&
@@ -239,6 +259,14 @@ export function Tablon() {
             />
 
             <ReportDialog target={reportTarget} onClose={() => setReportTarget(null)} />
+
+            <PostFeedbackDialog
+                actividad={feedbackPost}
+                todasActividades={tablon.actividades}
+                enMiLista={(malId) => idsEnLista.has(malId)}
+                onGuardarAnime={guardarAnimeResumen}
+                onCerrar={() => setFeedbackPostId(null)}
+            />
         </section>
     )
 }
