@@ -17,6 +17,7 @@ export interface CatalogFilterParams {
     year?: number | string
     season?: string
     min_score?: number | string
+    max_score?: number | string
     format?: string
     type?: string
     status?: string
@@ -70,7 +71,8 @@ export async function fetchCatalogAnimes(params: CatalogFilterParams = {}): Prom
     if (params.studio) searchParams.set('studio', params.studio)
     if (params.year) searchParams.set('year', String(params.year))
     if (params.season) searchParams.set('season', params.season)
-    if (params.min_score) searchParams.set('min_score', String(params.min_score))
+    if (params.min_score !== undefined && params.min_score !== '') searchParams.set('min_score', String(params.min_score))
+    if (params.max_score !== undefined && params.max_score !== '') searchParams.set('max_score', String(params.max_score))
     if (params.format) searchParams.set('format', params.format)
     if (params.type) searchParams.set('type', params.type)
     if (params.status) searchParams.set('status', params.status)

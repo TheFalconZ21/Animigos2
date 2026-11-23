@@ -78,15 +78,6 @@ const FORMATS_LIST = [
     { id: 'Special', label: 'Especial' },
 ]
 
-const MIN_SCORES_LIST = [
-    { id: '', label: 'Todas las notas' },
-    { id: '9.0', label: '★ 9.0 o más' },
-    { id: '8.5', label: '★ 8.5 o más' },
-    { id: '8.0', label: '★ 8.0 o más' },
-    { id: '7.5', label: '★ 7.5 o más' },
-    { id: '7.0', label: '★ 7.0 o más' },
-]
-
 const ORDERING_LIST = [
     { id: '-score', label: 'Puntuación MAL' },
     { id: 'score', label: 'Puntuación MAL (Menor)' },
@@ -128,6 +119,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
     const [season, setSeason] = useState(initialSeason ? String(initialSeason).toLowerCase() : '')
     const [year, setYear] = useState(initialYear ? String(initialYear) : '')
     const [minScore, setMinScore] = useState('')
+    const [maxScore, setMaxScore] = useState('')
     const [format, setFormat] = useState('')
     const [ordering, setOrdering] = useState(initialOrdering || '-score')
 
@@ -287,7 +279,8 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
             tags: selectedTerms.length > 0 ? selectedTerms.join(',') : undefined,
             season: season || undefined,
             year: year || undefined,
-            min_score: minScore || undefined,
+            min_score: minScore.trim() !== '' ? minScore.trim().replace(',', '.') : undefined,
+            max_score: maxScore.trim() !== '' ? maxScore.trim().replace(',', '.') : undefined,
             format: format || undefined,
             ordering: ordering || '-score',
             no_sequels: noSequels ? true : undefined,
@@ -305,6 +298,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
         season,
         year,
         minScore,
+        maxScore,
         format,
         ordering,
         noSequels,
@@ -332,6 +326,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
         setSeason('')
         setYear('')
         setMinScore('')
+        setMaxScore('')
         setFormat('')
         setOrdering('-score')
         setNoSequels(false)
@@ -347,6 +342,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
             season ||
             year ||
             minScore ||
+            maxScore ||
             format ||
             ordering !== '-score' ||
             noSequels ||
@@ -619,21 +615,68 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                         </div>
 
                         <div className="cat-filter-col">
-                            <label className="cat-filter-label">NOTA MÍNIMA</label>
-                            <select
-                                className="cat-select"
-                                value={minScore}
-                                onChange={(e) => {
-                                    setMinScore(e.target.value)
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                {MIN_SCORES_LIST.map((m) => (
-                                    <option key={m.id} value={m.id}>
-                                        {m.label}
-                                    </option>
-                                ))}
-                            </select>
+                            <label className="cat-filter-label">NOTA</label>
+                            <div className="cat-score-range-box">
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={10}
+                                    step={0.1}
+                                    inputMode="decimal"
+                                    placeholder="Mín"
+                                    className="cat-score-range-input"
+                                    aria-label="Nota mínima"
+                                    value={minScore}
+                                    onChange={(e) => {
+                                        const val = e.target.value
+                                        if (val === '' || /^\d{0,2}([.,]\d{0,2})?$/.test(val)) {
+                                            setMinScore(val)
+                                            setCurrentPage(1)
+                                        }
+                                    }}
+                                    onBlur={(e) => {
+                                        const raw = e.target.value.trim().replace(',', '.')
+                                        if (!raw) return
+                                        const num = parseFloat(raw)
+                                        if (Number.isNaN(num)) {
+                                            setMinScore('')
+                                        } else {
+                                            const clamped = Math.max(0, Math.min(10, num))
+                                            setMinScore(String(Number(clamped.toFixed(2))))
+                                        }
+                                    }}
+                                />
+                                <span className="cat-score-range-sep" aria-hidden="true">–</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={10}
+                                    step={0.1}
+                                    inputMode="decimal"
+                                    placeholder="Máx"
+                                    className="cat-score-range-input"
+                                    aria-label="Nota máxima"
+                                    value={maxScore}
+                                    onChange={(e) => {
+                                        const val = e.target.value
+                                        if (val === '' || /^\d{0,2}([.,]\d{0,2})?$/.test(val)) {
+                                            setMaxScore(val)
+                                            setCurrentPage(1)
+                                        }
+                                    }}
+                                    onBlur={(e) => {
+                                        const raw = e.target.value.trim().replace(',', '.')
+                                        if (!raw) return
+                                        const num = parseFloat(raw)
+                                        if (Number.isNaN(num)) {
+                                            setMaxScore('')
+                                        } else {
+                                            const clamped = Math.max(0, Math.min(10, num))
+                                            setMaxScore(String(Number(clamped.toFixed(2))))
+                                        }
+                                    }}
+                                />
+                            </div>
                         </div>
 
                         <div className="cat-filter-col">

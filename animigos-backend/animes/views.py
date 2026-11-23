@@ -67,6 +67,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         year = params.get('year')
         season_param = params.get('season') or params.get('temporada')
         min_score = params.get('min_score') or params.get('minScore')
+        max_score = params.get('max_score') or params.get('maxScore')
         format_param = params.get('format') or params.get('type') or params.get('formato')
         status_param = params.get('status')
         no_sequels = params.get('no_sequels') or params.get('noSequels')
@@ -133,10 +134,15 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             season_norm = season_map.get(season_param.lower(), season_param.lower())
             qs = qs.filter(season__iexact=season_norm)
 
-        # 6. Filtro por Nota Mínima
+        # 6. Filtro por Rango de Nota (Mínima y Máxima)
         if min_score and min_score.lower() not in ('todas', 'todas las notas', 'all'):
             try:
-                qs = qs.filter(score__gte=float(min_score))
+                qs = qs.filter(score__gte=float(min_score.replace(',', '.')))
+            except ValueError:
+                pass
+        if max_score and max_score.lower() not in ('todas', 'todas las notas', 'all'):
+            try:
+                qs = qs.filter(score__lte=float(max_score.replace(',', '.')))
             except ValueError:
                 pass
 
@@ -199,7 +205,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         # 12. Ordenación (nulls_last=True para paridad estricta entre SQLite y PostgreSQL)
         ordering_param = params.get('ordering', '-score')
         if not ordering_param or ordering_param in ('-score', '-score_mal'):
-            if not q and not min_score:
+            if not q and not min_score and not max_score:
                 qs = qs.filter(Q(scored_by__gte=100) | Q(rank__isnull=False)).order_by(
                     F('score').desc(nulls_last=True), F('rank').asc(nulls_last=True), '-scored_by'
                 )

@@ -154,6 +154,60 @@
     color: #ffffff;
 }
 
+/* Rango numérico de Nota (Mín – Máx) con las mismas dimensiones que .cat-select */
+.cat-score-range-box {
+    display: flex;
+    align-items: center;
+    background: var(--cat-surface-2);
+    border: 1px solid var(--cat-border);
+    border-radius: 10px;
+    height: 38px;
+    padding: 0 0.45rem;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cat-score-range-box:focus-within {
+    border-color: var(--cat-acento);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--cat-acento) 25%, transparent);
+}
+
+.cat-score-range-input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    font-size: 0.8rem;
+    text-align: center;
+    outline: none;
+    padding: 0 2px;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.cat-score-range-input::-webkit-outer-spin-button,
+.cat-score-range-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.cat-score-range-input::placeholder {
+    color: var(--cat-text-dim);
+    opacity: 0.85;
+}
+
+.cat-score-range-sep {
+    color: var(--cat-text-dim);
+    font-size: 0.78rem;
+    padding: 0 2px;
+    user-select: none;
+    flex-shrink: 0;
+}
+
 /* Buscador con Botón */
 .cat-search-row {
     display: flex;
