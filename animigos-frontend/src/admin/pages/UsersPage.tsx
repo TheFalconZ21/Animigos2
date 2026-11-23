@@ -10,6 +10,8 @@ import {
     Smartphone,
     Monitor,
     Shield,
+    Ban,
+    RotateCcw,
     Plus,
     Trash2,
     ChevronRight
@@ -19,7 +21,8 @@ import {
     getGrowth,
     createAdminUser,
     updateAdminUser,
-    deleteAdminUser
+    deleteAdminUser,
+    moderateAdminUser
 } from '../services/adminApi'
 import type { AdminUserItem, GrowthResponse } from '../services/adminApi'
 import { AdminSubViewBar, useAdminSubView, type SubViewOption } from '../components/AdminSubViewBar'
@@ -237,24 +240,109 @@ export function UsersPage() {
         })
     }, [users, searchQuery, userTypeFilter, activityFilter])
 
-    const handleToggleRole = async (user: AdminUserItem) => {
-        const nextRole = (user.role === 'owner' || (user.role as string) === 'admin') ? 'user' : 'admin'
-        try {
-            await updateAdminUser(user.id, { role: nextRole })
-            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: nextRole === 'admin' ? 'owner' : 'member' } : u))
-        } catch (err: any) {
-            setFeedback(err.message || 'Error al cambiar rol')
-        }
+    const [confirmAction, setConfirmAction] = useState<{
+        type: 'role' | 'suspend' | 'activate' | 'delete'
+        user: AdminUserItem
+        title: string
+        message: string
+        confirmLabel: string
+        danger?: boolean
+    } | null>(null)
+    const [confirmReason, setConfirmReason] = useState('')
+    const [isExecutingConfirm, setIsExecutingConfirm] = useState(false)
+
+    const cleanHandle = (raw: string) => raw.replace(/^@+/, '')
+
+    const requestToggleRole = (user: AdminUserItem) => {
+        const isCurrentlyAdmin = user.role === 'owner' || (user.role as string) === 'admin'
+        const handle = cleanHandle(user.username)
+        setConfirmReason('')
+        setConfirmAction({
+            type: 'role',
+            user,
+            title: isCurrentlyAdmin ? 'Quitar acceso de Administrador' : 'Otorgar acceso de Administrador',
+            message: isCurrentlyAdmin
+                ? `¿Confirmas que deseas revocar los permisos de Administrador a ${user.name} (@${handle})? Pasará a ser un Miembro regular.`
+                : `¿Confirmas que deseas otorgar permisos de Administrador a ${user.name} (@${handle})? Tendrá acceso completo al Admin Console.`,
+            confirmLabel: isCurrentlyAdmin ? 'Sí, quitar Admin' : 'Sí, hacer Admin',
+            danger: isCurrentlyAdmin,
+        })
     }
 
-    const handleDeleteUser = async (user: AdminUserItem) => {
+    const requestToggleSuspend = (user: AdminUserItem) => {
+        const isSuspended = user.status === 'suspended'
+        const handle = cleanHandle(user.username)
+        setConfirmReason(isSuspended ? '' : 'Incumplimiento de las normas comunitarias')
+        setConfirmAction({
+            type: isSuspended ? 'activate' : 'suspend',
+            user,
+            title: isSuspended ? 'Reactivar cuenta de usuario' : 'Suspender cuenta de usuario',
+            message: isSuspended
+                ? `¿Deseas reactivar la cuenta de ${user.name} (@${handle})? Volverá a poder iniciar sesión normalmente.`
+                : `¿Deseas suspender la cuenta de ${user.name} (@${handle})? Se cerrarán sus sesiones activas y no podrá iniciar sesión, pero sus datos permanecerán intactos en la base de datos.`,
+            confirmLabel: isSuspended ? 'Reactivar cuenta' : 'Suspender cuenta',
+            danger: !isSuspended,
+        })
+    }
+
+    const requestDeleteUser = (user: AdminUserItem) => {
+        const handle = cleanHandle(user.username)
+        setConfirmReason('')
+        setConfirmAction({
+            type: 'delete',
+            user,
+            title: 'Eliminar usuario permanentemente',
+            message: `Esta acción eliminará la cuenta de ${user.name} (@${handle}) de la base de datos. Si solo deseas bloquearle el acceso, usa "Suspender".`,
+            confirmLabel: 'Eliminar permanentemente',
+            danger: true,
+        })
+    }
+
+    const executeConfirmedAction = async () => {
+        if (!confirmAction) return
+        setIsExecutingConfirm(true)
+        const { type, user } = confirmAction
+        const handle = cleanHandle(user.username)
         try {
-            await deleteAdminUser(user.id)
-            setUsers(prev => prev.filter(u => u.id !== user.id))
-            setFeedback(`Usuario @${user.username} eliminado correctamente`)
-            setTimeout(() => setFeedback(null), 3000)
+            if (type === 'role') {
+                const nextRole = (user.role === 'owner' || (user.role as string) === 'admin') ? 'user' : 'admin'
+                await updateAdminUser(user.id, { role: nextRole })
+                setUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: nextRole === 'admin' ? 'owner' : 'member' } : u))
+                setFeedback(
+                    nextRole === 'admin'
+                        ? `Permisos de Administrador otorgados a @${handle}`
+                        : `Permisos de Administrador revocados a @${handle}`
+                )
+            } else if (type === 'suspend') {
+                await moderateAdminUser(
+                    user.id,
+                    'suspend',
+                    confirmReason.trim() || 'Cuenta suspendida por administración',
+                    { username: handle, email: user.email }
+                )
+                setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: 'suspended' } : u))
+                setFeedback(`Cuenta @${handle} suspendida y sesiones revocadas`)
+            } else if (type === 'activate') {
+                await moderateAdminUser(
+                    user.id,
+                    'activate',
+                    'Cuenta reactivada por administración',
+                    { username: handle, email: user.email }
+                )
+                setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: 'active' } : u))
+                setFeedback(`Cuenta @${handle} reactivada correctamente`)
+            } else if (type === 'delete') {
+                await deleteAdminUser(user.id)
+                setUsers(prev => prev.filter(u => u.id !== user.id))
+                setFeedback(`Usuario @${handle} eliminado correctamente`)
+            }
+            setConfirmAction(null)
+            setTimeout(() => setFeedback(null), 3500)
         } catch (err: any) {
-            setFeedback(err.message || 'Error al eliminar usuario')
+            setFeedback(err.message || 'Error al ejecutar la acción')
+            setConfirmAction(null)
+        } finally {
+            setIsExecutingConfirm(false)
         }
     }
 
@@ -379,8 +467,17 @@ export function UsersPage() {
                                     <tbody>
                                         {filteredUsers.slice(0, 20).map(u => {
                                             const isAdmin = u.role === 'owner' || (u.role as string) === 'admin'
+                                            const isSuspended = u.status === 'suspended'
+                                            const handle = cleanHandle(u.username)
                                             return (
-                                                <tr key={u.id} className="border-bottom" style={{ borderColor: 'var(--admin-border-subtle)' }}>
+                                                <tr
+                                                    key={u.id}
+                                                    className="border-bottom"
+                                                    style={{
+                                                        borderColor: 'var(--admin-border-subtle)',
+                                                        opacity: isSuspended ? 0.72 : 1,
+                                                    }}
+                                                >
                                                     <td>
                                                         <div className="d-flex align-items-center gap-2.5">
                                                             <img
@@ -389,9 +486,25 @@ export function UsersPage() {
                                                                 style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
                                                             />
                                                             <div>
-                                                                <div className="text-white fw-semibold">{u.name}</div>
+                                                                <div className="d-flex align-items-center gap-2">
+                                                                    <span className="text-white fw-semibold">{u.name}</span>
+                                                                    {isSuspended && (
+                                                                        <span
+                                                                            className="admin-badge"
+                                                                            style={{
+                                                                                backgroundColor: 'rgba(244, 63, 94, 0.16)',
+                                                                                color: '#fb7185',
+                                                                                border: '1px solid rgba(244, 63, 94, 0.35)',
+                                                                                fontSize: '0.68rem',
+                                                                                padding: '0.1rem 0.45rem',
+                                                                            }}
+                                                                        >
+                                                                            Suspendida
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                                 <span className="font-mono" style={{ color: 'var(--admin-text-muted)', fontSize: '0.74rem' }}>
-                                                                    @{u.username} • {u.email}
+                                                                    @{handle} • {u.email}
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -406,9 +519,10 @@ export function UsersPage() {
                                                     <td>
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleToggleRole(u)}
+                                                            onClick={() => requestToggleRole(u)}
                                                             className={`admin-badge border-0 ${isAdmin ? 'admin-badge-success' : 'admin-badge-neutral'}`}
                                                             style={{ cursor: 'pointer' }}
+                                                            title={isAdmin ? 'Click para quitar acceso Admin' : 'Click para dar acceso Admin'}
                                                         >
                                                             <Shield size={11} className="me-1" />
                                                             {isAdmin ? 'Administrador' : 'Miembro'}
@@ -419,14 +533,30 @@ export function UsersPage() {
                                                     </td>
                                                     <td style={{ color: 'var(--admin-text-secondary)' }}>{u.last_activity}</td>
                                                     <td className="text-end">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleDeleteUser(u)}
-                                                            className="admin-btn admin-btn-secondary text-danger d-inline-flex align-items-center gap-1"
-                                                        >
-                                                            <Trash2 size={12} />
-                                                            <span>Eliminar</span>
-                                                        </button>
+                                                        <div className="d-inline-flex align-items-center gap-1.5">
+                                                            {u.user_type === 'registered' && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => requestToggleSuspend(u)}
+                                                                    className="admin-btn admin-btn-secondary d-inline-flex align-items-center gap-1"
+                                                                    style={{
+                                                                        color: isSuspended ? '#34d399' : '#fbbf24',
+                                                                    }}
+                                                                    title={isSuspended ? 'Reactivar acceso de esta cuenta' : 'Bloquear acceso sin eliminar de la BD'}
+                                                                >
+                                                                    {isSuspended ? <RotateCcw size={12} /> : <Ban size={12} />}
+                                                                    <span>{isSuspended ? 'Reactivar' : 'Suspender'}</span>
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => requestDeleteUser(u)}
+                                                                className="admin-btn admin-btn-secondary text-danger d-inline-flex align-items-center gap-1"
+                                                            >
+                                                                <Trash2 size={12} />
+                                                                <span>Eliminar</span>
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             )
@@ -448,6 +578,70 @@ export function UsersPage() {
                                 <span>Nuevo Usuario</span>
                             </button>
                         </div>
+
+                        {/* Modal de confirmación para Rol / Suspensión / Eliminación */}
+                        {confirmAction && (
+                            <div
+                                className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3"
+                                style={{ backgroundColor: 'rgba(5, 7, 12, 0.78)', backdropFilter: 'blur(6px)', zIndex: 1050 }}
+                                onClick={() => !isExecutingConfirm && setConfirmAction(null)}
+                            >
+                                <div
+                                    className="admin-card w-100"
+                                    style={{ maxWidth: 460, border: '1px solid var(--admin-border)' }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <h3 className="admin-title mb-2" style={{ fontSize: '1.05rem' }}>
+                                        {confirmAction.title}
+                                    </h3>
+                                    <p className="admin-subtitle mb-3" style={{ fontSize: '0.84rem', lineHeight: 1.45 }}>
+                                        {confirmAction.message}
+                                    </p>
+
+                                    {confirmAction.type === 'suspend' && (
+                                        <div className="mb-3">
+                                            <label className="admin-kpi-kicker d-block mb-1">Motivo de suspensión</label>
+                                            <input
+                                                type="text"
+                                                value={confirmReason}
+                                                onChange={(e) => setConfirmReason(e.target.value)}
+                                                className="w-100 px-3 py-2 rounded text-white"
+                                                style={{
+                                                    backgroundColor: 'var(--admin-surface-2)',
+                                                    border: '1px solid var(--admin-border)',
+                                                    fontSize: '0.82rem',
+                                                }}
+                                                placeholder="Ej: Conducta ofensiva reiterada"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="d-flex justify-content-end gap-2">
+                                        <button
+                                            type="button"
+                                            className="admin-btn admin-btn-secondary"
+                                            onClick={() => setConfirmAction(null)}
+                                            disabled={isExecutingConfirm}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="admin-btn"
+                                            disabled={isExecutingConfirm}
+                                            onClick={executeConfirmedAction}
+                                            style={{
+                                                backgroundColor: confirmAction.danger ? '#e11d48' : 'var(--admin-focus)',
+                                                color: confirmAction.danger ? '#ffffff' : '#090B10',
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            {isExecutingConfirm ? 'Procesando...' : confirmAction.confirmLabel}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

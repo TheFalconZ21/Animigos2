@@ -255,6 +255,12 @@ def google_auth_view(request):
                 profile.avatar_url = picture
             profile.save(update_fields=['google_sub', 'display_name', 'avatar_url'])
 
+    if not user.is_active:
+        return Response(
+            {'error': 'Tu cuenta ha sido suspendida por un administrador. Contacta a soporte si crees que es un error.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     apply_detected_geo_to_profile(profile, geo)
 
     login(request, user, backend='django.contrib.auth.backends.ModelBackend')

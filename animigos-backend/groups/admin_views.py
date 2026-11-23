@@ -1328,10 +1328,21 @@ def admin_moderate_user(request, user_id):
             current['status'] = 'warned'
             current['reason'] = reason
         elif action == 'suspend':
+            if request.user and request.user.is_authenticated and target_user.id == request.user.id:
+                return Response({'error': 'No puedes suspender tu propia cuenta de administrador.'}, status=status.HTTP_400_BAD_REQUEST)
             mod_state['status'] = 'suspended'
             mod_state['reason'] = reason
             target_user.is_active = False
             target_user.save(update_fields=['is_active'])
+            # Revocar sesiones activas inmediatamente para bloquear acceso en curso
+            try:
+                from django.contrib.sessions.models import Session
+                for s in Session.objects.filter(expire_date__gte=timezone.now()):
+                    s_data = s.get_decoded()
+                    if str(s_data.get('_auth_user_id')) == str(target_user.id):
+                        s.delete()
+            except Exception:
+                pass
             current['status'] = 'suspended'
             current['reason'] = reason
         elif action == 'activate':
