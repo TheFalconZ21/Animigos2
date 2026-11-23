@@ -216,6 +216,7 @@ function App() {
         } else {
           const uname = path.startsWith('/perfil/') ? decodeURIComponent(path.slice('/perfil/'.length).trim()) : undefined
           setVisitedUsername(uname || undefined)
+          setProfileSubView(null)
           setCurrentView('perfil')
         }
       } else if (path === '/catalogo' || path === '/animes' || path === '/top') {
@@ -444,7 +445,11 @@ function App() {
         <Navbar
           currentView={currentView}
           onSelectView={(v) => {
-            if (v !== 'perfil') setProfileSubView(null)
+            setProfileSubView(null)
+            if (v === 'perfil') {
+              setVisitedUsername(undefined)
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }
             setCurrentView(v)
           }}
           isSidebarCollapsed={isSidebarCollapsed}
