@@ -1053,6 +1053,13 @@ def admin_users_list(request):
             'reason': reason_text,
             'rooms_count': rooms_count,
             'votes_count': votes_count,
+            'auth_provider': 'google' if (profile and profile.google_sub) else 'email',
+            'country': (profile.country if profile and profile.country else ''),
+            'region': (profile.region if profile and profile.region else ''),
+            'city': (profile.city if profile and profile.city else ''),
+            'timezone_name': (profile.timezone_name if profile and profile.timezone_name else ''),
+            'birth_year': (profile.birth_year if profile else None),
+            'gender': (profile.gender if profile and profile.gender else ''),
             'joined_at': u.date_joined.strftime('%Y-%m-%d %H:%M'),
             'last_activity': u.last_login.strftime('%Y-%m-%d %H:%M') if u.last_login else u.date_joined.strftime('%Y-%m-%d %H:%M')
         })

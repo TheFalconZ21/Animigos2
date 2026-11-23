@@ -90,6 +90,95 @@ export function UsersPage() {
     const dauCount = activeUsersCount
     const wauCount = totalUsers
 
+    const demographicsStats = useMemo(() => {
+        const reg = users.filter(u => u.user_type === 'registered')
+        const totalReg = reg.length || 1
+        const currentYear = new Date().getFullYear()
+
+        // Países y ciudades
+        const countryMap = new Map<string, { count: number; cities: Set<string> }>()
+        for (const u of reg) {
+            const c = (u.country || '').trim() || 'Sin especificar'
+            const entry = countryMap.get(c) || { count: 0, cities: new Set<string>() }
+            entry.count += 1
+            if (u.city) entry.cities.add(u.city)
+            countryMap.set(c, entry)
+        }
+        const countries = Array.from(countryMap.entries())
+            .map(([name, info]) => ({
+                name,
+                count: info.count,
+                pct: Math.round((info.count / totalReg) * 100),
+                cities: Array.from(info.cities).slice(0, 3),
+            }))
+            .sort((a, b) => {
+                if (a.name === 'Sin especificar') return 1
+                if (b.name === 'Sin especificar') return -1
+                return b.count - a.count
+            })
+
+        // Rangos etarios
+        const ageBuckets: Record<string, number> = {
+            '< 18 años': 0,
+            '18 – 24 años': 0,
+            '25 – 34 años': 0,
+            '35+ años': 0,
+            'Sin especificar': 0,
+        }
+        for (const u of reg) {
+            if (!u.birth_year) {
+                ageBuckets['Sin especificar'] += 1
+            } else {
+                const age = currentYear - u.birth_year
+                if (age < 18) ageBuckets['< 18 años'] += 1
+                else if (age <= 24) ageBuckets['18 – 24 años'] += 1
+                else if (age <= 34) ageBuckets['25 – 34 años'] += 1
+                else ageBuckets['35+ años'] += 1
+            }
+        }
+        const ages = Object.entries(ageBuckets).map(([label, count]) => ({
+            label,
+            count,
+            pct: Math.round((count / totalReg) * 100),
+        }))
+
+        // Género
+        const genderLabels: Record<string, string> = {
+            male: 'Masculino',
+            female: 'Femenino',
+            non_binary: 'No binario',
+            other: 'Otro',
+            prefer_not_to_say: 'Prefiere no decirlo',
+            '': 'Sin especificar',
+        }
+        const genderMap = new Map<string, number>()
+        for (const u of reg) {
+            const label = genderLabels[u.gender || ''] || 'Otro'
+            genderMap.set(label, (genderMap.get(label) || 0) + 1)
+        }
+        const genders = Array.from(genderMap.entries())
+            .map(([label, count]) => ({
+                label,
+                count,
+                pct: Math.round((count / totalReg) * 100),
+            }))
+            .sort((a, b) => b.count - a.count)
+
+        const googleCount = reg.filter(u => u.auth_provider === 'google').length
+        const emailCount = reg.length - googleCount
+
+        return {
+            totalRegistered: reg.length,
+            countries,
+            ages,
+            genders,
+            googleCount,
+            emailCount,
+            googlePct: Math.round((googleCount / totalReg) * 100),
+            emailPct: Math.round((emailCount / totalReg) * 100),
+        }
+    }, [users])
+
     const activityTiers = useMemo(() => {
         const highUsers = users.filter(u => u.votes_count >= 10 || u.rooms_count >= 4)
         const mediumUsers = users.filter(u => !(u.votes_count >= 10 || u.rooms_count >= 4) && u.votes_count >= 3)
@@ -362,43 +451,123 @@ export function UsersPage() {
                     </div>
                 )}
 
-                {/* SUB-VISTA 2: COMPOSICIÓN DE CUENTAS, ROLES Y CANALES */}
+                {/* SUB-VISTA 2: DEMOGRAFÍA REAL, PAÍSES, EDAD, GÉNERO Y MÉTODO DE REGISTRO */}
                 {activeSubView === 'demographics' && (
                     <div className="row g-3">
+                        {/* Países y Ciudades (Detección IP + Onboarding) */}
                         <div className="col-12 col-lg-6">
                             <div className="admin-card h-100">
-                                <div className="d-flex align-items-center gap-2 mb-3">
-                                    <Globe size={16} style={{ color: 'var(--admin-focus)' }} />
-                                    <h3 className="admin-title m-0" style={{ fontSize: '1.05rem' }}>Distribución por Rol y Tipo de Cuenta (PostgreSQL)</h3>
+                                <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
+                                    <div className="d-flex align-items-center gap-2">
+                                        <Globe size={16} style={{ color: 'var(--admin-focus)' }} />
+                                        <h3 className="admin-title m-0" style={{ fontSize: '1.05rem' }}>Países y Ubicación (PostgreSQL)</h3>
+                                    </div>
+                                    <span className="admin-subtitle">{demographicsStats.totalRegistered} cuentas</span>
                                 </div>
-                                <div className="d-flex flex-column gap-3">
-                                    {[
-                                        { name: 'Administradores / Anfitriones (Owner)', count: users.filter(u => u.role === 'owner').length },
-                                        { name: 'Miembros Registrados (Member)', count: users.filter(u => u.role === 'member').length },
-                                        { name: 'Invitados Temporales (Guest)', count: users.filter(u => u.role === 'guest').length }
-                                    ].map(c => {
-                                        const pct = totalUsers > 0 ? Math.round((c.count / totalUsers) * 100) : 0
-                                        return (
-                                            <div key={c.name} className="p-2.5 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
-                                                <div className="d-flex justify-content-between mb-1">
+                                <div className="d-flex flex-column gap-2.5">
+                                    {demographicsStats.countries.map(c => (
+                                        <div key={c.name} className="p-2.5 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
+                                            <div className="d-flex justify-content-between align-items-center mb-1">
+                                                <div>
                                                     <span className="text-white fw-medium">{c.name}</span>
-                                                    <span className="font-mono text-white fw-bold">{c.count} ({pct}%)</span>
+                                                    {c.cities.length > 0 && (
+                                                        <span className="admin-subtitle ms-2" style={{ fontSize: '0.72rem' }}>
+                                                            ({c.cities.join(', ')})
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <div className="w-100 rounded overflow-hidden" style={{ height: 7, backgroundColor: 'var(--admin-surface-3)' }}>
-                                                    <div style={{ width: `${pct}%`, height: '100%', backgroundColor: 'var(--admin-focus)' }} />
-                                                </div>
+                                                <span className="font-mono text-white fw-bold">{c.count} ({c.pct}%)</span>
                                             </div>
-                                        )
-                                    })}
+                                            <div className="w-100 rounded overflow-hidden" style={{ height: 7, backgroundColor: 'var(--admin-surface-3)' }}>
+                                                <div style={{ width: `${c.pct}%`, height: '100%', backgroundColor: c.name === 'Sin especificar' ? 'var(--admin-text-muted)' : 'var(--admin-focus)' }} />
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
 
+                        {/* Rangos de Edad y Género */}
+                        <div className="col-12 col-lg-6">
+                            <div className="admin-card h-100 d-flex flex-column gap-4">
+                                <div>
+                                    <h3 className="admin-title mb-2.5" style={{ fontSize: '1.05rem' }}>Rangos de Edad (Voluntario)</h3>
+                                    <div className="d-flex flex-column gap-2">
+                                        {demographicsStats.ages.map(ag => (
+                                            <div key={ag.label} className="p-2 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
+                                                <div className="d-flex justify-content-between mb-1">
+                                                    <span className="text-white small">{ag.label}</span>
+                                                    <span className="font-mono text-white small fw-bold">{ag.count} ({ag.pct}%)</span>
+                                                </div>
+                                                <div className="w-100 rounded overflow-hidden" style={{ height: 6, backgroundColor: 'var(--admin-surface-3)' }}>
+                                                    <div style={{ width: `${ag.pct}%`, height: '100%', backgroundColor: ag.label === 'Sin especificar' ? 'var(--admin-text-muted)' : 'var(--admin-emerald)' }} />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h4 className="admin-title mb-2" style={{ fontSize: '0.95rem' }}>Distribución por Género</h4>
+                                    <div className="d-flex flex-wrap gap-2">
+                                        {demographicsStats.genders.map(g => (
+                                            <div
+                                                key={g.label}
+                                                className="px-3 py-2 rounded-2 d-flex align-items-center gap-2"
+                                                style={{ backgroundColor: 'var(--admin-surface-2)', border: '1px solid var(--admin-border)' }}
+                                            >
+                                                <span className="small text-white">{g.label}</span>
+                                                <strong className="font-mono small" style={{ color: 'var(--admin-focus)' }}>
+                                                    {g.count} ({g.pct}%)
+                                                </strong>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Método de Registro (Google vs Correo) + Roles */}
+                        <div className="col-12 col-lg-6">
+                            <div className="admin-card h-100">
+                                <h3 className="admin-title mb-3" style={{ fontSize: '1.05rem' }}>Método de Registro & Roles</h3>
+                                <div className="row g-3 mb-3">
+                                    <div className="col-6">
+                                        <div className="p-3 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
+                                            <div className="text-white fw-semibold small mb-1">Google Sign-In</div>
+                                            <div className="admin-kpi-value" style={{ color: 'var(--admin-emerald)' }}>{demographicsStats.googlePct}%</div>
+                                            <span className="admin-subtitle">{demographicsStats.googleCount} cuentas Google</span>
+                                        </div>
+                                    </div>
+                                    <div className="col-6">
+                                        <div className="p-3 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
+                                            <div className="text-white fw-semibold small mb-1">Correo / Clave</div>
+                                            <div className="admin-kpi-value" style={{ color: 'var(--admin-focus)' }}>{demographicsStats.emailPct}%</div>
+                                            <span className="admin-subtitle">{demographicsStats.emailCount} cuentas correo</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="d-flex flex-column gap-2">
+                                    {[
+                                        { name: 'Administradores / Anfitriones (Owner)', count: users.filter(u => u.role === 'owner').length },
+                                        { name: 'Miembros Registrados (Member)', count: users.filter(u => u.role === 'member').length },
+                                        { name: 'Invitados Temporales (Guest)', count: users.filter(u => u.role === 'guest').length }
+                                    ].map(c => (
+                                        <div key={c.name} className="p-2 rounded-2 d-flex justify-content-between align-items-center" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
+                                            <span className="small text-white">{c.name}</span>
+                                            <strong className="font-mono small text-white">{c.count}</strong>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Tipo de Sesión y Estado Operativo */}
                         <div className="col-12 col-lg-6">
                             <div className="admin-card h-100 d-flex flex-column justify-content-between">
                                 <div>
                                     <h3 className="admin-title mb-3" style={{ fontSize: '1.05rem' }}>Tipo de Sesión & Estado de Cuenta</h3>
-                                    <div className="row g-3 mb-4">
+                                    <div className="row g-3 mb-3">
                                         <div className="col-6">
                                             <div className="p-3 rounded-2" style={{ backgroundColor: 'var(--admin-surface-2)' }}>
                                                 <div className="d-flex align-items-center gap-2 text-white fw-semibold mb-1">

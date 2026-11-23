@@ -273,6 +273,13 @@ export interface AdminUserItem {
   reason?: string;
   rooms_count: number;
   votes_count: number;
+  auth_provider?: 'google' | 'email';
+  country?: string;
+  region?: string;
+  city?: string;
+  timezone_name?: string;
+  birth_year?: number | null;
+  gender?: string;
   joined_at: string;
   last_activity: string;
 }
