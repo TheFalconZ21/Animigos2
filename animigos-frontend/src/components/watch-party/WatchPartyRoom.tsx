@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
     Users,
     Plus,
+    Minus,
     Share2,
     Check,
     CheckCircle2,
@@ -101,8 +102,9 @@ export const WatchPartyRoom: React.FC = () => {
     const [isJoiningAnime, setIsJoiningAnime] = useState(false)
     const [participationFeedback, setParticipationFeedback] = useState<string | null>(null)
 
-    // Valores locales de sliders de votación por candidato
+    // Valores locales de votación numérica por candidato
     const [localVotes, setLocalVotes] = useState<Record<string, number>>({})
+    const [draftVotes, setDraftVotes] = useState<Record<string, string>>({})
     const [voteFeedback, setVoteFeedback] = useState<string | null>(null)
 
     // Miembro seleccionado para ver su tarjeta de usuario (popover/modal)
@@ -460,10 +462,35 @@ export const WatchPartyRoom: React.FC = () => {
     }
 
     const handleVoteScoreChange = (candidateId: string, score: number) => {
-        setLocalVotes((prev) => ({ ...prev, [candidateId]: score }))
-        voteCandidate(candidateId, score)
-        setVoteFeedback(`¡Nota ${score.toFixed(1)} guardada!`)
+        const clamped = Math.round(Math.max(0, Math.min(10, score)) * 10) / 10
+        setLocalVotes((prev) => ({ ...prev, [candidateId]: clamped }))
+        voteCandidate(candidateId, clamped)
+        setVoteFeedback(`¡Nota ${clamped.toFixed(1)} guardada!`)
         setTimeout(() => setVoteFeedback(null), 2000)
+    }
+
+    const handleCommitDraftVote = (candidateId: string, raw: string) => {
+        const normalized = raw.trim().replace(',', '.')
+        setDraftVotes((prev) => {
+            const next = { ...prev }
+            delete next[candidateId]
+            return next
+        })
+        if (!normalized) return
+        const parsed = parseFloat(normalized)
+        if (Number.isNaN(parsed)) return
+        handleVoteScoreChange(candidateId, parsed)
+    }
+
+    const handleStepVote = (candidateId: string, current: number | null, delta: number) => {
+        const base = current ?? 5
+        const nextVal = Math.round(Math.max(0, Math.min(10, base + delta)) * 10) / 10
+        setDraftVotes((prev) => {
+            const next = { ...prev }
+            delete next[candidateId]
+            return next
+        })
+        handleVoteScoreChange(candidateId, nextVal)
     }
 
     // Candidatos ordenados por mayor agrado grupal
@@ -1161,8 +1188,8 @@ export const WatchPartyRoom: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="d-flex align-items-center gap-2">
-                        {roomTab === 'sesion' && (
+                    {roomTab === 'sesion' && (
+                        <div className="d-flex align-items-center gap-2">
                             <button
                                 type="button"
                                 onClick={() => setShowScheduleModal(true)}
@@ -1171,18 +1198,8 @@ export const WatchPartyRoom: React.FC = () => {
                                 <Calendar size={13} />
                                 <span>Agendar Sesión</span>
                             </button>
-                        )}
-                        {roomTab === 'votacion' && (
-                            <button
-                                type="button"
-                                onClick={() => setShowNominateModal(true)}
-                                className="ml-btn ml-btn-acento ml-btn-sm d-flex align-items-center gap-1.5"
-                            >
-                                <Plus size={13} />
-                                <span>Postular Anime</span>
-                            </button>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* 4. Panel de Sub-vista Activa */}
@@ -1641,19 +1658,15 @@ export const WatchPartyRoom: React.FC = () => {
                                 <div>
                                     <h3 className="h6 fw-bold text-white mb-0.5">Matriz Comparativa de Votos</h3>
                                     <p className="small text-secondary mb-0">
-                                        Cada columna representa a un integrante. Pasa el cursor o haz click sobre un icono para ver la tarjeta del usuario.
+                                        Ingresa tu nota numérica del 0 al 10 en tu columna. Haz click en cualquier integrante para ver su tarjeta.
                                     </p>
                                 </div>
 
                                 <div className="d-flex align-items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowNominateModal(true)}
-                                        className="ml-btn ml-btn-acento ml-btn-sm d-flex align-items-center gap-1.5"
-                                    >
-                                        <Plus size={14} />
-                                        <span>Postular Anime</span>
-                                    </button>
+                                    <span className="wp-scale-hint-pill">
+                                        <Star size={12} />
+                                        <span>Escala 0 – 10</span>
+                                    </span>
                                 </div>
                             </div>
 
@@ -1681,20 +1694,29 @@ export const WatchPartyRoom: React.FC = () => {
                                                 <th style={{ width: '48px', textAlign: 'center' }}>#</th>
                                                 <th>Anime Candidato</th>
                                                 {/* Columna por cada Usuario de la sala */}
-                                                {roomMembers.map((m) => (
-                                                    <th key={m.id} style={{ width: '90px', textAlign: 'center' }}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setSelectedMemberCard(m)}
-                                                            className="wp-user-th-btn"
-                                                            title={`Click para ver perfil de ${m.cleanName} (${m.role})`}
-                                                        >
-                                                            <div className={`wp-user-avatar-circle ${m.role === 'owner' ? 'is-owner' : ''}`}>
-                                                                {m.cleanName.slice(0, 2).toUpperCase()}
-                                                            </div>
-                                                        </button>
-                                                    </th>
-                                                ))}
+                                                {roomMembers.map((m) => {
+                                                    const isMeHeader = m.cleanName === userName
+                                                    const shortLabel = isMeHeader
+                                                        ? 'Tú'
+                                                        : m.cleanName.split(/\s+/)[0].slice(0, 10)
+                                                    return (
+                                                        <th key={m.id} style={{ minWidth: '122px', textAlign: 'center' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedMemberCard(m)}
+                                                                className={`wp-user-th-btn ${isMeHeader ? 'is-me' : ''}`}
+                                                                title={`Click para ver perfil de ${m.cleanName} (${m.role})`}
+                                                            >
+                                                                <div className={`wp-user-avatar-circle ${m.role === 'owner' ? 'is-owner' : ''}`}>
+                                                                    {m.cleanName.slice(0, 2).toUpperCase()}
+                                                                </div>
+                                                                <span className={`wp-user-th-name ${isMeHeader ? 'is-me' : ''}`}>
+                                                                    {shortLabel}
+                                                                </span>
+                                                            </button>
+                                                        </th>
+                                                    )
+                                                })}
                                                 <th style={{ width: '130px', textAlign: 'center' }}>Sintonía</th>
                                                 <th style={{ width: '150px', textAlign: 'right' }}>Acción</th>
                                             </tr>
@@ -1767,21 +1789,64 @@ export const WatchPartyRoom: React.FC = () => {
                                                             return (
                                                                 <td key={m.id} className="wp-vote-score-cell">
                                                                     {isMe ? (
-                                                                        <div className="d-flex flex-column align-items-center gap-1">
+                                                                        <div className={`wp-score-input-group ${scoreClass}`}>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="wp-score-step-btn"
+                                                                                onClick={() => handleStepVote(cand.id, score, -0.5)}
+                                                                                disabled={score !== null && score <= 0}
+                                                                                aria-label="Disminuir nota en 0.5"
+                                                                                title="-0.5"
+                                                                            >
+                                                                                <Minus size={11} />
+                                                                            </button>
                                                                             <input
-                                                                                type="range"
+                                                                                type="number"
                                                                                 min={0}
                                                                                 max={10}
                                                                                 step={0.5}
-                                                                                value={score ?? 5}
-                                                                                onChange={(e) => handleVoteScoreChange(cand.id, parseFloat(e.target.value))}
-                                                                                className="wp-slider"
-                                                                                style={{ width: '64px', height: '4px' }}
-                                                                                title="Ajusta tu nota para este anime"
+                                                                                inputMode="decimal"
+                                                                                placeholder="—"
+                                                                                value={
+                                                                                    draftVotes[cand.id] !== undefined
+                                                                                        ? draftVotes[cand.id]
+                                                                                        : score !== null
+                                                                                            ? String(Number(score.toFixed(1)))
+                                                                                            : ''
+                                                                                }
+                                                                                onChange={(e) => {
+                                                                                    const val = e.target.value
+                                                                                    if (val === '' || /^\d{0,2}([.,]\d?)?$/.test(val)) {
+                                                                                        setDraftVotes((prev) => ({ ...prev, [cand.id]: val }))
+                                                                                    }
+                                                                                }}
+                                                                                onBlur={(e) => handleCommitDraftVote(cand.id, e.target.value)}
+                                                                                onKeyDown={(e) => {
+                                                                                    if (e.key === 'Enter') {
+                                                                                        e.currentTarget.blur()
+                                                                                    } else if (e.key === 'Escape') {
+                                                                                        setDraftVotes((prev) => {
+                                                                                            const next = { ...prev }
+                                                                                            delete next[cand.id]
+                                                                                            return next
+                                                                                        })
+                                                                                        e.currentTarget.blur()
+                                                                                    }
+                                                                                }}
+                                                                                className="wp-score-number-input"
+                                                                                aria-label={`Tu nota para ${cand.title} (0 a 10)`}
+                                                                                title="Escribe una nota del 0 al 10 y presiona Enter"
                                                                             />
-                                                                            <span className={`wp-score-badge ${scoreClass}`}>
-                                                                                {score !== null ? score.toFixed(1).replace('.', ',') : '-'}
-                                                                            </span>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="wp-score-step-btn"
+                                                                                onClick={() => handleStepVote(cand.id, score, 0.5)}
+                                                                                disabled={score !== null && score >= 10}
+                                                                                aria-label="Aumentar nota en 0.5"
+                                                                                title="+0.5"
+                                                                            >
+                                                                                <Plus size={11} />
+                                                                            </button>
                                                                         </div>
                                                                     ) : (
                                                                         <span
