@@ -22,7 +22,11 @@ declare global {
     }
 }
 
-const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim()
+const DEFAULT_PUBLIC_GOOGLE_CLIENT_ID =
+    '998337784366-j0jc7ebhd5aob92k1e4fmfcgtflugdn6.apps.googleusercontent.com'
+const GOOGLE_CLIENT_ID = (
+    import.meta.env.VITE_GOOGLE_CLIENT_ID || DEFAULT_PUBLIC_GOOGLE_CLIENT_ID
+).trim()
 
 export function LoginModal() {
     const { login, loginWithGoogle, register } = useAuth()
