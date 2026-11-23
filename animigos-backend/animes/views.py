@@ -201,10 +201,12 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         if not ordering_param or ordering_param in ('-score', '-score_mal'):
             if not q and not min_score:
                 qs = qs.filter(Q(scored_by__gte=100) | Q(rank__isnull=False)).order_by(
-                    F('score').desc(nulls_last=True), '-scored_by'
+                    F('score').desc(nulls_last=True), F('rank').asc(nulls_last=True), '-scored_by'
                 )
             else:
-                qs = qs.order_by(F('score').desc(nulls_last=True), '-scored_by')
+                qs = qs.order_by(
+                    F('score').desc(nulls_last=True), F('rank').asc(nulls_last=True), '-scored_by'
+                )
         elif ordering_param == 'score':
             qs = qs.order_by(F('score').asc(nulls_last=True), 'scored_by')
         elif ordering_param in ('-popularity', '-scored_by', 'popularity_desc', '-members'):

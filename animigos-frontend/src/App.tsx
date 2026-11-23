@@ -83,6 +83,7 @@ function App() {
   const [profileSubView, setProfileSubView] = useState<ProfileSubView | null>(null)
   const [visitedUsername, setVisitedUsername] = useState<string | undefined>(undefined)
   const [selectedAnimeId, setSelectedAnimeId] = useState<number | null>(null)
+  const [catalogPage, setCatalogPage] = useState<number>(1)
   const [catalogSearchQuery, setCatalogSearchQuery] = useState('')
   const [catalogInitialFilters, setCatalogInitialFilters] = useState<{
     year?: number | string | null
@@ -220,6 +221,15 @@ function App() {
       } else if (path === '/catalogo' || path === '/animes' || path === '/top') {
         setSelectedAnimeId(null)
         setVisitedUsername(undefined)
+        setCatalogPage(1)
+        setCurrentView('catalogo')
+        navigate('/catalogo/1', { replace: true })
+      } else if (/^\/(?:catalogo|animes|top)\/\d+$/.test(path)) {
+        const pageStr = path.split('/').pop() || '1'
+        const parsedPage = Math.max(1, parseInt(pageStr, 10) || 1)
+        setSelectedAnimeId(null)
+        setVisitedUsername(undefined)
+        setCatalogPage(parsedPage)
         setCurrentView('catalogo')
       } else if (path === '/landing' || path === '/' || path === '') {
         setSelectedAnimeId(null)
@@ -347,6 +357,7 @@ function App() {
           <div className="py-2">
             <AnimeCatalog
               initialAnimeId={selectedAnimeId}
+              initialPage={catalogPage}
               initialSearch={catalogSearchQuery}
               initialYear={catalogInitialFilters.year}
               initialSeason={catalogInitialFilters.season}

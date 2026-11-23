@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
-import { navigate } from '../../utils/navigation'
+import { getCurrentPath, navigate } from '../../utils/navigation'
 import {
     Search,
     SlidersHorizontal,
@@ -34,6 +34,7 @@ import './catalogo.css'
 
 interface AnimeCatalogProps {
     initialAnimeId?: number | null
+    initialPage?: number
     initialSearch?: string
     initialYear?: string | number | null
     initialSeason?: string | null
@@ -99,11 +100,12 @@ type TaxonomyTabId = 'all' | 'Genre' | 'Theme' | 'Cast' | 'Setting' | 'Demograph
 
 export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
     initialAnimeId = null,
+    initialPage = 1,
     initialSearch = '',
     initialYear = null,
     initialSeason = null,
     initialGenre = null,
-    initialOrdering = null
+    initialOrdering = null,
 }) => {
     const { isAuthenticated } = useAuth()
     const { filas, agregarAnime } = useMyList()
@@ -166,17 +168,33 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
     const [noSequels, setNoSequels] = useState(false)
     const [notInMyList, setNotInMyList] = useState(false)
 
-    // Búsqueda por texto y paginación
+    // Búsqueda por texto y paginación sincronizada con /catalogo/:page
     const [searchInput, setSearchInput] = useState(initialSearch)
     const [submittedSearch, setSubmittedSearch] = useState(initialSearch)
-    const [currentPage, setCurrentPage] = useState(1)
+    const [currentPage, setCurrentPageState] = useState<number>(() => Math.max(1, initialPage || 1))
     const [addedAnimeId, setAddedAnimeId] = useState<number | null>(null)
+
+    useEffect(() => {
+        const normalized = Math.max(1, initialPage || 1)
+        setCurrentPageState((prev) => (prev === normalized ? prev : normalized))
+    }, [initialPage])
+
+    const setCurrentPage = (updater: number | ((prev: number) => number), replace = false) => {
+        const next = Math.max(1, typeof updater === 'function' ? updater(currentPage) : updater)
+        setCurrentPageState(next)
+        if (!activeProfileMalId) {
+            const targetPath = `/catalogo/${next}`
+            if (getCurrentPath() !== targetPath) {
+                navigate(targetPath, { replace })
+            }
+        }
+    }
 
     useEffect(() => {
         if (initialSearch) {
             setSearchInput(initialSearch)
             setSubmittedSearch(initialSearch)
-            setCurrentPage(1)
+            setCurrentPageState(1)
         }
     }, [initialSearch])
 
@@ -343,10 +361,11 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
         window.scrollTo({ top: 0, behavior: 'smooth' })
     }
 
-    const handleCloseAnimeProfile = () => {
+    const handleCloseAnimeProfile = (pageOverride?: number) => {
+        const targetPage = Math.max(1, pageOverride ?? currentPage)
         setActiveProfileMalId(null)
         setActiveProfileAnime(null)
-        navigate('/catalogo')
+        navigate(`/catalogo/${targetPage}`)
     }
 
     const handleQuickAdd = async (anime: ApiAnimeData, e?: React.MouseEvent) => {
@@ -401,13 +420,13 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                 }}
                 onFilterByGenreOrTag={(term) => {
                     setSelectedTerms([term])
-                    setCurrentPage(1)
-                    handleCloseAnimeProfile()
+                    setCurrentPageState(1)
+                    handleCloseAnimeProfile(1)
                 }}
                 onFilterByStudio={(st) => {
                     setStudio(st)
-                    setCurrentPage(1)
-                    handleCloseAnimeProfile()
+                    setCurrentPageState(1)
+                    handleCloseAnimeProfile(1)
                 }}
             />
         )
@@ -829,8 +848,8 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                     </div>
                 ) : (
                     <div className="cat-grid">
-                        {animes.map((anime, index) => {
-                            const globalRank = (currentPage - 1) * 50 + index + 1
+                        {animes.map((anime) => {
+                            const staticRank = anime.rank && anime.rank > 0 ? anime.rank : null
                             const inMyList = myListIds.has(anime.mal_id)
                             const justAdded = addedAnimeId === anime.mal_id
 
@@ -849,11 +868,16 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                             className="cat-poster-img"
                                         />
 
-                                        {/* Badge de Ranking (#1, #2, #3...) */}
-                                        <div className="cat-rank-badge">
-                                            <Award size={10} className="text-warning" />
-                                            <span>#{globalRank}</span>
-                                        </div>
+                                        {/* Badge de Ranking Estático Global (#1, #2, #3...) */}
+                                        {staticRank !== null && (
+                                            <div
+                                                className="cat-rank-badge"
+                                                title={`Puesto #${staticRank} en el Top Global`}
+                                            >
+                                                <Award size={10} className="text-warning" />
+                                                <span>#{staticRank}</span>
+                                            </div>
+                                        )}
 
                                         {/* Badge de Temporada */}
                                         {anime.season_display && (
