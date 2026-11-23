@@ -43,14 +43,15 @@
 
 /* ---------- Fondos Laterales Personalizables (GIF / Imagen) ---------- */
 .perfil-lateral-art {
-    position: fixed;
-    top: 60px;
+    position: absolute;
+    top: 0;
     bottom: 0;
-    width: clamp(60px, calc((100vw - 1240px) / 2), 380px);
+    width: max(0px, calc((100% - 1240px) / 2));
     pointer-events: none;
     z-index: 0;
-    overflow: hidden;
+    overflow: clip;
     display: none;
+    transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (min-width: 1120px) {
@@ -68,19 +69,24 @@
 }
 
 .perfil-lateral-img {
+    position: sticky;
+    top: 64px;
+    display: block;
     width: 100%;
-    height: 100%;
+    height: calc(100vh - 64px);
     object-fit: cover;
     object-position: center;
     transition: opacity 0.3s ease;
 }
 
 .perfil-lateral-left .perfil-lateral-img {
+    object-position: left center;
     mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.92) 35%, transparent 100%);
     -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.92) 35%, transparent 100%);
 }
 
 .perfil-lateral-right .perfil-lateral-img {
+    object-position: right center;
     mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.92) 35%, transparent 100%);
     -webkit-mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.92) 35%, transparent 100%);
 }
@@ -1178,10 +1184,10 @@
 
 /* Refuerzo para laterales en modo edición */
 .perfil-crop-target-lateral {
-    position: fixed;
-    top: 90px;
-    bottom: 30px;
-    width: clamp(70px, calc((100vw - 1260px) / 2), 220px);
+    position: absolute;
+    top: 24px;
+    height: calc(100vh - 110px);
+    width: clamp(70px, calc((100% - 1260px) / 2), 220px);
     border: 2px dashed var(--perfil-acento);
     background: rgba(14, 14, 20, 0.65);
     backdrop-filter: blur(8px);
