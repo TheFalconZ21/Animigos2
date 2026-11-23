@@ -74,9 +74,9 @@ export function LoginModal() {
         return () => clearCloseTimers()
     }, [])
 
-    // Cargar Google Identity Services y renderizar botón oficial de 1 clic si VITE_GOOGLE_CLIENT_ID está configurado
+    // Cargar Google Identity Services y renderizar botón oficial solo en modo Registro
     useEffect(() => {
-        if (!GOOGLE_CLIENT_ID) return
+        if (!GOOGLE_CLIENT_ID || !isRegister) return
 
         const initGoogle = () => {
             if (!window.google?.accounts?.id || !googleBtnRef.current) return
@@ -107,10 +107,10 @@ export function LoginModal() {
                 type: 'standard',
                 theme: 'filled_black',
                 size: 'large',
-                shape: 'pill',
-                text: isRegister ? 'signup_with' : 'continue_with',
+                shape: 'rectangular',
+                text: 'signup_with',
                 locale: 'es',
-                width: 340,
+                width: 356,
             })
             setGoogleReady(true)
         }
@@ -269,18 +269,29 @@ export function LoginModal() {
                     </div>
                 )}
 
-                {/* Google Sign-In en 1 clic (openid email profile) */}
-                {GOOGLE_CLIENT_ID && (
+                {/* Google Sign-In en 1 clic (solo en pestaña Registrarse, sin bordes blancos) */}
+                {GOOGLE_CLIENT_ID && isRegister && (
                     <div className="mb-3">
-                        <div
-                            ref={googleBtnRef}
-                            className="d-flex justify-content-center"
-                            style={{ minHeight: googleReady ? undefined : 42 }}
-                        />
+                        <div className="d-flex justify-content-center">
+                            <div
+                                ref={googleBtnRef}
+                                style={{
+                                    borderRadius: '10px',
+                                    overflow: 'hidden',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minHeight: googleReady ? '40px' : '40px',
+                                    border: '1px solid rgba(255,255,255,0.14)',
+                                    background: '#131314',
+                                    colorScheme: 'light',
+                                }}
+                            />
+                        </div>
                         <div className="d-flex align-items-center gap-2 my-3">
                             <div className="flex-grow-1" style={{ height: 1, background: 'rgba(255,255,255,0.1)' }} />
                             <span className="small text-secondary" style={{ fontSize: '0.73rem' }}>
-                                o continúa con tu correo
+                                o regístrate con tu correo
                             </span>
                             <div className="flex-grow-1" style={{ height: 1, background: 'rgba(255,255,255,0.1)' }} />
                         </div>
