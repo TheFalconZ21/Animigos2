@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, sync_views, ranking_views
+from . import views, sync_views, ranking_views, report_views
 
 urlpatterns = [
     path('register/', views.register_user, name='user-register'),
@@ -45,4 +45,8 @@ urlpatterns = [
     path('me/notifications/', views.user_notifications_view, name='user-notifications'),
     # Ranking global y de amigos (horas vistas + distribución normal)
     path('ranking/', ranking_views.user_ranking_view, name='user-ranking'),
+    # Reportes de contenido y moderación comunitaria
+    path('reports/', report_views.create_content_report_view, name='user-content-report-create'),
+    path('admin/reports/', report_views.admin_list_reports_view, name='admin-content-report-list'),
+    path('admin/reports/<int:report_id>/resolve/', report_views.admin_resolve_report_view, name='admin-content-report-resolve'),
 ]

@@ -17,6 +17,8 @@ import { HoyEnEmision } from './HoyEnEmision'
 import { AgendaInicioWidget } from './AgendaInicioWidget'
 import { BannerRotativo } from './BannerRotativo'
 import { FondoAfiches } from './FondoAfiches'
+import { ReportDialog, type ReportTarget } from '../shared/ReportDialog'
+import type { ReportContentType } from '../../services/reportsApi'
 import '../mi-lista/mi-lista.css'
 import './tablon.css'
 
@@ -42,10 +44,43 @@ export function Tablon() {
     const horario = useHorario()
     const ahora = useAhora()
     const { filas, agregarAnime } = useMyList()
-    const { isAuthenticated } = useAuth()
+    const { isAuthenticated, user } = useAuth()
     const [seccion, setSeccion] = useState<Seccion>('actividad')
     const [filtro, setFiltro] = useState<FiltroTablon>('todo')
     const [borrador, setBorrador] = useState<Borrador | null>(null)
+    const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null)
+
+    const reportarPublicacion = (a: Actividad) => {
+        let contentType: ReportContentType = 'other'
+        let contextLabel = 'El Tablón'
+        let excerpt = ''
+
+        if (a.tipo === 'recomendacion_directa' || a.tipo === 'recomendacion_general') {
+            contentType = 'recommendation'
+            contextLabel = 'El Tablón · Recomendación'
+            excerpt = `${a.recomendacion?.anime.titulo || ''}: ${a.recomendacion?.nota || ''}`.trim()
+        } else if (a.tipo === 'busco_anime') {
+            contentType = 'suggestion'
+            contextLabel = 'El Tablón · Sugerencia / Búsqueda'
+            excerpt = a.busqueda?.pedido || ''
+        } else if (a.tipo === 'encuesta') {
+            contentType = 'poll'
+            contextLabel = 'El Tablón · Encuesta'
+            excerpt = a.encuesta?.pregunta || ''
+        } else if (a.tipo === 'invitacion_sala') {
+            contentType = 'other'
+            contextLabel = 'El Tablón · Invitación a sala'
+            excerpt = a.invitacion?.nombreSala || ''
+        }
+
+        setReportTarget({
+            contentType,
+            reportedUsername: a.autor.usuario || a.autor.nombre,
+            targetId: `tablon_${a.id}`,
+            targetExcerpt: excerpt,
+            contextLabel,
+        })
+    }
 
     // Sin sesión no hay lista propia: no marcamos nada como "En tu lista"
     const idsEnLista = useMemo(() => new Set(isAuthenticated ? filas.map((f) => f.malId) : []), [filas, isAuthenticated])
@@ -163,6 +198,12 @@ export function Tablon() {
                                             onVotar={tablon.votarEncuesta}
                                             onSugerir={sugerir}
                                             onEntrarSala={entrarSala}
+                                            onReportar={reportarPublicacion}
+                                            esPropia={Boolean(
+                                                user?.username &&
+                                                a.autor.usuario &&
+                                                a.autor.usuario.toLowerCase() === user.username.toLowerCase()
+                                            )}
                                         />
                                     ))}
                                 </div>
@@ -196,6 +237,8 @@ export function Tablon() {
                 onBuscar={tablon.publicarBusqueda}
                 onEncuesta={tablon.publicarEncuesta}
             />
+
+            <ReportDialog target={reportTarget} onClose={() => setReportTarget(null)} />
         </section>
     )
 }

@@ -34,7 +34,9 @@ import {
     AlertTriangle,
     Lock,
     X,
+    Flag,
 } from 'lucide-react'
+import { ReportDialog, type ReportTarget } from '../shared/ReportDialog'
 import { useWatchParty } from '../../hooks/useWatchParty'
 import {
     fetchAllRooms,
@@ -115,6 +117,7 @@ export const WatchPartyRoom: React.FC = () => {
 
     // Modales
     const [showCreateModal, setShowCreateModal] = useState(false)
+    const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null)
     const [newRoomName, setNewRoomName] = useState('')
     const [newRoomDesc, setNewRoomDesc] = useState('')
 
@@ -2163,8 +2166,30 @@ export const WatchPartyRoom: React.FC = () => {
                                                     borderRadius: '14px',
                                                 }}
                                             >
-                                                <div className="small fw-bold text-secondary mb-0.5" style={{ fontSize: '0.72rem' }}>
-                                                    {cleanSender}
+                                                <div className="d-flex align-items-center justify-content-between gap-2 mb-0.5">
+                                                    <span className="small fw-bold text-secondary" style={{ fontSize: '0.72rem' }}>
+                                                        {cleanSender}
+                                                    </span>
+                                                    {!isMine && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setReportTarget({
+                                                                    contentType: 'chat_message',
+                                                                    reportedUsername: cleanSender,
+                                                                    targetId: `chat_${room?.id || 'room'}_${msg.id}`,
+                                                                    targetExcerpt: msg.text,
+                                                                    contextLabel: `Chat de sala "${room?.name || 'Lista Grupal'}"`,
+                                                                })
+                                                            }
+                                                            className="btn btn-link p-0 text-secondary text-decoration-none"
+                                                            style={{ opacity: 0.65, lineHeight: 1 }}
+                                                            title="Reportar actitud ofensiva en el chat"
+                                                            aria-label="Reportar mensaje ofensivo"
+                                                        >
+                                                            <Flag size={11} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                                 <div style={{ fontSize: '0.88rem' }}>{msg.text}</div>
                                             </div>
@@ -2988,6 +3013,8 @@ export const WatchPartyRoom: React.FC = () => {
                     </div>
                 </div>
             </Dialogo>
+
+            <ReportDialog target={reportTarget} onClose={() => setReportTarget(null)} />
         </div>
     )
 }

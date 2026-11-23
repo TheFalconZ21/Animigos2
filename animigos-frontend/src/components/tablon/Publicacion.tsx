@@ -1,4 +1,4 @@
-import { BookmarkCheck, BookmarkPlus, Heart, Lightbulb, Ticket, Trophy, Users, Vote, Send, Sparkles, Handshake, Star, Clapperboard } from 'lucide-react'
+import { BookmarkCheck, BookmarkPlus, Flag, Heart, Lightbulb, Ticket, Trophy, Users, Vote, Send, Sparkles, Handshake, Star, Clapperboard } from 'lucide-react'
 import type { Actividad, TipoActividad } from '../../services/feedApi'
 import { alFallarPoster } from '../mi-lista/mi-lista-data'
 import { navigate } from '../../utils/navigation'
@@ -21,11 +21,32 @@ interface Props {
     onVotar: (id: string, opcionId: string) => void
     onSugerir: (actividad: Actividad) => void
     onEntrarSala: (codigo: string) => void
+    onReportar?: (actividad: Actividad) => void
+    esPropia?: boolean
 }
 
+const TIPOS_REPORTABLES = new Set<TipoActividad>([
+    'recomendacion_directa',
+    'recomendacion_general',
+    'busco_anime',
+    'encuesta',
+    'invitacion_sala',
+])
+
 // Una publicación del tablón. Cada tipo tiene su propia forma visual.
-export function Publicacion({ actividad: a, enMiLista, onGuardar, onAgradecer, onVotar, onSugerir, onEntrarSala }: Props) {
+export function Publicacion({
+    actividad: a,
+    enMiLista,
+    onGuardar,
+    onAgradecer,
+    onVotar,
+    onSugerir,
+    onEntrarSala,
+    onReportar,
+    esPropia = false,
+}: Props) {
     const { texto, icono: Icono } = ETIQUETA_TIPO[a.tipo]
+    const puedeReportar = Boolean(onReportar && !esPropia && TIPOS_REPORTABLES.has(a.tipo))
 
     return (
         <article className={`tb-post tb-post-${a.tipo}`}>
@@ -36,6 +57,18 @@ export function Publicacion({ actividad: a, enMiLista, onGuardar, onAgradecer, o
                     <span>@{a.autor.usuario} · {a.creadoHace}</span>
                 </div>
                 <span className="tb-post-tipo"><Icono size={13} /> {texto}</span>
+                {puedeReportar && (
+                    <button
+                        type="button"
+                        onClick={() => onReportar?.(a)}
+                        className="ml-btn ml-btn-fantasma ml-btn-sm"
+                        style={{ padding: '0.25rem 0.45rem', color: 'var(--ml-texto-3, #71717a)' }}
+                        title="Reportar publicación ofensiva"
+                        aria-label="Reportar publicación ofensiva"
+                    >
+                        <Flag size={13} />
+                    </button>
+                )}
             </header>
 
             {a.tipo === 'estreno_anime' ? (

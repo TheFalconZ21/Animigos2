@@ -12,8 +12,10 @@ import {
     Lock,
     Users,
     Loader2,
+    Flag,
 } from 'lucide-react'
 import type { ProfileComment } from './perfil-types'
+import { ReportDialog, type ReportTarget } from '../shared/ReportDialog'
 import {
     fetchProfileComments,
     postProfileComment,
@@ -53,6 +55,7 @@ export const CommentsWall: React.FC<CommentsWallProps> = ({
     const [submitting, setSubmitting] = useState(false)
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
     const [serverCanComment, setServerCanComment] = useState<boolean | undefined>(undefined)
+    const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null)
 
     const isAuthenticated = Boolean(currentUser.username && currentUser.id !== 'guest')
 
@@ -517,6 +520,27 @@ export const CommentsWall: React.FC<CommentsWallProps> = ({
                                             <span>Responder</span>
                                         </button>
                                     )}
+
+                                    {c.authorUsername.toLowerCase() !== currentUser.username.toLowerCase() && (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setReportTarget({
+                                                    contentType: 'profile_wall',
+                                                    reportedUsername: c.authorUsername || c.authorName,
+                                                    targetId: `wall_${c.id}`,
+                                                    targetExcerpt: c.content,
+                                                    contextLabel: `Muro de @${targetUsername}`,
+                                                })
+                                            }
+                                            className="btn btn-link p-0 text-decoration-none d-flex align-items-center gap-1 small text-secondary ms-auto"
+                                            style={{ fontSize: '0.73rem', opacity: 0.78 }}
+                                            title="Reportar comentario ofensivo"
+                                        >
+                                            <Flag size={12} />
+                                            <span>Reportar</span>
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* Formulario de Respuesta Rápida */}
@@ -573,19 +597,40 @@ export const CommentsWall: React.FC<CommentsWallProps> = ({
                                                     }}
                                                 />
                                                 <div className="flex-grow-1">
-                                                    <div className="d-flex align-items-center gap-1.5">
-                                                        <span
-                                                            className="small fw-bold text-white"
-                                                            style={{ fontSize: '0.75rem' }}
-                                                        >
-                                                            {r.authorName}
-                                                        </span>
-                                                        <span
-                                                            className="small text-secondary"
-                                                            style={{ fontSize: '0.68rem' }}
-                                                        >
-                                                            {r.createdAt}
-                                                        </span>
+                                                    <div className="d-flex align-items-center justify-content-between gap-2">
+                                                        <div className="d-flex align-items-center gap-1.5">
+                                                            <span
+                                                                className="small fw-bold text-white"
+                                                                style={{ fontSize: '0.75rem' }}
+                                                            >
+                                                                {r.authorName}
+                                                            </span>
+                                                            <span
+                                                                className="small text-secondary"
+                                                                style={{ fontSize: '0.68rem' }}
+                                                            >
+                                                                {r.createdAt}
+                                                            </span>
+                                                        </div>
+                                                        {r.authorName.toLowerCase() !== currentUser.name.toLowerCase() && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setReportTarget({
+                                                                        contentType: 'profile_wall',
+                                                                        reportedUsername: r.authorName,
+                                                                        targetId: `wall_reply_${r.id}`,
+                                                                        targetExcerpt: r.content,
+                                                                        contextLabel: `Respuesta en muro de @${targetUsername}`,
+                                                                    })
+                                                                }
+                                                                className="btn btn-link p-0 text-secondary text-decoration-none"
+                                                                style={{ opacity: 0.7 }}
+                                                                title="Reportar respuesta ofensiva"
+                                                            >
+                                                                <Flag size={11} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                     <div className="small text-white" style={{ fontSize: '0.78rem' }}>
                                                         {r.content}
@@ -600,6 +645,8 @@ export const CommentsWall: React.FC<CommentsWallProps> = ({
                     })
                 )}
             </div>
+
+            <ReportDialog target={reportTarget} onClose={() => setReportTarget(null)} />
         </div>
     )
 }

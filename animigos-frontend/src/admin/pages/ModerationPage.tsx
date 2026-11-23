@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { getAdminUsers, moderateAdminUser } from '../services/adminApi'
 import type { AdminUserItem } from '../services/adminApi'
+import { fetchAdminReports, resolveAdminReport } from '../../services/reportsApi'
 import { AdminSubViewBar, useAdminSubView, type SubViewOption } from '../components/AdminSubViewBar'
 
 type ModerationSubView = 'reports-queue' | 'user-discipline' | 'comments-audit'
@@ -70,10 +71,14 @@ export function ModerationPage() {
     const loadUsers = async () => {
         setIsLoadingUsers(true)
         try {
-            const data = await getAdminUsers()
-            setUsers(data.users)
+            const [usersData, reportsData] = await Promise.all([
+                getAdminUsers(),
+                fetchAdminReports('open').catch(() => []),
+            ])
+            setUsers(usersData.users)
+            setReports(reportsData)
         } catch (err) {
-            console.error('Error loading users in moderation:', err)
+            console.error('Error loading moderation data:', err)
         } finally {
             setIsLoadingUsers(false)
         }
@@ -152,9 +157,14 @@ export function ModerationPage() {
         triggerToast(`Advertencia disciplinaria registrada para ${user.name}`)
     }
 
-    const handleDismissReport = (id: string) => {
+    const handleDismissReport = async (id: string) => {
+        try {
+            await resolveAdminReport(id, 'dismissed')
+        } catch (err) {
+            console.error('Error resolving report:', err)
+        }
         setReports(prev => prev.filter(r => r.id !== id))
-        triggerToast(`Denuncia ${id} resuelta y archivada`)
+        triggerToast(`Denuncia #${id} resuelta y archivada`)
     }
 
     const handleDeleteComment = (commentId: string) => {

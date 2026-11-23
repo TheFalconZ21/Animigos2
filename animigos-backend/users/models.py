@@ -190,3 +190,71 @@ class FriendRequest(models.Model):
 
     def __str__(self):
         return f"{self.from_user.username} -> {self.to_user.username} [{self.status}]"
+
+
+class ContentReport(models.Model):
+    """Reporte de contenido o conducta ofensiva enviado por un usuario para revisión en Moderación."""
+    CONTENT_TYPE_CHOICES = [
+        ('profile_wall', 'Comentario en Muro'),
+        ('chat_message', 'Mensaje en Chat Grupal'),
+        ('recommendation', 'Recomendación'),
+        ('suggestion', 'Sugerencia / Búsqueda'),
+        ('poll', 'Encuesta'),
+        ('other', 'Otro'),
+    ]
+
+    CATEGORY_CHOICES = [
+        ('toxicity', 'Conducta ofensiva / Acoso'),
+        ('spoilers', 'Spoilers sin etiqueta'),
+        ('spam', 'Spam / Contenido inapropiado'),
+        ('other', 'Otro'),
+    ]
+
+    SEVERITY_CHOICES = [
+        ('high', 'Alta'),
+        ('medium', 'Media'),
+        ('low', 'Baja'),
+    ]
+
+    STATUS_CHOICES = [
+        ('open', 'Abierto'),
+        ('resolved', 'Resuelto'),
+        ('dismissed', 'Descartado'),
+    ]
+
+    reporter = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='submitted_reports',
+    )
+    reported_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='received_reports',
+    )
+    reported_username = models.CharField(max_length=150, blank=True, default='')
+    content_type = models.CharField(max_length=32, choices=CONTENT_TYPE_CHOICES, default='other')
+    category = models.CharField(max_length=24, choices=CATEGORY_CHOICES, default='toxicity')
+    severity = models.CharField(max_length=16, choices=SEVERITY_CHOICES, default='high')
+    reason = models.TextField(blank=True, default='')
+    target_id = models.CharField(max_length=120, blank=True, default='')
+    target_excerpt = models.TextField(blank=True, default='')
+    context_label = models.CharField(max_length=200, blank=True, default='')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open', db_index=True)
+    resolved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resolved_reports',
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Report #{self.id} [{self.content_type}/{self.category}] by {self.reporter.username} ({self.status})"
