@@ -3,10 +3,33 @@ import { AlertCircle, CheckCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { getCurrentPath } from '../utils/navigation'
 
+declare global {
+    interface Window {
+        google?: {
+            accounts: {
+                id: {
+                    initialize: (config: {
+                        client_id: string
+                        callback: (response: { credential?: string }) => void
+                    }) => void
+                    renderButton: (
+                        parent: HTMLElement,
+                        options: Record<string, string | number>
+                    ) => void
+                }
+            }
+        }
+    }
+}
+
+const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim()
+
 export function LoginModal() {
-    const { login, register } = useAuth()
+    const { login, loginWithGoogle, register } = useAuth()
     const [showPassword, setShowPassword] = useState(false)
     const [isRegister, setIsRegister] = useState(false)
+    const googleBtnRef = useRef<HTMLDivElement | null>(null)
+    const [googleReady, setGoogleReady] = useState(false)
 
     // Campos del formulario
     const [usernameOrEmail, setUsernameOrEmail] = useState('')
@@ -46,6 +69,70 @@ export function LoginModal() {
     useEffect(() => {
         return () => clearCloseTimers()
     }, [])
+
+    // Cargar Google Identity Services y renderizar botón oficial de 1 clic si VITE_GOOGLE_CLIENT_ID está configurado
+    useEffect(() => {
+        if (!GOOGLE_CLIENT_ID) return
+
+        const initGoogle = () => {
+            if (!window.google?.accounts?.id || !googleBtnRef.current) return
+            window.google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: async (response) => {
+                    if (!response.credential) return
+                    setErrorMsg(null)
+                    setSuccessMsg(null)
+                    setIsSubmitting(true)
+                    try {
+                        const { user: gUser, isNewUser } = await loginWithGoogle(response.credential)
+                        setSuccessMsg(
+                            isNewUser
+                                ? `¡Cuenta creada con Google, ${gUser.display_name || gUser.username}!`
+                                : `¡Bienvenido de vuelta, ${gUser.display_name || gUser.username}!`
+                        )
+                        handleSmoothSuccessClose()
+                    } catch (err: unknown) {
+                        setErrorMsg(err instanceof Error ? err.message : 'Error al iniciar sesión con Google')
+                    } finally {
+                        setIsSubmitting(false)
+                    }
+                },
+            })
+            googleBtnRef.current.innerHTML = ''
+            window.google.accounts.id.renderButton(googleBtnRef.current, {
+                type: 'standard',
+                theme: 'filled_black',
+                size: 'large',
+                shape: 'pill',
+                text: isRegister ? 'signup_with' : 'continue_with',
+                locale: 'es',
+                width: 340,
+            })
+            setGoogleReady(true)
+        }
+
+        if (window.google?.accounts?.id) {
+            initGoogle()
+            return
+        }
+
+        const existingScript = document.getElementById('google-gsi-script') as HTMLScriptElement | null
+        if (existingScript) {
+            existingScript.addEventListener('load', initGoogle)
+            return () => existingScript.removeEventListener('load', initGoogle)
+        }
+
+        const script = document.createElement('script')
+        script.id = 'google-gsi-script'
+        script.src = 'https://accounts.google.com/gsi/client'
+        script.async = true
+        script.defer = true
+        script.onload = initGoogle
+        document.head.appendChild(script)
+        return () => {
+            script.onload = null
+        }
+    }, [isRegister])
 
     const handleClose = () => {
         if (isSubmitting) return
@@ -175,6 +262,24 @@ export function LoginModal() {
                     <div className="alert alert-success login-feedback-banner d-flex align-items-center gap-2 py-2 px-3 mb-3 small" role="alert">
                         <CheckCircle size={16} className="flex-shrink-0 login-check-pop" />
                         <span>{successMsg}</span>
+                    </div>
+                )}
+
+                {/* Google Sign-In en 1 clic (openid email profile) */}
+                {GOOGLE_CLIENT_ID && (
+                    <div className="mb-3">
+                        <div
+                            ref={googleBtnRef}
+                            className="d-flex justify-content-center"
+                            style={{ minHeight: googleReady ? undefined : 42 }}
+                        />
+                        <div className="d-flex align-items-center gap-2 my-3">
+                            <div className="flex-grow-1" style={{ height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                            <span className="small text-secondary" style={{ fontSize: '0.73rem' }}>
+                                o continúa con tu correo
+                            </span>
+                            <div className="flex-grow-1" style={{ height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                        </div>
                     </div>
                 )}
 

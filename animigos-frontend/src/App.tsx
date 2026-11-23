@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense, type ComponentType } from 
 import { Navbar } from './components/Navbar'
 import { PlatformSidebar, type PlatformView } from './components/PlatformSidebar'
 import { LoginModal } from './components/LoginModal'
+import { DemographicsOnboardingModal } from './components/DemographicsOnboardingModal'
 import { AssociatedLinkSelectorModal } from './components/links/AssociatedLinkSelectorModal'
 import { HeroShowcaseBg } from './components/HeroShowcaseBg'
 import { ViewLoader } from './components/shared/ViewLoader'
@@ -475,6 +476,7 @@ function App() {
       </div>
 
       <LoginModal />
+      <DemographicsOnboardingModal />
       <AssociatedLinkSelectorModal />
     </div>
   )

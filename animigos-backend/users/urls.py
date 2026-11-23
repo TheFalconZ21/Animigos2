@@ -1,10 +1,13 @@
 from django.urls import path
-from . import views, sync_views, ranking_views, report_views
+from . import views, sync_views, ranking_views, report_views, google_auth_views
 
 urlpatterns = [
     path('register/', views.register_user, name='user-register'),
     path('login/', views.login_user, name='user-login'),
     path('logout/', views.logout_user, name='user-logout'),
+    path('auth/google/', google_auth_views.google_auth_view, name='user-auth-google'),
+    path('geo/', google_auth_views.detect_user_geo_view, name='user-geo'),
+    path('me/demographics/', google_auth_views.update_demographics_view, name='user-demographics-update'),
     path('me/', views.get_current_user, name='user-me'),
     path('me/profile/', views.update_profile, name='user-profile-update'),
     path('me/preferences/', views.update_preferences, name='user-preferences-update'),

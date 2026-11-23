@@ -43,6 +43,13 @@ export interface UserProfile {
     is_staff?: boolean
     is_superuser?: boolean
     favorite_anime?: number | null
+    country?: string
+    region?: string
+    city?: string
+    timezone_name?: string
+    birth_year?: number | null
+    gender?: string
+    demographics_prompted?: boolean
     preferences?: UserPreferences
     created_at: string
     updated_at: string
@@ -51,6 +58,7 @@ export interface UserProfile {
 export interface AuthResponse {
     message: string
     authenticated: boolean
+    is_new_user?: boolean
     session_id?: string
     user: UserProfile
 }
@@ -108,11 +116,16 @@ export async function registerUser(payload: {
     password: string
     display_name?: string
 }): Promise<AuthResponse> {
+    const browserTz =
+        typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : ''
     const res = await fetch(`${API_BASE_URL}/users/register/`, {
         method: 'POST',
         headers: getAuthHeaders(),
         credentials: 'include',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+            ...payload,
+            timezone_name: browserTz,
+        }),
     })
 
     const data = await res.json().catch(() => ({}))
@@ -132,6 +145,60 @@ export async function registerUser(payload: {
             sessionStorage.setItem('animigos_session_id', data.session_id)
             sessionStorage.setItem('session_id', data.session_id)
         }
+    }
+    return data
+}
+
+/**
+ * Inicia sesión o registra cuenta mediante Google Sign-In (ID Token JWT)
+ */
+export async function loginWithGoogleApi(credential: string): Promise<AuthResponse> {
+    const browserTz =
+        typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : ''
+    const res = await fetch(`${API_BASE_URL}/users/auth/google/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+            credential,
+            timezone_name: browserTz,
+        }),
+    })
+
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+        throw new Error(data.error || data.detail || 'No se pudo autenticar con Google.')
+    }
+    if (data.session_id) {
+        localStorage.setItem('animigos_session_id', data.session_id)
+        localStorage.setItem('session_id', data.session_id)
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('animigos_session_id', data.session_id)
+            sessionStorage.setItem('session_id', data.session_id)
+        }
+    }
+    return data
+}
+
+/**
+ * Guarda los datos demográficos opcionales del onboarding inicial (o marca omitido)
+ */
+export async function saveDemographicsApi(payload: {
+    country?: string
+    birth_year?: number | null
+    gender?: string
+    timezone_name?: string
+    skipped?: boolean
+}): Promise<{ message: string; user: UserProfile }> {
+    const res = await fetch(`${API_BASE_URL}/users/me/demographics/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(payload),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+        throw new Error(data.error || data.detail || 'No se pudieron guardar tus datos.')
     }
     return data
 }

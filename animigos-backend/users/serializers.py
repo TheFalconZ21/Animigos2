@@ -39,6 +39,13 @@ class ProfileSerializer(serializers.ModelSerializer):
             'bio',
             'favorite_anime',
             'favorite_anime_detail',
+            'country',
+            'region',
+            'city',
+            'timezone_name',
+            'birth_year',
+            'gender',
+            'demographics_prompted',
             'preferences',
             'created_at',
             'updated_at'

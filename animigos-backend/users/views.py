@@ -43,9 +43,15 @@ def register_user(request):
             user=user,
             defaults={'display_name': user.first_name or user.username}
         )
+        from .google_auth_views import detect_geo_from_request, apply_detected_geo_to_profile
+        browser_tz = str(request.data.get('timezone_name') or '').strip()
+        detected_geo = detect_geo_from_request(request, browser_timezone=browser_tz)
+        apply_detected_geo_to_profile(profile, detected_geo)
         return Response({
             'message': 'Usuario registrado exitosamente',
             'authenticated': True,
+            'is_new_user': True,
+            'detected_geo': detected_geo,
             'session_id': request.session.session_key,
             'user': ProfileSerializer(profile, context={'request': request}).data
         }, status=status.HTTP_201_CREATED)

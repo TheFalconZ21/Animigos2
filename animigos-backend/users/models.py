@@ -25,6 +25,16 @@ class Profile(models.Model):
         on_delete=models.SET_NULL,
         related_name='favorited_by_profiles'
     )
+    # Vinculación Google Sign-In (openid email profile)
+    google_sub = models.CharField(max_length=128, blank=True, null=True, unique=True)
+    # Datos demográficos y de ubicación (opcionales/voluntarios + detección automática por IP)
+    country = models.CharField(max_length=80, blank=True, default='')
+    region = models.CharField(max_length=100, blank=True, default='')
+    city = models.CharField(max_length=100, blank=True, default='')
+    timezone_name = models.CharField(max_length=64, blank=True, default='')
+    birth_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    gender = models.CharField(max_length=32, blank=True, default='')
+    demographics_prompted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
