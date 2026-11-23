@@ -44,8 +44,6 @@ interface NavItemConfig {
     label: string
     icon: React.ReactNode
     hash: string
-    badge?: string
-    badgeColor?: string
     requiresAuth?: boolean
     description?: string
 }
@@ -91,8 +89,6 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                               label: 'Ranking',
                               icon: <Trophy size={17} />,
                               hash: 'ranking',
-                              badge: 'Tiers',
-                              badgeColor: 'rgba(251, 191, 36, 0.22)',
                               requiresAuth: true,
                               description: 'Clasificación de usuarios por horas vistas'
                           }
@@ -108,8 +104,6 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     label: 'Calendario',
                     icon: <Calendar size={17} />,
                     hash: 'calendario',
-                    badge: 'Semanal',
-                    badgeColor: 'rgba(59, 130, 246, 0.25)',
                     description: 'Horarios de emisión y estrenos semanales'
                 },
                 ...(isAuthenticated
@@ -119,8 +113,6 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                               label: 'Agenda',
                               icon: <CalendarCheck size={17} />,
                               hash: 'agenda',
-                              badge: 'Pendientes',
-                              badgeColor: 'rgba(245, 158, 11, 0.25)',
                               requiresAuth: true,
                               description: 'Seguimiento de capítulos pendientes'
                           }
@@ -143,8 +135,6 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     label: 'Recomendador',
                     icon: <Sparkles size={17} />,
                     hash: 'recomendador',
-                    badge: 'IA',
-                    badgeColor: 'rgba(168, 85, 247, 0.25)',
                     description: 'Recomendaciones inteligentes y calibración'
                 },
                 {
@@ -152,8 +142,6 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     label: 'Temporadas',
                     icon: <History size={17} />,
                     hash: 'temporadas',
-                    badge: 'Timeline',
-                    badgeColor: 'color-mix(in srgb, var(--theme-acento, #e8508f) 22%, transparent)',
                     description: 'Estaciones del año y línea temporal'
                 }
             ]
@@ -178,8 +166,6 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                     label: 'Listas Grupales',
                     icon: <Users size={17} />,
                     hash: 'listas',
-                    badge: 'En vivo',
-                    badgeColor: 'rgba(16, 185, 129, 0.25)',
                     description: 'Votación por consenso y watch parties'
                 }
             ]
@@ -269,22 +255,9 @@ export const PlatformSidebar: React.FC<PlatformSidebarProps> = ({
                                             {it.icon}
                                         </span>
                                         {!isCollapsed && (
-                                            <div className="d-flex align-items-center justify-content-between w-100 overflow-hidden">
-                                                <span className="platform-sidebar-label text-truncate">
-                                                    {it.label}
-                                                </span>
-                                                {it.badge && (
-                                                    <span
-                                                        className="platform-sidebar-badge"
-                                                        style={{
-                                                            backgroundColor: it.badgeColor || 'rgba(255, 255, 255, 0.1)',
-                                                            color: '#ffffff'
-                                                        }}
-                                                    >
-                                                        {it.badge}
-                                                    </span>
-                                                )}
-                                            </div>
+                                            <span className="platform-sidebar-label text-truncate">
+                                                {it.label}
+                                            </span>
                                         )}
                                     </button>
                                 )
