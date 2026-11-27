@@ -17,8 +17,17 @@ import {
     ExternalLink,
     Bell,
     GitFork,
+    Users,
+    Tv,
 } from 'lucide-react'
-import { useAnimeDetailQuery, useAnimeRecommendations, useAnimeRelationsQuery } from '../../hooks/useCatalog'
+import {
+    useAnimeDetailQuery,
+    useAnimeRecommendations,
+    useAnimeRelationsQuery,
+    useAnimeCharactersStreamingQuery,
+} from '../../hooks/useCatalog'
+import type { AnimeCharacterItem } from '../../services/catalogApi'
+import { AnimeCharacterView } from './AnimeCharacterView'
 import { useMyList } from '../../hooks/useMyList'
 import { useAuth } from '../../context/AuthContext'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
@@ -56,8 +65,11 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
     const { data: fetchedAnime, isLoading } = useAnimeDetailQuery(malId)
     const { data: recommendations = [], isLoading: loadingRecs } = useAnimeRecommendations(malId)
     const { data: fetchedRelations = [], isLoading: loadingRelations } = useAnimeRelationsQuery(malId)
+    const { data: charsStreamingData, isLoading: loadingCharsStreaming } = useAnimeCharactersStreamingQuery(malId)
 
     const anime = fetchedAnime || initialAnime
+    const characters = charsStreamingData?.characters || []
+    const streamingPlatforms = charsStreamingData?.streaming || []
 
     const relations = useMemo(() => {
         if (fetchedRelations && fetchedRelations.length > 0) return fetchedRelations
@@ -65,7 +77,12 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
         return []
     }, [fetchedRelations, anime?.relations_data])
 
-    const [activeTab, setActiveTab] = useState<'details' | 'stats' | 'recommendations'>('details')
+    const [activeTab, setActiveTab] = useState<'details' | 'characters' | 'stats' | 'recommendations'>('details')
+    const [selectedCharacter, setSelectedCharacter] = useState<AnimeCharacterItem | null>(null)
+
+    useEffect(() => {
+        setSelectedCharacter(null)
+    }, [malId])
     const [showSpoilers, setShowSpoilers] = useState(false)
     const [hoveredTag, setHoveredTag] = useState<string | null>(null)
     const [savingList, setSavingList] = useState(false)
@@ -241,6 +258,36 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
     }
 
     const scoreNum = anime.score ? Number(anime.score) : null
+
+    if (selectedCharacter) {
+        return (
+            <section
+                className="cat-root py-4 px-3 px-md-4"
+                style={{ '--cat-acento': acento, '--ml-acento': acento } as React.CSSProperties}
+            >
+                <div className="container" style={{ maxWidth: '1240px' }}>
+                    <AnimeCharacterView
+                        malId={anime.mal_id}
+                        animeTitle={anime.title}
+                        initialCharacter={selectedCharacter}
+                        onBack={() => {
+                            setSelectedCharacter(null)
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }}
+                        onSelectAnime={(nextMalId) => {
+                            setSelectedCharacter(null)
+                            if (onSelectAnime) {
+                                onSelectAnime(nextMalId)
+                            } else {
+                                navigate(`/anime/${nextMalId}`)
+                            }
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }}
+                    />
+                </div>
+            </section>
+        )
+    }
 
     return (
         <section
@@ -507,6 +554,65 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                             )}
                         </div>
 
+                        {/* 2.5 Plataformas Legales de Streaming Oficiales */}
+                        {streamingPlatforms.length > 0 && (
+                            <div className="anime-profile-panel">
+                                <div className="anime-profile-panel-title d-flex align-items-center gap-1.5">
+                                    <Tv size={13} style={{ color: 'var(--cat-acento, #a855f7)' }} />
+                                    <span>Dónde Ver (Streaming Legal)</span>
+                                </div>
+                                <div className="d-flex flex-column gap-1.5">
+                                    {streamingPlatforms.map((sp) => (
+                                        <a
+                                            key={sp.site}
+                                            href={sp.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="d-flex align-items-center justify-content-between gap-2 px-2.5 py-2 rounded-2 text-decoration-none"
+                                            style={{
+                                                background: 'rgba(255, 255, 255, 0.035)',
+                                                border: `1px solid ${sp.color ? `${sp.color}55` : 'rgba(255,255,255,0.1)'}`,
+                                                color: '#ffffff',
+                                                fontSize: '0.78rem',
+                                                fontWeight: 600,
+                                                transition: 'transform 0.15s ease, background 0.15s ease',
+                                            }}
+                                            title={`Ver ${anime.title} oficialmente en ${sp.site}`}
+                                        >
+                                            <div className="d-flex align-items-center gap-2 overflow-hidden">
+                                                {sp.icon ? (
+                                                    <img
+                                                        src={sp.icon}
+                                                        alt={sp.site}
+                                                        style={{
+                                                            width: 16,
+                                                            height: 16,
+                                                            borderRadius: 4,
+                                                            backgroundColor: sp.color || 'transparent',
+                                                            padding: 1,
+                                                            flexShrink: 0,
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <span
+                                                        style={{
+                                                            width: 8,
+                                                            height: 8,
+                                                            borderRadius: '50%',
+                                                            backgroundColor: sp.color || '#a855f7',
+                                                            flexShrink: 0,
+                                                        }}
+                                                    />
+                                                )}
+                                                <span className="text-truncate">{sp.site}</span>
+                                            </div>
+                                            <ExternalLink size={12} className="text-secondary flex-shrink-0" />
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* 3. Títulos Alternativos */}
                         <div className="anime-profile-panel">
                             <div className="anime-profile-panel-title">Títulos Alternativos</div>
@@ -686,6 +792,13 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                 onClick={() => setActiveTab('details')}
                             >
                                 Detalles & Taxonomía
+                            </button>
+                            <button
+                                type="button"
+                                className={`anime-profile-tab ${activeTab === 'characters' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('characters')}
+                            >
+                                <Users size={14} /> Personajes ({characters.length})
                             </button>
                             <button
                                 type="button"
@@ -887,6 +1000,120 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                     )}
                                 </div>
 
+                                {/* Personajes y Seiyuu / Actores de Doblaje (vista previa en Detalles) */}
+                                {(characters.length > 0 || loadingCharsStreaming) && (
+                                    <div className="anime-profile-section-card">
+                                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                                            <div>
+                                                <h3 className="anime-profile-section-heading mb-0 border-0 pb-0 d-flex align-items-center gap-2">
+                                                    <Users size={15} style={{ color: 'var(--cat-acento, #a855f7)' }} />
+                                                    <span>Personajes & Actores de Voz (Seiyuu)</span>
+                                                </h3>
+                                                <p className="small text-secondary mb-0" style={{ fontSize: '0.76rem' }}>
+                                                    Haz clic en cualquier personaje para abrir su ficha dedicada con biografía completa, spoilers y actores de doblaje.
+                                                </p>
+                                            </div>
+                                            {characters.length > 8 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActiveTab('characters')}
+                                                    className="anime-profile-spoiler-btn"
+                                                >
+                                                    Ver los {characters.length} personajes
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {loadingCharsStreaming && characters.length === 0 ? (
+                                            <div className="d-flex align-items-center justify-content-center py-4 text-secondary gap-2">
+                                                <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                                                <span className="small">Cargando personajes y actores de voz...</span>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
+                                                    gap: '0.65rem',
+                                                }}
+                                            >
+                                                {characters.slice(0, 8).map((ch) => {
+                                                    const mainVa = ch.voice_actors?.[0]
+                                                    return (
+                                                        <div
+                                                            key={ch.id}
+                                                            onClick={() => {
+                                                                setSelectedCharacter(ch)
+                                                                window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                            }}
+                                                            role="button"
+                                                            tabIndex={0}
+                                                            className="d-flex align-items-center justify-content-between gap-2 p-2 rounded-3"
+                                                            style={{
+                                                                cursor: 'pointer',
+                                                                background: 'rgba(255, 255, 255, 0.025)',
+                                                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                                transition: 'border-color 0.15s ease, background 0.15s ease',
+                                                            }}
+                                                            title={`Ver ficha dedicada de ${ch.name}`}
+                                                        >
+                                                            {/* Lado izquierdo: Personaje */}
+                                                            <div className="d-flex align-items-center gap-2.5 overflow-hidden">
+                                                                <img
+                                                                    src={ch.image_url}
+                                                                    alt={ch.name}
+                                                                    loading="lazy"
+                                                                    style={{
+                                                                        width: 44,
+                                                                        height: 60,
+                                                                        objectFit: 'cover',
+                                                                        borderRadius: 7,
+                                                                        flexShrink: 0,
+                                                                    }}
+                                                                />
+                                                                <div className="overflow-hidden">
+                                                                    <div className="small fw-bold text-white text-truncate" style={{ fontSize: '0.82rem' }}>
+                                                                        {ch.name}
+                                                                    </div>
+                                                                    <div className="small text-secondary" style={{ fontSize: '0.7rem' }}>
+                                                                        {ch.role_display}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Lado derecho: Seiyuu / Actor de voz principal */}
+                                                            {mainVa && (
+                                                                <div className="d-flex align-items-center gap-2 text-end overflow-hidden">
+                                                                    <div className="overflow-hidden">
+                                                                        <div className="small fw-semibold text-white text-truncate" style={{ fontSize: '0.78rem' }}>
+                                                                            {mainVa.name}
+                                                                        </div>
+                                                                        <div className="small text-secondary" style={{ fontSize: '0.68rem' }}>
+                                                                            {mainVa.language_display || mainVa.language}
+                                                                        </div>
+                                                                    </div>
+                                                                    <img
+                                                                        src={mainVa.image_url}
+                                                                        alt={mainVa.name}
+                                                                        loading="lazy"
+                                                                        style={{
+                                                                            width: 40,
+                                                                            height: 56,
+                                                                            objectFit: 'cover',
+                                                                            borderRadius: 7,
+                                                                            flexShrink: 0,
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Evolución Histórica integrada también en la vista principal */}
                                 <div className="anime-profile-section-card">
                                     <h3 className="anime-profile-section-heading">
@@ -976,6 +1203,115 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                 })}
                                             </div>
                                         )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'characters' && (
+                            <div className="anime-profile-section-card">
+                                <div className="mb-3">
+                                    <h3 className="anime-profile-section-heading mb-1">
+                                        Personajes y Actores de Doblaje / Seiyuu de {anime.title}
+                                    </h3>
+                                    <p className="small text-secondary mb-0" style={{ fontSize: '0.78rem' }}>
+                                        Selecciona cualquier personaje para abrir su visual dedicada con historia, spoilers ocultables, animeografía y actores de voz.
+                                    </p>
+                                </div>
+
+                                {loadingCharsStreaming && characters.length === 0 ? (
+                                    <div className="text-center py-4">
+                                        <Loader2
+                                            size={24}
+                                            className="text-secondary"
+                                            style={{ animation: 'spin 1s linear infinite' }}
+                                        />
+                                    </div>
+                                ) : characters.length === 0 ? (
+                                    <div className="small text-secondary py-3">
+                                        No se encontraron personajes registrados para este anime.
+                                    </div>
+                                ) : (
+                                    <div
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
+                                            gap: '0.75rem',
+                                        }}
+                                    >
+                                        {characters.map((ch) => {
+                                            const mainVa = ch.voice_actors?.[0]
+                                            return (
+                                                <div
+                                                    key={ch.id}
+                                                    onClick={() => {
+                                                        setSelectedCharacter(ch)
+                                                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                    }}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    className="d-flex align-items-center justify-content-between gap-2 p-2.5 rounded-3"
+                                                    style={{
+                                                        cursor: 'pointer',
+                                                        background: 'rgba(255, 255, 255, 0.03)',
+                                                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                    }}
+                                                >
+                                                    <div className="d-flex align-items-center gap-2.5 overflow-hidden">
+                                                        <img
+                                                            src={ch.image_url}
+                                                            alt={ch.name}
+                                                            loading="lazy"
+                                                            style={{
+                                                                width: 48,
+                                                                height: 64,
+                                                                objectFit: 'cover',
+                                                                borderRadius: 7,
+                                                                flexShrink: 0,
+                                                            }}
+                                                        />
+                                                        <div className="overflow-hidden">
+                                                            <div className="small fw-bold text-white text-truncate">
+                                                                {ch.name}
+                                                            </div>
+                                                            {ch.native_name && (
+                                                                <div className="small text-secondary text-truncate" style={{ fontSize: '0.7rem' }}>
+                                                                    {ch.native_name}
+                                                                </div>
+                                                            )}
+                                                            <div className="small text-secondary" style={{ fontSize: '0.7rem' }}>
+                                                                {ch.role_display}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {mainVa && (
+                                                        <div className="d-flex align-items-center gap-2 text-end overflow-hidden">
+                                                            <div className="overflow-hidden">
+                                                                <div className="small fw-semibold text-white text-truncate" style={{ fontSize: '0.78rem' }}>
+                                                                    {mainVa.name}
+                                                                </div>
+                                                                <div className="small text-secondary" style={{ fontSize: '0.68rem' }}>
+                                                                    {mainVa.language_display || mainVa.language}
+                                                                </div>
+                                                            </div>
+                                                            <img
+                                                                src={mainVa.image_url}
+                                                                alt={mainVa.name}
+                                                                loading="lazy"
+                                                                style={{
+                                                                    width: 44,
+                                                                    height: 60,
+                                                                    objectFit: 'cover',
+                                                                    borderRadius: 7,
+                                                                    flexShrink: 0,
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
                                     </div>
                                 )}
                             </div>

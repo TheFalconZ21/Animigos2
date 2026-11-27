@@ -9,6 +9,8 @@ import {
     fetchCatalogAnimes,
     fetchAnimeRecommendations,
     fetchAnimeRelations,
+    fetchAnimeCharactersStreaming,
+    fetchAnimeCharacterDetail,
     fetchStudios,
     fetchGenres,
     fetchYears,
@@ -23,6 +25,8 @@ import {
     type StudioItem,
     type AnimeRecommendationItem,
     type TaxonomiesCatalogResponse,
+    type AnimeCharacterItem,
+    type AnimeCharactersStreamingResponse,
 } from '../services/catalogApi'
 import type { ApiAnimeData, ApiAnimeRelationItem } from '../services/userListApi'
 
@@ -117,6 +121,36 @@ export function useAnimeRelationsQuery(malId: number | null) {
         },
         enabled: malId !== null && malId > 0,
         staleTime: 1000 * 60 * 60, // 1 hora
+    })
+}
+
+/**
+ * Hook para personajes (con seiyuu) y plataformas legales de streaming de un anime
+ */
+export function useAnimeCharactersStreamingQuery(malId: number | null) {
+    return useQuery<AnimeCharactersStreamingResponse, Error>({
+        queryKey: ['animes', 'characters-streaming', malId],
+        queryFn: () => {
+            if (!malId) return Promise.resolve({ characters: [], streaming: [] })
+            return fetchAnimeCharactersStreaming(malId)
+        },
+        enabled: malId !== null && malId > 0,
+        staleTime: 1000 * 60 * 60,
+    })
+}
+
+/**
+ * Hook para la vista dedicada de un personaje (con biografía traducida al español)
+ */
+export function useAnimeCharacterDetailQuery(malId: number | null, charId: number | null) {
+    return useQuery<AnimeCharacterItem | null, Error>({
+        queryKey: ['animes', 'character-detail', malId, charId],
+        queryFn: () => {
+            if (!malId || !charId) return Promise.resolve(null)
+            return fetchAnimeCharacterDetail(malId, charId)
+        },
+        enabled: Boolean(malId && malId > 0 && charId && charId > 0),
+        staleTime: 1000 * 60 * 60,
     })
 }
 

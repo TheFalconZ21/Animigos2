@@ -743,3 +743,286 @@ def obtener_relaciones_anime(mal_id: int) -> list[dict]:
     except Exception:
         return []
 
+
+CHARACTER_ROLE_NAMES = {
+    'MAIN': 'Principal',
+    'SUPPORTING': 'Secundario',
+    'BACKGROUND': 'Secundario',
+}
+
+VOICE_LANG_NAMES = {
+    'Japanese': 'Japonés (Seiyuu)',
+    'Spanish': 'Español (Doblaje)',
+    'English': 'Inglés (Doblaje)',
+    'Portuguese': 'Portugués',
+    'French': 'Francés',
+    'German': 'Alemán',
+    'Italian': 'Italiano',
+    'Korean': 'Coreano',
+    'Chinese': 'Chino',
+}
+
+KNOWN_STREAMING_SITES = {
+    'Crunchyroll': {'color': '#F47521'},
+    'Netflix': {'color': '#E50914'},
+    'Disney Plus': {'color': '#113CCF'},
+    'Amazon Prime Video': {'color': '#00A8E1'},
+    'HIDIVE': {'color': '#00AEEF'},
+    'Hulu': {'color': '#1CE783'},
+    'Max': {'color': '#002BE7'},
+    'HBO Max': {'color': '#5822B4'},
+    'YouTube': {'color': '#FF0000'},
+    'Bilibili': {'color': '#00A1D6'},
+    'Apple TV': {'color': '#A2AAAD'},
+}
+
+
+def _clean_character_description(raw_desc: str) -> str:
+    """
+    Limpia el markdown de AniList conservando bloques de spoiler (~!texto!~ -> [spoiler]texto[/spoiler])
+    y atributos clave al inicio.
+    """
+    if not raw_desc:
+        return ''
+    text = html.unescape(raw_desc)
+    # Convertir spoilers de AniList ~! ... !~ a [spoiler]...[/spoiler]
+    text = re.sub(r'~!([\s\S]*?)!~', r'[spoiler]\1[/spoiler]', text)
+    # Limpiar etiquetas HTML residuales y links markdown [texto](url) -> texto
+    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</?[^>]+>', '', text)
+    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+    # Limpiar negritas/cursivas markdown excesivas en encabezados tipo __Age:__
+    text = re.sub(r'__([^_]+)__', r'\1', text)
+    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+    return text.strip()
+
+
+def _translate_description_es(text: str) -> str:
+    """Traduce la biografía del personaje al español preservando etiquetas [spoiler]...[/spoiler]."""
+    if not text:
+        return ''
+    try:
+        from deep_translator import GoogleTranslator
+        translator = GoogleTranslator(source='auto', target='es')
+        parts = re.split(r'(\[spoiler\][\s\S]*?\[/spoiler\])', text)
+        translated_parts = []
+        for part in parts:
+            if not part.strip():
+                translated_parts.append(part)
+                continue
+            if part.startswith('[spoiler]') and part.endswith('[/spoiler]'):
+                inner = part[len('[spoiler]'):-len('[/spoiler]')].strip()
+                if inner:
+                    tr_inner = translator.translate(inner[:4500]) or inner
+                    translated_parts.append(f'[spoiler]{tr_inner}[/spoiler]')
+                else:
+                    translated_parts.append('')
+            else:
+                tr_part = translator.translate(part[:4500]) or part
+                translated_parts.append(tr_part)
+        return '\n\n'.join(p.strip() for p in translated_parts if p.strip())
+    except Exception:
+        return text
+
+
+def obtener_personajes_y_streaming_anime(mal_id: int) -> tuple[list[dict], list[dict]]:
+    """
+    Obtiene en una sola consulta a AniList GraphQL:
+    1) Lista de personajes (principales y secundarios), su descripción, atributos,
+       actores de voz / seiyuu (todos los idiomas disponibles) y animeografía.
+    2) Plataformas legales de streaming donde está disponible el anime.
+    """
+    consulta = """
+    query ($id: Int) {
+      Media(idMal: $id, type: ANIME) {
+        id
+        externalLinks {
+          id
+          url
+          site
+          type
+          language
+          color
+          icon
+        }
+        characters(sort: [ROLE, RELEVANCE, ID], perPage: 24) {
+          edges {
+            role
+            node {
+              id
+              name {
+                full
+                native
+                alternative
+              }
+              image {
+                large
+                medium
+              }
+              description
+              gender
+              age
+              bloodType
+              dateOfBirth {
+                month
+                day
+              }
+              favourites
+              media(type: ANIME, sort: POPULARITY_DESC, perPage: 6) {
+                edges {
+                  characterRole
+                  node {
+                    id
+                    idMal
+                    title {
+                      romaji
+                      english
+                    }
+                    coverImage {
+                      large
+                      medium
+                    }
+                    format
+                    seasonYear
+                    score: averageScore
+                  }
+                }
+              }
+            }
+            voiceActors(sort: [RELEVANCE, ID]) {
+              id
+              name {
+                full
+                native
+              }
+              languageV2
+              image {
+                large
+                medium
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    try:
+        respuesta = _post_json(ANILIST_URL, {'query': consulta, 'variables': {'id': mal_id}})
+        media = respuesta.get('data', {}).get('Media')
+        if not media:
+            return [], []
+
+        # 1. Procesar plataformas legales de streaming
+        raw_links = media.get('externalLinks') or []
+        streaming_list: list[dict] = []
+        seen_sites: set[str] = set()
+        for link in raw_links:
+            site = (link.get('site') or '').strip()
+            url = (link.get('url') or '').strip()
+            l_type = (link.get('type') or '').upper()
+            if not site or not url:
+                continue
+            if l_type != 'STREAMING' and site not in KNOWN_STREAMING_SITES:
+                continue
+            site_key = site.lower()
+            if site_key in seen_sites:
+                continue
+            seen_sites.add(site_key)
+            default_color = KNOWN_STREAMING_SITES.get(site, {}).get('color', '#a78bfa')
+            streaming_list.append({
+                'site': site,
+                'url': url,
+                'language': link.get('language') or '',
+                'color': link.get('color') or default_color,
+                'icon': link.get('icon') or '',
+            })
+
+        # 2. Procesar personajes y sus actores de voz / seiyuu
+        char_edges = (media.get('characters') or {}).get('edges') or []
+        characters_list: list[dict] = []
+        for edge in char_edges:
+            node = edge.get('node') or {}
+            char_id = node.get('id')
+            if not char_id:
+                continue
+            role_raw = edge.get('role') or 'SUPPORTING'
+            names = node.get('name') or {}
+            full_name = names.get('full') or 'Personaje'
+            native_name = names.get('native') or ''
+            alt_names = [a for a in (names.get('alternative') or []) if a and a.strip()]
+            imgs = node.get('image') or {}
+            char_img = imgs.get('large') or imgs.get('medium') or ''
+            raw_desc = _clean_character_description(node.get('description') or '')
+            dob = node.get('dateOfBirth') or {}
+            birthday = f"{dob['day']}/{dob['month']}" if dob.get('day') and dob.get('month') else ''
+
+            # Actores de voz / Seiyuu (priorizando Japonés primero, luego Español, Inglés y otros)
+            lang_priority = {'Japanese': 1, 'Spanish': 2, 'English': 3}
+            raw_vas = edge.get('voiceActors') or []
+            voice_actors: list[dict] = []
+            seen_va: set[tuple] = set()
+            for va in raw_vas:
+                va_id = va.get('id')
+                va_names = va.get('name') or {}
+                va_full = va_names.get('full') or ''
+                lang = va.get('languageV2') or 'Japanese'
+                if not va_full:
+                    continue
+                va_key = (va_id or va_full, lang)
+                if va_key in seen_va:
+                    continue
+                seen_va.add(va_key)
+                va_img_obj = va.get('image') or {}
+                voice_actors.append({
+                    'id': va_id,
+                    'name': va_full,
+                    'native_name': va_names.get('native') or '',
+                    'language': lang,
+                    'language_display': VOICE_LANG_NAMES.get(lang, lang),
+                    'image_url': va_img_obj.get('large') or va_img_obj.get('medium') or '',
+                    'priority': lang_priority.get(lang, 9),
+                })
+            voice_actors.sort(key=lambda x: x['priority'])
+
+            # Animeografía del personaje
+            media_edges = ((node.get('media') or {}).get('edges')) or []
+            animeography: list[dict] = []
+            for me in media_edges:
+                m_node = me.get('node') or {}
+                if not m_node.get('idMal'):
+                    continue
+                m_titles = m_node.get('title') or {}
+                m_cover = m_node.get('coverImage') or {}
+                c_role = me.get('characterRole') or 'MAIN'
+                animeography.append({
+                    'mal_id': m_node.get('idMal'),
+                    'title': m_titles.get('romaji') or m_titles.get('english') or 'Anime',
+                    'image_url': m_cover.get('large') or m_cover.get('medium') or '',
+                    'role': CHARACTER_ROLE_NAMES.get(c_role, 'Principal'),
+                    'format': m_node.get('format') or 'TV',
+                    'season_year': m_node.get('seasonYear'),
+                })
+
+            characters_list.append({
+                'id': char_id,
+                'name': full_name,
+                'native_name': native_name,
+                'alternative_names': alt_names[:4],
+                'role': role_raw,
+                'role_display': CHARACTER_ROLE_NAMES.get(role_raw, 'Secundario'),
+                'image_url': char_img,
+                'description': raw_desc,
+                'description_es': '',
+                'age': str(node.get('age') or '').strip(),
+                'gender': str(node.get('gender') or '').strip(),
+                'blood_type': str(node.get('bloodType') or '').strip(),
+                'birthday': birthday,
+                'favourites': node.get('favourites') or 0,
+                'voice_actors': voice_actors,
+                'animeography': animeography,
+            })
+
+        return characters_list, streaming_list
+    except Exception:
+        return [], []
+

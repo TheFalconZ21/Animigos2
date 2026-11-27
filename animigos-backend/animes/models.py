@@ -47,6 +47,16 @@ class Anime(models.Model):
         blank=True,
         help_text="Obras relacionadas de la franquicia: [{'relation_type': 'SEQUEL', 'format': 'TV', 'mal_id': 28701, 'title': '...', 'image_url': '...'}]"
     )
+    characters_data = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Personajes del anime con descripción y seiyuu/actores de voz cacheados desde AniList"
+    )
+    streaming_data = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Plataformas legales de streaming oficiales donde está disponible el anime"
+    )
     
     last_synced_at = models.DateTimeField(auto_now=True)
 

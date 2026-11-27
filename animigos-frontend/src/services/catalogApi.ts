@@ -366,3 +366,88 @@ export async function fetchAnimeRelations(malId: number): Promise<ApiAnimeRelati
     return response.json()
 }
 
+export interface AnimeVoiceActor {
+    id: number
+    name: string
+    native_name?: string
+    language: string
+    language_display: string
+    image_url: string
+}
+
+export interface CharacterAnimeographyItem {
+    mal_id: number
+    title: string
+    image_url: string
+    role: string
+    format?: string
+    season_year?: number | null
+}
+
+export interface AnimeCharacterItem {
+    id: number
+    name: string
+    native_name?: string
+    alternative_names?: string[]
+    role: string
+    role_display: string
+    image_url: string
+    description: string
+    description_es?: string
+    age?: string
+    gender?: string
+    blood_type?: string
+    birthday?: string
+    favourites?: number
+    voice_actors: AnimeVoiceActor[]
+    animeography?: CharacterAnimeographyItem[]
+}
+
+export interface AnimeStreamingPlatform {
+    site: string
+    url: string
+    language?: string
+    color?: string
+    icon?: string
+}
+
+export interface AnimeCharactersStreamingResponse {
+    characters: AnimeCharacterItem[]
+    streaming: AnimeStreamingPlatform[]
+}
+
+/**
+ * Consulta personajes (con seiyuu/actores de voz) y plataformas legales de streaming de un anime
+ */
+export async function fetchAnimeCharactersStreaming(
+    malId: number
+): Promise<AnimeCharactersStreamingResponse> {
+    const response = await fetch(`${API_BASE_URL}/animes/${malId}/characters-streaming/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+    })
+    if (!response.ok) {
+        return { characters: [], streaming: [] }
+    }
+    return response.json()
+}
+
+/**
+ * Consulta el detalle dedicado de un personaje (con biografía traducida al español)
+ */
+export async function fetchAnimeCharacterDetail(
+    malId: number,
+    charId: number
+): Promise<AnimeCharacterItem | null> {
+    const response = await fetch(`${API_BASE_URL}/animes/${malId}/character/${charId}/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+    })
+    if (!response.ok) {
+        return null
+    }
+    return response.json()
+}
+

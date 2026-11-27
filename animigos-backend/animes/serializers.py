@@ -33,6 +33,8 @@ class AnimeSerializer(serializers.ModelSerializer):
             'type',
             'release_date',
             'relations_data',
+            'characters_data',
+            'streaming_data',
             'recommended_by',
             'last_synced_at',
         ]

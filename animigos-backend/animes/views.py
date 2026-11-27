@@ -22,7 +22,13 @@ from core.constants import (
     CACHE_PREFIX_SEASON_METRICS,
 )
 from core.utils.cache import cached_api_response, build_cache_key
-from core.services.fuentes_externas import obtener_horario_semanal, obtener_proximos_lanzamientos, obtener_relaciones_anime
+from core.services.fuentes_externas import (
+    obtener_horario_semanal,
+    obtener_proximos_lanzamientos,
+    obtener_relaciones_anime,
+    obtener_personajes_y_streaming_anime,
+    _translate_description_es,
+)
 
 
 class AnimeCatalogPagination(PageNumberPagination):
@@ -658,6 +664,73 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             anime.relations_data = rels
             anime.save(update_fields=['relations_data'])
         return Response(rels)
+
+    @action(detail=True, methods=['get'], url_path='characters-streaming')
+    def characters_streaming(self, request, pk=None):
+        """
+        Devuelve los personajes (con descripción, seiyuu/actores de voz y animeografía)
+        y las plataformas legales de streaming donde está disponible el anime.
+        Cachea permanentemente en PostgreSQL tras la primera consulta a AniList.
+        """
+        anime = self.get_object()
+        has_chars = isinstance(anime.characters_data, list) and len(anime.characters_data) > 0
+        has_stream = isinstance(anime.streaming_data, list) and len(anime.streaming_data) > 0
+
+        if has_chars or has_stream:
+            return Response({
+                'characters': anime.characters_data or [],
+                'streaming': anime.streaming_data or [],
+            })
+
+        chars, streaming = obtener_personajes_y_streaming_anime(anime.mal_id)
+        update_fields = []
+        if chars:
+            anime.characters_data = chars
+            update_fields.append('characters_data')
+        if streaming:
+            anime.streaming_data = streaming
+            update_fields.append('streaming_data')
+        if update_fields:
+            anime.save(update_fields=update_fields)
+
+        return Response({
+            'characters': chars,
+            'streaming': streaming,
+        })
+
+    @action(detail=True, methods=['get'], url_path=r'character/(?P<char_id>\d+)')
+    def character_detail(self, request, pk=None, char_id=None):
+        """
+        Devuelve el detalle dedicado de un personaje del anime con su biografía traducida
+        al español (cacheada en characters_data de PostgreSQL), actores de voz/seiyuu y animeografía.
+        """
+        anime = self.get_object()
+        chars = anime.characters_data if isinstance(anime.characters_data, list) else []
+        if not chars:
+            chars, streaming = obtener_personajes_y_streaming_anime(anime.mal_id)
+            if chars or streaming:
+                anime.characters_data = chars
+                anime.streaming_data = streaming
+                anime.save(update_fields=['characters_data', 'streaming_data'])
+
+        target_id = int(char_id)
+        found = None
+        modified = False
+        for c in chars:
+            if int(c.get('id') or 0) == target_id:
+                if c.get('description') and not c.get('description_es'):
+                    c['description_es'] = _translate_description_es(c['description'])
+                    modified = True
+                found = c
+                break
+
+        if modified:
+            anime.characters_data = chars
+            anime.save(update_fields=['characters_data'])
+
+        if not found:
+            return Response({'error': 'Personaje no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(found)
 
     @action(detail=False, methods=['get'])
     @cached_api_response(timeout=CACHE_TTL_LONG, prefix=CACHE_PREFIX_STUDIOS)
