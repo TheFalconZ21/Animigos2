@@ -78,6 +78,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         max_score = params.get('max_score') or params.get('maxScore')
         format_param = params.get('format') or params.get('type') or params.get('formato')
         status_param = params.get('status')
+        streaming_param = params.get('streaming') or params.get('platform') or params.get('platforms')
         no_sequels = params.get('no_sequels') or params.get('noSequels')
         not_in_my_list = params.get('not_in_my_list') or params.get('notInMyList')
         recommended_by_friends = params.get('recommended_by_friends') or params.get('recommendedByFriends')
@@ -209,6 +210,59 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
                 except Exception:
                     pass
 
+        # 11. Filtro por Plataformas de Streaming Oficiales (Unión OR si se eligen varias plataformas)
+        if streaming_param and str(streaming_param).strip().lower() not in ('todas', 'todos', 'all'):
+            if Anime.objects.exclude(streaming_data=[]).exclude(streaming_data__isnull=True).count() < 1000:
+                try:
+                    from django.core.management import call_command
+                    call_command('load_anime_streaming')
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).error(f"Error auto-loading streaming platforms: {e}")
+
+            platform_aliases_map = {
+                'crunchyroll': ['Crunchyroll'],
+                'netflix': ['Netflix'],
+                'disney plus': ['Disney Plus', 'Disney+', 'Star+'],
+                'disney+': ['Disney Plus', 'Disney+', 'Star+'],
+                'star+': ['Disney Plus', 'Disney+', 'Star+'],
+                'amazon prime video': ['Amazon Prime Video', 'Prime Video'],
+                'prime video': ['Amazon Prime Video', 'Prime Video'],
+                'hidive': ['HIDIVE'],
+                'hulu': ['Hulu'],
+                'max': ['Max', 'HBO Max'],
+                'hbo max': ['Max', 'HBO Max'],
+                'bilibili': ['Bilibili', 'Bilibili TV'],
+                'bilibili tv': ['Bilibili', 'Bilibili TV'],
+                'youtube': ['YouTube'],
+                'iqiyi': ['iQIYI', 'iQ'],
+                'iq': ['iQIYI', 'iQ'],
+                'tubi tv': ['Tubi TV'],
+                'retrocrush': ['RetroCrush'],
+                'tencent video': ['Tencent Video', 'WeTV'],
+                'wetv': ['Tencent Video', 'WeTV'],
+                'adult swim': ['Adult Swim'],
+                'apple tv+': ['Apple TV+', 'Apple TV'],
+                'apple tv': ['Apple TV+', 'Apple TV'],
+            }
+
+            streaming_q = Q()
+            has_streaming_terms = False
+            for raw_plat in str(streaming_param).split(','):
+                p_clean = raw_plat.strip()
+                if not p_clean:
+                    continue
+                aliases = platform_aliases_map.get(p_clean.lower(), [p_clean])
+                for alias in aliases:
+                    streaming_q |= (
+                        Q(streaming_data__icontains=f'"site": "{alias}"') |
+                        Q(streaming_data__icontains=f'"site":"{alias}"')
+                    )
+                    has_streaming_terms = True
+
+            if has_streaming_terms:
+                qs = qs.filter(streaming_q)
+
 
         # 12. Ordenación (nulls_last=True para paridad estricta entre SQLite y PostgreSQL)
         ordering_param = params.get('ordering', '-score')
@@ -290,6 +344,10 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             call_command('load_anime_relations')
         except Exception as e:
             logging.error(f"Error cargando anime relations: {e}")
+        try:
+            call_command('load_anime_streaming')
+        except Exception as e:
+            logging.error(f"Error cargando anime streaming: {e}")
         try:
             call_command('seed_initial_data')
         except Exception as e:

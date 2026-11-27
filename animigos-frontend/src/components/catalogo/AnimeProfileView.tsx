@@ -70,7 +70,10 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
 
     const anime = fetchedAnime || initialAnime
     const characters = charsStreamingData?.characters || []
-    const streamingPlatforms = charsStreamingData?.streaming || []
+    const streamingPlatforms =
+        charsStreamingData?.streaming && charsStreamingData.streaming.length > 0
+            ? charsStreamingData.streaming
+            : anime?.streaming_data || []
     const staffMembers = charsStreamingData?.staff || []
 
     const relations = useMemo(() => {
@@ -107,7 +110,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                     setSelectedCharacter(match)
                 }
             }
-        } catch {}
+        } catch { }
     }, [characters])
     const [showSpoilers, setShowSpoilers] = useState(false)
     const [hoveredTag, setHoveredTag] = useState<string | null>(null)
@@ -1289,7 +1292,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                                     className="anime-relation-poster-img"
                                                                     loading="lazy"
                                                                     onError={(e) => {
-                                                                        ;(e.currentTarget as HTMLImageElement).src =
+                                                                        ; (e.currentTarget as HTMLImageElement).src =
                                                                             'https://via.placeholder.com/60x85/1e1e24/a855f7?text=Anime'
                                                                     }}
                                                                 />

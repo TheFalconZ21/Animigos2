@@ -50,6 +50,13 @@ export interface ApiAnimeData {
     type?: string
     release_date?: string
     relations_data?: ApiAnimeRelationItem[]
+    streaming_data?: Array<{
+        site: string
+        url: string
+        language?: string
+        color?: string
+        icon?: string
+    }>
 }
 
 export interface ApiUserListEntry {

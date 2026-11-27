@@ -16,6 +16,7 @@ import {
     Tag,
     X,
     Play,
+    Tv,
 } from 'lucide-react'
 import {
     useCatalogQuery,
@@ -87,6 +88,88 @@ const ORDERING_LIST = [
     { id: 'title', label: 'Título (A–Z)' },
 ]
 
+export interface OfficialStreamingPlatform {
+    id: string
+    label: string
+    color: string
+    icon: string
+}
+
+const OFFICIAL_STREAMING_PLATFORMS: OfficialStreamingPlatform[] = [
+    {
+        id: 'Crunchyroll',
+        label: 'Crunchyroll',
+        color: '#F88B24',
+        icon: 'https://s4.anilist.co/file/anilistcdn/link/icon/5-AWN2pVlluCOO.png',
+    },
+    {
+        id: 'Netflix',
+        label: 'Netflix',
+        color: '#E50914',
+        icon: 'https://s4.anilist.co/file/anilistcdn/link/icon/10-rVGPom8RCiwH.png',
+    },
+    {
+        id: 'Disney Plus',
+        label: 'Disney+',
+        color: '#38BDF8',
+        icon: 'https://s4.anilist.co/file/anilistcdn/link/icon/118-mphNAqNDTvhO.png',
+    },
+    {
+        id: 'Amazon Prime Video',
+        label: 'Prime Video',
+        color: '#FF9900',
+        icon: 'https://s4.anilist.co/file/anilistcdn/link/icon/21-bDoNIomehkOx.png',
+    },
+    {
+        id: 'HIDIVE',
+        label: 'HIDIVE',
+        color: '#03AEEF',
+        icon: 'https://s4.anilist.co/file/anilistcdn/link/icon/20-3nWxygrjVM5A.png',
+    },
+    {
+        id: 'Hulu',
+        label: 'Hulu',
+        color: '#1CE783',
+        icon: 'https://s4.anilist.co/file/anilistcdn/link/icon/7-rM06PQyWONGC.png',
+    },
+    {
+        id: 'Max',
+        label: 'Max',
+        color: '#3B82F6',
+        icon: 'https://s4.anilist.co/file/anilistcdn/link/icon/211-S2C1vx1Ex5N7.png',
+    },
+    {
+        id: 'Bilibili',
+        label: 'Bilibili',
+        color: '#00A1D6',
+        icon: 'https://s4.anilist.co/file/anilistcdn/link/icon/119-NCwGvCjFADGQ.png',
+    },
+    {
+        id: 'YouTube',
+        label: 'YouTube',
+        color: '#FF0000',
+        icon: 'https://s4.anilist.co/file/anilistcdn/link/icon/13-ZwR1Xwgtyrwa.png',
+    },
+    {
+        id: 'iQIYI',
+        label: 'iQIYI',
+        color: '#00CC36',
+        icon: 'https://s4.anilist.co/file/anilistcdn/link/icon/204-VS6anqt2SaIN.png',
+    },
+    {
+        id: 'Tubi TV',
+        label: 'Tubi TV',
+        color: '#A855F7',
+        icon: 'https://s4.anilist.co/file/anilistcdn/link/icon/30-RoKDJtmAVpZK.png',
+    },
+    {
+        id: 'RetroCrush',
+        label: 'RetroCrush',
+        color: '#F43F5E',
+        icon: 'https://s4.anilist.co/file/anilistcdn/link/icon/27-1wGdEnOAv9WX.png',
+    },
+]
+
 type TaxonomyTabId = 'all' | 'Genre' | 'Theme' | 'Cast' | 'Setting' | 'Demographic'
 
 export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
@@ -156,9 +239,19 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [taxDropdownOpen])
 
-    // Toggles rápidos
+    // Toggles rápidos y Plataformas de Streaming Oficiales
     const [noSequels, setNoSequels] = useState(false)
     const [notInMyList, setNotInMyList] = useState(false)
+    const [selectedStreaming, setSelectedStreaming] = useState<string[]>([])
+
+    const toggleStreamingPlatform = (platformId: string) => {
+        setSelectedStreaming((prev) =>
+            prev.includes(platformId)
+                ? prev.filter((id) => id !== platformId)
+                : [...prev, platformId]
+        )
+        setCurrentPage(1)
+    }
 
     // Búsqueda por texto y paginación sincronizada con /catalogo/:page
     const [searchInput, setSearchInput] = useState(initialSearch)
@@ -282,6 +375,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
             min_score: minScore.trim() !== '' ? minScore.trim().replace(',', '.') : undefined,
             max_score: maxScore.trim() !== '' ? maxScore.trim().replace(',', '.') : undefined,
             format: format || undefined,
+            streaming: selectedStreaming.length > 0 ? selectedStreaming.join(',') : undefined,
             ordering: ordering || '-score',
             no_sequels: noSequels ? true : undefined,
             not_in_my_list: isAuthenticated && notInMyList ? true : undefined,
@@ -300,6 +394,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
         minScore,
         maxScore,
         format,
+        selectedStreaming,
         ordering,
         noSequels,
         notInMyList,
@@ -323,6 +418,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
     const handleClearFilters = () => {
         setStudio('')
         setSelectedTerms([])
+        setSelectedStreaming([])
         setSeason('')
         setYear('')
         setMinScore('')
@@ -339,6 +435,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
     const hasActiveFilters = Boolean(
         studio ||
             selectedTerms.length > 0 ||
+            selectedStreaming.length > 0 ||
             season ||
             year ||
             minScore ||
@@ -733,6 +830,55 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                         </button>
                     </form>
 
+                    {/* Barra de Plataformas de Streaming Oficiales con Íconos */}
+                    <div className="cat-streaming-filter-bar mt-3 pt-2.5">
+                        <div className="cat-streaming-filter-header">
+                            <span className="cat-streaming-filter-label">
+                                <Tv size={13} style={{ color: 'var(--cat-acento)' }} />
+                                <span>PLATAFORMAS DE STREAMING OFICIALES:</span>
+                            </span>
+                            {selectedStreaming.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedStreaming([])
+                                        setCurrentPage(1)
+                                    }}
+                                    className="cat-streaming-clear-btn"
+                                >
+                                    Ver todas ({selectedStreaming.length} activa{selectedStreaming.length > 1 ? 's' : ''})
+                                </button>
+                            )}
+                        </div>
+                        <div className="cat-streaming-icons-row">
+                            {OFFICIAL_STREAMING_PLATFORMS.map((platform) => {
+                                const isActive = selectedStreaming.includes(platform.id)
+                                return (
+                                    <button
+                                        key={platform.id}
+                                        type="button"
+                                        onClick={() => toggleStreamingPlatform(platform.id)}
+                                        className={`cat-streaming-icon-btn ${isActive ? 'active' : ''}`}
+                                        style={{ '--sp-color': platform.color } as React.CSSProperties}
+                                        title={`Filtrar animes disponibles en ${platform.label}`}
+                                        aria-pressed={isActive}
+                                    >
+                                        <span className="cat-streaming-logo-wrap">
+                                            <img
+                                                src={platform.icon}
+                                                alt={platform.label}
+                                                loading="lazy"
+                                                className="cat-streaming-logo-img"
+                                            />
+                                        </span>
+                                        <span className="cat-streaming-btn-name">{platform.label}</span>
+                                        {isActive && <Check size={11} className="cat-streaming-check" />}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+
                     {/* Chips de Géneros y Taxonomías seleccionadas (Intersección AND) */}
                     {selectedTerms.length > 0 && (
                         <div className="d-flex flex-wrap align-items-center gap-1.5 mt-3 pt-2 border-top border-dark">
@@ -925,6 +1071,27 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                         {/* Badge de Temporada */}
                                         {anime.season_display && (
                                             <div className="cat-season-badge">{anime.season_display}</div>
+                                        )}
+
+                                        {/* Íconos de Plataformas de Streaming Oficiales en esquina inferior izquierda */}
+                                        {anime.streaming_data && anime.streaming_data.length > 0 && (
+                                            <div
+                                                className="cat-poster-streaming-strip"
+                                                title={`Disponible en: ${anime.streaming_data.map((s) => s.site).join(', ')}`}
+                                            >
+                                                {anime.streaming_data
+                                                    .filter((s) => s.icon)
+                                                    .slice(0, 4)
+                                                    .map((sp) => (
+                                                        <span
+                                                            key={sp.site}
+                                                            className="cat-poster-streaming-dot"
+                                                            style={{ '--sp-color': sp.color || '#a855f7' } as React.CSSProperties}
+                                                        >
+                                                            <img src={sp.icon} alt={sp.site} loading="lazy" />
+                                                        </span>
+                                                    ))}
+                                            </div>
                                         )}
 
                                         {/* Badge de Score MAL */}

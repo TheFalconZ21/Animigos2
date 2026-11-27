@@ -1801,3 +1801,155 @@
     border-color: rgba(245, 158, 11, 0.42);
 }
 
+/* ============================================================
+   FILTRO DE PLATAFORMAS DE STREAMING OFICIALES CON ÍCONOS
+   ============================================================ */
+.cat-streaming-filter-bar {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 0.75rem;
+}
+
+.cat-streaming-filter-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.55rem;
+}
+
+.cat-streaming-filter-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--cat-text-muted);
+}
+
+.cat-streaming-clear-btn {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--cat-acento);
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+.cat-streaming-clear-btn:hover {
+    opacity: 0.85;
+    text-decoration: underline;
+}
+
+.cat-streaming-icons-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.cat-streaming-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    padding: 0.28rem 0.62rem 0.28rem 0.34rem;
+    border-radius: 10px;
+    background: var(--cat-surface-2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--cat-text-muted);
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+}
+
+.cat-streaming-icon-btn:hover {
+    background: var(--cat-surface-hover);
+    border-color: color-mix(in srgb, var(--sp-color, #a855f7) 55%, rgba(255, 255, 255, 0.2));
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.cat-streaming-icon-btn.active {
+    background: color-mix(in srgb, var(--sp-color, #a855f7) 20%, #161620);
+    border-color: var(--sp-color, #a855f7);
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow:
+        0 3px 14px color-mix(in srgb, var(--sp-color, #a855f7) 32%, transparent),
+        inset 0 0 0 1px color-mix(in srgb, var(--sp-color, #a855f7) 35%, transparent);
+}
+
+.cat-streaming-logo-wrap {
+    width: 21px;
+    height: 21px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: color-mix(in srgb, var(--sp-color, #18181f) 28%, #0c0c10);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.cat-streaming-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cat-streaming-btn-name {
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.cat-streaming-check {
+    color: #ffffff;
+    flex-shrink: 0;
+    margin-left: 1px;
+}
+
+/* Mini-íconos de plataformas oficiales sobre el póster en la grilla del catálogo */
+.cat-poster-streaming-strip {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 4px;
+    border-radius: 7px;
+    background: rgba(8, 8, 8, 0.84);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.cat-poster-streaming-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--sp-color, #18181f);
+}
+
+.cat-poster-streaming-dot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+

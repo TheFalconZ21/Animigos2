@@ -21,6 +21,7 @@ export interface CatalogFilterParams {
     format?: string
     type?: string
     status?: string
+    streaming?: string
     no_sequels?: boolean | string
     not_in_my_list?: boolean | string
     recommended_by_friends?: boolean | string
@@ -76,6 +77,7 @@ export async function fetchCatalogAnimes(params: CatalogFilterParams = {}): Prom
     if (params.format) searchParams.set('format', params.format)
     if (params.type) searchParams.set('type', params.type)
     if (params.status) searchParams.set('status', params.status)
+    if (params.streaming) searchParams.set('streaming', params.streaming)
     if (params.no_sequels) searchParams.set('no_sequels', 'true')
     if (params.not_in_my_list) searchParams.set('not_in_my_list', 'true')
     if (params.recommended_by_friends) searchParams.set('recommended_by_friends', 'true')
