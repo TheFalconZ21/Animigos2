@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Eye, EyeOff, Film, Heart, Loader2, Mic, User } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Eye, EyeOff, Film, Heart, Loader2, Mic, User } from 'lucide-react'
 import { useAnimeCharacterDetailQuery } from '../../hooks/useCatalog'
-import type { AnimeCharacterItem } from '../../services/catalogApi'
+import type { AnimeCharacterItem, AnimeVoiceActor } from '../../services/catalogApi'
 
 interface AnimeCharacterViewProps {
     malId: number
@@ -9,6 +9,7 @@ interface AnimeCharacterViewProps {
     initialCharacter: AnimeCharacterItem
     onBack: () => void
     onSelectAnime?: (nextMalId: number) => void
+    onSelectStaff?: (va: AnimeVoiceActor) => void
 }
 
 /**
@@ -22,6 +23,7 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
     initialCharacter,
     onBack,
     onSelectAnime,
+    onSelectStaff,
 }) => {
     const { data: detailedChar, isFetching } = useAnimeCharacterDetailQuery(malId, initialCharacter.id)
     const character = detailedChar || initialCharacter
@@ -290,10 +292,15 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
 
                     {/* Actores de Voz / Seiyuu */}
                     <div className="anime-profile-section-card">
-                        <h3 className="anime-profile-section-heading d-flex align-items-center gap-2">
-                            <Mic size={15} style={{ color: 'var(--cat-acento, #a855f7)' }} />
-                            <span>Actores de Doblaje / Seiyuu ({character.voice_actors?.length || 0})</span>
-                        </h3>
+                        <div className="mb-3">
+                            <h3 className="anime-profile-section-heading mb-1 d-flex align-items-center gap-2">
+                                <Mic size={15} style={{ color: 'var(--cat-acento, #a855f7)' }} />
+                                <span>Actores de Doblaje / Seiyuu ({character.voice_actors?.length || 0})</span>
+                            </h3>
+                            <p className="small text-secondary mb-0" style={{ fontSize: '0.76rem' }}>
+                                Haz clic en cualquier actor de voz o seiyuu para abrir su ficha exclusiva con redes sociales, Wikipedia y todos los animes donde ha trabajado.
+                            </p>
+                        </div>
 
                         {!character.voice_actors || character.voice_actors.length === 0 ? (
                             <p className="small text-secondary mb-0">
@@ -303,60 +310,72 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
                             <div
                                 style={{
                                     display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
                                     gap: '0.75rem',
                                 }}
                             >
                                 {character.voice_actors.map((va, idx) => (
                                     <div
                                         key={`${va.id || idx}-${va.language}`}
-                                        className="d-flex align-items-center gap-3 p-2 rounded-3"
-                                        style={{
-                                            background: 'rgba(255,255,255,0.03)',
-                                            border: '1px solid rgba(255,255,255,0.08)',
+                                        onClick={() => {
+                                            if (va.id && onSelectStaff) {
+                                                onSelectStaff(va)
+                                                window.scrollTo({ top: 0, behavior: 'smooth' })
+                                            }
                                         }}
+                                        role={va.id && onSelectStaff ? 'button' : undefined}
+                                        tabIndex={va.id && onSelectStaff ? 0 : undefined}
+                                        className="anime-va-card-clickable d-flex align-items-center justify-content-between gap-3 p-2 rounded-3"
+                                        title={`Ver ficha exclusiva de ${va.name} (Redes sociales, Wikipedia y filmografía)`}
                                     >
-                                        <img
-                                            src={va.image_url}
-                                            alt={va.name}
-                                            style={{
-                                                width: 48,
-                                                height: 64,
-                                                objectFit: 'cover',
-                                                borderRadius: 8,
-                                                flexShrink: 0,
-                                                border: '1px solid rgba(255,255,255,0.12)',
-                                            }}
-                                        />
-                                        <div className="overflow-hidden">
-                                            <div className="fw-bold text-white small text-truncate">
-                                                {va.name}
-                                            </div>
-                                            {va.native_name && (
-                                                <div
-                                                    className="small text-secondary text-truncate"
-                                                    style={{ fontSize: '0.72rem' }}
-                                                >
-                                                    {va.native_name}
-                                                </div>
-                                            )}
-                                            <span
-                                                className="badge rounded-pill mt-1"
+                                        <div className="d-flex align-items-center gap-3 overflow-hidden">
+                                            <img
+                                                src={va.image_url}
+                                                alt={va.name}
                                                 style={{
-                                                    background:
-                                                        va.language === 'Japanese'
-                                                            ? 'rgba(168, 85, 247, 0.18)'
-                                                            : 'rgba(56, 189, 248, 0.16)',
-                                                    color:
-                                                        va.language === 'Japanese'
-                                                            ? '#d8b4fe'
-                                                            : '#7dd3fc',
-                                                    fontSize: '0.68rem',
+                                                    width: 48,
+                                                    height: 64,
+                                                    objectFit: 'cover',
+                                                    borderRadius: 8,
+                                                    flexShrink: 0,
+                                                    border: '1px solid rgba(255,255,255,0.12)',
                                                 }}
-                                            >
-                                                {va.language_display || va.language}
-                                            </span>
+                                            />
+                                            <div className="overflow-hidden">
+                                                <div className="fw-bold text-white small text-truncate">
+                                                    {va.name}
+                                                </div>
+                                                {va.native_name && (
+                                                    <div
+                                                        className="small text-secondary text-truncate"
+                                                        style={{ fontSize: '0.72rem' }}
+                                                    >
+                                                        {va.native_name}
+                                                    </div>
+                                                )}
+                                                <span
+                                                    className="badge rounded-pill mt-1"
+                                                    style={{
+                                                        background:
+                                                            va.language === 'Japanese'
+                                                                ? 'rgba(168, 85, 247, 0.18)'
+                                                                : 'rgba(56, 189, 248, 0.16)',
+                                                        color:
+                                                            va.language === 'Japanese'
+                                                                ? '#d8b4fe'
+                                                                : '#7dd3fc',
+                                                        fontSize: '0.68rem',
+                                                    }}
+                                                >
+                                                    {va.language_display || va.language}
+                                                </span>
+                                            </div>
                                         </div>
+                                        {Boolean(va.id && onSelectStaff) && (
+                                            <span className="anime-streaming-action pe-1">
+                                                Ficha <ExternalLink size={12} />
+                                            </span>
+                                        )}
                                     </div>
                                 ))}
                             </div>

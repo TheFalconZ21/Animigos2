@@ -11,6 +11,7 @@ import {
     fetchAnimeRelations,
     fetchAnimeCharactersStreaming,
     fetchAnimeCharacterDetail,
+    fetchAnimeStaffDetail,
     fetchStudios,
     fetchGenres,
     fetchYears,
@@ -27,6 +28,7 @@ import {
     type TaxonomiesCatalogResponse,
     type AnimeCharacterItem,
     type AnimeCharactersStreamingResponse,
+    type StaffPersonDetail,
 } from '../services/catalogApi'
 import type { ApiAnimeData, ApiAnimeRelationItem } from '../services/userListApi'
 
@@ -150,6 +152,22 @@ export function useAnimeCharacterDetailQuery(malId: number | null, charId: numbe
             return fetchAnimeCharacterDetail(malId, charId)
         },
         enabled: Boolean(malId && malId > 0 && charId && charId > 0),
+        staleTime: 1000 * 60 * 60,
+    })
+}
+
+/**
+ * Hook para la ficha dedicada de un actor de doblaje / seiyuu, autor / mangaka,
+ * director, productor o miembro del staff
+ */
+export function useAnimeStaffDetailQuery(staffId: number | null) {
+    return useQuery<StaffPersonDetail | null, Error>({
+        queryKey: ['animes', 'staff-detail', staffId],
+        queryFn: () => {
+            if (!staffId) return Promise.resolve(null)
+            return fetchAnimeStaffDetail(staffId)
+        },
+        enabled: Boolean(staffId && staffId > 0),
         staleTime: 1000 * 60 * 60,
     })
 }

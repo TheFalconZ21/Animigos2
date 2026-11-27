@@ -1683,3 +1683,121 @@
     background: rgba(0, 0, 0, 0.35);
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+/* Tarjeta clickeable de Actor de Doblaje / Seiyuu y Staff */
+.anime-va-card-clickable {
+    background: rgba(18, 18, 26, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.anime-va-card-clickable:hover {
+    background: rgba(28, 28, 42, 0.96);
+    border-color: color-mix(in srgb, var(--cat-acento, #a855f7) 50%, rgba(255, 255, 255, 0.18));
+    transform: translateY(-2px);
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.4);
+}
+
+.anime-char-side.is-va-clickable {
+    padding: 0.25rem 0.35rem;
+    margin: -0.25rem -0.35rem;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+}
+
+.anime-char-side.is-va-clickable:hover {
+    background: rgba(168, 85, 247, 0.14);
+}
+
+/* Grilla de Staff (Autores / Mangakas, Directores, Productores) y sus Obras */
+.anime-staff-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+    gap: 0.7rem;
+}
+
+.anime-staff-works-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(265px, 1fr));
+    gap: 0.75rem;
+}
+
+.anime-staff-work-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 11px;
+    background: rgba(18, 18, 26, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.anime-staff-work-card.is-clickable {
+    cursor: pointer;
+}
+
+.anime-staff-work-card.is-clickable:hover {
+    background: rgba(28, 28, 42, 0.96);
+    border-color: color-mix(in srgb, var(--cat-acento, #a855f7) 50%, rgba(255, 255, 255, 0.18));
+    transform: translateY(-2px);
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.38);
+}
+
+.anime-staff-work-poster {
+    width: 48px;
+    height: 66px;
+    object-fit: cover;
+    border-radius: 7px;
+    flex-shrink: 0;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.anime-staff-work-body {
+    min-width: 0;
+    flex: 1;
+}
+
+.anime-staff-work-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #f4f4f5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.anime-staff-work-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    color: var(--cat-text-muted, #a1a1aa);
+    margin-top: 0.15rem;
+}
+
+.anime-staff-role-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.12rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.66rem;
+    font-weight: 600;
+    background: rgba(168, 85, 247, 0.16);
+    color: #d8b4fe;
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.anime-staff-role-pill.is-author {
+    background: rgba(245, 158, 11, 0.18);
+    color: #fcd34d;
+    border-color: rgba(245, 158, 11, 0.42);
+}
+

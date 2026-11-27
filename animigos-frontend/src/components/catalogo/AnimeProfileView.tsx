@@ -16,6 +16,7 @@ import {
     Play,
     ExternalLink,
     Bell,
+    Briefcase,
     GitFork,
     Users,
 } from 'lucide-react'
@@ -25,8 +26,9 @@ import {
     useAnimeRelationsQuery,
     useAnimeCharactersStreamingQuery,
 } from '../../hooks/useCatalog'
-import type { AnimeCharacterItem } from '../../services/catalogApi'
+import type { AnimeCharacterItem, AnimeStaffMember } from '../../services/catalogApi'
 import { AnimeCharacterView } from './AnimeCharacterView'
+import { AnimeStaffView } from './AnimeStaffView'
 import { useMyList } from '../../hooks/useMyList'
 import { useAuth } from '../../context/AuthContext'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
@@ -69,6 +71,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
     const anime = fetchedAnime || initialAnime
     const characters = charsStreamingData?.characters || []
     const streamingPlatforms = charsStreamingData?.streaming || []
+    const staffMembers = charsStreamingData?.staff || []
 
     const relations = useMemo(() => {
         if (fetchedRelations && fetchedRelations.length > 0) return fetchedRelations
@@ -78,9 +81,11 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
 
     const [activeTab, setActiveTab] = useState<'details' | 'characters' | 'stats' | 'recommendations'>('details')
     const [selectedCharacter, setSelectedCharacter] = useState<AnimeCharacterItem | null>(null)
+    const [selectedStaff, setSelectedStaff] = useState<(Partial<AnimeStaffMember> & { id: number }) | null>(null)
 
     useEffect(() => {
         setSelectedCharacter(null)
+        setSelectedStaff(null)
     }, [malId])
     const [showSpoilers, setShowSpoilers] = useState(false)
     const [hoveredTag, setHoveredTag] = useState<string | null>(null)
@@ -258,6 +263,37 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
 
     const scoreNum = anime.score ? Number(anime.score) : null
 
+    if (selectedStaff) {
+        return (
+            <section
+                className="cat-root py-4 px-3 px-md-4"
+                style={{ '--cat-acento': acento, '--ml-acento': acento } as React.CSSProperties}
+            >
+                <div className="container" style={{ maxWidth: '1240px' }}>
+                    <AnimeStaffView
+                        staffId={selectedStaff.id}
+                        animeTitle={anime.title}
+                        initialStaff={selectedStaff}
+                        onBack={() => {
+                            setSelectedStaff(null)
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }}
+                        onSelectAnime={(nextMalId) => {
+                            setSelectedStaff(null)
+                            setSelectedCharacter(null)
+                            if (onSelectAnime) {
+                                onSelectAnime(nextMalId)
+                            } else {
+                                navigate(`/anime/${nextMalId}`)
+                            }
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }}
+                    />
+                </div>
+            </section>
+        )
+    }
+
     if (selectedCharacter) {
         return (
             <section
@@ -281,6 +317,19 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                 navigate(`/anime/${nextMalId}`)
                             }
                             window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }}
+                        onSelectStaff={(va) => {
+                            if (va.id) {
+                                setSelectedStaff({
+                                    id: va.id,
+                                    name: va.name,
+                                    native_name: va.native_name,
+                                    image_url: va.image_url,
+                                    language_display: va.language_display || va.language,
+                                    role_display: 'Actor / Actriz de Voz (Seiyuu)',
+                                })
+                                window.scrollTo({ top: 0, behavior: 'smooth' })
+                            }
                         }}
                     />
                 </div>
@@ -773,7 +822,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                 className={`anime-profile-tab ${activeTab === 'characters' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('characters')}
                             >
-                                <Users size={14} /> Personajes ({characters.length})
+                                <Users size={14} /> Personajes &amp; Staff ({characters.length + staffMembers.length})
                             </button>
                             <button
                                 type="button"
@@ -1040,7 +1089,24 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
 
                                                             {/* Lado derecho: Seiyuu / Actor de voz principal */}
                                                             {mainVa && (
-                                                                <div className="anime-char-side is-va">
+                                                                <div
+                                                                    className="anime-char-side is-va is-va-clickable"
+                                                                    title={`Ver ficha exclusiva de ${mainVa.name} (Redes sociales, Wikipedia y filmografía)`}
+                                                                    onClick={(e) => {
+                                                                        if (mainVa.id) {
+                                                                            e.stopPropagation()
+                                                                            setSelectedStaff({
+                                                                                id: mainVa.id,
+                                                                                name: mainVa.name,
+                                                                                native_name: mainVa.native_name,
+                                                                                image_url: mainVa.image_url,
+                                                                                language_display: mainVa.language_display || mainVa.language,
+                                                                                role_display: 'Actor / Actriz de Voz (Seiyuu)',
+                                                                            })
+                                                                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                                        }
+                                                                    }}
+                                                                >
                                                                     <div className="overflow-hidden">
                                                                         <div className="small fw-semibold text-white text-truncate" style={{ fontSize: '0.78rem' }}>
                                                                             {mainVa.name}
@@ -1062,6 +1128,72 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                 })}
                                             </div>
                                         )}
+                                    </div>
+                                )}
+
+                                {/* Autores Originales (Mangakas), Directores, Productores y Trabajadores Conocidos */}
+                                {staffMembers.length > 0 && (
+                                    <div className="anime-profile-section-card">
+                                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                                            <div>
+                                                <h3 className="anime-profile-section-heading mb-0 border-0 pb-0 d-flex align-items-center gap-2">
+                                                    <Briefcase size={15} style={{ color: 'var(--cat-acento, #a855f7)' }} />
+                                                    <span>Autores, Directores, Productores &amp; Staff Principal</span>
+                                                </h3>
+                                                <p className="small text-secondary mb-0" style={{ fontSize: '0.76rem' }}>
+                                                    Haz clic en el autor original (mangaka), director, productor o miembro del equipo para ver sus redes sociales, Wikipedia y todas sus obras.
+                                                </p>
+                                            </div>
+                                            {staffMembers.length > 8 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActiveTab('characters')}
+                                                    className="anime-profile-spoiler-btn"
+                                                >
+                                                    Ver todo el staff ({staffMembers.length})
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <div className="anime-staff-grid">
+                                            {staffMembers.slice(0, 8).map((st) => (
+                                                <div
+                                                    key={st.id}
+                                                    onClick={() => {
+                                                        setSelectedStaff(st)
+                                                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                    }}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    className="anime-va-card-clickable d-flex align-items-center gap-3 p-2 rounded-3"
+                                                    title={`Ver ficha exclusiva de ${st.name}`}
+                                                >
+                                                    <img
+                                                        src={st.image_url}
+                                                        alt={st.name}
+                                                        loading="lazy"
+                                                        className="anime-char-avatar"
+                                                    />
+                                                    <div className="overflow-hidden flex-grow-1">
+                                                        <div className="small fw-bold text-white text-truncate" style={{ fontSize: '0.82rem' }}>
+                                                            {st.name}
+                                                        </div>
+                                                        {st.native_name && (
+                                                            <div className="small text-secondary text-truncate" style={{ fontSize: '0.7rem' }}>
+                                                                {st.native_name}
+                                                            </div>
+                                                        )}
+                                                        <div className="mt-1">
+                                                            <span
+                                                                className={`anime-staff-role-pill ${st.category === 'author' ? 'is-author' : ''}`}
+                                                            >
+                                                                {st.role_display}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
 
@@ -1220,7 +1352,24 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                     </div>
 
                                                     {mainVa && (
-                                                        <div className="anime-char-side is-va">
+                                                        <div
+                                                            className="anime-char-side is-va is-va-clickable"
+                                                            title={`Ver ficha exclusiva de ${mainVa.name} (Redes sociales, Wikipedia y filmografía)`}
+                                                            onClick={(e) => {
+                                                                if (mainVa.id) {
+                                                                    e.stopPropagation()
+                                                                    setSelectedStaff({
+                                                                        id: mainVa.id,
+                                                                        name: mainVa.name,
+                                                                        native_name: mainVa.native_name,
+                                                                        image_url: mainVa.image_url,
+                                                                        language_display: mainVa.language_display || mainVa.language,
+                                                                        role_display: 'Actor / Actriz de Voz (Seiyuu)',
+                                                                    })
+                                                                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                                }
+                                                            }}
+                                                        >
                                                             <div className="overflow-hidden">
                                                                 <div className="small fw-semibold text-white text-truncate" style={{ fontSize: '0.78rem' }}>
                                                                     {mainVa.name}
@@ -1240,6 +1389,63 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                 </div>
                                             )
                                         })}
+                                    </div>
+                                )}
+
+                                {/* Sección completa de Autores, Directores, Productores y Staff en la pestaña Personajes & Staff */}
+                                {staffMembers.length > 0 && (
+                                    <div className="mt-4 pt-3" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                        <div className="mb-3">
+                                            <h3 className="anime-profile-section-heading mb-1 d-flex align-items-center gap-2">
+                                                <Briefcase size={15} style={{ color: 'var(--cat-acento, #a855f7)' }} />
+                                                <span>
+                                                    Autores Originales (Mangakas), Directores, Productores y Staff de {anime.title} ({staffMembers.length})
+                                                </span>
+                                            </h3>
+                                            <p className="small text-secondary mb-0" style={{ fontSize: '0.78rem' }}>
+                                                Selecciona cualquier autor, director, productor o miembro del staff para abrir su ficha dedicada con redes sociales, Wikipedia y todas las obras donde ha trabajado.
+                                            </p>
+                                        </div>
+
+                                        <div className="anime-staff-grid">
+                                            {staffMembers.map((st) => (
+                                                <div
+                                                    key={st.id}
+                                                    onClick={() => {
+                                                        setSelectedStaff(st)
+                                                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                    }}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    className="anime-va-card-clickable d-flex align-items-center gap-3 p-2 rounded-3"
+                                                    title={`Ver ficha exclusiva de ${st.name}`}
+                                                >
+                                                    <img
+                                                        src={st.image_url}
+                                                        alt={st.name}
+                                                        loading="lazy"
+                                                        className="anime-char-avatar"
+                                                    />
+                                                    <div className="overflow-hidden flex-grow-1">
+                                                        <div className="small fw-bold text-white text-truncate" style={{ fontSize: '0.82rem' }}>
+                                                            {st.name}
+                                                        </div>
+                                                        {st.native_name && (
+                                                            <div className="small text-secondary text-truncate" style={{ fontSize: '0.7rem' }}>
+                                                                {st.native_name}
+                                                            </div>
+                                                        )}
+                                                        <div className="mt-1">
+                                                            <span
+                                                                className={`anime-staff-role-pill ${st.category === 'author' ? 'is-author' : ''}`}
+                                                            >
+                                                                {st.role_display}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>

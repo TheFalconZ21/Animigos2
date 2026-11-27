@@ -57,6 +57,11 @@ class Anime(models.Model):
         blank=True,
         help_text="Plataformas legales de streaming oficiales donde está disponible el anime"
     )
+    staff_data = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Autores originales (mangakas), directores, productores y staff principal del anime"
+    )
     
     last_synced_at = models.DateTimeField(auto_now=True)
 

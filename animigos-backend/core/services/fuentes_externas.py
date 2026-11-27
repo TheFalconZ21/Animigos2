@@ -826,11 +826,96 @@ def _translate_description_es(text: str) -> str:
 
 
 def obtener_personajes_y_streaming_anime(mal_id: int) -> tuple[list[dict], list[dict]]:
+    """Compatibilidad: retorna (characters, streaming)."""
+    chars, streaming, _ = obtener_personajes_streaming_y_staff_anime(mal_id)
+    return chars, streaming
+
+
+STAFF_ROLE_TRANSLATIONS = [
+    ('Original Creator', 'Autor Original / Mangaka', 'author'),
+    ('Original Story', 'Historia Original', 'author'),
+    ('Original Character Design', 'Diseño Original de Personajes', 'author'),
+    ('Chief Director', 'Director General', 'direction'),
+    ('Series Director', 'Director de Serie', 'direction'),
+    ('Episode Director', 'Director de Episodio', 'direction'),
+    ('Sound Director', 'Director de Sonido', 'music'),
+    ('Art Director', 'Director de Arte', 'art_animation'),
+    ('Chief Animation Director', 'Director Jefe de Animación', 'art_animation'),
+    ('Animation Director', 'Director de Animación', 'art_animation'),
+    ('Director of Photography', 'Director de Fotografía', 'art_animation'),
+    ('Assistant Director', 'Asistente de Dirección', 'direction'),
+    ('Director', 'Director', 'direction'),
+    ('Executive Producer', 'Productor Ejecutivo', 'production'),
+    ('Chief Producer', 'Productor Jefe', 'production'),
+    ('Animation Producer', 'Productor de Animación', 'production'),
+    ('Associate Producer', 'Productor Asociado', 'production'),
+    ('Producer', 'Productor', 'production'),
+    ('Planning', 'Planificación / Producción', 'production'),
+    ('Series Composition', 'Composición de Serie', 'direction'),
+    ('Script', 'Guion', 'direction'),
+    ('Screenplay', 'Guion', 'direction'),
+    ('Storyboard', 'Storyboard', 'direction'),
+    ('Character Design', 'Diseño de Personajes', 'art_animation'),
+    ('Music', 'Música / Banda Sonora', 'music'),
+    ('Theme Song Performance', 'Intérprete Tema Musical (OP/ED)', 'music'),
+    ('Theme Song Composition', 'Composición Tema Musical', 'music'),
+    ('Theme Song Lyrics', 'Letra Tema Musical', 'music'),
+    ('Theme Song Arrangement', 'Arreglo Tema Musical', 'music'),
+    ('Sound Effects', 'Efectos de Sonido', 'music'),
+    ('Key Animation', 'Animación Clave', 'art_animation'),
+    ('Color Design', 'Diseño de Color', 'art_animation'),
+    ('Editing', 'Edición', 'production'),
+]
+
+OCCUPATION_TRANSLATIONS = {
+    'Voice Actor': 'Actor / Actriz de Voz (Seiyuu)',
+    'Mangaka': 'Mangaka / Autor Original',
+    'Director': 'Director/a',
+    'Producer': 'Productor/a',
+    'Animator': 'Animador/a',
+    'Singer': 'Cantante / Intérprete',
+    'Musician': 'Músico / Compositor',
+    'Composer': 'Compositor/a',
+    'Illustrator': 'Ilustrador/a',
+    'Writer': 'Guionista / Escritor/a',
+    'Screenwriter': 'Guionista',
+    'Character Designer': 'Diseñador/a de Personajes',
+    'Sound Director': 'Director/a de Sonido',
+}
+
+
+def _translate_staff_role(raw_role: str) -> tuple[str, str]:
+    """Traduce un rol de staff de AniList al español y devuelve (role_display, category)."""
+    if not raw_role:
+        return 'Staff de Producción', 'other'
+    role_clean = raw_role.strip()
+    # Extraer sufijos entre paréntesis como (eps 1-12) o (OP, ED)
+    paren_suffix = ''
+    m_paren = re.search(r'(\([^)]+\))$', role_clean)
+    if m_paren:
+        paren_suffix = ' ' + m_paren.group(1)
+        base_role = role_clean[:m_paren.start()].strip()
+    else:
+        base_role = role_clean
+
+    for eng_key, es_label, cat in STAFF_ROLE_TRANSLATIONS:
+        if base_role.lower() == eng_key.lower() or base_role.lower().startswith(eng_key.lower()):
+            return f"{es_label}{paren_suffix}", cat
+
+    for eng_key, es_label, cat in STAFF_ROLE_TRANSLATIONS:
+        if eng_key.lower() in base_role.lower():
+            return f"{es_label}{paren_suffix}", cat
+
+    return role_clean, 'other'
+
+
+def obtener_personajes_streaming_y_staff_anime(mal_id: int) -> tuple[list[dict], list[dict], list[dict]]:
     """
     Obtiene en una sola consulta a AniList GraphQL:
     1) Lista de personajes (principales y secundarios), su descripción, atributos,
        actores de voz / seiyuu (todos los idiomas disponibles) y animeografía.
     2) Plataformas legales de streaming donde está disponible el anime.
+    3) Autores originales (mangakas), directores, productores, compositores y trabajadores conocidos.
     """
     consulta = """
     query ($id: Int) {
@@ -844,6 +929,24 @@ def obtener_personajes_y_streaming_anime(mal_id: int) -> tuple[list[dict], list[
           language
           color
           icon
+        }
+        staff(sort: [RELEVANCE, ID], perPage: 25) {
+          edges {
+            role
+            node {
+              id
+              name {
+                full
+                native
+              }
+              languageV2
+              primaryOccupations
+              image {
+                large
+                medium
+              }
+            }
+          }
         }
         characters(sort: [ROLE, RELEVANCE, ID], perPage: 24) {
           edges {
@@ -910,7 +1013,7 @@ def obtener_personajes_y_streaming_anime(mal_id: int) -> tuple[list[dict], list[
         respuesta = _post_json(ANILIST_URL, {'query': consulta, 'variables': {'id': mal_id}})
         media = respuesta.get('data', {}).get('Media')
         if not media:
-            return [], []
+            return [], [], []
 
         # 1. Procesar plataformas legales de streaming
         raw_links = media.get('externalLinks') or []
@@ -956,7 +1059,6 @@ def obtener_personajes_y_streaming_anime(mal_id: int) -> tuple[list[dict], list[
             dob = node.get('dateOfBirth') or {}
             birthday = f"{dob['day']}/{dob['month']}" if dob.get('day') and dob.get('month') else ''
 
-            # Actores de voz / Seiyuu (priorizando Japonés primero, luego Español, Inglés y otros)
             lang_priority = {'Japanese': 1, 'Spanish': 2, 'English': 3}
             raw_vas = edge.get('voiceActors') or []
             voice_actors: list[dict] = []
@@ -984,7 +1086,6 @@ def obtener_personajes_y_streaming_anime(mal_id: int) -> tuple[list[dict], list[
                 })
             voice_actors.sort(key=lambda x: x['priority'])
 
-            # Animeografía del personaje
             media_edges = ((node.get('media') or {}).get('edges')) or []
             animeography: list[dict] = []
             for me in media_edges:
@@ -1022,7 +1123,473 @@ def obtener_personajes_y_streaming_anime(mal_id: int) -> tuple[list[dict], list[
                 'animeography': animeography,
             })
 
-        return characters_list, streaming_list
+        # 3. Procesar Staff (Autores / Mangakas, Directores, Productores, Compositores, Diseñadores...)
+        staff_edges = (media.get('staff') or {}).get('edges') or []
+        staff_by_id: dict[int, dict] = {}
+        cat_priority = {'author': 1, 'direction': 2, 'production': 3, 'music': 4, 'art_animation': 5, 'other': 6}
+        for s_edge in staff_edges:
+            s_node = s_edge.get('node') or {}
+            s_id = s_node.get('id')
+            if not s_id:
+                continue
+            raw_role = (s_edge.get('role') or 'Staff').strip()
+            role_es, cat = _translate_staff_role(raw_role)
+            s_names = s_node.get('name') or {}
+            s_full = s_names.get('full') or 'Staff'
+            s_native = s_names.get('native') or ''
+            s_imgs = s_node.get('image') or {}
+            s_img = s_imgs.get('large') or s_imgs.get('medium') or ''
+            occupations = [
+                OCCUPATION_TRANSLATIONS.get(occ, occ)
+                for occ in (s_node.get('primaryOccupations') or [])
+                if occ
+            ]
+
+            if s_id in staff_by_id:
+                existing = staff_by_id[s_id]
+                if role_es not in existing['roles_list']:
+                    existing['roles_list'].append(role_es)
+                    existing['role_display'] = ' · '.join(existing['roles_list'][:3])
+                if cat_priority.get(cat, 9) < existing['priority']:
+                    existing['priority'] = cat_priority.get(cat, 9)
+                    existing['category'] = cat
+            else:
+                staff_by_id[s_id] = {
+                    'id': s_id,
+                    'name': s_full,
+                    'native_name': s_native,
+                    'role': raw_role,
+                    'role_display': role_es,
+                    'roles_list': [role_es],
+                    'category': cat,
+                    'occupations': occupations[:3],
+                    'image_url': s_img,
+                    'priority': cat_priority.get(cat, 9),
+                }
+
+        staff_list = sorted(staff_by_id.values(), key=lambda x: x['priority'])
+        for item in staff_list:
+            item.pop('roles_list', None)
+            item.pop('priority', None)
+
+        return characters_list, streaming_list, staff_list
     except Exception:
-        return [], []
+        return [], [], []
+
+
+def _extract_social_and_wiki_links(raw_desc: str, full_name: str, native_name: str, site_url: str = '') -> tuple[list[dict], dict]:
+    """
+    Extrae redes sociales oficiales (X/Twitter, Instagram, YouTube, TikTok, Pixiv, Blog, Sitio Oficial)
+    desde el markdown de AniList + consulta rápida a Wikipedia/Wikidata para obtener el artículo enciclopédico.
+    """
+    social_links: list[dict] = []
+    seen_urls: set[str] = set()
+    wiki_info: dict = {'url': '', 'title': '', 'lang': 'es', 'is_direct': False}
+
+    def add_social(platform: str, label: str, url: str, color: str, handle: str = ''):
+        u_clean = url.strip()
+        if not u_clean.startswith(('http://', 'https://')):
+            return
+        key = u_clean.lower().rstrip('/')
+        if key in seen_urls:
+            return
+        seen_urls.add(key)
+        social_links.append({
+            'platform': platform,
+            'label': label,
+            'url': u_clean,
+            'color': color,
+            'handle': handle,
+        })
+
+    # 1. Extraer enlaces markdown [etiqueta](url) del texto original de AniList
+    if raw_desc:
+        md_links = re.findall(r'\[([^\]]+)\]\((https?://[^)\s]+)\)', raw_desc)
+        for label, url in md_links:
+            u_low = url.lower()
+            lbl_clean = label.strip().strip(':')
+            if 'wikipedia.org/wiki/' in u_low:
+                if not wiki_info['url'] or 'es.wikipedia.org' in u_low:
+                    lang = 'es' if 'es.wikipedia' in u_low else ('ja' if 'ja.wikipedia' in u_low else 'en')
+                    wiki_info = {
+                        'url': url,
+                        'title': full_name,
+                        'lang': lang,
+                        'is_direct': True,
+                    }
+                continue
+            if 'twitter.com/' in u_low or 'x.com/' in u_low:
+                m_h = re.search(r'(?:twitter\.com|x\.com)/([A-Za-z0-9_]+)', url)
+                handle = f"@{m_h.group(1)}" if m_h else lbl_clean
+                add_social('twitter', 'X / Twitter', url, '#1DA1F2', handle)
+            elif 'instagram.com/' in u_low:
+                m_h = re.search(r'instagram\.com/([A-Za-z0-9_.]+)', url)
+                handle = f"@{m_h.group(1)}" if m_h else lbl_clean
+                add_social('instagram', 'Instagram', url, '#E1306C', handle)
+            elif 'youtube.com/' in u_low or 'youtu.be/' in u_low:
+                add_social('youtube', 'YouTube', url, '#FF0000', lbl_clean or 'Canal Oficial')
+            elif 'tiktok.com/' in u_low:
+                add_social('tiktok', 'TikTok', url, '#00F2FE', lbl_clean)
+            elif 'pixiv.net/' in u_low:
+                add_social('pixiv', 'Pixiv', url, '#0096FA', lbl_clean or 'Portafolio')
+            elif 'facebook.com/' in u_low:
+                add_social('facebook', 'Facebook', url, '#1877F2', lbl_clean)
+            elif 'twitch.tv/' in u_low:
+                add_social('twitch', 'Twitch', url, '#9146FF', lbl_clean)
+            elif any(b in u_low for b in ('ameblo.jp', 'lineblog.me', 'note.com', 'blogspot.', 'fc2.com')):
+                add_social('blog', lbl_clean or 'Blog Oficial', url, '#10B981')
+            elif 'anilist.co' not in u_low and 'myanimelist.net' not in u_low:
+                add_social('website', lbl_clean or 'Sitio Oficial / Agencia', url, '#a855f7')
+
+    # 2. Consultar Wikipedia (ES -> EN -> JA) + Wikidata para artículo enciclopédico y redes sociales oficiales
+    wikidata_qid = ''
+    for lang, search_term in [('es', full_name), ('en', full_name), ('ja', native_name)]:
+        if wiki_info['is_direct'] and wiki_info['lang'] == 'es' and wikidata_qid:
+            break
+        if not search_term:
+            continue
+        try:
+            q_enc = urllib.parse.quote(search_term)
+            api_url = (
+                f"https://{lang}.wikipedia.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item"
+                f"&generator=search&gsrsearch={q_enc}&gsrlimit=1&format=json"
+            )
+            data = _get_json(api_url, timeout=2)
+            pages = ((data.get('query') or {}).get('pages')) or {}
+            if pages:
+                page_obj = next(iter(pages.values()))
+                title = page_obj.get('title') or ''
+                qid = (page_obj.get('pageprops') or {}).get('wikibase_item') or ''
+                name_tokens = [t.lower() for t in re.split(r'\s+', search_term) if len(t) > 2]
+                if title and (not name_tokens or any(tok in title.lower() for tok in name_tokens)):
+                    if qid and not wikidata_qid:
+                        wikidata_qid = qid
+                    page_url = f"https://{lang}.wikipedia.org/wiki/{urllib.parse.quote(title.replace(' ', '_'))}"
+                    if not wiki_info['is_direct']:
+                        wiki_info = {
+                            'url': page_url,
+                            'title': title,
+                            'lang': lang,
+                            'is_direct': True,
+                        }
+                    if wiki_info['is_direct'] and wikidata_qid:
+                        break
+        except Exception:
+            pass
+
+    # 3. Si obtuvimos el Q-ID de Wikidata, extraer redes sociales oficiales verificadas (P2002 Twitter/X, P2003 Instagram, P2397 YouTube, P7085 TikTok, P856 Web Oficial)
+    if wikidata_qid:
+        try:
+            wd_url = f"https://www.wikidata.org/w/api.php?action=wbgetentities&ids={wikidata_qid}&props=claims|sitelinks&format=json"
+            wd_data = _get_json(wd_url, timeout=2)
+            entity = ((wd_data.get('entities') or {}).get(wikidata_qid)) or {}
+            claims = entity.get('claims') or {}
+            sitelinks = entity.get('sitelinks') or {}
+
+            # Si hay artículo en Wikipedia en español en Wikidata, priorizarlo
+            if 'eswiki' in sitelinks and sitelinks['eswiki'].get('title'):
+                es_title = sitelinks['eswiki']['title']
+                wiki_info = {
+                    'url': f"https://es.wikipedia.org/wiki/{urllib.parse.quote(es_title.replace(' ', '_'))}",
+                    'title': es_title,
+                    'lang': 'es',
+                    'is_direct': True,
+                }
+
+            def get_claim_str(prop_id: str) -> str:
+                prop_list = claims.get(prop_id) or []
+                for cl in prop_list:
+                    val = (((cl.get('mainsnak') or {}).get('datavalue') or {}).get('value'))
+                    if isinstance(val, str) and val.strip():
+                        return val.strip()
+                return ''
+
+            tw_user = get_claim_str('P2002')
+            if tw_user and not any(s['platform'] == 'twitter' for s in social_links):
+                add_social('twitter', 'X / Twitter', f"https://x.com/{tw_user}", '#1DA1F2', f"@{tw_user}")
+
+            ig_user = get_claim_str('P2003')
+            if ig_user and not any(s['platform'] == 'instagram' for s in social_links):
+                add_social('instagram', 'Instagram', f"https://www.instagram.com/{ig_user}/", '#E1306C', f"@{ig_user}")
+
+            yt_chan = get_claim_str('P2397')
+            if yt_chan and not any(s['platform'] == 'youtube' for s in social_links):
+                add_social('youtube', 'YouTube', f"https://www.youtube.com/channel/{yt_chan}", '#FF0000', 'Canal Oficial')
+
+            tt_user = get_claim_str('P7085')
+            if tt_user and not any(s['platform'] == 'tiktok' for s in social_links):
+                add_social('tiktok', 'TikTok', f"https://www.tiktok.com/@{tt_user}", '#00F2FE', f"@{tt_user}")
+
+            web_url = get_claim_str('P856')
+            if web_url and not any(s['platform'] == 'website' for s in social_links):
+                add_social('website', 'Sitio Oficial / Agencia', web_url, '#a855f7')
+        except Exception:
+            pass
+
+    # Fallback garantizado a Wikipedia si la búsqueda directa no respondió a tiempo
+    if not wiki_info['url']:
+        q_wiki = urllib.parse.quote(full_name or native_name)
+        wiki_info = {
+            'url': f"https://es.wikipedia.org/w/index.php?search={q_wiki}",
+            'title': full_name,
+            'lang': 'es',
+            'is_direct': False,
+        }
+
+    # Añadir ficha de AniList si está disponible
+    if site_url:
+        add_social('anilist', 'Ficha en AniList', site_url, '#02A9FF')
+
+    return social_links, wiki_info
+
+
+def obtener_detalle_staff(staff_id: int) -> dict | None:
+    """
+    Obtiene la ficha dedicada de un actor de voz / seiyuu, mangaka / autor, director,
+    productor o trabajador de anime desde AniList GraphQL + Wikipedia.
+    Incluye biografía traducida al español, redes sociales, enlace a Wikipedia,
+    personajes interpretados (doblaje/seiyuu) y obras donde ha trabajado o tiene autoría.
+    """
+    from django.core.cache import cache
+    cache_key = f"staff_detail_v2_{staff_id}"
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+
+    consulta = """
+    query ($id: Int) {
+      Staff(id: $id) {
+        id
+        name {
+          full
+          native
+          alternative
+        }
+        languageV2
+        image {
+          large
+          medium
+        }
+        description
+        primaryOccupations
+        gender
+        dateOfBirth {
+          year
+          month
+          day
+        }
+        dateOfDeath {
+          year
+          month
+          day
+        }
+        age
+        yearsActive
+        homeTown
+        bloodType
+        favourites
+        siteUrl
+        characterMedia(sort: [POPULARITY_DESC], perPage: 48) {
+          edges {
+            characterRole
+            characters {
+              id
+              name {
+                full
+                native
+              }
+              image {
+                large
+                medium
+              }
+            }
+            node {
+              id
+              idMal
+              type
+              format
+              seasonYear
+              averageScore
+              title {
+                romaji
+                english
+              }
+              coverImage {
+                large
+                medium
+              }
+            }
+          }
+        }
+        staffMedia(sort: [POPULARITY_DESC], perPage: 48) {
+          edges {
+            staffRole
+            node {
+              id
+              idMal
+              type
+              format
+              seasonYear
+              averageScore
+              title {
+                romaji
+                english
+              }
+              coverImage {
+                large
+                medium
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    try:
+        respuesta = _post_json(ANILIST_URL, {'query': consulta, 'variables': {'id': staff_id}})
+        staff = respuesta.get('data', {}).get('Staff')
+        if not staff:
+            return None
+
+        names = staff.get('name') or {}
+        full_name = names.get('full') or 'Staff'
+        native_name = names.get('native') or ''
+        alt_names = [a.strip() for a in (names.get('alternative') or []) if a and a.strip()]
+        imgs = staff.get('image') or {}
+        image_url = imgs.get('large') or imgs.get('medium') or ''
+        raw_desc = staff.get('description') or ''
+        site_url = staff.get('siteUrl') or ''
+
+        # Extraer redes sociales y enlace a Wikipedia antes de limpiar el markdown
+        social_links, wiki_info = _extract_social_and_wiki_links(raw_desc, full_name, native_name, site_url)
+
+        clean_desc = _clean_character_description(raw_desc)
+        desc_es = _translate_description_es(clean_desc) if clean_desc else ''
+
+        occupations_raw = staff.get('primaryOccupations') or []
+        occupations = [OCCUPATION_TRANSLATIONS.get(o, o) for o in occupations_raw if o]
+
+        dob = staff.get('dateOfBirth') or {}
+        birthday_parts = [str(dob[k]) for k in ('day', 'month', 'year') if dob.get(k)]
+        birthday = '/'.join(birthday_parts) if len(birthday_parts) >= 2 else (str(dob.get('year')) if dob.get('year') else '')
+
+        years_active_raw = staff.get('yearsActive') or []
+        years_active = ''
+        if len(years_active_raw) == 1 and years_active_raw[0]:
+            years_active = f"{years_active_raw[0]} – Presente"
+        elif len(years_active_raw) >= 2 and years_active_raw[0]:
+            years_active = f"{years_active_raw[0]} – {years_active_raw[1] or 'Presente'}"
+
+        lang = staff.get('languageV2') or ''
+        lang_display = VOICE_LANG_NAMES.get(lang, lang)
+
+        # 1. Roles de Doblaje / Seiyuu (characterMedia)
+        voice_works: list[dict] = []
+        seen_vw: set[tuple] = set()
+        c_edges = ((staff.get('characterMedia') or {}).get('edges')) or []
+        for edge in c_edges:
+            m_node = edge.get('node') or {}
+            mal_id = m_node.get('idMal')
+            if not mal_id:
+                continue
+            m_titles = m_node.get('title') or {}
+            m_cover = m_node.get('coverImage') or {}
+            c_role = edge.get('characterRole') or 'MAIN'
+            chars = edge.get('characters') or []
+            char_obj = chars[0] if chars else {}
+            c_id = char_obj.get('id')
+            c_names = char_obj.get('name') or {}
+            c_imgs = char_obj.get('image') or {}
+            vw_key = (mal_id, c_id or 0)
+            if vw_key in seen_vw:
+                continue
+            seen_vw.add(vw_key)
+            avg_score = m_node.get('averageScore')
+            voice_works.append({
+                'mal_id': mal_id,
+                'anime_title': m_titles.get('romaji') or m_titles.get('english') or 'Anime',
+                'anime_image': m_cover.get('large') or m_cover.get('medium') or '',
+                'format': FORMAT_NAMES.get(m_node.get('format') or 'TV', m_node.get('format') or 'TV'),
+                'season_year': m_node.get('seasonYear'),
+                'score': round(avg_score / 10.0, 2) if avg_score else None,
+                'character_id': c_id,
+                'character_name': c_names.get('full') or 'Personaje',
+                'character_native': c_names.get('native') or '',
+                'character_image': c_imgs.get('large') or c_imgs.get('medium') or '',
+                'character_role': CHARACTER_ROLE_NAMES.get(c_role, 'Principal'),
+            })
+
+        # 2. Obras de Autoría (Mangaka) y Producción / Dirección / Staff (staffMedia)
+        staff_works_by_key: dict[tuple, dict] = {}
+        s_edges = ((staff.get('staffMedia') or {}).get('edges')) or []
+        for edge in s_edges:
+            m_node = edge.get('node') or {}
+            mal_id = m_node.get('idMal')
+            anilist_media_id = m_node.get('id')
+            if not mal_id and not anilist_media_id:
+                continue
+            media_type = m_node.get('type') or 'ANIME'
+            raw_role = (edge.get('staffRole') or 'Staff').strip()
+            role_es, cat = _translate_staff_role(raw_role)
+            m_titles = m_node.get('title') or {}
+            m_cover = m_node.get('coverImage') or {}
+            avg_score = m_node.get('averageScore')
+            fmt = m_node.get('format') or ('MANGA' if media_type == 'MANGA' else 'TV')
+            w_key = (media_type, mal_id or anilist_media_id)
+
+            if w_key in staff_works_by_key:
+                existing = staff_works_by_key[w_key]
+                if role_es not in existing['roles_list']:
+                    existing['roles_list'].append(role_es)
+                    existing['role_display'] = ' · '.join(existing['roles_list'][:3])
+                if cat == 'author':
+                    existing['is_authorship'] = True
+            else:
+                is_auth = cat == 'author' or media_type == 'MANGA' or 'story' in raw_role.lower() or 'art' in raw_role.lower() or 'creator' in raw_role.lower()
+                staff_works_by_key[w_key] = {
+                    'mal_id': mal_id if media_type == 'ANIME' else None,
+                    'media_type': media_type,
+                    'title': m_titles.get('romaji') or m_titles.get('english') or 'Obra',
+                    'image_url': m_cover.get('large') or m_cover.get('medium') or '',
+                    'format': 'Manga / Obra Original' if media_type == 'MANGA' else FORMAT_NAMES.get(fmt, fmt),
+                    'season_year': m_node.get('seasonYear'),
+                    'score': round(avg_score / 10.0, 2) if avg_score else None,
+                    'role': raw_role,
+                    'role_display': role_es,
+                    'roles_list': [role_es],
+                    'is_authorship': is_auth,
+                }
+
+        production_works = list(staff_works_by_key.values())
+        for pw in production_works:
+            pw.pop('roles_list', None)
+
+        result = {
+            'id': staff.get('id'),
+            'name': full_name,
+            'native_name': native_name,
+            'alternative_names': alt_names[:5],
+            'language': lang,
+            'language_display': lang_display,
+            'image_url': image_url,
+            'occupations': occupations,
+            'gender': str(staff.get('gender') or '').strip(),
+            'age': str(staff.get('age') or '').strip(),
+            'birthday': birthday,
+            'hometown': str(staff.get('homeTown') or '').strip(),
+            'blood_type': str(staff.get('bloodType') or '').strip(),
+            'years_active': years_active,
+            'favourites': staff.get('favourites') or 0,
+            'description': clean_desc,
+            'description_es': desc_es,
+            'wikipedia': wiki_info,
+            'social_links': social_links,
+            'voice_works': voice_works,
+            'production_works': production_works,
+        }
+        cache.set(cache_key, result, timeout=60 * 60 * 24 * 7)
+        return result
+    except Exception:
+        return None
+
 

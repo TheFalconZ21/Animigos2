@@ -411,13 +411,92 @@ export interface AnimeStreamingPlatform {
     icon?: string
 }
 
+export interface AnimeStaffMember {
+    id: number
+    name: string
+    native_name?: string
+    role: string
+    role_display: string
+    category?: 'author' | 'direction' | 'production' | 'music' | 'art_animation' | 'other' | string
+    occupations?: string[]
+    image_url: string
+    language_display?: string
+}
+
+export interface StaffSocialLink {
+    platform: 'twitter' | 'instagram' | 'youtube' | 'tiktok' | 'pixiv' | 'facebook' | 'twitch' | 'blog' | 'website' | 'anilist' | string
+    label: string
+    url: string
+    color: string
+    handle?: string
+}
+
+export interface StaffWikipediaInfo {
+    url: string
+    title: string
+    lang: string
+    is_direct: boolean
+}
+
+export interface StaffVoiceWorkItem {
+    mal_id: number
+    anime_title: string
+    anime_image: string
+    format: string
+    season_year?: number | null
+    score?: number | null
+    character_id?: number | null
+    character_name: string
+    character_native?: string
+    character_image: string
+    character_role: string
+}
+
+export interface StaffProductionWorkItem {
+    mal_id?: number | null
+    media_type: 'ANIME' | 'MANGA' | string
+    title: string
+    image_url: string
+    format: string
+    season_year?: number | null
+    score?: number | null
+    role: string
+    role_display: string
+    is_authorship?: boolean
+}
+
+export interface StaffPersonDetail {
+    id: number
+    name: string
+    native_name?: string
+    alternative_names?: string[]
+    language?: string
+    language_display?: string
+    image_url: string
+    occupations?: string[]
+    gender?: string
+    age?: string
+    birthday?: string
+    hometown?: string
+    blood_type?: string
+    years_active?: string
+    favourites?: number
+    description: string
+    description_es?: string
+    wikipedia?: StaffWikipediaInfo
+    social_links: StaffSocialLink[]
+    voice_works: StaffVoiceWorkItem[]
+    production_works: StaffProductionWorkItem[]
+}
+
 export interface AnimeCharactersStreamingResponse {
     characters: AnimeCharacterItem[]
     streaming: AnimeStreamingPlatform[]
+    staff?: AnimeStaffMember[]
 }
 
 /**
- * Consulta personajes (con seiyuu/actores de voz) y plataformas legales de streaming de un anime
+ * Consulta personajes (con seiyuu/actores de voz), staff/autores y plataformas legales de streaming de un anime
  */
 export async function fetchAnimeCharactersStreaming(
     malId: number
@@ -428,7 +507,7 @@ export async function fetchAnimeCharactersStreaming(
         credentials: 'include',
     })
     if (!response.ok) {
-        return { characters: [], streaming: [] }
+        return { characters: [], streaming: [], staff: [] }
     }
     return response.json()
 }
@@ -441,6 +520,22 @@ export async function fetchAnimeCharacterDetail(
     charId: number
 ): Promise<AnimeCharacterItem | null> {
     const response = await fetch(`${API_BASE_URL}/animes/${malId}/character/${charId}/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+    })
+    if (!response.ok) {
+        return null
+    }
+    return response.json()
+}
+
+/**
+ * Consulta la ficha dedicada de un actor de doblaje / seiyuu, autor / mangaka,
+ * director, productor o miembro del staff (con redes sociales, Wikipedia y obras)
+ */
+export async function fetchAnimeStaffDetail(staffId: number): Promise<StaffPersonDetail | null> {
+    const response = await fetch(`${API_BASE_URL}/animes/staff/${staffId}/`, {
         method: 'GET',
         headers: getAuthHeaders(),
         credentials: 'include',

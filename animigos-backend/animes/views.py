@@ -27,6 +27,8 @@ from core.services.fuentes_externas import (
     obtener_proximos_lanzamientos,
     obtener_relaciones_anime,
     obtener_personajes_y_streaming_anime,
+    obtener_personajes_streaming_y_staff_anime,
+    obtener_detalle_staff,
     _translate_description_es,
 )
 
@@ -668,35 +670,54 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['get'], url_path='characters-streaming')
     def characters_streaming(self, request, pk=None):
         """
-        Devuelve los personajes (con descripción, seiyuu/actores de voz y animeografía)
+        Devuelve los personajes (con descripción, seiyuu/actores de voz y animeografía),
+        el staff / equipo de producción y autoría (mangaka, director, productor, compositor...)
         y las plataformas legales de streaming donde está disponible el anime.
         Cachea permanentemente en PostgreSQL tras la primera consulta a AniList.
         """
         anime = self.get_object()
         has_chars = isinstance(anime.characters_data, list) and len(anime.characters_data) > 0
         has_stream = isinstance(anime.streaming_data, list) and len(anime.streaming_data) > 0
+        has_staff = isinstance(anime.staff_data, list) and len(anime.staff_data) > 0
 
-        if has_chars or has_stream:
+        if has_chars and has_staff:
             return Response({
                 'characters': anime.characters_data or [],
                 'streaming': anime.streaming_data or [],
+                'staff': anime.staff_data or [],
             })
 
-        chars, streaming = obtener_personajes_y_streaming_anime(anime.mal_id)
+        chars, streaming, staff_list = obtener_personajes_streaming_y_staff_anime(anime.mal_id)
         update_fields = []
-        if chars:
+        if chars and not has_chars:
             anime.characters_data = chars
             update_fields.append('characters_data')
-        if streaming:
+        if streaming and not has_stream:
             anime.streaming_data = streaming
             update_fields.append('streaming_data')
+        if staff_list:
+            anime.staff_data = staff_list
+            update_fields.append('staff_data')
         if update_fields:
             anime.save(update_fields=update_fields)
 
         return Response({
-            'characters': chars,
-            'streaming': streaming,
+            'characters': anime.characters_data if has_chars else chars,
+            'streaming': anime.streaming_data if has_stream else streaming,
+            'staff': anime.staff_data if has_staff else staff_list,
         })
+
+    @action(detail=False, methods=['get'], url_path=r'staff/(?P<staff_id>\d+)')
+    def staff_detail(self, request, staff_id=None):
+        """
+        Devuelve la ficha dedicada de un actor de doblaje / seiyuu, autor / mangaka,
+        director, productor o miembro del staff, incluyendo redes sociales, enlace a Wikipedia,
+        biografía en español y todas las obras donde ha trabajado o tiene autoría.
+        """
+        detail = obtener_detalle_staff(int(staff_id))
+        if not detail:
+            return Response({'error': 'Persona o miembro del staff no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(detail)
 
     @action(detail=True, methods=['get'], url_path=r'character/(?P<char_id>\d+)')
     def character_detail(self, request, pk=None, char_id=None):
