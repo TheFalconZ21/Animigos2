@@ -236,18 +236,6 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
                                 {isFav ? 'En tus Favoritos' : 'Añadir a Favoritos'} ·{' '}
                                 {totalFavs.toLocaleString()}
                             </span>
-                            {animigosFavs > 0 && (
-                                <span
-                                    className="badge rounded-pill ms-1"
-                                    style={{
-                                        background: 'rgba(244, 63, 94, 0.25)',
-                                        color: '#ffe4e6',
-                                        fontSize: '0.65rem',
-                                    }}
-                                >
-                                    +{animigosFavs} en Animigos
-                                </span>
-                            )}
                         </button>
                     </div>
                 </div>
