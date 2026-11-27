@@ -51,7 +51,7 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
                             onClick={() =>
                                 setRevealedSpoilers((prev) => ({ ...prev, [idx]: !prev[idx] }))
                             }
-                            className="anime-profile-spoiler-btn d-inline-flex align-items-center gap-1.5"
+                            className="anime-profile-spoiler-btn d-inline-flex align-items-center gap-2"
                         >
                             {isShown ? <EyeOff size={13} /> : <Eye size={13} />}
                             <span>{isShown ? 'Ocultar spoiler' : 'Mostrar spoiler'}</span>
@@ -146,7 +146,7 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
 
                     {Boolean(character.favourites && character.favourites > 0) && (
                         <div
-                            className="d-inline-flex align-items-center gap-1.5 px-3 py-1.5 rounded-pill small"
+                            className="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill small"
                             style={{
                                 background: 'rgba(244, 63, 94, 0.12)',
                                 border: '1px solid rgba(244, 63, 94, 0.3)',
@@ -215,7 +215,7 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
                     {/* Animeografía */}
                     {character.animeography && character.animeography.length > 0 && (
                         <div className="anime-profile-panel">
-                            <div className="anime-profile-panel-title d-flex align-items-center gap-1.5">
+                            <div className="anime-profile-panel-title d-flex align-items-center gap-2">
                                 <Film size={13} />
                                 <span>Animeografía</span>
                             </div>
@@ -230,7 +230,7 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
                                         }}
                                         role="button"
                                         tabIndex={0}
-                                        className="d-flex align-items-center gap-2.5 p-1.5 rounded-2"
+                                        className="d-flex align-items-center gap-2 p-2 rounded-2"
                                         style={{
                                             cursor: 'pointer',
                                             background: 'rgba(255,255,255,0.025)',
@@ -279,7 +279,7 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
                                 <span>Descripción e Historia del Personaje</span>
                             </h3>
                             {isFetching && !character.description_es && (
-                                <span className="small text-secondary d-inline-flex align-items-center gap-1.5" style={{ fontSize: '0.74rem' }}>
+                                <span className="small text-secondary d-inline-flex align-items-center gap-2" style={{ fontSize: '0.74rem' }}>
                                     <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
                                     Traduciendo al español...
                                 </span>
@@ -310,7 +310,7 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
                                 {character.voice_actors.map((va, idx) => (
                                     <div
                                         key={`${va.id || idx}-${va.language}`}
-                                        className="d-flex align-items-center gap-3 p-2.5 rounded-3"
+                                        className="d-flex align-items-center gap-3 p-2 rounded-3"
                                         style={{
                                             background: 'rgba(255,255,255,0.03)',
                                             border: '1px solid rgba(255,255,255,0.08)',

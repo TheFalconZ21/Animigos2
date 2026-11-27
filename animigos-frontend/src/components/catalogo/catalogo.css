@@ -1550,3 +1550,136 @@
     line-height: 1.48;
     color: #d4d4d8;
 }
+
+/* ============================================================
+   PLATAFORMAS DE STREAMING LEGAL & PERSONAJES / SEIYUU
+   ============================================================ */
+
+.anime-streaming-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.anime-streaming-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    padding: 0.52rem 0.75rem;
+    border-radius: 10px;
+    background: var(--cat-surface-2, #18181f);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #f4f4f5;
+    text-decoration: none;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.anime-streaming-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: color-mix(in srgb, var(--sp-brand, var(--cat-acento, #a855f7)) 55%, rgba(255, 255, 255, 0.18));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.38);
+    color: #ffffff;
+}
+
+.anime-streaming-left {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+}
+
+.anime-streaming-icon-box {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    background: var(--sp-brand, #a855f7);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.anime-streaming-icon-box img {
+    width: 15px;
+    height: 15px;
+    object-fit: contain;
+    display: block;
+}
+
+.anime-streaming-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #f4f4f5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.anime-streaming-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--cat-text-muted, #a1a1aa);
+    flex-shrink: 0;
+    transition: color 0.15s ease;
+}
+
+.anime-streaming-item:hover .anime-streaming-action {
+    color: #ffffff;
+}
+
+/* Grilla y tarjetas duales de Personajes & Seiyuu */
+.anime-char-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+    gap: 0.7rem;
+}
+
+.anime-char-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 11px;
+    background: rgba(18, 18, 26, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.anime-char-card:hover {
+    background: rgba(26, 26, 38, 0.95);
+    border-color: color-mix(in srgb, var(--cat-acento, #a855f7) 45%, rgba(255, 255, 255, 0.16));
+    transform: translateY(-2px);
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.38);
+}
+
+.anime-char-side {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.anime-char-side.is-va {
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.anime-char-avatar {
+    width: 46px;
+    height: 62px;
+    object-fit: cover;
+    border-radius: 7px;
+    flex-shrink: 0;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}

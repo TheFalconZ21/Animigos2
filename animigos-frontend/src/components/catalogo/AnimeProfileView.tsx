@@ -18,7 +18,6 @@ import {
     Bell,
     GitFork,
     Users,
-    Tv,
 } from 'lucide-react'
 import {
     useAnimeDetailQuery,
@@ -557,56 +556,32 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                         {/* 2.5 Plataformas Legales de Streaming Oficiales */}
                         {streamingPlatforms.length > 0 && (
                             <div className="anime-profile-panel">
-                                <div className="anime-profile-panel-title d-flex align-items-center gap-1.5">
-                                    <Tv size={13} style={{ color: 'var(--cat-acento, #a855f7)' }} />
-                                    <span>Dónde Ver (Streaming Legal)</span>
-                                </div>
-                                <div className="d-flex flex-column gap-1.5">
+                                <div className="anime-profile-panel-title">Dónde Ver Oficialmente</div>
+                                <div className="anime-streaming-list">
                                     {streamingPlatforms.map((sp) => (
                                         <a
                                             key={sp.site}
                                             href={sp.url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="d-flex align-items-center justify-content-between gap-2 px-2.5 py-2 rounded-2 text-decoration-none"
-                                            style={{
-                                                background: 'rgba(255, 255, 255, 0.035)',
-                                                border: `1px solid ${sp.color ? `${sp.color}55` : 'rgba(255,255,255,0.1)'}`,
-                                                color: '#ffffff',
-                                                fontSize: '0.78rem',
-                                                fontWeight: 600,
-                                                transition: 'transform 0.15s ease, background 0.15s ease',
-                                            }}
-                                            title={`Ver ${anime.title} oficialmente en ${sp.site}`}
+                                            className="anime-streaming-item"
+                                            style={{ '--sp-brand': sp.color || '#a855f7' } as React.CSSProperties}
+                                            title={`Ver ${anime.title} en ${sp.site}`}
                                         >
-                                            <div className="d-flex align-items-center gap-2 overflow-hidden">
-                                                {sp.icon ? (
-                                                    <img
-                                                        src={sp.icon}
-                                                        alt={sp.site}
-                                                        style={{
-                                                            width: 16,
-                                                            height: 16,
-                                                            borderRadius: 4,
-                                                            backgroundColor: sp.color || 'transparent',
-                                                            padding: 1,
-                                                            flexShrink: 0,
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <span
-                                                        style={{
-                                                            width: 8,
-                                                            height: 8,
-                                                            borderRadius: '50%',
-                                                            backgroundColor: sp.color || '#a855f7',
-                                                            flexShrink: 0,
-                                                        }}
-                                                    />
-                                                )}
-                                                <span className="text-truncate">{sp.site}</span>
+                                            <div className="anime-streaming-left">
+                                                <span className="anime-streaming-icon-box">
+                                                    {sp.icon ? (
+                                                        <img src={sp.icon} alt={sp.site} />
+                                                    ) : (
+                                                        <Play size={11} fill="#ffffff" color="#ffffff" />
+                                                    )}
+                                                </span>
+                                                <span className="anime-streaming-name">{sp.site}</span>
                                             </div>
-                                            <ExternalLink size={12} className="text-secondary flex-shrink-0" />
+                                            <span className="anime-streaming-action">
+                                                <span>Ver</span>
+                                                <ExternalLink size={12} />
+                                            </span>
                                         </a>
                                     ))}
                                 </div>
@@ -1030,13 +1005,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                 <span className="small">Cargando personajes y actores de voz...</span>
                                             </div>
                                         ) : (
-                                            <div
-                                                style={{
-                                                    display: 'grid',
-                                                    gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
-                                                    gap: '0.65rem',
-                                                }}
-                                            >
+                                            <div className="anime-char-grid">
                                                 {characters.slice(0, 8).map((ch) => {
                                                     const mainVa = ch.voice_actors?.[0]
                                                     return (
@@ -1048,28 +1017,16 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                             }}
                                                             role="button"
                                                             tabIndex={0}
-                                                            className="d-flex align-items-center justify-content-between gap-2 p-2 rounded-3"
-                                                            style={{
-                                                                cursor: 'pointer',
-                                                                background: 'rgba(255, 255, 255, 0.025)',
-                                                                border: '1px solid rgba(255, 255, 255, 0.08)',
-                                                                transition: 'border-color 0.15s ease, background 0.15s ease',
-                                                            }}
+                                                            className="anime-char-card"
                                                             title={`Ver ficha dedicada de ${ch.name}`}
                                                         >
                                                             {/* Lado izquierdo: Personaje */}
-                                                            <div className="d-flex align-items-center gap-2.5 overflow-hidden">
+                                                            <div className="anime-char-side">
                                                                 <img
                                                                     src={ch.image_url}
                                                                     alt={ch.name}
                                                                     loading="lazy"
-                                                                    style={{
-                                                                        width: 44,
-                                                                        height: 60,
-                                                                        objectFit: 'cover',
-                                                                        borderRadius: 7,
-                                                                        flexShrink: 0,
-                                                                    }}
+                                                                    className="anime-char-avatar"
                                                                 />
                                                                 <div className="overflow-hidden">
                                                                     <div className="small fw-bold text-white text-truncate" style={{ fontSize: '0.82rem' }}>
@@ -1083,7 +1040,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
 
                                                             {/* Lado derecho: Seiyuu / Actor de voz principal */}
                                                             {mainVa && (
-                                                                <div className="d-flex align-items-center gap-2 text-end overflow-hidden">
+                                                                <div className="anime-char-side is-va">
                                                                     <div className="overflow-hidden">
                                                                         <div className="small fw-semibold text-white text-truncate" style={{ fontSize: '0.78rem' }}>
                                                                             {mainVa.name}
@@ -1096,13 +1053,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                                         src={mainVa.image_url}
                                                                         alt={mainVa.name}
                                                                         loading="lazy"
-                                                                        style={{
-                                                                            width: 40,
-                                                                            height: 56,
-                                                                            objectFit: 'cover',
-                                                                            borderRadius: 7,
-                                                                            flexShrink: 0,
-                                                                        }}
+                                                                        className="anime-char-avatar"
                                                                     />
                                                                 </div>
                                                             )}
@@ -1232,13 +1183,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                         No se encontraron personajes registrados para este anime.
                                     </div>
                                 ) : (
-                                    <div
-                                        style={{
-                                            display: 'grid',
-                                            gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
-                                            gap: '0.75rem',
-                                        }}
-                                    >
+                                    <div className="anime-char-grid">
                                         {characters.map((ch) => {
                                             const mainVa = ch.voice_actors?.[0]
                                             return (
@@ -1250,25 +1195,14 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                     }}
                                                     role="button"
                                                     tabIndex={0}
-                                                    className="d-flex align-items-center justify-content-between gap-2 p-2.5 rounded-3"
-                                                    style={{
-                                                        cursor: 'pointer',
-                                                        background: 'rgba(255, 255, 255, 0.03)',
-                                                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                                                    }}
+                                                    className="anime-char-card"
                                                 >
-                                                    <div className="d-flex align-items-center gap-2.5 overflow-hidden">
+                                                    <div className="anime-char-side">
                                                         <img
                                                             src={ch.image_url}
                                                             alt={ch.name}
                                                             loading="lazy"
-                                                            style={{
-                                                                width: 48,
-                                                                height: 64,
-                                                                objectFit: 'cover',
-                                                                borderRadius: 7,
-                                                                flexShrink: 0,
-                                                            }}
+                                                            className="anime-char-avatar"
                                                         />
                                                         <div className="overflow-hidden">
                                                             <div className="small fw-bold text-white text-truncate">
@@ -1286,7 +1220,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                     </div>
 
                                                     {mainVa && (
-                                                        <div className="d-flex align-items-center gap-2 text-end overflow-hidden">
+                                                        <div className="anime-char-side is-va">
                                                             <div className="overflow-hidden">
                                                                 <div className="small fw-semibold text-white text-truncate" style={{ fontSize: '0.78rem' }}>
                                                                     {mainVa.name}
@@ -1299,13 +1233,7 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                                 src={mainVa.image_url}
                                                                 alt={mainVa.name}
                                                                 loading="lazy"
-                                                                style={{
-                                                                    width: 44,
-                                                                    height: 60,
-                                                                    objectFit: 'cover',
-                                                                    borderRadius: 7,
-                                                                    flexShrink: 0,
-                                                                }}
+                                                                className="anime-char-avatar"
                                                             />
                                                         </div>
                                                     )}
