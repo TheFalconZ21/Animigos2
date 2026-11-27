@@ -1771,7 +1771,9 @@ def public_user_profile_view(request, username):
     can_comment, _ = _can_user_comment_on_wall(target_user, privacy, request.user)
 
     from .ranking_views import compute_single_user_watch_hours
+    from .character_fav_views import serialize_user_favorite_characters
     total_watch_hours = compute_single_user_watch_hours(target_user.id) if (is_self or privacy['showStats']) else 0
+    favorite_characters = serialize_user_favorite_characters(target_user) if (is_self or privacy['isListPublic'] or privacy['showStats']) else []
 
     return Response({
         'user': ProfileSerializer(profile, context={'request': request}).data,
@@ -1790,6 +1792,7 @@ def public_user_profile_view(request, username):
         'tags': tags_list if (is_self or privacy['isListPublic']) else [],
         'taste_analytics': taste_analytics,
         'total_watch_hours': total_watch_hours,
+        'favorite_characters': favorite_characters,
     })
 
 

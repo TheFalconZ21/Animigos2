@@ -1,6 +1,11 @@
 import React, { useState } from 'react'
 import { ArrowLeft, ExternalLink, Eye, EyeOff, Film, Heart, Loader2, Mic, User } from 'lucide-react'
-import { useAnimeCharacterDetailQuery } from '../../hooks/useCatalog'
+import {
+    useAnimeCharacterDetailQuery,
+    useFavoriteCharactersQuery,
+    useToggleFavoriteCharacterMutation,
+} from '../../hooks/useCatalog'
+import { useAuth } from '../../context/AuthContext'
 import type { AnimeCharacterItem, AnimeVoiceActor } from '../../services/catalogApi'
 
 interface AnimeCharacterViewProps {
@@ -25,9 +30,61 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
     onSelectAnime,
     onSelectStaff,
 }) => {
+    const { isAuthenticated } = useAuth()
     const { data: detailedChar, isFetching } = useAnimeCharacterDetailQuery(malId, initialCharacter.id)
+    const { data: myFavChars = [] } = useFavoriteCharactersQuery(undefined, isAuthenticated)
+    const toggleFavMutation = useToggleFavoriteCharacterMutation()
     const character = detailedChar || initialCharacter
     const [revealedSpoilers, setRevealedSpoilers] = useState<Record<number, boolean>>({})
+    const [localFavState, setLocalFavState] = useState<{
+        isFav: boolean
+        favourites: number
+        animigosFavs: number
+    } | null>(null)
+
+    const isInMyList = myFavChars.some((f) => Number(f.character_id) === Number(character.id))
+    const isFav = localFavState ? localFavState.isFav : Boolean(character.is_favourite || isInMyList)
+    const baseFavs = Number(character.base_favourites ?? character.favourites ?? 0)
+    const totalFavs = localFavState
+        ? localFavState.favourites
+        : Number(character.favourites ?? baseFavs)
+    const animigosFavs = localFavState
+        ? localFavState.animigosFavs
+        : Number(character.animigos_favourites ?? (isInMyList ? 1 : 0))
+
+    const handleToggleFavorite = async () => {
+        if (!isAuthenticated) {
+            const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+            dialog?.showModal()
+            return
+        }
+        const nextIsFav = !isFav
+        const delta = nextIsFav ? 1 : -1
+        setLocalFavState({
+            isFav: nextIsFav,
+            favourites: Math.max(0, totalFavs + delta),
+            animigosFavs: Math.max(0, animigosFavs + delta),
+        })
+        try {
+            const res = await toggleFavMutation.mutateAsync({
+                character_id: character.id,
+                character_name: character.name,
+                character_native: character.native_name || '',
+                character_image: character.image_url,
+                role_display: character.role_display || 'Principal',
+                anime_mal_id: malId,
+                anime_title: animeTitle,
+                base_favourites: baseFavs,
+            })
+            setLocalFavState({
+                isFav: res.is_favourite,
+                favourites: res.favourites,
+                animigosFavs: res.animigos_favourites,
+            })
+        } catch {
+            setLocalFavState(null)
+        }
+    }
 
     const bioText = (character.description_es || character.description || '').trim()
 
@@ -146,20 +203,53 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
                         )}
                     </div>
 
-                    {Boolean(character.favourites && character.favourites > 0) && (
-                        <div
+                    <div className="d-flex align-items-center flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={handleToggleFavorite}
+                            disabled={toggleFavMutation.isPending}
                             className="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill small"
                             style={{
-                                background: 'rgba(244, 63, 94, 0.12)',
-                                border: '1px solid rgba(244, 63, 94, 0.3)',
-                                color: '#fda4af',
+                                background: isFav
+                                    ? 'rgba(244, 63, 94, 0.22)'
+                                    : 'rgba(255, 255, 255, 0.06)',
+                                border: isFav
+                                    ? '1px solid rgba(244, 63, 94, 0.55)'
+                                    : '1px solid rgba(255, 255, 255, 0.16)',
+                                color: isFav ? '#fda4af' : '#e4e4e7',
                                 fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
                             }}
+                            title={
+                                isFav
+                                    ? 'Quitar de tus personajes favoritos'
+                                    : 'Añadir a tus personajes favoritos (se exhibirá en tu perfil debajo del Hall of Fame)'
+                            }
                         >
-                            <Heart size={13} fill="currentColor" />
-                            <span>{character.favourites?.toLocaleString()} favoritos</span>
-                        </div>
-                    )}
+                            <Heart
+                                size={14}
+                                fill={isFav ? '#f43f5e' : 'none'}
+                                color={isFav ? '#f43f5e' : 'currentColor'}
+                            />
+                            <span>
+                                {isFav ? 'En tus Favoritos' : 'Añadir a Favoritos'} ·{' '}
+                                {totalFavs.toLocaleString()}
+                            </span>
+                            {animigosFavs > 0 && (
+                                <span
+                                    className="badge rounded-pill ms-1"
+                                    style={{
+                                        background: 'rgba(244, 63, 94, 0.25)',
+                                        color: '#ffe4e6',
+                                        fontSize: '0.65rem',
+                                    }}
+                                >
+                                    +{animigosFavs} en Animigos
+                                </span>
+                            )}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -174,6 +264,22 @@ export const AnimeCharacterView: React.FC<AnimeCharacterViewProps> = ({
                             className="anime-profile-poster-img"
                         />
                     </div>
+
+                    <button
+                        type="button"
+                        onClick={handleToggleFavorite}
+                        disabled={toggleFavMutation.isPending}
+                        className={`anime-profile-fav-btn ${isFav ? 'active' : ''}`}
+                    >
+                        <Heart
+                            size={14}
+                            fill={isFav ? '#f43f5e' : 'none'}
+                            color={isFav ? '#f43f5e' : 'currentColor'}
+                        />
+                        <span>
+                            {isFav ? 'En tus Personajes Favoritos' : 'Añadir a Personajes Favoritos'}
+                        </span>
+                    </button>
 
                     {/* Datos personales si existen */}
                     {(character.age || character.gender || character.birthday || character.blood_type || aliases.length > 1) && (

@@ -14,8 +14,13 @@ import {
     Share2,
     User,
 } from 'lucide-react'
-import { useAnimeStaffDetailQuery } from '../../hooks/useCatalog'
-import type { AnimeStaffMember, StaffPersonDetail } from '../../services/catalogApi'
+import {
+    useAnimeStaffDetailQuery,
+    useFavoriteCharactersQuery,
+    useToggleFavoriteCharacterMutation,
+} from '../../hooks/useCatalog'
+import { useAuth } from '../../context/AuthContext'
+import type { AnimeStaffMember, StaffPersonDetail, StaffVoiceWorkItem } from '../../services/catalogApi'
 
 interface AnimeStaffViewProps {
     staffId: number
@@ -38,8 +43,64 @@ export const AnimeStaffView: React.FC<AnimeStaffViewProps> = ({
     onBack,
     onSelectAnime,
 }) => {
+    const { isAuthenticated } = useAuth()
     const { data: detailedStaff, isFetching } = useAnimeStaffDetailQuery(staffId)
+    const { data: myFavChars = [] } = useFavoriteCharactersQuery(undefined, isAuthenticated)
+    const toggleFavMutation = useToggleFavoriteCharacterMutation()
     const [revealedSpoilers, setRevealedSpoilers] = useState<Record<number, boolean>>({})
+    const [localCharFavs, setLocalCharFavs] = useState<
+        Record<number, { isFav: boolean; favourites: number }>
+    >({})
+
+    const handleToggleVoiceCharFav = async (e: React.MouseEvent, vw: StaffVoiceWorkItem) => {
+        e.stopPropagation()
+        if (!vw.character_id) return
+        if (!isAuthenticated) {
+            const dialog = document.getElementById('loginDialog') as HTMLDialogElement | null
+            dialog?.showModal()
+            return
+        }
+        const cid = Number(vw.character_id)
+        const inList = myFavChars.some((f) => Number(f.character_id) === cid)
+        const currentIsFav =
+            localCharFavs[cid] !== undefined
+                ? localCharFavs[cid].isFav
+                : Boolean(vw.is_character_favourite || inList)
+        const currentFavs =
+            localCharFavs[cid] !== undefined
+                ? localCharFavs[cid].favourites
+                : Number(vw.character_favourites || 0)
+
+        const nextIsFav = !currentIsFav
+        const nextFavs = Math.max(0, currentFavs + (nextIsFav ? 1 : -1))
+        setLocalCharFavs((prev) => ({
+            ...prev,
+            [cid]: { isFav: nextIsFav, favourites: nextFavs },
+        }))
+
+        try {
+            const res = await toggleFavMutation.mutateAsync({
+                character_id: cid,
+                character_name: vw.character_name,
+                character_native: vw.character_native || '',
+                character_image: vw.character_image,
+                role_display: vw.character_role || 'Principal',
+                anime_mal_id: vw.mal_id,
+                anime_title: vw.anime_title,
+                base_favourites: Number(vw.base_character_favourites ?? vw.character_favourites ?? 0),
+            })
+            setLocalCharFavs((prev) => ({
+                ...prev,
+                [cid]: { isFav: res.is_favourite, favourites: res.favourites },
+            }))
+        } catch {
+            setLocalCharFavs((prev) => {
+                const copy = { ...prev }
+                delete copy[cid]
+                return copy
+            })
+        }
+    }
 
     const person: Partial<StaffPersonDetail> = detailedStaff || {
         id: staffId,
@@ -628,93 +689,169 @@ export const AnimeStaffView: React.FC<AnimeStaffViewProps> = ({
                         </div>
                     )}
 
-                    {/* 3. Roles de Doblaje / Seiyuu (Personajes y Animes interpretados) */}
+                    {/* 3. Roles de Doblaje / Seiyuu (Personajes y Animes interpretados ordenados por popularidad) */}
                     {voiceWorks.length > 0 && (
                         <div className="anime-profile-section-card">
                             <div className="mb-3">
                                 <h3 className="anime-profile-section-heading mb-1 d-flex align-items-center gap-2">
                                     <Mic size={15} style={{ color: 'var(--cat-acento, #a855f7)' }} />
                                     <span>
-                                        Roles de Doblaje / Seiyuu — Animes y Personajes ({voiceWorks.length})
+                                        Personajes Doblados / Seiyuu — Ordenados por Popularidad ({voiceWorks.length})
                                     </span>
                                 </h3>
                                 <p className="small text-secondary mb-0" style={{ fontSize: '0.76rem' }}>
-                                    Haz clic en cualquier tarjeta para ir a la ficha del anime correspondiente.
+                                    Ordenados de mayor a menor número de favoritos (incluyendo los favoritos de usuarios de Animigos). Haz clic en ♥ para añadir un personaje a tus favoritos o en la tarjeta para abrir el anime.
                                 </p>
                             </div>
 
                             <div className="anime-char-grid">
-                                {voiceWorks.map((vw, idx) => (
-                                    <div
-                                        key={`${vw.mal_id}-${vw.character_id || idx}`}
-                                        onClick={() => {
-                                            if (vw.mal_id && onSelectAnime) {
-                                                onSelectAnime(vw.mal_id)
-                                                window.scrollTo({ top: 0, behavior: 'smooth' })
-                                            }
-                                        }}
-                                        role="button"
-                                        tabIndex={0}
-                                        className="anime-char-card"
-                                        title={`Ir a ${vw.anime_title}`}
-                                    >
-                                        {/* Lado Izquierdo: Anime donde actuó */}
-                                        <div className="anime-char-side">
-                                            <img
-                                                src={vw.anime_image}
-                                                alt={vw.anime_title}
-                                                loading="lazy"
-                                                className="anime-char-avatar"
-                                            />
-                                            <div className="overflow-hidden">
-                                                <div
-                                                    className="small fw-bold text-white text-truncate"
-                                                    style={{ fontSize: '0.8rem' }}
-                                                >
-                                                    {vw.anime_title}
-                                                </div>
-                                                <div
-                                                    className="small text-secondary"
-                                                    style={{ fontSize: '0.68rem' }}
-                                                >
-                                                    {vw.format}
-                                                    {vw.season_year ? ` · ${vw.season_year}` : ''}
-                                                    {vw.score ? (
-                                                        <span className="text-warning ms-1">
-                                                            ★ {vw.score.toFixed(2)}
-                                                        </span>
-                                                    ) : null}
-                                                </div>
-                                            </div>
-                                        </div>
+                                {[...voiceWorks]
+                                    .sort((a, b) => {
+                                        const favA =
+                                            a.character_id && localCharFavs[a.character_id]
+                                                ? localCharFavs[a.character_id].favourites
+                                                : Number(a.character_favourites || 0)
+                                        const favB =
+                                            b.character_id && localCharFavs[b.character_id]
+                                                ? localCharFavs[b.character_id].favourites
+                                                : Number(b.character_favourites || 0)
+                                        return favB - favA
+                                    })
+                                    .map((vw, idx) => {
+                                        const cid = Number(vw.character_id || 0)
+                                        const inMyList =
+                                            cid > 0 && myFavChars.some((f) => Number(f.character_id) === cid)
+                                        const isCharFav =
+                                            cid > 0 && localCharFavs[cid] !== undefined
+                                                ? localCharFavs[cid].isFav
+                                                : Boolean(vw.is_character_favourite || inMyList)
+                                        const charFavCount =
+                                            cid > 0 && localCharFavs[cid] !== undefined
+                                                ? localCharFavs[cid].favourites
+                                                : Number(vw.character_favourites || 0)
 
-                                        {/* Lado Derecho: Personaje interpretado */}
-                                        <div className="anime-char-side is-va">
-                                            <div className="overflow-hidden">
-                                                <div
-                                                    className="small fw-semibold text-white text-truncate"
-                                                    style={{ fontSize: '0.78rem' }}
-                                                >
-                                                    {vw.character_name}
+                                        return (
+                                            <div
+                                                key={`${vw.mal_id}-${vw.character_id || idx}`}
+                                                onClick={() => {
+                                                    if (vw.mal_id && onSelectAnime) {
+                                                        onSelectAnime(vw.mal_id)
+                                                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                    }
+                                                }}
+                                                role="button"
+                                                tabIndex={0}
+                                                className="anime-char-card"
+                                                title={`Ir a ${vw.anime_title}`}
+                                            >
+                                                {/* Lado Izquierdo: Personaje interpretado + Popularidad (Favoritos) */}
+                                                <div className="anime-char-side">
+                                                    <div className="position-relative flex-shrink-0">
+                                                        {vw.character_image && (
+                                                            <img
+                                                                src={vw.character_image}
+                                                                alt={vw.character_name}
+                                                                loading="lazy"
+                                                                className="anime-char-avatar"
+                                                            />
+                                                        )}
+                                                        <span
+                                                            className="badge rounded-pill position-absolute"
+                                                            style={{
+                                                                top: -5,
+                                                                left: -5,
+                                                                background:
+                                                                    idx < 3
+                                                                        ? 'var(--cat-acento, #a855f7)'
+                                                                        : 'rgba(15, 15, 22, 0.92)',
+                                                                color: '#ffffff',
+                                                                border: '1px solid rgba(255,255,255,0.2)',
+                                                                fontSize: '0.62rem',
+                                                                padding: '0.15rem 0.38rem',
+                                                            }}
+                                                        >
+                                                            #{idx + 1}
+                                                        </span>
+                                                    </div>
+                                                    <div className="overflow-hidden">
+                                                        <div
+                                                            className="small fw-bold text-white text-truncate"
+                                                            style={{ fontSize: '0.82rem' }}
+                                                        >
+                                                            {vw.character_name}
+                                                        </div>
+                                                        <div className="d-flex align-items-center flex-wrap gap-1 mt-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => handleToggleVoiceCharFav(e, vw)}
+                                                                className="d-inline-flex align-items-center gap-1 rounded-pill px-2 py-0"
+                                                                style={{
+                                                                    background: isCharFav
+                                                                        ? 'rgba(244, 63, 94, 0.24)'
+                                                                        : 'rgba(244, 63, 94, 0.1)',
+                                                                    border: isCharFav
+                                                                        ? '1px solid rgba(244, 63, 94, 0.55)'
+                                                                        : '1px solid rgba(244, 63, 94, 0.25)',
+                                                                    color: isCharFav ? '#fda4af' : '#f43f5e',
+                                                                    fontSize: '0.67rem',
+                                                                    fontWeight: 600,
+                                                                    cursor: 'pointer',
+                                                                    lineHeight: 1.5,
+                                                                }}
+                                                                title={
+                                                                    isCharFav
+                                                                        ? 'Quitar de tus personajes favoritos'
+                                                                        : 'Añadir a tus personajes favoritos'
+                                                                }
+                                                            >
+                                                                <Heart
+                                                                    size={10}
+                                                                    fill={isCharFav ? 'currentColor' : 'none'}
+                                                                />
+                                                                <span>{charFavCount.toLocaleString()}</span>
+                                                            </button>
+                                                            <span
+                                                                className="small text-secondary"
+                                                                style={{ fontSize: '0.66rem' }}
+                                                            >
+                                                                · {vw.character_role}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div
-                                                    className="small text-secondary"
-                                                    style={{ fontSize: '0.68rem' }}
-                                                >
-                                                    Rol {vw.character_role}
+
+                                                {/* Lado Derecho: Anime donde lo interpretó */}
+                                                <div className="anime-char-side is-va">
+                                                    <div className="overflow-hidden">
+                                                        <div
+                                                            className="small fw-semibold text-white text-truncate"
+                                                            style={{ fontSize: '0.78rem' }}
+                                                        >
+                                                            {vw.anime_title}
+                                                        </div>
+                                                        <div
+                                                            className="small text-secondary"
+                                                            style={{ fontSize: '0.68rem' }}
+                                                        >
+                                                            {vw.format}
+                                                            {vw.season_year ? ` · ${vw.season_year}` : ''}
+                                                            {vw.score ? (
+                                                                <span className="text-warning ms-1">
+                                                                    ★ {vw.score.toFixed(2)}
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                    <img
+                                                        src={vw.anime_image}
+                                                        alt={vw.anime_title}
+                                                        loading="lazy"
+                                                        className="anime-char-avatar"
+                                                    />
                                                 </div>
                                             </div>
-                                            {vw.character_image && (
-                                                <img
-                                                    src={vw.character_image}
-                                                    alt={vw.character_name}
-                                                    loading="lazy"
-                                                    className="anime-char-avatar"
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                                        )
+                                    })}
                             </div>
                         </div>
                     )}

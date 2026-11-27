@@ -667,6 +667,48 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             anime.save(update_fields=['relations_data'])
         return Response(rels)
 
+    def _enrich_characters_with_user_favorites(self, chars: list[dict], request_user) -> list[dict]:
+        """
+        Enriquece una lista de personajes con el conteo reactivo de favoritos de los usuarios
+        de Animigos en PostgreSQL (UserFavoriteCharacter) y la bandera `is_favourite`.
+        """
+        if not chars:
+            return []
+        try:
+            from users.models import UserFavoriteCharacter
+            char_ids = [int(c.get('id')) for c in chars if c.get('id')]
+            if not char_ids:
+                return chars
+            counts_qs = (
+                UserFavoriteCharacter.objects.filter(character_id__in=char_ids)
+                .values('character_id')
+                .annotate(total=Count('id'))
+            )
+            counts_map = {row['character_id']: row['total'] for row in counts_qs}
+            user_fav_ids = set()
+            if request_user and request_user.is_authenticated:
+                user_fav_ids = set(
+                    UserFavoriteCharacter.objects.filter(
+                        user=request_user,
+                        character_id__in=char_ids,
+                    ).values_list('character_id', flat=True)
+                )
+
+            enriched = []
+            for c in chars:
+                item = dict(c)
+                cid = int(item.get('id') or 0)
+                base_fav = int(item.get('base_favourites', item.get('favourites') or 0))
+                animigos_cnt = counts_map.get(cid, 0)
+                item['base_favourites'] = base_fav
+                item['animigos_favourites'] = animigos_cnt
+                item['favourites'] = base_fav + animigos_cnt
+                item['is_favourite'] = cid in user_fav_ids
+                enriched.append(item)
+            return enriched
+        except Exception:
+            return chars
+
     @action(detail=True, methods=['get'], url_path='characters-streaming')
     def characters_streaming(self, request, pk=None):
         """
@@ -682,7 +724,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
 
         if has_chars and has_staff:
             return Response({
-                'characters': anime.characters_data or [],
+                'characters': self._enrich_characters_with_user_favorites(anime.characters_data or [], request.user),
                 'streaming': anime.streaming_data or [],
                 'staff': anime.staff_data or [],
             })
@@ -701,8 +743,9 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         if update_fields:
             anime.save(update_fields=update_fields)
 
+        final_chars = anime.characters_data if has_chars else chars
         return Response({
-            'characters': anime.characters_data if has_chars else chars,
+            'characters': self._enrich_characters_with_user_favorites(final_chars or [], request.user),
             'streaming': anime.streaming_data if has_stream else streaming,
             'staff': anime.staff_data if has_staff else staff_list,
         })
@@ -713,11 +756,50 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         Devuelve la ficha dedicada de un actor de doblaje / seiyuu, autor / mangaka,
         director, productor o miembro del staff, incluyendo redes sociales, enlace a Wikipedia,
         biografía en español y todas las obras donde ha trabajado o tiene autoría.
+        Los personajes doblados por el seiyuu se ordenan por popularidad (número total de favoritos).
         """
         detail = obtener_detalle_staff(int(staff_id))
         if not detail:
             return Response({'error': 'Persona o miembro del staff no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-        return Response(detail)
+
+        payload = dict(detail)
+        voice_works = [dict(vw) for vw in (payload.get('voice_works') or [])]
+        if voice_works:
+            try:
+                from users.models import UserFavoriteCharacter
+                c_ids = [int(vw['character_id']) for vw in voice_works if vw.get('character_id')]
+                counts_map = {}
+                user_fav_ids = set()
+                if c_ids:
+                    counts_qs = (
+                        UserFavoriteCharacter.objects.filter(character_id__in=c_ids)
+                        .values('character_id')
+                        .annotate(total=Count('id'))
+                    )
+                    counts_map = {row['character_id']: row['total'] for row in counts_qs}
+                    if request.user and request.user.is_authenticated:
+                        user_fav_ids = set(
+                            UserFavoriteCharacter.objects.filter(
+                                user=request.user,
+                                character_id__in=c_ids,
+                            ).values_list('character_id', flat=True)
+                        )
+                for vw in voice_works:
+                    cid = int(vw.get('character_id') or 0)
+                    base_fav = int(vw.get('base_character_favourites', vw.get('character_favourites') or 0))
+                    animigos_cnt = counts_map.get(cid, 0)
+                    vw['base_character_favourites'] = base_fav
+                    vw['animigos_character_favourites'] = animigos_cnt
+                    vw['character_favourites'] = base_fav + animigos_cnt
+                    vw['is_character_favourite'] = cid in user_fav_ids
+                voice_works.sort(
+                    key=lambda x: (-int(x.get('character_favourites') or 0), -float(x.get('score') or 0))
+                )
+            except Exception:
+                pass
+            payload['voice_works'] = voice_works
+
+        return Response(payload)
 
     @action(detail=True, methods=['get'], url_path=r'character/(?P<char_id>\d+)')
     def character_detail(self, request, pk=None, char_id=None):
@@ -751,7 +833,8 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
 
         if not found:
             return Response({'error': 'Personaje no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-        return Response(found)
+        enriched_list = self._enrich_characters_with_user_favorites([found], request.user)
+        return Response(enriched_list[0] if enriched_list else found)
 
     @action(detail=False, methods=['get'])
     @cached_api_response(timeout=CACHE_TTL_LONG, prefix=CACHE_PREFIX_STUDIOS)

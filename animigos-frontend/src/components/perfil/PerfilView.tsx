@@ -16,6 +16,10 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { useMyList } from '../../hooks/useMyList'
 import { useThemeAccent } from '../../hooks/useThemeAccent'
+import {
+    useFavoriteCharactersQuery,
+    useToggleFavoriteCharacterMutation,
+} from '../../hooks/useCatalog'
 import { updateUserProfile, updateUserPreferences, getAuthHeaders } from '../../services/authApi'
 import {
     fetchPublicProfile,
@@ -598,6 +602,16 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
         ? publicData?.taste_analytics || null
         : tasteAnalytics
 
+    const { data: myFavoriteCharacters = [] } = useFavoriteCharactersQuery(
+        isVisitingOther ? activeUsername : undefined,
+        Boolean(isVisitingOther ? activeUsername : user?.id)
+    )
+    const toggleFavCharMutation = useToggleFavoriteCharacterMutation()
+    const activeFavoriteCharacters =
+        isVisitingOther && Array.isArray(publicData?.favorite_characters)
+            ? publicData.favorite_characters
+            : myFavoriteCharacters
+
     const handleNavigateToList = () => {
         if (isVisitingOther && activeUsername) {
             navigate(`/mi-lista/${encodeURIComponent(activeUsername)}`)
@@ -902,7 +916,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                                     }
                                 />
 
-                                {/* 2º FILA DE 4 KPIs GENERALES CLICKEABLES + 2.5º RADAR ADN OTAKU + 3º HALL OF FAME */}
+                                {/* 2º FILA DE 4 KPIs GENERALES CLICKEABLES + 2.5º RADAR ADN OTAKU + 3º HALL OF FAME + 3.5º PERSONAJES FAVORITOS */}
                                 <AnimeStatsDashboard
                                     filas={activeFilas}
                                     viewerFilas={isVisitingOther ? filas : undefined}
@@ -917,6 +931,23 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                                     tasteAnalytics={activeTasteAnalytics}
                                     loadingAnalytics={isVisitingOther ? publicLoading : isLoadingAnalytics}
                                     accentColor={acento}
+                                    favoriteCharacters={activeFavoriteCharacters}
+                                    onRemoveFavoriteCharacter={
+                                        !isVisitingOther
+                                            ? (ch) => {
+                                                  toggleFavCharMutation.mutate({
+                                                      character_id: ch.character_id,
+                                                      character_name: ch.name,
+                                                      character_native: ch.native_name || '',
+                                                      character_image: ch.image_url,
+                                                      role_display: ch.role_display,
+                                                      anime_mal_id: ch.anime_mal_id,
+                                                      anime_title: ch.anime_title,
+                                                      base_favourites: ch.base_favourites,
+                                                  })
+                                              }
+                                            : undefined
+                                    }
                                     onUpdateFila={(id, cambios) => {
                                         if (isVisitingOther) return
                                         const targetFila = filas.find((f) => f.id === id)

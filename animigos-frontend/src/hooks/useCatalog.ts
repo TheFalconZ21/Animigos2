@@ -3,7 +3,7 @@
  * Utiliza TanStack Query para deduplicación, caché en memoria y sincronización reactiva de datos.
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
     fetchTopAnimes,
     fetchCatalogAnimes,
@@ -12,6 +12,8 @@ import {
     fetchAnimeCharactersStreaming,
     fetchAnimeCharacterDetail,
     fetchAnimeStaffDetail,
+    fetchFavoriteCharacters,
+    toggleFavoriteCharacter,
     fetchStudios,
     fetchGenres,
     fetchYears,
@@ -29,6 +31,9 @@ import {
     type AnimeCharacterItem,
     type AnimeCharactersStreamingResponse,
     type StaffPersonDetail,
+    type UserFavoriteCharacterItem,
+    type ToggleFavoriteCharacterPayload,
+    type ToggleFavoriteCharacterResponse,
 } from '../services/catalogApi'
 import type { ApiAnimeData, ApiAnimeRelationItem } from '../services/userListApi'
 
@@ -169,6 +174,36 @@ export function useAnimeStaffDetailQuery(staffId: number | null) {
         },
         enabled: Boolean(staffId && staffId > 0),
         staleTime: 1000 * 60 * 60,
+    })
+}
+
+/**
+ * Hook reactivo para consultar los personajes favoritos de un usuario
+ */
+export function useFavoriteCharactersQuery(username?: string, enabled = true) {
+    return useQuery<UserFavoriteCharacterItem[], Error>({
+        queryKey: ['users', 'favorite-characters', username || 'me'],
+        queryFn: () => fetchFavoriteCharacters(username),
+        enabled,
+        staleTime: 1000 * 60 * 2,
+    })
+}
+
+/**
+ * Mutación reactiva para agregar/quitar un personaje favorito en PostgreSQL
+ * y sincronizar contadores en todas las vistas de personajes, seiyuu y perfil.
+ */
+export function useToggleFavoriteCharacterMutation() {
+    const queryClient = useQueryClient()
+    return useMutation<ToggleFavoriteCharacterResponse, Error, ToggleFavoriteCharacterPayload>({
+        mutationFn: (payload) => toggleFavoriteCharacter(payload),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['users', 'favorite-characters', 'me'], data.results)
+            queryClient.invalidateQueries({ queryKey: ['users', 'favorite-characters'] })
+            queryClient.invalidateQueries({ queryKey: ['animes', 'characters-streaming'] })
+            queryClient.invalidateQueries({ queryKey: ['animes', 'character-detail'] })
+            queryClient.invalidateQueries({ queryKey: ['animes', 'staff-detail'] })
+        },
     })
 }
 

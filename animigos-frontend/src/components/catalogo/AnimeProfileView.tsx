@@ -87,6 +87,28 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
         setSelectedCharacter(null)
         setSelectedStaff(null)
     }, [malId])
+
+    // Si se navega desde la vitrina de Personajes Favoritos del perfil (/anime/:malId?character=:charId), abrir el personaje
+    useEffect(() => {
+        if (!characters.length || selectedCharacter) return
+        try {
+            const searchStr =
+                window.location.search ||
+                (window.location.hash.includes('?')
+                    ? window.location.hash.slice(window.location.hash.indexOf('?'))
+                    : '')
+            if (!searchStr) return
+            const params = new URLSearchParams(searchStr)
+            const charParam = params.get('character')
+            if (charParam && /^\d+$/.test(charParam)) {
+                const targetId = Number(charParam)
+                const match = characters.find((c) => Number(c.id) === targetId)
+                if (match) {
+                    setSelectedCharacter(match)
+                }
+            }
+        } catch {}
+    }, [characters])
     const [showSpoilers, setShowSpoilers] = useState(false)
     const [hoveredTag, setHoveredTag] = useState<string | null>(null)
     const [savingList, setSavingList] = useState(false)
@@ -1081,8 +1103,13 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                                                     <div className="small fw-bold text-white text-truncate" style={{ fontSize: '0.82rem' }}>
                                                                         {ch.name}
                                                                     </div>
-                                                                    <div className="small text-secondary" style={{ fontSize: '0.7rem' }}>
-                                                                        {ch.role_display}
+                                                                    <div className="small text-secondary d-flex align-items-center gap-1" style={{ fontSize: '0.7rem' }}>
+                                                                        <span>{ch.role_display}</span>
+                                                                        {Boolean(ch.favourites && ch.favourites > 0) && (
+                                                                            <span style={{ color: '#fda4af' }}>
+                                                                                · ♥ {ch.favourites?.toLocaleString()}
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </div>

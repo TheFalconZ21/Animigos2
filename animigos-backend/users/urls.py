@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, sync_views, ranking_views, report_views, google_auth_views, feed_views
+from . import views, sync_views, ranking_views, report_views, google_auth_views, feed_views, character_fav_views
 
 urlpatterns = [
     path('register/', views.register_user, name='user-register'),
@@ -56,4 +56,7 @@ urlpatterns = [
     path('feed/', feed_views.social_feed_view, name='user-social-feed'),
     path('feed/<str:post_id>/vote/', feed_views.social_post_vote_view, name='user-social-post-vote'),
     path('feed/<str:post_id>/thank/', feed_views.social_post_thank_view, name='user-social-post-thank'),
+    # Sistema de Personajes Favoritos reactivo en PostgreSQL
+    path('favorite-characters/', character_fav_views.list_favorite_characters_view, name='user-favorite-characters'),
+    path('favorite-characters/toggle/', character_fav_views.toggle_favorite_character_view, name='user-favorite-characters-toggle'),
 ]

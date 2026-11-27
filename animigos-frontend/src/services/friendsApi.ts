@@ -5,6 +5,7 @@
 import { getAuthHeaders, type UserProfile } from './authApi'
 import type { TasteAnalyticsResponse } from './recommenderApi'
 import type { ApiUserListEntry, ApiUserFolder, ApiTagCount } from './userListApi'
+import type { UserFavoriteCharacterItem } from './catalogApi'
 import type {
     PrivacyConfig,
     SocialLinks,
@@ -69,6 +70,7 @@ export interface PublicUserProfileData {
     tags: ApiTagCount[]
     taste_analytics: TasteAnalyticsResponse | null
     total_watch_hours?: number
+    favorite_characters?: UserFavoriteCharacterItem[]
 }
 
 export interface UserNotificationItem {

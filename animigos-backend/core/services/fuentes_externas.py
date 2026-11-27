@@ -1351,7 +1351,7 @@ def obtener_detalle_staff(staff_id: int) -> dict | None:
     personajes interpretados (doblaje/seiyuu) y obras donde ha trabajado o tiene autoría.
     """
     from django.core.cache import cache
-    cache_key = f"staff_detail_v2_{staff_id}"
+    cache_key = f"staff_detail_v3_{staff_id}"
     cached = cache.get(cache_key)
     if cached:
         return cached
@@ -1389,7 +1389,7 @@ def obtener_detalle_staff(staff_id: int) -> dict | None:
         bloodType
         favourites
         siteUrl
-        characterMedia(sort: [POPULARITY_DESC], perPage: 48) {
+        characterMedia(sort: [FAVOURITES_DESC, POPULARITY_DESC], perPage: 48) {
           edges {
             characterRole
             characters {
@@ -1402,6 +1402,7 @@ def obtener_detalle_staff(staff_id: int) -> dict | None:
                 large
                 medium
               }
+              favourites
             }
             node {
               id
@@ -1505,6 +1506,7 @@ def obtener_detalle_staff(staff_id: int) -> dict | None:
                 continue
             seen_vw.add(vw_key)
             avg_score = m_node.get('averageScore')
+            c_favs = int(char_obj.get('favourites') or 0)
             voice_works.append({
                 'mal_id': mal_id,
                 'anime_title': m_titles.get('romaji') or m_titles.get('english') or 'Anime',
@@ -1517,7 +1519,12 @@ def obtener_detalle_staff(staff_id: int) -> dict | None:
                 'character_native': c_names.get('native') or '',
                 'character_image': c_imgs.get('large') or c_imgs.get('medium') or '',
                 'character_role': CHARACTER_ROLE_NAMES.get(c_role, 'Principal'),
+                'base_character_favourites': c_favs,
+                'character_favourites': c_favs,
             })
+
+        # Ordenar los personajes doblados por popularidad del personaje (número de favoritos descendente)
+        voice_works.sort(key=lambda x: (-int(x.get('character_favourites') or 0), -float(x.get('score') or 0)))
 
         # 2. Obras de Autoría (Mangaka) y Producción / Dirección / Staff (staffMedia)
         staff_works_by_key: dict[tuple, dict] = {}

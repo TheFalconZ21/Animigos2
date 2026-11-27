@@ -309,3 +309,41 @@ class SocialPost(models.Model):
 
     def __str__(self):
         return f"SocialPost {self.id} [{self.post_type}] by {self.author.username}"
+
+
+class UserFavoriteCharacter(models.Model):
+    """
+    Personajes favoritos marcados por cada usuario en Animigos.
+    Se exhiben debajo del Hall of Fame en el perfil y suman reactivamente
+    a la popularidad (conteo de favoritos) de cada personaje en la plataforma.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='favorite_characters',
+    )
+    character_id = models.IntegerField(db_index=True, help_text="ID del personaje en AniList")
+    character_name = models.CharField(max_length=255)
+    character_native = models.CharField(max_length=255, blank=True, default='')
+    character_image = models.TextField(blank=True, default='')
+    role_display = models.CharField(max_length=80, blank=True, default='Principal')
+    anime_mal_id = models.IntegerField(null=True, blank=True, db_index=True)
+    anime_title = models.CharField(max_length=300, blank=True, default='')
+    base_favourites = models.IntegerField(default=0, help_text="Favoritos globales base de AniList")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "Personaje Favorito de Usuario"
+        verbose_name_plural = "Personajes Favoritos de Usuarios"
+        ordering = ['created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'character_id'],
+                name='unique_user_favorite_character',
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} ♥ {self.character_name} ({self.character_id})"
+

@@ -399,6 +399,9 @@ export interface AnimeCharacterItem {
     blood_type?: string
     birthday?: string
     favourites?: number
+    base_favourites?: number
+    animigos_favourites?: number
+    is_favourite?: boolean
     voice_actors: AnimeVoiceActor[]
     animeography?: CharacterAnimeographyItem[]
 }
@@ -450,6 +453,46 @@ export interface StaffVoiceWorkItem {
     character_native?: string
     character_image: string
     character_role: string
+    base_character_favourites?: number
+    animigos_character_favourites?: number
+    character_favourites?: number
+    is_character_favourite?: boolean
+}
+
+export interface UserFavoriteCharacterItem {
+    id: string
+    character_id: number
+    name: string
+    native_name?: string
+    image_url: string
+    role_display: string
+    anime_mal_id?: number | null
+    anime_title?: string
+    base_favourites: number
+    animigos_favourites: number
+    favourites: number
+    is_favourite: boolean
+    created_at?: string
+}
+
+export interface ToggleFavoriteCharacterPayload {
+    character_id: number
+    character_name: string
+    character_native?: string
+    character_image: string
+    role_display?: string
+    anime_mal_id?: number | null
+    anime_title?: string
+    base_favourites?: number
+}
+
+export interface ToggleFavoriteCharacterResponse {
+    character_id: number
+    is_favourite: boolean
+    base_favourites: number
+    animigos_favourites: number
+    favourites: number
+    results: UserFavoriteCharacterItem[]
 }
 
 export interface StaffProductionWorkItem {
@@ -542,6 +585,44 @@ export async function fetchAnimeStaffDetail(staffId: number): Promise<StaffPerso
     })
     if (!response.ok) {
         return null
+    }
+    return response.json()
+}
+
+/**
+ * Obtiene la lista de personajes favoritos de un usuario (o del usuario autenticado)
+ */
+export async function fetchFavoriteCharacters(username?: string): Promise<UserFavoriteCharacterItem[]> {
+    const qs = username ? `?username=${encodeURIComponent(username)}` : ''
+    const response = await fetch(`${API_BASE_URL}/users/favorite-characters/${qs}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+    })
+    if (!response.ok) {
+        return []
+    }
+    const data = await response.json()
+    return Array.isArray(data?.results) ? data.results : []
+}
+
+/**
+ * Agrega o quita un personaje de los favoritos del usuario en PostgreSQL
+ */
+export async function toggleFavoriteCharacter(
+    payload: ToggleFavoriteCharacterPayload
+): Promise<ToggleFavoriteCharacterResponse> {
+    const response = await fetch(`${API_BASE_URL}/users/favorite-characters/toggle/`, {
+        method: 'POST',
+        headers: {
+            ...getAuthHeaders(),
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+    })
+    if (!response.ok) {
+        throw new Error(`Error ${response.status} al actualizar personaje favorito.`)
     }
     return response.json()
 }

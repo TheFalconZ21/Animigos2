@@ -30,7 +30,9 @@ import { AnimeDetalleDialog } from '../mi-lista/AnimeDetalleDialog'
 import { TasteCorrelationGraph } from '../recomendador/TasteCorrelationGraph'
 import { AnimeTimeWatchedView } from './AnimeTimeWatchedView'
 import { OtakuDnaRadarChart } from './OtakuDnaRadarChart'
+import { navigate } from '../../utils/navigation'
 import type { TasteAnalyticsResponse } from '../../services/recommenderApi'
+import type { UserFavoriteCharacterItem } from '../../services/catalogApi'
 import type { ProfileSubView } from './perfil-types'
 
 interface AnimeStatsDashboardProps {
@@ -48,6 +50,8 @@ interface AnimeStatsDashboardProps {
     tasteAnalytics?: TasteAnalyticsResponse | null
     loadingAnalytics?: boolean
     accentColor?: string
+    favoriteCharacters?: UserFavoriteCharacterItem[]
+    onRemoveFavoriteCharacter?: (charItem: UserFavoriteCharacterItem) => void
 }
 
 type GenreSortField = 'count' | 'meanScore' | 'minutes' | 'weighted'
@@ -225,6 +229,8 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
     tasteAnalytics = null,
     loadingAnalytics = false,
     accentColor = '#a78bfa',
+    favoriteCharacters = [],
+    onRemoveFavoriteCharacter,
 }) => {
     const [selectedAnime, setSelectedAnime] = useState<FilaLista | null>(null)
     const favGridRef = useRef<HTMLDivElement | null>(null)
@@ -1894,6 +1900,155 @@ export const AnimeStatsDashboard: React.FC<AnimeStatsDashboardProps> = ({
                                     <ArrowUpRight size={14} className="perfil-fav-viewlist-arrow" />
                                 </button>
                             )}
+                        </div>
+                    )
+                })()}
+            </div>
+
+            {/* =======================================================================
+                3.5º VITRINA DE PERSONAJES FAVORITOS (JUSTO DEBAJO DEL HALL OF FAME)
+               ======================================================================= */}
+            <div className="perfil-fav-card mt-3">
+                <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <div>
+                        <span className="ml-eyebrow">HALL OF FAME · PERSONAJES</span>
+                        <h4 className="h6 fw-bold text-white mb-0 d-flex align-items-center gap-2">
+                            <Heart size={15} fill="#f43f5e" style={{ color: '#f43f5e' }} />
+                            <span>
+                                Personajes Favoritos ({favoriteCharacters.length})
+                            </span>
+                        </h4>
+                    </div>
+                    <span className="small text-secondary" style={{ fontSize: '0.74rem' }}>
+                        {favoriteCharacters.length > 0
+                            ? 'Haz clic en un personaje para abrir su ficha dedicada'
+                            : readOnly
+                              ? 'Aún no ha añadido personajes favoritos'
+                              : 'Abre cualquier personaje en el Catálogo y pulsa ♥ Añadir a Favoritos'}
+                    </span>
+                </div>
+
+                {(() => {
+                    const charSlotsCount = totalRowSlots
+                    const visibleChars = favoriteCharacters.slice(0, Math.max(charSlotsCount, favoriteCharacters.length))
+                    const emptyCharSlots =
+                        visibleChars.length < charSlotsCount
+                            ? charSlotsCount - visibleChars.length
+                            : 0
+
+                    return (
+                        <div
+                            className="perfil-fav-grid"
+                            style={{
+                                gridTemplateColumns: `repeat(${totalRowSlots}, minmax(0, 1fr))`,
+                            }}
+                        >
+                            {visibleChars.map((ch, idx) => (
+                                <div
+                                    key={`${ch.character_id}-${idx}`}
+                                    className="perfil-fav-item position-relative"
+                                    onClick={() => {
+                                        if (ch.anime_mal_id) {
+                                            navigate(
+                                                `/anime/${ch.anime_mal_id}?character=${ch.character_id}`
+                                            )
+                                        } else {
+                                            navigate('/catalogo')
+                                        }
+                                    }}
+                                    title={`${ch.name}${ch.anime_title ? ` · ${ch.anime_title}` : ''} (♥ ${ch.favourites.toLocaleString()} favoritos)`}
+                                >
+                                    <img src={ch.image_url} alt={ch.name} loading="lazy" />
+                                    <span className="perfil-fav-rank">#{idx + 1}</span>
+                                    <span
+                                        className="perfil-fav-score d-inline-flex align-items-center gap-1"
+                                        style={{
+                                            background: 'rgba(244, 63, 94, 0.85)',
+                                            color: '#ffffff',
+                                            fontSize: '0.64rem',
+                                        }}
+                                    >
+                                        ♥ {ch.favourites.toLocaleString()}
+                                    </span>
+
+                                    {!readOnly && onRemoveFavoriteCharacter && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                onRemoveFavoriteCharacter(ch)
+                                            }}
+                                            title={`Quitar a ${ch.name} de tus favoritos`}
+                                            style={{
+                                                position: 'absolute',
+                                                top: 6,
+                                                right: 6,
+                                                width: 22,
+                                                height: 22,
+                                                borderRadius: '50%',
+                                                background: 'rgba(9, 9, 11, 0.78)',
+                                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                color: '#fda4af',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: 0,
+                                                cursor: 'pointer',
+                                                zIndex: 3,
+                                            }}
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    )}
+
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            padding: '1.1rem 0.4rem 0.35rem',
+                                            background:
+                                                'linear-gradient(to top, rgba(9, 9, 11, 0.96) 20%, rgba(9, 9, 11, 0.55) 70%, transparent 100%)',
+                                            pointerEvents: 'none',
+                                        }}
+                                    >
+                                        <div
+                                            className="fw-bold text-white text-truncate"
+                                            style={{ fontSize: '0.72rem', lineHeight: 1.2 }}
+                                        >
+                                            {ch.name}
+                                        </div>
+                                        {ch.anime_title && (
+                                            <div
+                                                className="text-secondary text-truncate"
+                                                style={{ fontSize: '0.62rem', lineHeight: 1.15 }}
+                                            >
+                                                {ch.anime_title}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+
+                            {Array.from({ length: emptyCharSlots }).map((_, i) => (
+                                <div
+                                    key={`empty-char-${i}`}
+                                    className="perfil-fav-empty"
+                                    onClick={() => {
+                                        if (!readOnly) navigate('/catalogo')
+                                    }}
+                                    style={{ cursor: !readOnly ? 'pointer' : 'default' }}
+                                    title={
+                                        !readOnly
+                                            ? 'Ir al Catálogo para elegir tus personajes favoritos'
+                                            : undefined
+                                    }
+                                >
+                                    <Heart size={15} />
+                                    <span>#{visibleChars.length + i + 1}</span>
+                                </div>
+                            ))}
                         </div>
                     )
                 })()}
