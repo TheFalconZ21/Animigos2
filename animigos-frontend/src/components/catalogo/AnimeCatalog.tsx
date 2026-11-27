@@ -830,55 +830,6 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                         </button>
                     </form>
 
-                    {/* Barra de Plataformas de Streaming Oficiales con Íconos */}
-                    <div className="cat-streaming-filter-bar mt-3 pt-2.5">
-                        <div className="cat-streaming-filter-header">
-                            <span className="cat-streaming-filter-label">
-                                <Tv size={13} style={{ color: 'var(--cat-acento)' }} />
-                                <span>PLATAFORMAS DE STREAMING OFICIALES:</span>
-                            </span>
-                            {selectedStreaming.length > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setSelectedStreaming([])
-                                        setCurrentPage(1)
-                                    }}
-                                    className="cat-streaming-clear-btn"
-                                >
-                                    Ver todas ({selectedStreaming.length} activa{selectedStreaming.length > 1 ? 's' : ''})
-                                </button>
-                            )}
-                        </div>
-                        <div className="cat-streaming-icons-row">
-                            {OFFICIAL_STREAMING_PLATFORMS.map((platform) => {
-                                const isActive = selectedStreaming.includes(platform.id)
-                                return (
-                                    <button
-                                        key={platform.id}
-                                        type="button"
-                                        onClick={() => toggleStreamingPlatform(platform.id)}
-                                        className={`cat-streaming-icon-btn ${isActive ? 'active' : ''}`}
-                                        style={{ '--sp-color': platform.color } as React.CSSProperties}
-                                        title={`Filtrar animes disponibles en ${platform.label}`}
-                                        aria-pressed={isActive}
-                                    >
-                                        <span className="cat-streaming-logo-wrap">
-                                            <img
-                                                src={platform.icon}
-                                                alt={platform.label}
-                                                loading="lazy"
-                                                className="cat-streaming-logo-img"
-                                            />
-                                        </span>
-                                        <span className="cat-streaming-btn-name">{platform.label}</span>
-                                        {isActive && <Check size={11} className="cat-streaming-check" />}
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-
                     {/* Chips de Géneros y Taxonomías seleccionadas (Intersección AND) */}
                     {selectedTerms.length > 0 && (
                         <div className="d-flex flex-wrap align-items-center gap-1.5 mt-3 pt-2 border-top border-dark">
@@ -910,46 +861,80 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                         </div>
                     )}
 
-                    {/* Chips de Filtros Rápidos */}
-                    <div className="d-flex flex-wrap align-items-center gap-2 mt-3 pt-2">
-                        <span className="small text-secondary fw-semibold me-1" style={{ fontSize: '0.72rem' }}>
-                            Filtros rápidos:
-                        </span>
+                    {/* Fila combinada: Filtros Rápidos (izquierda) + Disponible En / Iconos de Streaming (derecha) */}
+                    <div className="cat-quick-and-streaming-row mt-3 pt-2">
+                        <div className="d-flex flex-wrap align-items-center gap-2">
+                            <span className="small text-secondary fw-semibold me-1" style={{ fontSize: '0.72rem' }}>
+                                Filtros rápidos:
+                            </span>
 
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setNoSequels(!noSequels)
-                                setCurrentPage(1)
-                            }}
-                            className={`cat-toggle-chip ${noSequels ? 'active' : ''}`}
-                        >
-                            <span>No secuelas</span>
-                        </button>
-
-                        {isAuthenticated && (
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setNotInMyList(!notInMyList)
+                                    setNoSequels(!noSequels)
                                     setCurrentPage(1)
                                 }}
-                                className={`cat-toggle-chip ${notInMyList ? 'active' : ''}`}
+                                className={`cat-toggle-chip ${noSequels ? 'active' : ''}`}
                             >
-                                <span>No en mi lista</span>
+                                <span>No secuelas</span>
                             </button>
-                        )}
 
-                        {hasActiveFilters && (
-                            <button
-                                type="button"
-                                onClick={handleClearFilters}
-                                className="btn btn-link text-secondary text-decoration-none p-0 ms-auto small"
-                                style={{ fontSize: '0.74rem' }}
-                            >
-                                ✕ Limpiar filtros
-                            </button>
-                        )}
+                            {isAuthenticated && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setNotInMyList(!notInMyList)
+                                        setCurrentPage(1)
+                                    }}
+                                    className={`cat-toggle-chip ${notInMyList ? 'active' : ''}`}
+                                >
+                                    <span>No en mi lista</span>
+                                </button>
+                            )}
+
+                            {hasActiveFilters && (
+                                <button
+                                    type="button"
+                                    onClick={handleClearFilters}
+                                    className="btn btn-link text-secondary text-decoration-none p-0 ms-2 small"
+                                    style={{ fontSize: '0.74rem' }}
+                                >
+                                    ✕ Limpiar filtros
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="cat-streaming-inline-group">
+                            <span className="cat-streaming-filter-label">
+                                <Tv size={13} style={{ color: 'var(--cat-acento)' }} />
+                                <span>DISPONIBLE EN:</span>
+                            </span>
+                            <div className="cat-streaming-icons-row">
+                                {OFFICIAL_STREAMING_PLATFORMS.map((platform) => {
+                                    const isActive = selectedStreaming.includes(platform.id)
+                                    return (
+                                        <button
+                                            key={platform.id}
+                                            type="button"
+                                            onClick={() => toggleStreamingPlatform(platform.id)}
+                                            className={`cat-streaming-icon-only-btn ${isActive ? 'active' : ''}`}
+                                            style={{ '--sp-color': platform.color } as React.CSSProperties}
+                                            title={platform.label}
+                                            data-tooltip={platform.label}
+                                            aria-label={platform.label}
+                                            aria-pressed={isActive}
+                                        >
+                                            <img
+                                                src={platform.icon}
+                                                alt={platform.label}
+                                                loading="lazy"
+                                                className="cat-streaming-logo-img"
+                                            />
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
                     </div>
                 </div>
 

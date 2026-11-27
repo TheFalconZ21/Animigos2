@@ -1804,117 +1804,114 @@
 /* ============================================================
    FILTRO DE PLATAFORMAS DE STREAMING OFICIALES CON ÍCONOS
    ============================================================ */
-.cat-streaming-filter-bar {
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    padding-top: 0.75rem;
-}
-
-.cat-streaming-filter-header {
+.cat-quick-and-streaming-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 0.55rem;
+    gap: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cat-streaming-inline-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-left: auto;
 }
 
 .cat-streaming-filter-label {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.07em;
     text-transform: uppercase;
     color: var(--cat-text-muted);
-}
-
-.cat-streaming-clear-btn {
-    background: transparent;
-    border: none;
-    padding: 0;
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--cat-acento);
-    cursor: pointer;
-    transition: opacity 0.15s ease;
-}
-
-.cat-streaming-clear-btn:hover {
-    opacity: 0.85;
-    text-decoration: underline;
+    white-space: nowrap;
 }
 
 .cat-streaming-icons-row {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 0.45rem;
+    gap: 0.38rem;
 }
 
-.cat-streaming-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.42rem;
-    padding: 0.28rem 0.62rem 0.28rem 0.34rem;
-    border-radius: 10px;
-    background: var(--cat-surface-2);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: var(--cat-text-muted);
-    font-size: 0.74rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-    user-select: none;
-}
-
-.cat-streaming-icon-btn:hover {
-    background: var(--cat-surface-hover);
-    border-color: color-mix(in srgb, var(--sp-color, #a855f7) 55%, rgba(255, 255, 255, 0.2));
-    color: #ffffff;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
-}
-
-.cat-streaming-icon-btn.active {
-    background: color-mix(in srgb, var(--sp-color, #a855f7) 20%, #161620);
-    border-color: var(--sp-color, #a855f7);
-    color: #ffffff;
-    font-weight: 700;
-    box-shadow:
-        0 3px 14px color-mix(in srgb, var(--sp-color, #a855f7) 32%, transparent),
-        inset 0 0 0 1px color-mix(in srgb, var(--sp-color, #a855f7) 35%, transparent);
-}
-
-.cat-streaming-logo-wrap {
-    width: 21px;
-    height: 21px;
-    border-radius: 6px;
-    overflow: hidden;
+.cat-streaming-icon-only-btn {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 8px;
+    overflow: visible;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    background: color-mix(in srgb, var(--sp-color, #18181f) 28%, #0c0c10);
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: var(--cat-surface-2);
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+    opacity: 0.72;
 }
 
-.cat-streaming-logo-img {
+.cat-streaming-icon-only-btn .cat-streaming-logo-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
+    border-radius: 6.5px;
 }
 
-.cat-streaming-btn-name {
-    line-height: 1;
-    white-space: nowrap;
+.cat-streaming-icon-only-btn:hover {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.08);
+    border-color: var(--sp-color, #a855f7);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--sp-color, #a855f7) 40%, rgba(0, 0, 0, 0.6));
+    z-index: 20;
 }
 
-.cat-streaming-check {
+.cat-streaming-icon-only-btn.active {
+    opacity: 1;
+    border-color: var(--sp-color, #a855f7);
+    transform: scale(1.06);
+    box-shadow:
+        0 0 0 2px color-mix(in srgb, var(--sp-color, #a855f7) 45%, transparent),
+        0 4px 14px color-mix(in srgb, var(--sp-color, #a855f7) 50%, rgba(0, 0, 0, 0.7));
+}
+
+/* Tooltip con el nombre de la plataforma al mantener el cursor sobre el ícono */
+.cat-streaming-icon-only-btn::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #14141c;
     color: #ffffff;
-    flex-shrink: 0;
-    margin-left: 1px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    white-space: nowrap;
+    border: 1px solid color-mix(in srgb, var(--sp-color, #a855f7) 60%, rgba(255, 255, 255, 0.18));
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.75);
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+    z-index: 40;
+}
+
+.cat-streaming-icon-only-btn:hover::after,
+.cat-streaming-icon-only-btn:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
 }
 
 /* Mini-íconos de plataformas oficiales sobre el póster en la grilla del catálogo */
