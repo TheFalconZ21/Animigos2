@@ -667,7 +667,7 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
             anime.save(update_fields=['relations_data'])
         return Response(rels)
 
-    def _enrich_characters_with_user_favorites(self, chars: list[dict], request_user) -> list[dict]:
+    def _enrich_characters_with_user_favorites(self, chars, request_user):
         """
         Enriquece una lista de personajes con el conteo reactivo de favoritos de los usuarios
         de Animigos en PostgreSQL (UserFavoriteCharacter) y la bandera `is_favourite`.
