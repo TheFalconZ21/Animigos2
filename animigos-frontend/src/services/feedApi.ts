@@ -1,11 +1,16 @@
 /**
  * Capa de Datos del Tablón Social (Pilar 1.2 y 2.1 de AGENTS.md).
- * Maneja publicaciones, recomendaciones y encuestas comunitarias reales.
- * Se integra con el sistema de notificaciones y persistencia de usuario.
+ * Maneja publicaciones, recomendaciones, pedidos de sugerencia y encuestas comunitarias
+ * persistidas en PostgreSQL (/api/users/feed/) para que aparezcan en tiempo real a todos
+ * los amigos y usuarios de la plataforma.
  */
 
-import { fetchUserNotifications, sendAnimeRecommendationToUser } from './friendsApi'
+import { getAuthHeaders } from './authApi'
+import { fetchUserNotifications } from './friendsApi'
 import { haceCuanto } from '../shared/tiempo'
+
+const rawApi = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, '')
+const API_BASE_URL = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`
 
 export type TipoActividad =
     | 'recomendacion_directa'
@@ -125,100 +130,128 @@ export function filtrarActividades(
 
 const nuevoId = () => `act-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
+async function postActivityToServer(
+    act: Actividad,
+    extra?: { destinatarioId?: string | null; respuestaAId?: string | null }
+): Promise<Actividad | null> {
+    try {
+        const res = await fetch(`${API_BASE_URL}/users/feed/`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            credentials: 'include',
+            body: JSON.stringify({
+                ...act,
+                destinatarioId: extra?.destinatarioId || null,
+                respuestaAId: extra?.respuestaAId || null,
+            }),
+        })
+        if (res.ok) {
+            return (await res.json()) as Actividad
+        }
+    } catch {
+        // Fallback local si no hay red
+    }
+    return null
+}
+
 // ---------- API ----------
 
 export async function fetchFeed(): Promise<Actividad[]> {
     const local = getLocalFeed()
-
-    // Sincronizar recomendaciones directas reales recibidas por el usuario si tiene sesión
-    const hasSession = typeof localStorage !== 'undefined' && Boolean(
-        localStorage.getItem('animigos_session_id') || localStorage.getItem('session_id')
-    )
-    if (!hasSession) {
-        return local
-    }
+    let serverFeed: Actividad[] = []
 
     try {
-        const { notifications } = await fetchUserNotifications()
-        const recoNotifs = notifications.filter((n) => n.type === 'anime_recommendation' && n.anime_id)
-        const releaseNotifs = notifications.filter((n) => n.type === 'anime_release' && n.anime_id)
-
-        const recoActs: Actividad[] = recoNotifs.map((n) => {
-            const timestampSegundos = n.created_at ? Math.floor(new Date(n.created_at).getTime() / 1000) : null
-            return {
-                id: `notif-${n.id}`,
-                tipo: 'recomendacion_directa',
-                autor: {
-                    id: n.from_username,
-                    nombre: n.from_display_name || n.from_username,
-                    usuario: n.from_username,
-                    avatarUrl: n.from_avatar || '',
-                },
-                creadoHace: timestampSegundos ? haceCuanto(timestampSegundos) : 'Reciente',
-                agradecimientos: 0,
-                agradecidoPorMi: false,
-                recomendacion: {
-                    anime: {
-                        malId: n.anime_id!,
-                        titulo: n.anime_title || 'Anime',
-                        imagenUrl: n.anime_poster || '',
-                        nota: null,
-                        generos: [],
-                    },
-                    nota: n.message,
-                    paraMi: true,
-                },
-            }
+        const res = await fetch(`${API_BASE_URL}/users/feed/`, {
+            method: 'GET',
+            headers: getAuthHeaders(),
+            credentials: 'include',
         })
-
-        const releaseActs: Actividad[] = releaseNotifs.map((n) => {
-            const timestampSegundos = n.created_at ? Math.floor(new Date(n.created_at).getTime() / 1000) : null
-            return {
-                id: `release-${n.id}`,
-                tipo: 'estreno_anime',
-                autor: {
-                    id: 'calendario_oficial',
-                    nombre: 'Calendario Oficial',
-                    usuario: 'estrenos',
-                    avatarUrl: '',
-                },
-                creadoHace: timestampSegundos ? haceCuanto(timestampSegundos) : 'Reciente',
-                agradecimientos: 0,
-                agradecidoPorMi: false,
-                recomendacion: {
-                    anime: {
-                        malId: n.anime_id!,
-                        titulo: n.anime_title || 'Anime',
-                        imagenUrl: n.anime_poster || '',
-                        nota: null,
-                        generos: [],
-                    },
-                    nota: n.message || `¡"${n.anime_title}" se ha estrenado oficialmente! Ha pasado automáticamente a tu lista en "Pendiente".`,
-                    paraMi: true,
-                },
-                hito: {
-                    titulo: `¡Estreno Oficial: ${n.anime_title}!`,
-                    descripcion: n.message || `El anime ya está disponible. Se ha actualizado tu seguimiento a "Pendiente".`,
-                    icono: 'estrella',
-                },
-            }
-        })
-
-        const ids = new Set(local.map((a) => a.id))
-        const combinado = [...local]
-        for (const r of [...releaseActs, ...recoActs]) {
-            if (!ids.has(r.id)) {
-                combinado.unshift(r)
-                ids.add(r.id)
+        if (res.ok) {
+            const data = await res.json()
+            if (Array.isArray(data.results)) {
+                serverFeed = data.results
             }
         }
-        return combinado
     } catch {
-        return local
+        // Si falla la red, usar local
     }
+
+    const hasSession =
+        typeof localStorage !== 'undefined' &&
+        Boolean(localStorage.getItem('animigos_session_id') || localStorage.getItem('session_id'))
+
+    // Migrar automáticamente al servidor cualquier post local (act-...) creado previamente en este navegador
+    const serverIds = new Set(serverFeed.map((s) => s.id))
+    const unsyncedLocal = local.filter(
+        (l) => l.id.startsWith('act-') && !serverIds.has(l.id) && l.tipo !== 'estreno_anime'
+    )
+
+    if (hasSession && unsyncedLocal.length > 0) {
+        for (const item of [...unsyncedLocal].reverse()) {
+            const synced = await postActivityToServer(item)
+            if (synced && !serverIds.has(synced.id)) {
+                serverFeed.unshift(synced)
+                serverIds.add(synced.id)
+            }
+        }
+    }
+
+    // Mezclar notificaciones de estrenos / recomendaciones directas
+    let notifActs: Actividad[] = []
+    if (hasSession) {
+        try {
+            const { notifications } = await fetchUserNotifications()
+            const releaseNotifs = notifications.filter((n) => n.type === 'anime_release' && n.anime_id)
+            notifActs = releaseNotifs.map((n) => {
+                const timestampSegundos = n.created_at
+                    ? Math.floor(new Date(n.created_at).getTime() / 1000)
+                    : null
+                return {
+                    id: `release-${n.id}`,
+                    tipo: 'estreno_anime',
+                    autor: {
+                        id: 'calendario_oficial',
+                        nombre: 'Calendario Oficial',
+                        usuario: 'estrenos',
+                        avatarUrl: '',
+                    },
+                    creadoHace: timestampSegundos ? haceCuanto(timestampSegundos) : '¡Ya en emisión!',
+                    agradecimientos: 0,
+                    agradecidoPorMi: false,
+                    recomendacion: {
+                        anime: {
+                            malId: n.anime_id!,
+                            titulo: n.anime_title || 'Anime',
+                            imagenUrl: n.anime_poster || '',
+                            nota: null,
+                            generos: [],
+                        },
+                        nota: n.message,
+                        paraMi: true,
+                    },
+                }
+            })
+        } catch {
+            // Ignorar error de notificaciones
+        }
+    }
+
+    const combinedMap = new Map<string, Actividad>()
+    for (const item of [...notifActs, ...serverFeed, ...local]) {
+        if (!combinedMap.has(item.id)) {
+            combinedMap.set(item.id, item)
+        }
+    }
+
+    const merged = Array.from(combinedMap.values())
+    saveLocalFeed(merged)
+    return merged
 }
 
-export async function publicarRecomendacion(autor: AutorActividad, datos: NuevaRecomendacion): Promise<Actividad> {
+export async function publicarRecomendacion(
+    autor: AutorActividad,
+    datos: NuevaRecomendacion
+): Promise<Actividad> {
     const act: Actividad = {
         id: nuevoId(),
         tipo: datos.destinatarioId ? 'recomendacion_directa' : 'recomendacion_general',
@@ -233,17 +266,11 @@ export async function publicarRecomendacion(autor: AutorActividad, datos: NuevaR
         },
     }
 
-    // Si se especificó un amigo concreto, enviar la recomendación real al backend
-    if (datos.destinatarioId) {
-        try {
-            await sendAnimeRecommendationToUser(datos.destinatarioId, {
-                anime_id: datos.anime.malId,
-                message: datos.nota,
-            })
-        } catch (err) {
-            console.warn('No se pudo despachar la notificación al backend:', err)
-        }
-    }
+    const saved = await postActivityToServer(act, {
+        destinatarioId: datos.destinatarioId,
+        respuestaAId: datos.respuestaAId,
+    })
+    const finalAct = saved || act
 
     const feedActual = getLocalFeed()
     const feedConRespuesta = datos.respuestaAId
@@ -263,9 +290,9 @@ export async function publicarRecomendacion(autor: AutorActividad, datos: NuevaR
           })
         : feedActual
 
-    const actualizado = [act, ...feedConRespuesta]
+    const actualizado = [finalAct, ...feedConRespuesta.filter((x) => x.id !== finalAct.id)]
     saveLocalFeed(actualizado)
-    return act
+    return finalAct
 }
 
 export async function publicarBusqueda(
@@ -274,7 +301,7 @@ export async function publicarBusqueda(
     referencia?: string,
     generos?: string[],
     tags?: string[],
-    referenciasAnimes?: AnimeResumen[],
+    referenciasAnimes?: AnimeResumen[]
 ): Promise<Actividad> {
     const cleanGeneros = (generos ?? []).map((g) => g.trim()).filter(Boolean)
     const cleanTags = (tags ?? []).map((t) => t.trim()).filter(Boolean)
@@ -297,16 +324,20 @@ export async function publicarBusqueda(
             tags: cleanTags.length > 0 ? cleanTags : undefined,
         },
     }
+
+    const saved = await postActivityToServer(act)
+    const finalAct = saved || act
+
     const feedActual = getLocalFeed()
-    const actualizado = [act, ...feedActual]
+    const actualizado = [finalAct, ...feedActual.filter((x) => x.id !== finalAct.id)]
     saveLocalFeed(actualizado)
-    return act
+    return finalAct
 }
 
 export async function publicarEncuesta(
     autor: AutorActividad,
     pregunta: string,
-    opciones: AnimeResumen[],
+    opciones: AnimeResumen[]
 ): Promise<Actividad> {
     const act: Actividad = {
         id: nuevoId(),
@@ -325,13 +356,37 @@ export async function publicarEncuesta(
             })),
         },
     }
+
+    const saved = await postActivityToServer(act)
+    const finalAct = saved || act
+
     const feedActual = getLocalFeed()
-    const actualizado = [act, ...feedActual]
+    const actualizado = [finalAct, ...feedActual.filter((x) => x.id !== finalAct.id)]
     saveLocalFeed(actualizado)
-    return act
+    return finalAct
 }
 
 export async function votarEncuesta(actividadId: string, opcionId: string): Promise<void> {
+    try {
+        const res = await fetch(
+            `${API_BASE_URL}/users/feed/${encodeURIComponent(actividadId)}/vote/`,
+            {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                credentials: 'include',
+                body: JSON.stringify({ opcionId }),
+            }
+        )
+        if (res.ok) {
+            const updatedPost = (await res.json()) as Actividad
+            const feedActual = getLocalFeed()
+            saveLocalFeed(feedActual.map((a) => (a.id === actividadId ? updatedPost : a)))
+            return
+        }
+    } catch {
+        // Fallback local
+    }
+
     const feedActual = getLocalFeed()
     const actualizado = feedActual.map((a) => {
         if (a.id !== actividadId || !a.encuesta || a.encuesta.miVoto) return a
@@ -340,7 +395,9 @@ export async function votarEncuesta(actividadId: string, opcionId: string): Prom
             encuesta: {
                 ...a.encuesta,
                 miVoto: opcionId,
-                opciones: a.encuesta.opciones.map((o) => (o.id === opcionId ? { ...o, votos: o.votos + 1 } : o)),
+                opciones: a.encuesta.opciones.map((o) =>
+                    o.id === opcionId ? { ...o, votos: o.votos + 1 } : o
+                ),
             },
         }
     })
@@ -348,6 +405,25 @@ export async function votarEncuesta(actividadId: string, opcionId: string): Prom
 }
 
 export async function alternarAgradecimiento(actividadId: string): Promise<void> {
+    try {
+        const res = await fetch(
+            `${API_BASE_URL}/users/feed/${encodeURIComponent(actividadId)}/thank/`,
+            {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                credentials: 'include',
+            }
+        )
+        if (res.ok) {
+            const updatedPost = (await res.json()) as Actividad
+            const feedActual = getLocalFeed()
+            saveLocalFeed(feedActual.map((a) => (a.id === actividadId ? updatedPost : a)))
+            return
+        }
+    } catch {
+        // Fallback local
+    }
+
     const feedActual = getLocalFeed()
     const actualizado = feedActual.map((a) =>
         a.id === actividadId

@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, sync_views, ranking_views, report_views, google_auth_views
+from . import views, sync_views, ranking_views, report_views, google_auth_views, feed_views
 
 urlpatterns = [
     path('register/', views.register_user, name='user-register'),
@@ -52,4 +52,8 @@ urlpatterns = [
     path('reports/', report_views.create_content_report_view, name='user-content-report-create'),
     path('admin/reports/', report_views.admin_list_reports_view, name='admin-content-report-list'),
     path('admin/reports/<int:report_id>/resolve/', report_views.admin_resolve_report_view, name='admin-content-report-resolve'),
+    # Tablón Social compartido en PostgreSQL (publicaciones, encuestas, votos y agradecimientos)
+    path('feed/', feed_views.social_feed_view, name='user-social-feed'),
+    path('feed/<str:post_id>/vote/', feed_views.social_post_vote_view, name='user-social-post-vote'),
+    path('feed/<str:post_id>/thank/', feed_views.social_post_thank_view, name='user-social-post-thank'),
 ]

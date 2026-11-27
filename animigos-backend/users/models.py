@@ -268,3 +268,44 @@ class ContentReport(models.Model):
 
     def __str__(self):
         return f"Report #{self.id} [{self.content_type}/{self.category}] by {self.reporter.username} ({self.status})"
+
+
+class SocialPost(models.Model):
+    """
+    Publicación persistente en El Tablón Social (recomendaciones, pedidos de sugerencia,
+    encuestas e invitaciones) compartida en tiempo real entre amigos y comunidad en PostgreSQL.
+    """
+    POST_TYPE_CHOICES = [
+        ('recomendacion_directa', 'Recomendación Directa'),
+        ('recomendacion_general', 'Recomendación General'),
+        ('busco_anime', 'Pide Sugerencias'),
+        ('encuesta', 'Encuesta'),
+        ('invitacion_sala', 'Invitación a Sala'),
+        ('hito', 'Logro'),
+    ]
+
+    id = models.CharField(max_length=64, primary_key=True)
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='social_posts',
+    )
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='received_social_posts',
+    )
+    post_type = models.CharField(max_length=32, choices=POST_TYPE_CHOICES, db_index=True)
+    payload = models.JSONField(default=dict, blank=True)
+    liked_by = models.JSONField(default=list, blank=True)
+    poll_votes = models.JSONField(default=dict, blank=True)
+    replies = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"SocialPost {self.id} [{self.post_type}] by {self.author.username}"
