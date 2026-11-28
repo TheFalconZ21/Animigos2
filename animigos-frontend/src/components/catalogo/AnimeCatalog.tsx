@@ -256,12 +256,19 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
     const [searchInput, setSearchInput] = useState(initialSearch)
     const [submittedSearch, setSubmittedSearch] = useState(initialSearch)
     const [currentPage, setCurrentPageState] = useState<number>(() => Math.max(1, initialPage || 1))
+    const [pageInputStr, setPageInputStr] = useState<string>(() => String(Math.max(1, initialPage || 1)))
     const [addedAnimeId, setAddedAnimeId] = useState<number | null>(null)
+    const bottomPaginationRef = useRef<HTMLDivElement | null>(null)
+    const [maxPageSlots, setMaxPageSlots] = useState<number>(11)
 
     useEffect(() => {
         const normalized = Math.max(1, initialPage || 1)
         setCurrentPageState((prev) => (prev === normalized ? prev : normalized))
     }, [initialPage])
+
+    useEffect(() => {
+        setPageInputStr(String(currentPage))
+    }, [currentPage])
 
     const setCurrentPage = (updater: number | ((prev: number) => number), replace = false) => {
         const next = Math.max(1, typeof updater === 'function' ? updater(currentPage) : updater)
@@ -407,6 +414,85 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
     const animes = catalogData?.results || []
     const totalCount = catalogData?.count || 0
     const totalPages = Math.max(1, Math.ceil(totalCount / 50))
+
+    useEffect(() => {
+        const updateSlots = () => {
+            const width = bottomPaginationRef.current?.clientWidth || window.innerWidth
+            // Reservar espacio para los botones "Página Anterior" y "Siguiente Página" (~360px en desktop)
+            const availableForPages = Math.max(200, width - 370)
+            const calculated = Math.floor(availableForPages / 46)
+            const clamped = Math.max(5, Math.min(15, calculated))
+            setMaxPageSlots(clamped)
+        }
+        updateSlots()
+        const el = bottomPaginationRef.current
+        let observer: ResizeObserver | null = null
+        if (typeof ResizeObserver !== 'undefined' && el) {
+            observer = new ResizeObserver(updateSlots)
+            observer.observe(el)
+        }
+        window.addEventListener('resize', updateSlots)
+        return () => {
+            observer?.disconnect()
+            window.removeEventListener('resize', updateSlots)
+        }
+    }, [totalPages])
+
+    const commitPageInput = (raw: string, scrollTop = false) => {
+        const parsed = parseInt(raw.trim(), 10)
+        if (Number.isNaN(parsed)) {
+            setPageInputStr(String(currentPage))
+            return
+        }
+        const clamped = Math.max(1, Math.min(totalPages, parsed))
+        setPageInputStr(String(clamped))
+        if (clamped !== currentPage) {
+            setCurrentPage(clamped)
+            if (scrollTop) {
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+            }
+        }
+    }
+
+    const paginationItems = useMemo((): Array<number | 'ellipsis-start' | 'ellipsis-end'> => {
+        if (totalPages <= maxPageSlots) {
+            return Array.from({ length: totalPages }, (_, i) => i + 1)
+        }
+        const slots = Math.max(5, maxPageSlots)
+        // Cerca del inicio: mostrar 1, 2, 3, ..., N, ..., totalPages
+        const nearStartThreshold = slots - 2
+        if (currentPage <= nearStartThreshold - 1) {
+            const items: Array<number | 'ellipsis-start' | 'ellipsis-end'> = []
+            for (let p = 1; p <= nearStartThreshold; p++) {
+                items.push(p)
+            }
+            items.push('ellipsis-end')
+            items.push(totalPages)
+            return items
+        }
+        // Cerca del final: mostrar 1, ..., totalPages - N, ..., totalPages
+        const nearEndCount = slots - 2
+        if (currentPage >= totalPages - nearEndCount + 2) {
+            const items: Array<number | 'ellipsis-start' | 'ellipsis-end'> = [1, 'ellipsis-start']
+            for (let p = totalPages - nearEndCount + 1; p <= totalPages; p++) {
+                items.push(p)
+            }
+            return items
+        }
+        // En el medio: 1, ..., ventana centrada alrededor de currentPage, ..., totalPages
+        const windowSize = Math.max(3, slots - 4)
+        const halfLeft = Math.floor((windowSize - 1) / 2)
+        const halfRight = windowSize - 1 - halfLeft
+        const startPage = Math.max(2, currentPage - halfLeft)
+        const endPage = Math.min(totalPages - 1, currentPage + halfRight)
+        const items: Array<number | 'ellipsis-start' | 'ellipsis-end'> = [1, 'ellipsis-start']
+        for (let p = startPage; p <= endPage; p++) {
+            items.push(p)
+        }
+        items.push('ellipsis-end')
+        items.push(totalPages)
+        return items
+    }, [currentPage, totalPages, maxPageSlots])
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault()
@@ -956,9 +1042,37 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                             >
                                 <ChevronLeft size={13} />
                             </button>
-                            <span className="small font-mono text-white">
-                                {currentPage} / {totalPages}
-                            </span>
+                            <div className="cat-top-page-counter font-mono">
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    aria-label="Página actual"
+                                    title="Escribe el número de página y presiona Enter"
+                                    value={pageInputStr}
+                                    onChange={(e) => {
+                                        const clean = e.target.value.replace(/[^\d]/g, '')
+                                        setPageInputStr(clean)
+                                    }}
+                                    onFocus={(e) => e.currentTarget.select()}
+                                    onBlur={() => commitPageInput(pageInputStr, false)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault()
+                                            commitPageInput(pageInputStr, false)
+                                            e.currentTarget.blur()
+                                        } else if (e.key === 'Escape') {
+                                            setPageInputStr(String(currentPage))
+                                            e.currentTarget.blur()
+                                        }
+                                    }}
+                                    className="cat-top-page-input"
+                                    style={{
+                                        width: `${Math.max(2.3, String(pageInputStr || currentPage).length + 1.1)}ch`,
+                                    }}
+                                />
+                                <span className="cat-top-page-sep">/</span>
+                                <span className="cat-top-page-total">{totalPages}</span>
+                            </div>
                             <button
                                 type="button"
                                 disabled={currentPage >= totalPages || isFetching}
@@ -1130,9 +1244,12 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                     </div>
                 )}
 
-                {/* ---------- Paginación Inferior ---------- */}
+                {/* ---------- Paginación Inferior Dinámica con Input en Página Actual ---------- */}
                 {totalPages > 1 && (
-                    <div className="d-flex justify-content-between align-items-center py-4 mt-3 border-top border-dark">
+                    <div
+                        ref={bottomPaginationRef}
+                        className="cat-bottom-pagination-bar py-4 mt-3 border-top border-dark"
+                    >
                         <button
                             type="button"
                             disabled={currentPage <= 1 || isFetching}
@@ -1140,22 +1257,76 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                 setCurrentPage((p) => Math.max(1, p - 1))
                                 window.scrollTo({ top: 0, behavior: 'smooth' })
                             }}
-                            className="cat-mode-pill-btn"
-                            style={{
-                                background: 'var(--cat-surface-2)',
-                                border: '1px solid var(--cat-border)',
-                            }}
+                            className="cat-page-Step-btn"
                         >
-                            <ChevronLeft size={14} />
-                            <span>Página Anterior</span>
+                            <ChevronLeft size={15} />
+                            <span className="d-none d-sm-inline">Página Anterior</span>
                         </button>
 
-                        <div className="d-flex align-items-center gap-1.5">
-                            <span className="small text-secondary">Página</span>
-                            <span className="small font-mono fw-bold text-white px-2 py-0.5 rounded bg-black border border-dark">
-                                {currentPage}
-                            </span>
-                            <span className="small text-secondary">de {totalPages}</span>
+                        <div className="cat-bottom-pages-strip">
+                            {paginationItems.map((item) => {
+                                if (item === 'ellipsis-start' || item === 'ellipsis-end') {
+                                    return (
+                                        <span key={item} className="cat-page-ellipsis" aria-hidden="true">
+                                            …
+                                        </span>
+                                    )
+                                }
+
+                                const isCurrent = item === currentPage
+                                if (isCurrent) {
+                                    return (
+                                        <div
+                                            key={`current-${item}`}
+                                            className="cat-page-current-input-wrap"
+                                            title={`Página actual (${currentPage} de ${totalPages}). Escribe un número y presiona Enter para ir`}
+                                        >
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                aria-label={`Página actual, ${currentPage} de ${totalPages}`}
+                                                value={pageInputStr}
+                                                onChange={(e) => {
+                                                    const clean = e.target.value.replace(/[^\d]/g, '')
+                                                    setPageInputStr(clean)
+                                                }}
+                                                onFocus={(e) => e.currentTarget.select()}
+                                                onBlur={() => commitPageInput(pageInputStr, true)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault()
+                                                        commitPageInput(pageInputStr, true)
+                                                        e.currentTarget.blur()
+                                                    } else if (e.key === 'Escape') {
+                                                        setPageInputStr(String(currentPage))
+                                                        e.currentTarget.blur()
+                                                    }
+                                                }}
+                                                className="cat-page-current-input font-mono"
+                                                style={{
+                                                    width: `${Math.max(3.1, String(pageInputStr || currentPage).length + 1.5)}ch`,
+                                                }}
+                                            />
+                                        </div>
+                                    )
+                                }
+
+                                return (
+                                    <button
+                                        key={item}
+                                        type="button"
+                                        disabled={isFetching}
+                                        onClick={() => {
+                                            setCurrentPage(item)
+                                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                                        }}
+                                        className="cat-page-num-btn font-mono"
+                                        title={`Ir a la página ${item}`}
+                                    >
+                                        {item}
+                                    </button>
+                                )
+                            })}
                         </div>
 
                         <button
@@ -1165,14 +1336,10 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                 setCurrentPage((p) => Math.min(totalPages, p + 1))
                                 window.scrollTo({ top: 0, behavior: 'smooth' })
                             }}
-                            className="cat-mode-pill-btn"
-                            style={{
-                                background: 'var(--cat-surface-2)',
-                                border: '1px solid var(--cat-border)',
-                            }}
+                            className="cat-page-Step-btn"
                         >
-                            <span>Siguiente Página</span>
-                            <ChevronRight size={14} />
+                            <span className="d-none d-sm-inline">Siguiente Página</span>
+                            <ChevronRight size={15} />
                         </button>
                     </div>
                 )}
