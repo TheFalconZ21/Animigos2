@@ -1940,8 +1940,10 @@
 }
 
 .cat-top-page-input {
-    height: 26px;
-    padding: 0 5px;
+    min-width: 34px;
+    height: 28px;
+    padding: 0 6px;
+    box-sizing: border-box;
     border-radius: 7px;
     background: var(--cat-surface-2);
     border: 1px solid rgba(255, 255, 255, 0.14);

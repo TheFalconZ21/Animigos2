@@ -1062,9 +1062,9 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                             e.currentTarget.blur()
                                         }
                                     }}
-                                    className="cat-top-page-input"
+                                    className="cat-top-page-input font-mono"
                                     style={{
-                                        width: `${Math.max(2.3, String(pageInputStr || currentPage).length + 1.1)}ch`,
+                                        width: `${Math.max(34, String(pageInputStr || currentPage).length * 9 + 18)}px`,
                                     }}
                                 />
                                 <span className="cat-top-page-sep">/</span>
@@ -1300,7 +1300,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                                 }}
                                                 className="cat-page-current-input font-mono"
                                                 style={{
-                                                    width: `${Math.max(3.1, String(pageInputStr || currentPage).length + 1.5)}ch`,
+                                                    width: `${Math.max(40, String(pageInputStr || currentPage).length * 10 + 22)}px`,
                                                 }}
                                             />
                                         </div>
