@@ -16,7 +16,6 @@ import {
     Tag,
     X,
     Play,
-    Tv,
 } from 'lucide-react'
 import {
     useCatalogQuery,
@@ -533,9 +532,28 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
             <div className="container" style={{ maxWidth: '1240px' }}>
                 {/* ---------- Caja de Filtros de Catálogo ---------- */}
                 <div className="cat-filter-card mb-4">
-                    <div className="cat-filter-title">
-                        <SlidersHorizontal size={14} style={{ color: 'var(--cat-warning)' }} />
-                        <span>Filtros de Catálogo & Taxonomía de AniList</span>
+                    <div className="cat-filter-header-row">
+                        <div className="cat-filter-title mb-0">
+                            <SlidersHorizontal size={14} style={{ color: 'var(--cat-warning)' }} />
+                            <span>Filtros de Catálogo & Taxonomía de AniList</span>
+                        </div>
+
+                        {/* Buscador Compacto Integrado */}
+                        <form onSubmit={handleSearchSubmit} className="cat-search-row">
+                            <div className="cat-search-input-wrapper">
+                                <Search size={14} className="cat-search-icon" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por título, título en inglés, estudio..."
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value)}
+                                    className="cat-search-control"
+                                />
+                            </div>
+                            <button type="submit" className="cat-btn-search">
+                                Buscar
+                            </button>
+                        </form>
                     </div>
 
                     {/* Grilla Horizontal de Filtros Desplegables */}
@@ -813,23 +831,6 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                         </div>
                     </div>
 
-                    {/* Fila de Buscador */}
-                    <form onSubmit={handleSearchSubmit} className="cat-search-row">
-                        <div className="cat-search-input-wrapper">
-                            <Search size={15} className="cat-search-icon" />
-                            <input
-                                type="text"
-                                placeholder="Buscar en Top Animes por título, título en inglés, estudio..."
-                                value={searchInput}
-                                onChange={(e) => setSearchInput(e.target.value)}
-                                className="cat-search-control"
-                            />
-                        </div>
-                        <button type="submit" className="cat-btn-search">
-                            Buscar
-                        </button>
-                    </form>
-
                     {/* Chips de Géneros y Taxonomías seleccionadas (Intersección AND) */}
                     {selectedTerms.length > 0 && (
                         <div className="d-flex flex-wrap align-items-center gap-1.5 mt-3 pt-2 border-top border-dark">
@@ -861,8 +862,8 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                         </div>
                     )}
 
-                    {/* Fila combinada: Filtros Rápidos (izquierda) + Disponible En / Iconos de Streaming (derecha) */}
-                    <div className="cat-quick-and-streaming-row mt-3 pt-2">
+                    {/* Fila combinada: Filtros Rápidos (izquierda) + Disponible en / Iconos de Streaming (derecha) */}
+                    <div className="cat-quick-and-streaming-row mt-2.5 pt-2">
                         <div className="d-flex flex-wrap align-items-center gap-2">
                             <span className="small text-secondary fw-semibold me-1" style={{ fontSize: '0.72rem' }}>
                                 Filtros rápidos:
@@ -905,9 +906,8 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                         </div>
 
                         <div className="cat-streaming-inline-group">
-                            <span className="cat-streaming-filter-label">
-                                <Tv size={13} style={{ color: 'var(--cat-acento)' }} />
-                                <span>DISPONIBLE EN:</span>
+                            <span className="small text-secondary fw-semibold me-1" style={{ fontSize: '0.72rem' }}>
+                                Disponible en:
                             </span>
                             <div className="cat-streaming-icons-row">
                                 {OFFICIAL_STREAMING_PLATFORMS.map((platform) => {

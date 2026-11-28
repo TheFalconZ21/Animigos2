@@ -176,26 +176,48 @@ class AnimeViewSet(viewsets.ReadOnlyModelViewSet):
         if status_param and status_param.lower() not in ('todos', 'all'):
             qs = qs.filter(status__iexact=status_param)
 
-        # 9. Filtro No Secuelas (excluye temporadas 2+, partes 2+, y marca _is_sequel_)
+        # 9. Filtro No Secuelas (excluye obras con PREQUEL en relations_data, marca _is_sequel_ y títulos de secuela)
         if no_sequels and str(no_sequels).lower() in ('true', '1', 'yes'):
+            if Anime.objects.exclude(relations_data=[]).exclude(relations_data__isnull=True).count() < 1000:
+                try:
+                    from django.core.management import call_command
+                    call_command('load_anime_relations')
+                except Exception:
+                    pass
             qs = qs.exclude(
+                Q(relations_data__icontains='"relation_type": "PREQUEL"') |
+                Q(relations_data__icontains='"relation_type":"PREQUEL"') |
                 Q(tags_cache__icontains='|_is_sequel_|') |
                 Q(title__icontains=' 2nd') |
                 Q(title__icontains=' 3rd') |
                 Q(title__icontains=' 4th') |
+                Q(title__icontains=' 5th') |
+                Q(title__icontains=' 6th') |
                 Q(title__icontains='Season 2') |
                 Q(title__icontains='Season 3') |
                 Q(title__icontains='Season 4') |
+                Q(title__icontains='Season 5') |
+                Q(title__icontains='Season 6') |
                 Q(title__icontains='Part 2') |
                 Q(title__icontains='Part 3') |
                 Q(title__icontains='Part II') |
+                Q(title__icontains='Part III') |
                 Q(title__icontains=' II') |
                 Q(title__icontains=' III') |
+                Q(title__icontains=' IV') |
                 Q(title__icontains='Final Season') |
+                Q(title__icontains='The Final') |
+                Q(title__icontains='Kanketsu-hen') |
+                Q(title__icontains='Zoku-hen') |
+                Q(title__icontains='Movie 2') |
+                Q(title__icontains='Movie 3') |
                 Q(title__icontains='STAGE') |
                 Q(title_english__icontains='Season 2') |
                 Q(title_english__icontains='Season 3') |
-                Q(title_english__icontains='Part 2')
+                Q(title_english__icontains='Season 4') |
+                Q(title_english__icontains='Part 2') |
+                Q(title_english__icontains='Part 3') |
+                Q(title_english__icontains='The Final')
             )
 
         # 10. Filtro No en Mi Lista

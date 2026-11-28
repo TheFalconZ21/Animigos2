@@ -70,8 +70,17 @@
     background: var(--cat-surface);
     border: 1px solid var(--cat-border);
     border-radius: 18px;
-    padding: 1.25rem 1.4rem;
+    padding: 1rem 1.35rem;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+.cat-filter-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
 }
 
 .cat-filter-title {
@@ -208,22 +217,25 @@
     flex-shrink: 0;
 }
 
-/* Buscador con Botón */
+/* Buscador Compacto con Botón */
 .cat-search-row {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
-    margin-top: 0.9rem;
+    width: 100%;
+    max-width: 410px;
+    margin-left: auto;
 }
 
 .cat-search-input-wrapper {
     position: relative;
     flex: 1;
+    min-width: 0;
 }
 
 .cat-search-icon {
     position: absolute;
-    left: 1rem;
+    left: 0.75rem;
     top: 50%;
     transform: translateY(-50%);
     color: var(--cat-text-dim);
@@ -234,9 +246,10 @@
     background: var(--cat-surface-2);
     border: 1px solid var(--cat-border);
     color: #ffffff;
-    border-radius: 10px;
-    padding: 0.55rem 0.9rem 0.55rem 2.4rem;
-    font-size: 0.84rem;
+    border-radius: 9px;
+    height: 34px;
+    padding: 0 0.75rem 0 2.1rem;
+    font-size: 0.78rem;
     width: 100%;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -255,9 +268,10 @@
     background: var(--cat-acento);
     color: #0b0b10;
     border: none;
-    border-radius: 10px;
-    padding: 0.55rem 1.4rem;
-    font-size: 0.84rem;
+    border-radius: 9px;
+    height: 34px;
+    padding: 0 1rem;
+    font-size: 0.78rem;
     font-weight: 700;
     cursor: pointer;
     transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
@@ -1837,34 +1851,34 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 0.38rem;
+    gap: 0.42rem;
 }
 
 .cat-streaming-icon-only-btn {
     position: relative;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    padding: 4px;
+    border-radius: 10px;
     overflow: visible;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     background: var(--cat-surface-2);
-    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    border: 1.5px solid rgba(255, 255, 255, 0.13);
     cursor: pointer;
     transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
     user-select: none;
-    opacity: 0.72;
+    opacity: 0.78;
 }
 
 .cat-streaming-icon-only-btn .cat-streaming-logo-img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
-    border-radius: 6.5px;
+    border-radius: 5px;
 }
 
 .cat-streaming-icon-only-btn:hover {
