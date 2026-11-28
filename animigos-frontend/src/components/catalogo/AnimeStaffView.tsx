@@ -28,6 +28,7 @@ interface AnimeStaffViewProps {
     initialStaff?: Partial<AnimeStaffMember> | null
     onBack: () => void
     onSelectAnime?: (nextMalId: number) => void
+    onSelectCharacter?: (malId: number, characterId: number) => void
 }
 
 /**
@@ -42,6 +43,7 @@ export const AnimeStaffView: React.FC<AnimeStaffViewProps> = ({
     initialStaff,
     onBack,
     onSelectAnime,
+    onSelectCharacter,
 }) => {
     const { isAuthenticated } = useAuth()
     const { data: detailedStaff, isFetching } = useAnimeStaffDetailQuery(staffId)
@@ -733,19 +735,20 @@ export const AnimeStaffView: React.FC<AnimeStaffViewProps> = ({
                                         return (
                                             <div
                                                 key={`${vw.mal_id}-${vw.character_id || idx}`}
-                                                onClick={() => {
-                                                    if (vw.mal_id && onSelectAnime) {
-                                                        onSelectAnime(vw.mal_id)
-                                                        window.scrollTo({ top: 0, behavior: 'smooth' })
-                                                    }
-                                                }}
-                                                role="button"
-                                                tabIndex={0}
-                                                className="anime-char-card"
-                                                title={`Ir a ${vw.anime_title}`}
+                                                className="anime-char-card is-voice-work"
                                             >
-                                                {/* Lado Izquierdo: Personaje interpretado + Popularidad (Favoritos) */}
-                                                <div className="anime-char-side">
+                                                {/* Lado Izquierdo: Personaje interpretado (clicable) + Popularidad (Favoritos) */}
+                                                <div
+                                                    className={`anime-char-side ${vw.mal_id && vw.character_id && onSelectCharacter ? 'is-va-clickable is-target-char' : ''}`}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    title={`Ver la ficha del personaje ${vw.character_name}`}
+                                                    onClick={() => {
+                                                        if (vw.mal_id && vw.character_id && onSelectCharacter) {
+                                                            onSelectCharacter(vw.mal_id, Number(vw.character_id))
+                                                        }
+                                                    }}
+                                                >
                                                     <div className="position-relative flex-shrink-0">
                                                         {vw.character_image && (
                                                             <img
@@ -774,6 +777,7 @@ export const AnimeStaffView: React.FC<AnimeStaffViewProps> = ({
                                                         </span>
                                                     </div>
                                                     <div className="overflow-hidden">
+                                                        <div className="anime-target-label">Personaje</div>
                                                         <div
                                                             className="small fw-bold text-white text-truncate"
                                                             style={{ fontSize: '0.82rem' }}
@@ -820,9 +824,21 @@ export const AnimeStaffView: React.FC<AnimeStaffViewProps> = ({
                                                     </div>
                                                 </div>
 
-                                                {/* Lado Derecho: Anime donde lo interpretó */}
-                                                <div className="anime-char-side is-va">
+                                                {/* Lado Derecho: Anime donde lo interpretó (clicable) */}
+                                                <div
+                                                    className={`anime-char-side is-va ${vw.mal_id && onSelectAnime ? 'is-va-clickable is-target-anime' : ''}`}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    title={`Ir al anime ${vw.anime_title}`}
+                                                    onClick={() => {
+                                                        if (vw.mal_id && onSelectAnime) {
+                                                            onSelectAnime(vw.mal_id)
+                                                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                        }
+                                                    }}
+                                                >
                                                     <div className="overflow-hidden">
+                                                        <div className="anime-target-label text-end">Anime</div>
                                                         <div
                                                             className="small fw-semibold text-white text-truncate"
                                                             style={{ fontSize: '0.78rem' }}

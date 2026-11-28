@@ -108,6 +108,10 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                 const match = characters.find((c) => Number(c.id) === targetId)
                 if (match) {
                     setSelectedCharacter(match)
+                    // Limpiar el parámetro para que no reabra el personaje al refrescar datos
+                    try {
+                        window.history.replaceState(null, '', window.location.pathname)
+                    } catch {}
                 }
             }
         } catch { }
@@ -301,6 +305,26 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                         initialStaff={selectedStaff}
                         onBack={() => {
                             setSelectedStaff(null)
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }}
+                        onSelectCharacter={(nextMalId, charId) => {
+                            setSelectedStaff(null)
+                            if (Number(nextMalId) === Number(anime.mal_id)) {
+                                const match = characters.find((c) => Number(c.id) === Number(charId))
+                                if (match) {
+                                    setSelectedCharacter(match)
+                                }
+                                window.scrollTo({ top: 0, behavior: 'smooth' })
+                                return
+                            }
+                            setSelectedCharacter(null)
+                            if (onSelectAnime) {
+                                onSelectAnime(nextMalId)
+                            } else {
+                                navigate(`/anime/${nextMalId}`)
+                            }
+                            // El parámetro ?character abre automáticamente la ficha del personaje al cargar el anime destino
+                            navigate(`/anime/${nextMalId}?character=${charId}`, { replace: true })
                             window.scrollTo({ top: 0, behavior: 'smooth' })
                         }}
                         onSelectAnime={(nextMalId) => {
@@ -1047,197 +1071,6 @@ export const AnimeProfileView: React.FC<AnimeProfileViewProps> = ({
                                             </div>
                                         </div>
                                     )}
-                                </div>
-
-                                {/* Personajes y Seiyuu / Actores de Doblaje (vista previa en Detalles) */}
-                                {(characters.length > 0 || loadingCharsStreaming) && (
-                                    <div className="anime-profile-section-card">
-                                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-                                            <div>
-                                                <h3 className="anime-profile-section-heading mb-0 border-0 pb-0 d-flex align-items-center gap-2">
-                                                    <Users size={15} style={{ color: 'var(--cat-acento, #a855f7)' }} />
-                                                    <span>Personajes & Actores de Voz (Seiyuu)</span>
-                                                </h3>
-                                                <p className="small text-secondary mb-0" style={{ fontSize: '0.76rem' }}>
-                                                    Haz clic en cualquier personaje para abrir su ficha dedicada con biografía completa, spoilers y actores de doblaje.
-                                                </p>
-                                            </div>
-                                            {characters.length > 8 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setActiveTab('characters')}
-                                                    className="anime-profile-spoiler-btn"
-                                                >
-                                                    Ver los {characters.length} personajes
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {loadingCharsStreaming && characters.length === 0 ? (
-                                            <div className="d-flex align-items-center justify-content-center py-4 text-secondary gap-2">
-                                                <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
-                                                <span className="small">Cargando personajes y actores de voz...</span>
-                                            </div>
-                                        ) : (
-                                            <div className="anime-char-grid">
-                                                {characters.slice(0, 8).map((ch) => {
-                                                    const mainVa = ch.voice_actors?.[0]
-                                                    return (
-                                                        <div
-                                                            key={ch.id}
-                                                            onClick={() => {
-                                                                setSelectedCharacter(ch)
-                                                                window.scrollTo({ top: 0, behavior: 'smooth' })
-                                                            }}
-                                                            role="button"
-                                                            tabIndex={0}
-                                                            className="anime-char-card"
-                                                            title={`Ver ficha dedicada de ${ch.name}`}
-                                                        >
-                                                            {/* Lado izquierdo: Personaje */}
-                                                            <div className="anime-char-side">
-                                                                <img
-                                                                    src={ch.image_url}
-                                                                    alt={ch.name}
-                                                                    loading="lazy"
-                                                                    className="anime-char-avatar"
-                                                                />
-                                                                <div className="overflow-hidden">
-                                                                    <div className="small fw-bold text-white text-truncate" style={{ fontSize: '0.82rem' }}>
-                                                                        {ch.name}
-                                                                    </div>
-                                                                    <div className="small text-secondary d-flex align-items-center gap-1" style={{ fontSize: '0.7rem' }}>
-                                                                        <span>{ch.role_display}</span>
-                                                                        {Boolean(ch.favourites && ch.favourites > 0) && (
-                                                                            <span style={{ color: '#fda4af' }}>
-                                                                                · ♥ {ch.favourites?.toLocaleString()}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Lado derecho: Seiyuu / Actor de voz principal */}
-                                                            {mainVa && (
-                                                                <div
-                                                                    className="anime-char-side is-va is-va-clickable"
-                                                                    title={`Ver ficha exclusiva de ${mainVa.name} (Redes sociales, Wikipedia y filmografía)`}
-                                                                    onClick={(e) => {
-                                                                        if (mainVa.id) {
-                                                                            e.stopPropagation()
-                                                                            setSelectedStaff({
-                                                                                id: mainVa.id,
-                                                                                name: mainVa.name,
-                                                                                native_name: mainVa.native_name,
-                                                                                image_url: mainVa.image_url,
-                                                                                language_display: mainVa.language_display || mainVa.language,
-                                                                                role_display: 'Actor / Actriz de Voz (Seiyuu)',
-                                                                            })
-                                                                            window.scrollTo({ top: 0, behavior: 'smooth' })
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <div className="overflow-hidden">
-                                                                        <div className="small fw-semibold text-white text-truncate" style={{ fontSize: '0.78rem' }}>
-                                                                            {mainVa.name}
-                                                                        </div>
-                                                                        <div className="small text-secondary" style={{ fontSize: '0.68rem' }}>
-                                                                            {mainVa.language_display || mainVa.language}
-                                                                        </div>
-                                                                    </div>
-                                                                    <img
-                                                                        src={mainVa.image_url}
-                                                                        alt={mainVa.name}
-                                                                        loading="lazy"
-                                                                        className="anime-char-avatar"
-                                                                    />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Autores Originales (Mangakas), Directores, Productores y Trabajadores Conocidos */}
-                                {staffMembers.length > 0 && (
-                                    <div className="anime-profile-section-card">
-                                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-                                            <div>
-                                                <h3 className="anime-profile-section-heading mb-0 border-0 pb-0 d-flex align-items-center gap-2">
-                                                    <Briefcase size={15} style={{ color: 'var(--cat-acento, #a855f7)' }} />
-                                                    <span>Autores, Directores, Productores &amp; Staff Principal</span>
-                                                </h3>
-                                                <p className="small text-secondary mb-0" style={{ fontSize: '0.76rem' }}>
-                                                    Haz clic en el autor original (mangaka), director, productor o miembro del equipo para ver sus redes sociales, Wikipedia y todas sus obras.
-                                                </p>
-                                            </div>
-                                            {staffMembers.length > 8 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setActiveTab('characters')}
-                                                    className="anime-profile-spoiler-btn"
-                                                >
-                                                    Ver todo el staff ({staffMembers.length})
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        <div className="anime-staff-grid">
-                                            {staffMembers.slice(0, 8).map((st) => (
-                                                <div
-                                                    key={st.id}
-                                                    onClick={() => {
-                                                        setSelectedStaff(st)
-                                                        window.scrollTo({ top: 0, behavior: 'smooth' })
-                                                    }}
-                                                    role="button"
-                                                    tabIndex={0}
-                                                    className="anime-va-card-clickable d-flex align-items-center gap-3 p-2 rounded-3"
-                                                    title={`Ver ficha exclusiva de ${st.name}`}
-                                                >
-                                                    <img
-                                                        src={st.image_url}
-                                                        alt={st.name}
-                                                        loading="lazy"
-                                                        className="anime-char-avatar"
-                                                    />
-                                                    <div className="overflow-hidden flex-grow-1">
-                                                        <div className="small fw-bold text-white text-truncate" style={{ fontSize: '0.82rem' }}>
-                                                            {st.name}
-                                                        </div>
-                                                        {st.native_name && (
-                                                            <div className="small text-secondary text-truncate" style={{ fontSize: '0.7rem' }}>
-                                                                {st.native_name}
-                                                            </div>
-                                                        )}
-                                                        <div className="mt-1">
-                                                            <span
-                                                                className={`anime-staff-role-pill ${st.category === 'author' ? 'is-author' : ''}`}
-                                                            >
-                                                                {st.role_display}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Evolución Histórica integrada también en la vista principal */}
-                                <div className="anime-profile-section-card">
-                                    <h3 className="anime-profile-section-heading">
-                                        Evolución Histórica de Puntuación (2018–2026)
-                                    </h3>
-                                    <AnimeScoreHistoryChart
-                                        malId={anime.mal_id}
-                                        title={anime.title}
-                                        relations={relations}
-                                        onSelectAnime={onSelectAnime}
-                                    />
                                 </div>
 
                                 {/* Cronología y Obras Relacionadas (Precuelas, Secuelas, Spin-offs) */}

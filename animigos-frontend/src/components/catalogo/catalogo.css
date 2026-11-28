@@ -1713,6 +1713,44 @@
     box-shadow: 0 5px 18px rgba(0, 0, 0, 0.4);
 }
 
+/* Tarjeta de obra doblada por un seiyuu: personaje y anime son dos objetivos clicables independientes */
+.anime-char-card.is-voice-work {
+    cursor: default;
+}
+
+.anime-char-card.is-voice-work .anime-char-side.is-va-clickable {
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.anime-char-card.is-voice-work .anime-char-side.is-target-char:hover {
+    background: rgba(244, 63, 94, 0.12);
+    border-color: rgba(244, 63, 94, 0.4);
+}
+
+.anime-char-card.is-voice-work .anime-char-side.is-target-anime:hover {
+    background: rgba(168, 85, 247, 0.16);
+    border-color: rgba(168, 85, 247, 0.45);
+}
+
+.anime-target-label {
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cat-text-dim, #71717a);
+    line-height: 1.2;
+}
+
+.anime-char-card.is-voice-work .is-target-char:hover .anime-target-label {
+    color: #fda4af;
+}
+
+.anime-char-card.is-voice-work .is-target-anime:hover .anime-target-label {
+    color: #d8b4fe;
+}
+
 .anime-char-side.is-va-clickable {
     padding: 0.25rem 0.35rem;
     margin: -0.25rem -0.35rem;
