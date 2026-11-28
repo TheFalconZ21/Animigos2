@@ -438,7 +438,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
         }
     }, [totalPages])
 
-    const commitPageInput = (raw: string, scrollTop = false) => {
+    const commitPageInput = (raw: string) => {
         const parsed = parseInt(raw.trim(), 10)
         if (Number.isNaN(parsed)) {
             setPageInputStr(String(currentPage))
@@ -448,9 +448,6 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
         setPageInputStr(String(clamped))
         if (clamped !== currentPage) {
             setCurrentPage(clamped)
-            if (scrollTop) {
-                window.scrollTo({ top: 0, behavior: 'smooth' })
-            }
         }
     }
 
@@ -519,17 +516,17 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
 
     const hasActiveFilters = Boolean(
         studio ||
-            selectedTerms.length > 0 ||
-            selectedStreaming.length > 0 ||
-            season ||
-            year ||
-            minScore ||
-            maxScore ||
-            format ||
-            ordering !== '-score' ||
-            noSequels ||
-            (isAuthenticated && notInMyList) ||
-            submittedSearch
+        selectedTerms.length > 0 ||
+        selectedStreaming.length > 0 ||
+        season ||
+        year ||
+        minScore ||
+        maxScore ||
+        format ||
+        ordering !== '-score' ||
+        noSequels ||
+        (isAuthenticated && notInMyList) ||
+        submittedSearch
     )
 
     const handleOpenAnimeProfile = (anime: ApiAnimeData) => {
@@ -621,7 +618,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                     <div className="cat-filter-header-row">
                         <div className="cat-filter-title mb-0">
                             <SlidersHorizontal size={14} style={{ color: 'var(--cat-warning)' }} />
-                            <span>Filtros de Catálogo & Taxonomía de AniList</span>
+                            <span>Filtros de Catálogo</span>
                         </div>
 
                         {/* Buscador Compacto Integrado */}
@@ -677,8 +674,8 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                     {selectedTerms.length === 0
                                         ? 'Géneros y Tags...'
                                         : selectedTerms.length === 1
-                                          ? selectedTerms[0]
-                                          : `${selectedTerms.length} seleccionados`}
+                                            ? selectedTerms[0]
+                                            : `${selectedTerms.length} seleccionados`}
                                 </span>
                                 <ChevronDown size={13} className="text-secondary flex-shrink-0" />
                             </button>
@@ -1054,11 +1051,11 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                         setPageInputStr(clean)
                                     }}
                                     onFocus={(e) => e.currentTarget.select()}
-                                    onBlur={() => commitPageInput(pageInputStr, false)}
+                                    onBlur={() => commitPageInput(pageInputStr)}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
                                             e.preventDefault()
-                                            commitPageInput(pageInputStr, false)
+                                            commitPageInput(pageInputStr)
                                             e.currentTarget.blur()
                                         } else if (e.key === 'Escape') {
                                             setPageInputStr(String(currentPage))
@@ -1255,7 +1252,6 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                             disabled={currentPage <= 1 || isFetching}
                             onClick={() => {
                                 setCurrentPage((p) => Math.max(1, p - 1))
-                                window.scrollTo({ top: 0, behavior: 'smooth' })
                             }}
                             className="cat-page-Step-btn"
                         >
@@ -1291,11 +1287,11 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                                     setPageInputStr(clean)
                                                 }}
                                                 onFocus={(e) => e.currentTarget.select()}
-                                                onBlur={() => commitPageInput(pageInputStr, true)}
+                                                onBlur={() => commitPageInput(pageInputStr)}
                                                 onKeyDown={(e) => {
                                                     if (e.key === 'Enter') {
                                                         e.preventDefault()
-                                                        commitPageInput(pageInputStr, true)
+                                                        commitPageInput(pageInputStr)
                                                         e.currentTarget.blur()
                                                     } else if (e.key === 'Escape') {
                                                         setPageInputStr(String(currentPage))
@@ -1318,7 +1314,6 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                         disabled={isFetching}
                                         onClick={() => {
                                             setCurrentPage(item)
-                                            window.scrollTo({ top: 0, behavior: 'smooth' })
                                         }}
                                         className="cat-page-num-btn font-mono"
                                         title={`Ir a la página ${item}`}
@@ -1334,7 +1329,6 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                             disabled={currentPage >= totalPages || isFetching}
                             onClick={() => {
                                 setCurrentPage((p) => Math.min(totalPages, p + 1))
-                                window.scrollTo({ top: 0, behavior: 'smooth' })
                             }}
                             className="cat-page-Step-btn"
                         >

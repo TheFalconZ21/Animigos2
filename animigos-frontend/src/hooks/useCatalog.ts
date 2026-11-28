@@ -55,6 +55,7 @@ export function useCatalogQuery(params: CatalogFilterParams = {}) {
     return useQuery<CatalogPaginatedResponse, Error>({
         queryKey: ['animes', 'catalog', params],
         queryFn: () => fetchCatalogAnimes(params),
+        placeholderData: (previousData) => previousData,
         staleTime: 1000 * 60 * 5,
     })
 }
