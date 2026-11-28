@@ -833,7 +833,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
 
                     {/* Chips de Géneros y Taxonomías seleccionadas (Intersección AND) */}
                     {selectedTerms.length > 0 && (
-                        <div className="d-flex flex-wrap align-items-center gap-1.5 mt-3 pt-2 border-top border-dark">
+                        <div className="d-flex flex-wrap align-items-center gap-1.5 mt-2">
                             <span
                                 className="small text-secondary fw-semibold d-inline-flex align-items-center gap-1 me-1"
                                 style={{ fontSize: '0.72rem' }}
@@ -863,7 +863,7 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                     )}
 
                     {/* Fila combinada: Filtros Rápidos (izquierda) + Disponible en / Iconos de Streaming (derecha) */}
-                    <div className="cat-quick-and-streaming-row mt-2.5 pt-2">
+                    <div className="cat-quick-and-streaming-row">
                         <div className="d-flex flex-wrap align-items-center gap-2">
                             <span className="small text-secondary fw-semibold me-1" style={{ fontSize: '0.72rem' }}>
                                 Filtros rápidos:
@@ -1056,27 +1056,6 @@ export const AnimeCatalog: React.FC<AnimeCatalogProps> = ({
                                         {/* Badge de Temporada */}
                                         {anime.season_display && (
                                             <div className="cat-season-badge">{anime.season_display}</div>
-                                        )}
-
-                                        {/* Íconos de Plataformas de Streaming Oficiales en esquina inferior izquierda */}
-                                        {anime.streaming_data && anime.streaming_data.length > 0 && (
-                                            <div
-                                                className="cat-poster-streaming-strip"
-                                                title={`Disponible en: ${anime.streaming_data.map((s) => s.site).join(', ')}`}
-                                            >
-                                                {anime.streaming_data
-                                                    .filter((s) => s.icon)
-                                                    .slice(0, 4)
-                                                    .map((sp) => (
-                                                        <span
-                                                            key={sp.site}
-                                                            className="cat-poster-streaming-dot"
-                                                            style={{ '--sp-color': sp.color || '#a855f7' } as React.CSSProperties}
-                                                        >
-                                                            <img src={sp.icon} alt={sp.site} loading="lazy" />
-                                                        </span>
-                                                    ))}
-                                            </div>
                                         )}
 
                                         {/* Badge de Score MAL */}
