@@ -74,7 +74,9 @@ export async function fetchCatalogAnimes(params: CatalogFilterParams = {}): Prom
     if (params.season) searchParams.set('season', params.season)
     if (params.min_score !== undefined && params.min_score !== '') searchParams.set('min_score', String(params.min_score))
     if (params.max_score !== undefined && params.max_score !== '') searchParams.set('max_score', String(params.max_score))
-    if (params.format) searchParams.set('format', params.format)
+    // OJO: "format" es el parámetro de sufijo de formato de DRF (?format=json) y provoca 404 en la API;
+    // por eso el filtro de formato se envía como "formato".
+    if (params.format) searchParams.set('formato', params.format)
     if (params.type) searchParams.set('type', params.type)
     if (params.status) searchParams.set('status', params.status)
     if (params.streaming) searchParams.set('streaming', params.streaming)
